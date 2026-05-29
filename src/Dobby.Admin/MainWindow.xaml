@@ -1,0 +1,14 @@
+<Window
+    x:Class="Dobby.Admin.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Dobby Admin"
+    Width="900"
+    Height="600">
+  <Grid>
+    <TextBlock
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        Text="Dobby Admin" />
+  </Grid>
+</Window>

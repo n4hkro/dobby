@@ -1,0 +1,301 @@
+<Window
+    x:Class="Dobby.Host.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Dobby"
+    Width="1024"
+    Height="680"
+    MinWidth="1024"
+    MinHeight="680"
+    Background="{DynamicResource Dobby.Brush.Background}">
+  <Grid Margin="{DynamicResource Dobby.Spacing.Medium}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="240" />
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="220" />
+    </Grid.ColumnDefinitions>
+
+    <DockPanel
+        x:Name="TopToolbar"
+        Grid.Row="0"
+        Grid.ColumnSpan="3"
+        LastChildFill="False">
+      <TextBlock
+          Margin="{DynamicResource Dobby.Spacing.Medium}"
+          FontSize="{DynamicResource Dobby.FontSize.Title}"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Text="{Binding BrandName}" />
+      <ItemsControl
+          Margin="{DynamicResource Dobby.Spacing.Medium}"
+          ItemsSource="{Binding TopNavigation}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Click="Navigation_Click"
+                Content="{Binding Label}"
+                Tag="{Binding RouteKey}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Button
+          Margin="{DynamicResource Dobby.Spacing.Medium}"
+          Click="ThemeToggle_Click"
+          Content="{Binding ThemeToggleLabel}" />
+      <Button
+          x:Name="ProfileMenuButton"
+          Margin="{DynamicResource Dobby.Spacing.Medium}"
+          Click="ProfileMenu_Click"
+          Content="{Binding ProfileAccountInfoLabel}" />
+      <StackPanel
+          x:Name="ProfileMenuPanel"
+          Margin="{DynamicResource Dobby.Spacing.Medium}"
+          Visibility="Collapsed">
+        <TextBlock
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            Foreground="{DynamicResource Dobby.Brush.Text}"
+            Text="{Binding ProfileAccountInfoLabel}" />
+        <TextBlock
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            Foreground="{DynamicResource Dobby.Brush.Text}"
+            Text="{Binding ChangePasswordLabel}" />
+        <PasswordBox
+            x:Name="NewPasswordBox"
+            Margin="{DynamicResource Dobby.Spacing.Small}" />
+        <CheckBox
+            x:Name="PasswordChangeRememberMeCheckBox"
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            Content="{Binding RememberMeLabel}" />
+        <StackPanel Orientation="Horizontal">
+          <Button
+              x:Name="ChangePasswordButton"
+              Click="ChangePassword_Click"
+              Content="{Binding ChangePasswordLabel}" />
+          <Button
+              x:Name="ManualLockButton"
+              Margin="{DynamicResource Dobby.Spacing.Small}"
+              Click="ManualLock_Click"
+              Content="{Binding ManualLockLabel}" />
+        </StackPanel>
+        <Button
+            x:Name="LogoutButton"
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            Click="Logout_Click"
+            Content="{Binding LogoutLabel}" />
+        <Button
+            x:Name="ClearSavedLoginButton"
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            Click="ClearSavedLogin_Click"
+            Content="{Binding ClearSavedLoginLabel}" />
+        <TextBlock
+            x:Name="AccountStatusText"
+            Margin="{DynamicResource Dobby.Spacing.Medium}"
+            Foreground="{DynamicResource Dobby.Brush.Text}"
+            TextWrapping="Wrap"
+            Visibility="Collapsed" />
+      </StackPanel>
+    </DockPanel>
+
+    <StackPanel
+        x:Name="Sidebar"
+        Grid.Row="1"
+        Grid.Column="0"
+        Margin="{DynamicResource Dobby.Spacing.Medium}">
+      <Button
+          Click="SidebarToggle_Click"
+          Content="{Binding SidebarToggleLabel}" />
+      <ItemsControl
+          x:Name="SidebarNavigationList"
+          Margin="{DynamicResource Dobby.Spacing.Medium}"
+          ItemsSource="{Binding SidebarNavigation}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Click="Navigation_Click"
+                Content="{Binding Label}"
+                Tag="{Binding RouteKey}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock
+          Margin="{DynamicResource Dobby.Spacing.Medium}"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Text="{Binding WorkSessionsLabel}" />
+      <TextBlock
+          x:Name="MinimizedWorkStrip"
+          Margin="{DynamicResource Dobby.Spacing.Medium}"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Text="{Binding MinimizedWorkStripLabel}" />
+    </StackPanel>
+
+    <Border
+        x:Name="MainContent"
+        Grid.Row="1"
+        Grid.Column="1"
+        Margin="{DynamicResource Dobby.Spacing.Medium}"
+        Background="{DynamicResource Dobby.Brush.Surface}"
+        CornerRadius="{DynamicResource Dobby.Radius.Small}">
+      <StackPanel Margin="{DynamicResource Dobby.Spacing.Medium}">
+        <StackPanel
+            x:Name="WorkSessionWarningPanel"
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            Visibility="Collapsed">
+          <TextBlock
+              Foreground="{DynamicResource Dobby.Brush.Text}"
+              Text="{Binding WorkSessionNavigationWarningLabel}" />
+          <StackPanel Orientation="Horizontal">
+            <Button
+                x:Name="WorkSessionStayButton"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Click="WorkSessionStay_Click"
+                Content="{Binding WorkSessionStayLabel}" />
+            <Button
+                x:Name="WorkSessionMinimizeButton"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Click="WorkSessionMinimize_Click"
+                Content="{Binding WorkSessionMinimizeLabel}" />
+            <Button
+                x:Name="WorkSessionCloseButton"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Click="WorkSessionClose_Click"
+                Content="{Binding WorkSessionCloseLabel}" />
+          </StackPanel>
+        </StackPanel>
+        <TextBlock
+            Foreground="{DynamicResource Dobby.Brush.Text}"
+            Text="{Binding StatusText}" />
+        <ItemsControl
+            x:Name="NotificationPresentationList"
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            ItemsSource="{Binding NotificationPresentation}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Foreground="{DynamicResource Dobby.Brush.Text}"
+                  Text="{Binding Label}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <ItemsControl
+            x:Name="FeedbackStatePresentationList"
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            ItemsSource="{Binding FeedbackStatePresentation}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Foreground="{DynamicResource Dobby.Brush.Text}"
+                  Text="{Binding Label}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            FontSize="{DynamicResource Dobby.FontSize.Title}"
+            Foreground="{DynamicResource Dobby.Brush.Text}"
+            Text="{Binding SettingsHeading}" />
+        <ItemsControl
+            x:Name="SettingsCategoryList"
+            ItemsSource="{Binding SettingsCategories}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Foreground="{DynamicResource Dobby.Brush.Text}"
+                  Text="{Binding Label}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            FontSize="{DynamicResource Dobby.FontSize.Title}"
+            Foreground="{DynamicResource Dobby.Brush.Text}"
+            Text="{Binding AboutHeading}" />
+        <ItemsControl
+            x:Name="AboutFieldList"
+            ItemsSource="{Binding AboutFields}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Margin="{DynamicResource Dobby.Spacing.Small}">
+                <TextBlock
+                    Foreground="{DynamicResource Dobby.Brush.Text}"
+                    Text="{Binding Label}" />
+                <TextBlock
+                    Foreground="{DynamicResource Dobby.Brush.Text}"
+                    Text="{Binding Value}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Button
+            Margin="{DynamicResource Dobby.Spacing.Medium}"
+            Click="DiagnosticsExport_Click"
+            Content="{Binding DiagnosticsExportLabel}" />
+      </StackPanel>
+    </Border>
+
+    <StackPanel
+        x:Name="ThirdBar"
+        Grid.Row="1"
+        Grid.Column="2"
+        Margin="{DynamicResource Dobby.Spacing.Medium}">
+      <TextBlock
+          Margin="{DynamicResource Dobby.Spacing.Small}"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Text="{Binding ThirdBarLabel}" />
+      <ItemsControl
+          x:Name="ThirdBarNavigationList"
+          Margin="{DynamicResource Dobby.Spacing.Medium}"
+          ItemsSource="{Binding ThirdBarNavigation}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Click="Navigation_Click"
+                Content="{Binding Label}"
+                Tag="{Binding RouteKey}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <StackPanel
+        x:Name="BottomStatus"
+        Grid.Row="2"
+        Grid.ColumnSpan="3"
+        Margin="{DynamicResource Dobby.Spacing.Medium}">
+      <TextBlock
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Text="{Binding StatusText}" />
+      <TextBlock
+          x:Name="BackgroundStatusText"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Text="{Binding BackgroundOperationText}" />
+      <ProgressBar
+          IsIndeterminate="{Binding BackgroundOperationIsIndeterminate, Mode=OneWay}"
+          Value="{Binding BackgroundOperationPercent, Mode=OneWay}" />
+    </StackPanel>
+  </Grid>
+</Window>

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.dobby.sample",
+  "version": "1.0.0",
+  "minHostVersion": "1.0.0",
+  "capabilities": [
+    {
+      "scope": "plugin-page"
+    }
+  ],
+  "operationTargets": [
+    {
+      "id": "com.dobby.sample.greet",
+      "verbs": [
+        "execute"
+      ],
+      "labelKey": "sample.greet.label"
+    }
+  ],
+  "extensionPoints": [
+    {
+      "id": "sample.home",
+      "target": "plugin-page-region",
+      "routeKey": "sample.home",
+      "labelKey": "sample.home.label",
+      "group": "default",
+      "weight": 100
+    }
+  ],
+  "dependsOn": [],
+  "signature": {
+    "algorithm": "ECDSA-P256-SHA256",
+    "keyVersion": 1,
+    "value": "skeleton-non-release-placeholder"
+  }
+}

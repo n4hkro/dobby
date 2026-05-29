@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dobby.local/schemas/branchshared.schema.json",
+  "$comment": "branchshared.json is non-secret topology/identity material only. Future schema evolution must not add password, token, private key, connection string or credential-bearing fields without an ADR/spec amendment.",
+  "title": "Dobby Branch Shared connection profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mode", "connectionProfile"],
+  "properties": {
+    "mode": {
+      "const": "BranchShared"
+    },
+    "connectionProfile": {
+      "type": "object",
+      "$comment": "Connection profile fields may reference protected-storage records, but they must not store credential values or raw connection strings.",
+      "additionalProperties": false,
+      "required": [
+        "profileVersion",
+        "host",
+        "port",
+        "database",
+        "branchDeploymentId",
+        "serverIdentityPinMaterial",
+        "deviceProfileRef",
+        "runtimeCredentialRef"
+      ],
+      "properties": {
+        "profileVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "description": "DNS hostname, IPv4 literal, or bracketed IPv6 literal. Port and URL scheme are not part of this field.",
+          "$comment": "Valid examples: db.example.com, 127.0.0.1, [::1], [2001:db8::1]. Invalid examples: https://db.example.com, db.example.com:5432, empty string, [::::] (runtime strict parser rejects malformed IPv6).",
+          "anyOf": [
+            {
+              "title": "DNS hostname",
+              "pattern": "^(?=.{1,253}$)([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$"
+            },
+            {
+              "title": "IPv4 literal",
+              "pattern": "^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$"
+            },
+            {
+              "title": "Bracketed IPv6 literal",
+              "pattern": "^\\[[0-9A-Fa-f:.]+\\]$"
+            }
+          ],
+          "not": {
+            "pattern": "://"
+          }
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63
+        },
+        "branchDeploymentId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "serverIdentityPinMaterial": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Lowercase hex-encoded SHA-256 server identity pin material."
+        },
+        "deviceProfileRef": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Non-secret live reference to the Branch Shared device profile or registration record. This is distinct from audit localDeviceRef snapshot semantics."
+        },
+        "runtimeCredentialRef": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Protected-storage reference to the runtime dobby_app credential. The credential value is not stored in this JSON file."
+        },
+        "setupCredentialRef": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional protected-storage reference visible only to setup-authorized BranchSetup context, never normal Dobby.Host runtime."
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120
+        }
+      }
+    }
+  }
+}

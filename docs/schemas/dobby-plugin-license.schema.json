@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dobby.local/schemas/dobby-plugin-license.schema.json",
+  "title": "Dobby Plugin License Artifact",
+  "description": "Phase 1 machine-readable schema for detached .dobbylicense v2 artifacts. ADR-0051 owns license lifecycle and canonical payload semantics; ADR-0033 owns key-version and signing-key ownership semantics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payload",
+    "signature"
+  ],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "licenseId",
+        "pluginId",
+        "customerId",
+        "deploymentId",
+        "deviceFingerprintAlgorithm",
+        "deviceFingerprint",
+        "packageFingerprint",
+        "licenseRevision",
+        "issuedAt",
+        "notBefore",
+        "expiresAt",
+        "gracePeriodDays",
+        "status",
+        "keyVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 2
+        },
+        "licenseId": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "pluginId": {
+          "$ref": "#/$defs/pluginIdentifier"
+        },
+        "customerId": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "deploymentId": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "deviceFingerprintAlgorithm": {
+          "type": "string",
+          "const": "v1"
+        },
+        "deviceFingerprint": {
+          "$ref": "#/$defs/lowercaseSha256Hex"
+        },
+        "packageFingerprint": {
+          "$ref": "#/$defs/lowercaseSha256Hex"
+        },
+        "licenseRevision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "issuedAt": {
+          "$ref": "#/$defs/utcDateTime"
+        },
+        "notBefore": {
+          "$ref": "#/$defs/utcDateTime"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/utcDateTime"
+        },
+        "gracePeriodDays": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "readonly",
+            "denied",
+            "pending"
+          ]
+        },
+        "keyVersion": {
+          "type": "integer",
+          "const": 1,
+          "description": "Phase 1 key version is numeric 1. Future signing-key rotation requires an ADR-0033 amendment before this const can change."
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "keyVersion",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "ECDSA-P256-SHA256"
+        },
+        "keyVersion": {
+          "type": "integer",
+          "const": 1,
+          "description": "Phase 1 key version is numeric 1. Future signing-key rotation requires an ADR-0033 amendment before this const can change."
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "description": "Base64url without padding over the DER-encoded ECDSA signature bytes."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pluginIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+    },
+    "lowercaseSha256Hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"
+    }
+  }
+}

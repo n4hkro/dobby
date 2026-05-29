@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" />
+    <PackageReference Include="SQLitePCLRaw.core" />
+    <PackageReference Include="SQLitePCLRaw.provider.dynamic_cdecl" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <PackageReference Include="System.Management" Condition="'$(TargetFramework)' == 'net10.0-windows'" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <Compile Remove="ProtectedStorage\DpapiLocalMachineProtector.cs" />
+    <Compile Remove="ProtectedStorage\DpapiCurrentUserProtector.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Dobby.Application\Dobby.Application.csproj" PrivateAssets="all">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Dobby.Core\Dobby.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="native\win-x64\sqlite3mc_x64.dll" CopyToOutputDirectory="PreserveNewest" Link="native\win-x64\sqlite3mc_x64.dll" />
+  </ItemGroup>
+</Project>

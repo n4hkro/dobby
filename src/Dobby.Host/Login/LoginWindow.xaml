@@ -1,0 +1,82 @@
+<Window
+    x:Class="Dobby.Host.Login.LoginWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:loc="clr-namespace:Dobby.Localization;assembly=Dobby.Localization"
+    Title="Dobby Login"
+    Width="420"
+    Height="460"
+    MinWidth="420"
+    MinHeight="460"
+    WindowStartupLocation="CenterScreen"
+    Background="{DynamicResource Dobby.Brush.Background}">
+  <Grid Margin="24">
+    <StackPanel VerticalAlignment="Center">
+      <TextBlock
+          Margin="0,0,0,16"
+          FontSize="24"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Text="Dobby" />
+      <TextBlock
+          x:Name="UsernameLabel"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Tag="{x:Static loc:HostResourceKeys.LoginUsername}"
+          Text="Username" />
+      <TextBox x:Name="UsernameBox" Margin="0,4,0,12" />
+      <TextBlock
+          x:Name="DisplayNameLabel"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Tag="{x:Static loc:HostResourceKeys.LoginDisplayName}"
+          Text="Display name" />
+      <TextBox
+          x:Name="DisplayNameBox"
+          Margin="0,4,0,12"
+          AutomationProperties.AutomationId="Dobby.Host.Login.DisplayName" />
+      <TextBlock
+          x:Name="PasswordLabel"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Tag="{x:Static loc:HostResourceKeys.LoginPassword}"
+          Text="Password" />
+      <PasswordBox
+          x:Name="PasswordBox"
+          Margin="0,4,0,12"
+          PasswordChanged="PasswordBox_PasswordChanged" />
+      <CheckBox
+          x:Name="RememberMeCheckBox"
+          Margin="0,0,0,12"
+          Content="Remember me"
+          Tag="{x:Static loc:HostResourceKeys.LoginRememberMe}" />
+      <Button
+          x:Name="ForgetSavedLoginButton"
+          Margin="0,0,0,12"
+          Click="ForgetSavedLogin_Click"
+          Content="Forget saved login"
+          Tag="{x:Static loc:HostResourceKeys.LoginForgetSavedLogin}"
+          Visibility="Collapsed" />
+      <TextBlock
+          x:Name="ThrottleCountdownText"
+          Margin="0,0,0,8"
+          Foreground="{DynamicResource Dobby.Brush.Text}"
+          Visibility="Collapsed" />
+      <TextBlock
+          x:Name="ErrorText"
+          Margin="0,0,0,12"
+          Foreground="Crimson"
+          TextWrapping="Wrap"
+          Visibility="Collapsed" />
+      <StackPanel Orientation="Horizontal">
+        <Button
+            x:Name="LoginButton"
+            Width="96"
+            Click="Continue_Click"
+            Content="Login"
+            Tag="{x:Static loc:HostResourceKeys.LoginSubmit}" />
+        <Button
+            x:Name="RecoveryButton"
+            Margin="8,0,0,0"
+            Click="Recovery_Click"
+            Content="Recovery" />
+      </StackPanel>
+    </StackPanel>
+  </Grid>
+</Window>

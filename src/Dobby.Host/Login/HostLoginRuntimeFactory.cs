@@ -1,0 +1,238 @@
+using Dobby.Audit;
+using Dobby.Application;
+using Dobby.Configuration;
+using Dobby.Contracts.BackgroundOperations;
+using Dobby.Core;
+using Dobby.Core.Versioning;
+using Dobby.Diagnostics;
+using Dobby.Host.Settings;
+using Dobby.Host.Startup;
+using Dobby.Host.Sessions;
+using Dobby.Infrastructure.HardwareIdentity;
+using Dobby.Infrastructure.Persistence;
+using Dobby.Infrastructure.ProtectedStorage;
+using Dobby.Security.Authentication;
+using Dobby.Security.Authorization;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using System.IO;
+
+namespace Dobby.Host.Login;
+
+public static class HostLoginRuntimeFactory
+{
+    public static HostLoginRuntime Create()
+    {
+        var configuration = HostConfigurationSources.Build(new HostConfigurationSourceOptions(
+            Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
+            DefaultRuntimeConfigDirectory(),
+            "Production",
+            null));
+        var options = HostConfigurationSources.BindDobbyOptions(configuration);
+        ValidateOptions(options);
+        return Create(options, TimeProvider.System, null, null);
+    }
+
+    public static HostLoginRuntime Create(
+        DobbyOptions options,
+        TimeProvider timeProvider,
+        IProtectedDataProtector? credentialProtector = null,
+        IProtectedDataProtector? rememberMeProtector = null,
+        IBackgroundOperationReporter? backgroundOperations = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ValidateOptions(options);
+
+        var protectedMaterialProbe = ProtectedMaterialAvailabilityProbe.CreateForDataRoot(options.Runtime.DataRoot);
+        if (!protectedMaterialProbe.IsAvailable())
+        {
+            throw new InvalidOperationException("Protected material is unavailable.");
+        }
+        var applicationEntropy = protectedMaterialProbe.LoadRequired().ApplicationEntropy;
+
+        var persistenceOptions = new HostPersistenceOptions(
+            options.Runtime.DataRoot,
+            options.Storage.ProviderMode.ToString(),
+            options.Storage.RequireDataAtRestProtection,
+            options.Storage.BusyTimeoutMilliseconds);
+        var factory = new EncryptedSqliteConnectionFactory(persistenceOptions, protectedMaterialProbe);
+        var migration = new HostPersistenceMigrator(factory, protectedMaterialProbe).ApplyPreLoginMigrations();
+        if (!migration.IsSuccess)
+        {
+            throw new InvalidOperationException(migration.Error.Message);
+        }
+
+        var executor = new HostPersistenceCommandExecutor(factory);
+        var transactionScope = new HostPersistenceTransactionScope(factory);
+        var credentialScopeProtector = credentialProtector ?? new DpapiLocalMachineProtector();
+        var rememberScopeProtector = rememberMeProtector ?? new DpapiCurrentUserProtector();
+        var kdfPolicyResolver = new KdfPolicyResolver(options.Auth);
+        var credentialStore = new CredentialStore(executor, credentialScopeProtector, kdfPolicyResolver, applicationEntropy);
+        var auditTrail = new DurableAuditTrail(executor);
+        var operationReporter = backgroundOperations ?? new BackgroundOperationReporter();
+        AuditRetentionMaintenance.StartOneShot(
+            executor,
+            options.Audit.RetentionDays,
+            operationReporter);
+        var ownerBootstrapCoordinator = new OwnerBootstrapCoordinator(
+            transactionScope,
+            new OwnerBootstrapService(credentialScopeProtector, kdfPolicyResolver, applicationEntropy),
+            auditTrail,
+            timeProvider);
+        var throttleService = new LoginThrottleService(options.Auth.LoginThrottleStepsSeconds, timeProvider);
+        var loginService = new LoginService(executor, credentialStore, ownerBootstrapCoordinator, throttleService);
+        var sessionLifecycleService = new SessionLifecycleService(
+            new SessionStore(executor),
+            new ActiveSessionAccessor(),
+            credentialStore,
+            timeProvider,
+            options.Session);
+        var sessionAuditCoordinator = new SessionLifecycleAuditCoordinator(auditTrail, timeProvider);
+        var lockRuntimeWorkflow = new LockRuntimeWorkflow(sessionLifecycleService, sessionAuditCoordinator);
+        var postLoginSessionRuntime = new PostLoginSessionRuntime(
+            sessionLifecycleService,
+            sessionAuditCoordinator,
+            lockRuntimeWorkflow,
+            new WpfLockWindowPresenter());
+        var rememberMeSlotService = new RememberMeSlotService(executor, rememberScopeProtector, applicationEntropy);
+        var showDisplayNameInput = executor.QueryScalar<int>("SELECT COUNT(*) FROM Users;") == 0;
+        var savedLogin = rememberMeSlotService.LoadSavedLogin();
+        if (!savedLogin.IsSuccess)
+        {
+            throw new InvalidOperationException("Remember-me slot could not be loaded.");
+        }
+
+        var loginWorkflow = new LoginRuntimeWorkflow(
+            loginService,
+            sessionLifecycleService,
+            rememberMeSlotService,
+            new LoginAuditCoordinator(auditTrail, timeProvider));
+
+        var fingerprintSource = new HostDeviceFingerprintSource();
+        var recoveryRequestExporter = new RecoveryRequestExporter(
+            fingerprintSource,
+            new FixedHostVersionProvider(new HostVersion(0, 1, 0)),
+            timeProvider);
+        var recoveryImporter = new RecoveryResponseImporter(new VendorRecoveryPublicKey(), fingerprintSource);
+        var recoveryRequestExportCoordinator = new RecoveryRequestExportCoordinator(
+            recoveryRequestExporter,
+            auditTrail);
+        var recoveryResponseImportCoordinator = new RecoveryResponseImportCoordinator(
+            transactionScope,
+            executor,
+            recoveryImporter,
+            credentialScopeProtector,
+            kdfPolicyResolver,
+            auditTrail,
+            timeProvider,
+            applicationEntropy);
+        var passwordChangeCoordinator = new SelfServicePasswordChangeCoordinator(
+            executor,
+            credentialStore,
+            rememberMeSlotService,
+            auditTrail);
+        var savedLoginClearer = new RememberMeSlotClearer(rememberMeSlotService);
+        var operationTargetRegistry = OperationTargetRegistry.CreateDefault();
+        var permissionGrantStore = new PermissionGrantStore(executor);
+        var operationAuthorizationPolicy = new OperationAuthorizationPolicy(operationTargetRegistry, permissionGrantStore);
+        var userManagementGuard = new UserManagementAuthorizationGuard(operationAuthorizationPolicy, permissionGrantStore, operationTargetRegistry);
+        var userManagementAuditCoordinator = new UserManagementAuditCoordinator(auditTrail, executor, timeProvider);
+        var managedUserService = new ManagedUserService(
+            executor,
+            credentialStore,
+            permissionGrantStore,
+            userManagementGuard,
+            timeProvider,
+            userManagementAuditCoordinator);
+        var settingsPreferenceSource = new HostConfigurationSettingsPreferenceSource(executor);
+        Func<string, ISettingsPreferenceSource> settingsPreferenceSourceFactory = userId =>
+            new HostConfigurationSettingsPreferenceSource(
+                executor,
+                SettingsPreferenceScope.ForAuthenticatedUser(userId));
+        var accountSettingsModel = new AccountSettingsModel(passwordChangeCoordinator.ChangePassword, savedLoginClearer);
+        var settingsNavigationModel = new SettingsNavigationModel(operationAuthorizationPolicy, settingsPreferenceSource);
+        var aboutInfoProvider = new AboutInfoProvider(
+            new AssemblyHostVersionProvider(typeof(HostLoginRuntimeFactory).Assembly),
+            new HostSupportDeviceCodeProvider(fingerprintSource),
+            "support@example.invalid",
+            "Copyright Dobby",
+            new AssemblyHostBuildMetadataProvider(typeof(HostLoginRuntimeFactory).Assembly));
+        var recoveryViewModel = new RecoveryViewModel(
+            new WindowsRecoveryFilePicker(),
+            new WindowsRecoveryExportFolderOpener(),
+            new WindowsRecoveryExportPathClipboard(),
+            recoveryRequestExportCoordinator,
+            recoveryResponseImportCoordinator,
+            new RecoveryPasswordResetPrompt());
+        var diagnosticsExportCoordinator = new ShellDiagnosticsExportCoordinator(
+            new DiagnosticsExportPackageBuilder(),
+            auditTrail,
+            timeProvider);
+        var diagnosticsOutputZipPath = Path.Combine(options.Runtime.DataRoot, "temp", "dobby-diagnostics.zip");
+
+        return new HostLoginRuntime(
+            loginWorkflow,
+            new LoginViewModel(
+                savedLogin.Value,
+                throttleService,
+                savedLoginClearer,
+                showDisplayNameInput),
+            recoveryViewModel,
+            sessionLifecycleService,
+            postLoginSessionRuntime,
+            recoveryRequestExportCoordinator,
+            recoveryResponseImportCoordinator,
+            passwordChangeCoordinator,
+            operationAuthorizationPolicy,
+            managedUserService,
+            permissionGrantStore.LoadUserState,
+            settingsPreferenceSource,
+            settingsPreferenceSourceFactory,
+            accountSettingsModel,
+            settingsNavigationModel,
+            aboutInfoProvider,
+            diagnosticsExportCoordinator,
+            operationReporter,
+            options.Runtime.DataRoot,
+            diagnosticsOutputZipPath);
+    }
+
+    private static void ValidateOptions(DobbyOptions options)
+    {
+        var result = new DobbyOptionsValidator().Validate(Options.DefaultName, options);
+        if (result.Failed)
+        {
+            throw new OptionsValidationException(Options.DefaultName, typeof(DobbyOptions), result.Failures);
+        }
+    }
+
+    private static string DefaultRuntimeConfigDirectory()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(localAppData, "Dobby", "config");
+    }
+}
+
+internal sealed class HostDeviceFingerprintSource : IDeviceFingerprintSource
+{
+    public Result<DeviceFingerprint> Current()
+    {
+        return new DeviceFingerprintComposer(new WindowsHardwareIdentityProvider()).Compose();
+    }
+}
+
+internal sealed class HostSupportDeviceCodeProvider(IDeviceFingerprintSource fingerprintSource) : ISupportDeviceCodeProvider
+{
+    public string CurrentRedactedCode()
+    {
+        var fingerprint = fingerprintSource.Current();
+        if (!fingerprint.IsSuccess)
+        {
+            return "device-unavailable";
+        }
+
+        var machine = fingerprint.Value.MachineGuid;
+        return machine.Length <= 12 ? machine : machine[..12];
+    }
+}

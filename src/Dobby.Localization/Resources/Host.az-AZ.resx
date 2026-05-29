@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Dobby.Shell.Navigation.Home" xml:space="preserve">
+    <value>Ana səhifə</value>
+  </data>
+  <data name="Dobby.Shell.Navigation.Plugins" xml:space="preserve">
+    <value>Pluginlər</value>
+  </data>
+  <data name="Dobby.Shell.Navigation.Settings" xml:space="preserve">
+    <value>Tənzimləmələr</value>
+  </data>
+  <data name="Dobby.Shell.Home.Title" xml:space="preserve">
+    <value>Ana səhifə</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Title" xml:space="preserve">
+    <value>Pluginlər</value>
+  </data>
+  <data name="Dobby.Shell.Settings.Title" xml:space="preserve">
+    <value>Tənzimləmələr</value>
+  </data>
+  <data name="Dobby.Host.Settings.Appearance" xml:space="preserve">
+    <value>Görünüş</value>
+  </data>
+  <data name="Dobby.Host.Settings.Account" xml:space="preserve">
+    <value>Hesab</value>
+  </data>
+  <data name="Dobby.Host.Settings.SecuritySession" xml:space="preserve">
+    <value>Təhlükəsizlik və sessiya</value>
+  </data>
+  <data name="Dobby.Host.Settings.UserManagement" xml:space="preserve">
+    <value>İstifadəçilər</value>
+  </data>
+  <data name="Dobby.Host.Settings.About" xml:space="preserve">
+    <value>Haqqında</value>
+  </data>
+  <data name="Dobby.Shell.Brand" xml:space="preserve">
+    <value>Dobby</value>
+  </data>
+  <data name="Dobby.Shell.Sidebar.Toggle" xml:space="preserve">
+    <value>Yan paneli dəyiş</value>
+  </data>
+  <data name="Dobby.Shell.Theme.Toggle" xml:space="preserve">
+    <value>Mövzunu dəyiş</value>
+  </data>
+  <data name="Dobby.Shell.Status.Ready" xml:space="preserve">
+    <value>Hazırdır</value>
+  </data>
+  <data name="Dobby.Shell.WorkSessions" xml:space="preserve">
+    <value>İş sessiyaları</value>
+  </data>
+  <data name="Dobby.Shell.WorkSession.NavigationWarning" xml:space="preserve">
+    <value>Açıq iş sessiyası var</value>
+  </data>
+  <data name="Dobby.Shell.WorkSession.Stay" xml:space="preserve">
+    <value>Qal</value>
+  </data>
+  <data name="Dobby.Shell.WorkSession.Minimize" xml:space="preserve">
+    <value>Yığ</value>
+  </data>
+  <data name="Dobby.Shell.WorkSession.Close" xml:space="preserve">
+    <value>Bağla</value>
+  </data>
+  <data name="Dobby.Shell.MinimizedWorkStrip" xml:space="preserve">
+    <value>Yığılmış işlər</value>
+  </data>
+  <data name="Dobby.Shell.ThirdBar" xml:space="preserve">
+    <value>Üçüncü panel</value>
+  </data>
+  <data name="Dobby.Shell.Settings.Heading" xml:space="preserve">
+    <value>Tənzimləmələr</value>
+  </data>
+  <data name="Dobby.Shell.About.Heading" xml:space="preserve">
+    <value>Haqqında</value>
+  </data>
+  <data name="Dobby.Shell.BackgroundOperation" xml:space="preserve">
+    <value>Fon əməliyyatı</value>
+  </data>
+  <data name="Dobby.Shell.Diagnostics.Export" xml:space="preserve">
+    <value>İxrac et</value>
+  </data>
+  <data name="Dobby.Shell.Diagnostics.Exported" xml:space="preserve">
+    <value>Diaqnostika ixrac edildi</value>
+  </data>
+  <data name="Dobby.Shell.PasswordChanged" xml:space="preserve">
+    <value>Şifrə dəyişdirildi</value>
+  </data>
+  <data name="Dobby.Shell.Profile.AccountInfo" xml:space="preserve">
+    <value>Profil və hesab məlumatı</value>
+  </data>
+  <data name="Dobby.Shell.Profile.ChangePassword" xml:space="preserve">
+    <value>Şifrəni dəyiş</value>
+  </data>
+  <data name="Dobby.Shell.Profile.ManualLock" xml:space="preserve">
+    <value>Kilidlə</value>
+  </data>
+  <data name="Dobby.Shell.Profile.Logout" xml:space="preserve">
+    <value>Çıxış</value>
+  </data>
+  <data name="Dobby.Shell.Profile.ClearSavedLogin" xml:space="preserve">
+    <value>Yadda saxlanmış girişi sil</value>
+  </data>
+  <data name="Dobby.Shell.Feedback.Loading" xml:space="preserve">
+    <value>Yüklənir</value>
+  </data>
+  <data name="Dobby.Shell.Feedback.Empty" xml:space="preserve">
+    <value>Məlumat yoxdur</value>
+  </data>
+  <data name="Dobby.Shell.Feedback.Success" xml:space="preserve">
+    <value>Uğurlu</value>
+  </data>
+  <data name="Dobby.Shell.Feedback.Error" xml:space="preserve">
+    <value>Xəta</value>
+  </data>
+  <data name="Dobby.Shell.Feedback.Confirmation" xml:space="preserve">
+    <value>Təsdiq</value>
+  </data>
+  <data name="Dobby.Shell.Notification.Toast" xml:space="preserve">
+    <value>Qısa bildiriş</value>
+  </data>
+  <data name="Dobby.Shell.Notification.Banner" xml:space="preserve">
+    <value>Banner bildirişi</value>
+  </data>
+  <data name="Dobby.Shell.Notification.Modal" xml:space="preserve">
+    <value>Modal bildiriş</value>
+  </data>
+  <data name="Dobby.Host.About.AppVersion" xml:space="preserve">
+    <value>Tətbiq versiyası</value>
+  </data>
+  <data name="Dobby.Host.About.BuildNumber" xml:space="preserve">
+    <value>Yığma nömrəsi</value>
+  </data>
+  <data name="Dobby.Host.About.BuildDate" xml:space="preserve">
+    <value>Yığma tarixi</value>
+  </data>
+  <data name="Dobby.Host.About.HostEdition" xml:space="preserve">
+    <value>Host buraxılışı</value>
+  </data>
+  <data name="Dobby.Host.About.HostChannel" xml:space="preserve">
+    <value>Kanal</value>
+  </data>
+  <data name="Dobby.Host.About.DeviceCode" xml:space="preserve">
+    <value>Cihaz kodu</value>
+  </data>
+  <data name="Dobby.Host.About.Plugins" xml:space="preserve">
+    <value>Pluginlər</value>
+  </data>
+  <data name="Dobby.Host.About.PluginsEmpty" xml:space="preserve">
+    <value>Quraşdırılmış plugin yoxdur</value>
+  </data>
+  <data name="Dobby.Host.About.SupportContact" xml:space="preserve">
+    <value>Dəstək əlaqəsi</value>
+  </data>
+  <data name="Dobby.Host.About.LegalLine" xml:space="preserve">
+    <value>Hüquqi qeyd</value>
+  </data>
+  <data name="Dobby.Host.About.OwnerIdentity" xml:space="preserve">
+    <value>Owner statusu</value>
+  </data>
+  <data name="About.OwnerStatus.Registered" xml:space="preserve">
+    <value>Owner qeydiyyatdadır</value>
+  </data>
+  <data name="Dobby.Host.AuditRetentionSweep" xml:space="preserve">
+    <value>Audit saxlanma təmizliyi</value>
+  </data>
+</root>

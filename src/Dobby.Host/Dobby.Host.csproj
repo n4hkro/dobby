@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UserSecretsId>dobby-host-skeleton</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
+    <PackageReference Include="Serilog.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Settings.Configuration" />
+    <PackageReference Include="WPF-UI.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Dobby.Application\Dobby.Application.csproj" />
+    <ProjectReference Include="..\Dobby.Audit\Dobby.Audit.csproj" />
+    <ProjectReference Include="..\Dobby.Configuration\Dobby.Configuration.csproj" />
+    <ProjectReference Include="..\Dobby.Contracts\Dobby.Contracts.csproj" />
+    <ProjectReference Include="..\Dobby.Core\Dobby.Core.csproj" />
+    <ProjectReference Include="..\Dobby.Diagnostics\Dobby.Diagnostics.csproj" />
+    <ProjectReference Include="..\Dobby.Infrastructure\Dobby.Infrastructure.csproj" />
+    <ProjectReference Include="..\Dobby.Licensing\Dobby.Licensing.csproj" />
+    <ProjectReference Include="..\Dobby.Localization\Dobby.Localization.csproj" />
+    <ProjectReference Include="..\Dobby.Messaging\Dobby.Messaging.csproj" />
+    <ProjectReference Include="..\Dobby.Navigation\Dobby.Navigation.csproj" />
+    <ProjectReference Include="..\Dobby.PluginFramework\Dobby.PluginFramework.csproj" />
+    <ProjectReference Include="..\Dobby.Security\Dobby.Security.csproj" />
+    <ProjectReference Include="..\Dobby.Shell\Dobby.Shell.csproj" />
+    <ProjectReference Include="..\Dobby.UI\Dobby.UI.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

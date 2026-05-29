@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Verify.Xunit" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Dobby.Application\Dobby.Application.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Audit\Dobby.Audit.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Configuration\Dobby.Configuration.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Contracts\Dobby.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Core\Dobby.Core.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Diagnostics\Dobby.Diagnostics.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Host\Dobby.Host.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Infrastructure\Dobby.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Licensing\Dobby.Licensing.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Localization\Dobby.Localization.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Messaging\Dobby.Messaging.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Navigation\Dobby.Navigation.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.PluginFramework\Dobby.PluginFramework.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.SDK\Dobby.SDK.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Security\Dobby.Security.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Shell\Dobby.Shell.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Dobby.Application\Dobby.Application.csproj" />
+    <ProjectReference Include="..\Dobby.Contracts\Dobby.Contracts.csproj" />
+    <ProjectReference Include="..\Dobby.Core\Dobby.Core.csproj" />
+    <ProjectReference Include="..\Dobby.Localization\Dobby.Localization.csproj" />
+    <ProjectReference Include="..\Dobby.Messaging\Dobby.Messaging.csproj" />
+    <ProjectReference Include="..\Dobby.Navigation\Dobby.Navigation.csproj" />
+    <ProjectReference Include="..\Dobby.UI\Dobby.UI.csproj" />
+  </ItemGroup>
+</Project>

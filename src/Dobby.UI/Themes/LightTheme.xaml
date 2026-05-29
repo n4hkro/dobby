@@ -1,0 +1,9 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="Dobby.Brush.Background" Color="#F7F7F2" />
+  <SolidColorBrush x:Key="Dobby.Brush.Surface" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="Dobby.Brush.Accent" Color="#2F6F73" />
+  <SolidColorBrush x:Key="Dobby.Brush.Text" Color="#1C2424" />
+  <SolidColorBrush x:Key="Dobby.Brush.Focus" Color="#8A6500" />
+</ResourceDictionary>
