@@ -24,6 +24,8 @@ public static class PluginManifestValidator
     };
 
     private static readonly Regex ResourceKeyPattern = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex LocalIdentifierPattern = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex RouteKeyPattern = new("^[A-Za-z0-9][A-Za-z0-9._/-]*$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex PluginIdPattern = new("^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex OperationTargetIdPattern = new("^[A-Za-z0-9][A-Za-z0-9_-]*(?:\\.[A-Za-z0-9][A-Za-z0-9_-]*)+$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex PackageRelativePathPattern = new(
@@ -185,9 +187,9 @@ public static class PluginManifestValidator
             var extension = extensionPoints[index];
             var path = $"extensionPoints[{index}]";
 
-            if (!IsNonEmptyIdentifier(extension.Id))
+            if (!IsLocalIdentifier(extension.Id))
             {
-                reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Extension id is required.", $"{path}.id"));
+                reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Extension id is missing or malformed.", $"{path}.id"));
             }
             else if (!seen.Add(extension.Id))
             {
@@ -235,6 +237,12 @@ public static class PluginManifestValidator
         {
             if (extension.ParentId is null)
             {
+                continue;
+            }
+
+            if (!IsLocalIdentifier(extension.ParentId))
+            {
+                reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Parent extension id is malformed.", $"extensionPoints[{extension.Id}].parentId"));
                 continue;
             }
 
@@ -317,6 +325,11 @@ public static class PluginManifestValidator
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        if (files.Count == 0)
+        {
+            reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Package files must not be empty.", "files"));
+        }
+
         for (var index = 0; index < files.Count; index++)
         {
             var file = files[index];
@@ -359,7 +372,7 @@ public static class PluginManifestValidator
 
     private static bool IsCanonicalRouteKey(string value)
     {
-        return ResourceKeyPattern.IsMatch(value) || value.Contains('/', StringComparison.Ordinal);
+        return RouteKeyPattern.IsMatch(value);
     }
 
     private static bool CanUseDisplayNameLabelFallback(PluginExtensionPoint extension)
@@ -399,6 +412,11 @@ public static class PluginManifestValidator
     private static bool IsNonEmptyIdentifier(string value)
     {
         return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool IsLocalIdentifier(string value)
+    {
+        return LocalIdentifierPattern.IsMatch(value);
     }
 
     private static bool IsPluginId(string value)

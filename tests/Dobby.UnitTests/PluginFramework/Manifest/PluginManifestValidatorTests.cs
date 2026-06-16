@@ -123,6 +123,43 @@ public sealed class PluginManifestValidatorTests
         result.IsSuccess.ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData("sample home", "sample.home", null, "extensionPoints[0].id")]
+    [InlineData("sample.home", "sample home/dashboard", null, "extensionPoints[0].routeKey")]
+    [InlineData("sample.child", "sample.home", "bad parent", "extensionPoints[sample.child].parentId")]
+    public void Validate_detailed_rejects_extension_identifiers_that_do_not_match_schema(
+        string extensionId,
+        string routeKey,
+        string? parentId,
+        string expectedPath)
+    {
+        var manifest = PluginPackageTestData.CreateManifest(
+            extensionPoints:
+            [
+                new PluginExtensionPoint(extensionId, "plugin-page-region", routeKey, "sample.home.label", parentId, "default", 10)
+            ]);
+
+        var result = PluginManifestValidator.ValidateDetailed(manifest, new HostVersion(1, 0, 0));
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Reasons.Any(reason =>
+            reason.Code == "invalid-manifest" &&
+            reason.Path == expectedPath).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Validate_detailed_rejects_empty_package_file_list()
+    {
+        var manifest = PluginPackageTestData.CreateManifest(files: []);
+
+        var result = PluginManifestValidator.ValidateDetailed(manifest, new HostVersion(1, 0, 0));
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Reasons.Any(reason =>
+            reason.Code == "invalid-manifest" &&
+            reason.Path == "files").ShouldBeTrue();
+    }
+
     [Fact]
     public void Validate_detailed_rejects_extension_parent_cycle()
     {

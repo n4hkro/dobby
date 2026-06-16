@@ -121,6 +121,26 @@ public sealed class PluginActivationCoreTests
     }
 
     [Fact]
+    public async Task Lifetime_manager_disposes_tracked_plugin_instances_once_in_reverse_creation_order()
+    {
+        var disposalOrder = new List<string>();
+        await using var lifetimes = new PluginLifetimeManager();
+
+        lifetimes.TrackSingleton("com.dobby.sample", new RecordingDisposable("first", disposalOrder));
+        lifetimes.TrackSingleton("com.dobby.sample", new RecordingDisposable("second", disposalOrder));
+        lifetimes.TrackSingleton("com.dobby.other", new RecordingDisposable("other", disposalOrder));
+
+        await lifetimes.DisposePluginAsync("com.dobby.sample");
+        await lifetimes.DisposePluginAsync("com.dobby.sample");
+
+        disposalOrder.ShouldBe(["second", "first"]);
+
+        await lifetimes.DisposeAsync();
+
+        disposalOrder.ShouldBe(["second", "first", "other"]);
+    }
+
+    [Fact]
     public async Task Registration_bridge_resolves_only_approved_host_contract_services_for_plugin_extension_points()
     {
         var registry = new PluginExtensionPointRegistry();
@@ -300,6 +320,14 @@ public sealed class PluginActivationCoreTests
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
             }
+        }
+    }
+
+    private sealed class RecordingDisposable(string name, IList<string> disposalOrder) : IDisposable
+    {
+        public void Dispose()
+        {
+            disposalOrder.Add(name);
         }
     }
 

@@ -11,9 +11,11 @@ public sealed class HostPluginPackageInstallCoordinator(
     IInstalledPluginMetadataCache metadataCache,
     IPluginInstallStagingArea stagingArea,
     PluginRuntimeAuditCoordinator auditCoordinator,
-    IPluginTrustVerifier pluginTrustVerifier)
+    IPluginTrustVerifier pluginTrustVerifier,
+    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null)
 {
     private readonly IPluginTrustVerifier trustVerifier = pluginTrustVerifier ?? throw new ArgumentNullException(nameof(pluginTrustVerifier));
+    private readonly PluginRuntimeDiagnosticsCoordinator? diagnostics = diagnosticsCoordinator;
 
     public Result<InstalledPluginState> InstallPackage(
         string actorId,
@@ -29,25 +31,35 @@ public sealed class HostPluginPackageInstallCoordinator(
 
         if (!IsSupportedSourcePackage(packagePath))
         {
+            var reasons = new[]
+            {
+                new PluginPackageValidationReason(
+                    "unsupported-package-source",
+                    "Plugin packages must be installed from a local .dobbyplugin file.",
+                    packagePath)
+            };
             auditCoordinator.AppendInstallRejected(
                 actorId,
                 pluginId: null,
-                [new PluginPackageValidationReason(
-                    "unsupported-package-source",
-                    "Plugin packages must be installed from a local .dobbyplugin file.",
-                    packagePath)],
+                reasons,
                 correlationId);
+            diagnostics?.RecordInstallRejected(null, reasons);
             return Result.Failure<InstalledPluginState>(ErrorCode.InvalidInput);
         }
 
         var archive = PluginPackageReader.Read(packagePath);
         if (!archive.IsSuccess)
         {
+            var reasons = new[]
+            {
+                new PluginPackageValidationReason("invalid-manifest", "Plugin package could not be read.", PluginPackageReader.ManifestFileName)
+            };
             auditCoordinator.AppendInstallRejected(
                 actorId,
                 pluginId: null,
-                [new PluginPackageValidationReason("invalid-manifest", "Plugin package could not be read.", PluginPackageReader.ManifestFileName)],
+                reasons,
                 correlationId);
+            diagnostics?.RecordInstallRejected(null, reasons);
             return Result.Failure<InstalledPluginState>(archive.ErrorCode ?? ErrorCode.InvalidInput);
         }
 
@@ -59,6 +71,7 @@ public sealed class HostPluginPackageInstallCoordinator(
                 archive.Value.Manifest.PluginId,
                 validation.Reasons,
                 correlationId);
+            diagnostics?.RecordInstallRejected(archive.Value.Manifest.PluginId, validation.Reasons);
             return Result.Failure<InstalledPluginState>(ErrorCode.ValidationFailed);
         }
 
@@ -66,11 +79,16 @@ public sealed class HostPluginPackageInstallCoordinator(
         var install = new PluginPackageInstaller(stagingArea, stateStore, metadataCache).Install(descriptor);
         if (!install.IsSuccess)
         {
+            var reasons = new[]
+            {
+                new PluginPackageValidationReason("install-failed", "Plugin package installation failed.")
+            };
             auditCoordinator.AppendInstallRejected(
                 actorId,
                 descriptor.Manifest.PluginId,
-                [new PluginPackageValidationReason("install-failed", "Plugin package installation failed.")],
+                reasons,
                 correlationId);
+            diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
             return install;
         }
 

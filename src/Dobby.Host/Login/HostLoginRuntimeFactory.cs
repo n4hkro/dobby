@@ -164,7 +164,8 @@ public static class HostLoginRuntimeFactory
             installedPluginMetadataCache,
             pluginInstallStagingArea,
             pluginRuntimeAuditCoordinator,
-            pluginTrustVerifier);
+            pluginTrustVerifier,
+            pluginRuntimeDiagnosticsCoordinator);
         var hostPluginRuntimeCoordinator = new HostPluginRuntimeCoordinator(
             migrator,
             installedPluginStateStore,

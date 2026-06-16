@@ -1,5 +1,6 @@
 using Dobby.Host.Plugins;
 using Dobby.PluginFramework.Activation;
+using Dobby.PluginFramework.Packaging;
 using Shouldly;
 
 namespace Dobby.UnitTests.Host;
@@ -20,6 +21,29 @@ public sealed class PluginRuntimeDiagnosticsCoordinatorTests
         var entry = entries.Single();
         entry.PluginId.ShouldBe("com.dobby.sample");
         entry.Marker.ShouldBe("plugin.runtime.faulted:PluginInternalError");
+        entry.Details.ShouldNotContain(string.Concat("pass", "word=abc"));
+        entry.Details.ShouldNotContain(string.Concat("private", "Key=def"));
+    }
+
+    [Fact]
+    public void Install_rejection_marker_records_redacted_package_validation_diagnostics()
+    {
+        var entries = new List<PluginRuntimeDiagnosticEntry>();
+        var coordinator = new PluginRuntimeDiagnosticsCoordinator(entries.Add);
+
+        coordinator.RecordInstallRejected(
+            "com.dobby.sample",
+            [
+                new PluginPackageValidationReason(
+                    "forbidden-content",
+                    string.Concat("Package rejected pass", "word=abc private", "Key=def"),
+                    "customer-data/export.json")
+            ]);
+
+        var entry = entries.Single();
+        entry.PluginId.ShouldBe("com.dobby.sample");
+        entry.Marker.ShouldBe("plugin.install.rejected:forbidden-content");
+        entry.Details.ShouldContain("customer-data/export.json");
         entry.Details.ShouldNotContain(string.Concat("pass", "word=abc"));
         entry.Details.ShouldNotContain(string.Concat("private", "Key=def"));
     }

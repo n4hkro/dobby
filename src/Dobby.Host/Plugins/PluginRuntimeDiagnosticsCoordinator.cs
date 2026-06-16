@@ -1,5 +1,6 @@
 using Dobby.Diagnostics;
 using Dobby.PluginFramework.Activation;
+using Dobby.PluginFramework.Packaging;
 
 namespace Dobby.Host.Plugins;
 
@@ -57,12 +58,36 @@ public sealed class PluginRuntimeDiagnosticsCoordinator(
         Emit(HostRuntimePluginId, $"plugin.runtime.failed:{NormalizeReason(reason)}", reason);
     }
 
+    public void RecordInstallRejected(string? pluginId, IReadOnlyList<PluginPackageValidationReason> reasons)
+    {
+        ArgumentNullException.ThrowIfNull(reasons);
+
+        if (reasons.Count == 0)
+        {
+            Emit(pluginId ?? HostRuntimePluginId, "plugin.install.rejected:none", "Plugin package was rejected.");
+            return;
+        }
+
+        var reason = reasons[0];
+        Emit(
+            pluginId ?? HostRuntimePluginId,
+            $"plugin.install.rejected:{NormalizeReason(reason.Code)}",
+            FormatPackageValidationReason(reason));
+    }
+
     private void Emit(string pluginId, string marker, string details)
     {
         record(new PluginRuntimeDiagnosticEntry(
             pluginId,
             marker,
             DiagnosticRedactor.Redact(details)));
+    }
+
+    private static string FormatPackageValidationReason(PluginPackageValidationReason reason)
+    {
+        return string.IsNullOrWhiteSpace(reason.Path)
+            ? reason.Message
+            : $"{reason.Path}: {reason.Message}";
     }
 
     private static string NormalizeReason(string reason)

@@ -8,6 +8,7 @@ public sealed class PluginServiceRegistrationBridge : IAsyncDisposable
 {
     private readonly object lifecycleGate = new();
     private readonly PluginExtensionPointRegistry extensionPoints;
+    private readonly PluginLifetimeManager lifetimeManager;
     private readonly Dictionary<string, long> preparingTokens = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PluginServiceScope> preparedScopes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PluginServiceScope> publishedScopes = new(StringComparer.Ordinal);
@@ -20,7 +21,7 @@ public sealed class PluginServiceRegistrationBridge : IAsyncDisposable
         PluginHostServices? hostServices = null)
     {
         this.extensionPoints = extensionPoints ?? throw new ArgumentNullException(nameof(extensionPoints));
-        ArgumentNullException.ThrowIfNull(lifetimeManager);
+        this.lifetimeManager = lifetimeManager ?? throw new ArgumentNullException(nameof(lifetimeManager));
         HostServices = hostServices ?? PluginHostServices.CreateDefault();
     }
 
@@ -51,7 +52,7 @@ public sealed class PluginServiceRegistrationBridge : IAsyncDisposable
         {
             var builder = new PluginServiceCollectionBuilder();
             module.RegisterServices(builder);
-            scope = new PluginServiceScope(pluginId, stateToken, builder.Descriptors, HostServices);
+            scope = new PluginServiceScope(pluginId, stateToken, builder.Descriptors, HostServices, lifetimeManager);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
@@ -263,8 +264,8 @@ public sealed class PluginServiceScope : IAsyncDisposable
 {
     private readonly IReadOnlyList<PluginServiceDescriptor> descriptors;
     private readonly Dictionary<PluginServiceDescriptor, object> scopedInstances = [];
-    private readonly List<object> createdDisposables = [];
     private readonly PluginHostServices hostServices;
+    private readonly PluginLifetimeManager lifetimeManager;
     private PluginPreparedExtensionPoint[]? extensionPointRegistrations;
     private int disposed;
 
@@ -272,12 +273,14 @@ public sealed class PluginServiceScope : IAsyncDisposable
         string pluginId,
         long stateToken,
         IReadOnlyList<PluginServiceDescriptor> descriptors,
-        PluginHostServices hostServices)
+        PluginHostServices hostServices,
+        PluginLifetimeManager lifetimeManager)
     {
         PluginId = pluginId;
         StateToken = stateToken;
         this.descriptors = descriptors;
         this.hostServices = hostServices;
+        this.lifetimeManager = lifetimeManager;
     }
 
     public string PluginId { get; }
@@ -320,25 +323,14 @@ public sealed class PluginServiceScope : IAsyncDisposable
         return instance;
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref disposed, 1) == 1)
         {
-            return;
+            return ValueTask.CompletedTask;
         }
 
-        for (var index = createdDisposables.Count - 1; index >= 0; index--)
-        {
-            switch (createdDisposables[index])
-            {
-                case IAsyncDisposable asyncDisposable:
-                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-                    break;
-                case IDisposable disposable:
-                    disposable.Dispose();
-                    break;
-            }
-        }
+        return lifetimeManager.DisposePluginAsync(PluginId);
     }
 
     private object Resolve(Type serviceType)
@@ -390,16 +382,7 @@ public sealed class PluginServiceScope : IAsyncDisposable
             return;
         }
 
-        if (!ContainsReference(createdDisposables, instance))
-        {
-            createdDisposables.Add(instance);
-        }
-    }
-
-    private static bool ContainsReference<T>(IEnumerable<T> items, T candidate)
-        where T : class
-    {
-        return items.Any(item => ReferenceEquals(item, candidate));
+        lifetimeManager.TrackSingleton(PluginId, instance);
     }
 }
 

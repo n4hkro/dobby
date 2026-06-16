@@ -112,6 +112,45 @@ public sealed class HostPluginPackageInstallCoordinatorTests
     }
 
     [Fact]
+    public void Install_package_records_diagnostics_for_validation_rejection()
+    {
+        var forbiddenPath = "customer-data/export.json";
+        var forbiddenBytes = Encoding.UTF8.GetBytes("customer payload");
+        var manifestJson = PluginPackageTestData.CreateManifestJson(
+            files: [new PluginPackageFile(forbiddenPath, PluginPackageTestData.HashHex(forbiddenBytes))]);
+        var packagePath = CreatePackageZip(manifestJson, forbiddenPath, forbiddenBytes);
+        try
+        {
+            var diagnostics = new List<PluginRuntimeDiagnosticEntry>();
+            var staging = CreateSuccessfulStaging();
+            var coordinator = new HostPluginPackageInstallCoordinator(
+                CreateSuccessfulStateStore(),
+                CreateSuccessfulMetadataCache(),
+                staging,
+                CreateAuditCoordinator(new InMemoryAuditTrail()),
+                new AllowAllTrustVerifier(),
+                new PluginRuntimeDiagnosticsCoordinator(diagnostics.Add));
+
+            var result = coordinator.InstallPackage(
+                "owner",
+                packagePath,
+                new HostVersion(1, 0, 0),
+                CorrelationId.New());
+
+            result.IsSuccess.ShouldBeFalse();
+            staging.DidNotReceive().Stage(Arg.Any<PluginPackageDescriptor>());
+            var entry = diagnostics.Single();
+            entry.PluginId.ShouldBe(PluginPackageTestData.PluginId);
+            entry.Marker.ShouldBe("plugin.install.rejected:forbidden-content");
+            entry.Details.ShouldContain(forbiddenPath);
+        }
+        finally
+        {
+            DeletePackage(packagePath);
+        }
+    }
+
+    [Fact]
     public void Install_package_maps_trust_failure_to_trust_audit_event_before_staging()
     {
         var packagePath = CreatePackageZip(
