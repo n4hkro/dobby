@@ -9,11 +9,17 @@ public interface ILockWindowPresenter
     bool ShowLockWindow(LockRuntimeWorkflow workflow, SessionRecord session);
 }
 
+public interface IPostLoginPluginActivationCancellation
+{
+    void CancelPostLoginActivation();
+}
+
 public sealed class PostLoginSessionRuntime(
     SessionLifecycleService sessionLifecycleService,
     SessionLifecycleAuditCoordinator auditCoordinator,
     LockRuntimeWorkflow lockRuntimeWorkflow,
-    ILockWindowPresenter lockWindowPresenter)
+    ILockWindowPresenter lockWindowPresenter,
+    IPostLoginPluginActivationCancellation? pluginActivationCancellation = null) : IDisposable
 {
     public Result RecordActivity()
     {
@@ -31,6 +37,7 @@ public sealed class PostLoginSessionRuntime(
             return lockResult;
         }
 
+        CancelPluginActivation();
         return lockWindowPresenter.ShowLockWindow(lockRuntimeWorkflow, session)
             ? Result.Success()
             : Result.Failure(ErrorCode.Cancelled);
@@ -42,6 +49,11 @@ public sealed class PostLoginSessionRuntime(
 
         var result = sessionLifecycleService.Logout("user.logout");
         auditCoordinator.AppendLogout(session.UserId, result, correlationId);
+        if (result.IsSuccess)
+        {
+            CancelPluginActivation();
+        }
+
         return result;
     }
 
@@ -54,6 +66,7 @@ public sealed class PostLoginSessionRuntime(
 
         if (checkpoint.Kind == SessionCheckpointKind.Locked && checkpoint.JustTransitioned)
         {
+            CancelPluginActivation();
             return lockWindowPresenter.ShowLockWindow(lockRuntimeWorkflow, session)
                 ? Result.Success()
                 : Result.Failure(ErrorCode.Cancelled);
@@ -61,9 +74,20 @@ public sealed class PostLoginSessionRuntime(
 
         if (checkpoint.Kind is SessionCheckpointKind.Expired or SessionCheckpointKind.Invalidated)
         {
+            CancelPluginActivation();
             return Result.Failure(ErrorCode.Unauthorized);
         }
 
         return Result.Success();
+    }
+
+    public void Dispose()
+    {
+        CancelPluginActivation();
+    }
+
+    private void CancelPluginActivation()
+    {
+        pluginActivationCancellation?.CancelPostLoginActivation();
     }
 }

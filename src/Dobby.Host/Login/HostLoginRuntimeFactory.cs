@@ -6,13 +6,19 @@ using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.Diagnostics;
 using Dobby.Host.Settings;
+using Dobby.Host.Plugins;
 using Dobby.Host.Startup;
 using Dobby.Host.Sessions;
 using Dobby.Infrastructure.HardwareIdentity;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
+using Dobby.Messaging;
+using Dobby.PluginFramework.Activation;
+using Dobby.PluginFramework.Manifest;
+using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authentication;
 using Dobby.Security.Authorization;
+using Dobby.Security.Trust;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using System.IO;
@@ -57,7 +63,8 @@ public static class HostLoginRuntimeFactory
             options.Storage.RequireDataAtRestProtection,
             options.Storage.BusyTimeoutMilliseconds);
         var factory = new EncryptedSqliteConnectionFactory(persistenceOptions, protectedMaterialProbe);
-        var migration = new HostPersistenceMigrator(factory, protectedMaterialProbe).ApplyPreLoginMigrations();
+        var migrator = new HostPersistenceMigrator(factory, protectedMaterialProbe);
+        var migration = migrator.ApplyPreLoginMigrations();
         if (!migration.IsSuccess)
         {
             throw new InvalidOperationException(migration.Error.Message);
@@ -90,11 +97,13 @@ public static class HostLoginRuntimeFactory
             options.Session);
         var sessionAuditCoordinator = new SessionLifecycleAuditCoordinator(auditTrail, timeProvider);
         var lockRuntimeWorkflow = new LockRuntimeWorkflow(sessionLifecycleService, sessionAuditCoordinator);
+        var pluginActivationCancellation = new HostPluginActivationCancellation();
         var postLoginSessionRuntime = new PostLoginSessionRuntime(
             sessionLifecycleService,
             sessionAuditCoordinator,
             lockRuntimeWorkflow,
-            new WpfLockWindowPresenter());
+            new WpfLockWindowPresenter(),
+            pluginActivationCancellation);
         var rememberMeSlotService = new RememberMeSlotService(executor, rememberScopeProtector, applicationEntropy);
         var showDisplayNameInput = executor.QueryScalar<int>("SELECT COUNT(*) FROM Users;") == 0;
         var savedLogin = rememberMeSlotService.LoadSavedLogin();
@@ -138,6 +147,38 @@ public static class HostLoginRuntimeFactory
         var operationAuthorizationPolicy = new OperationAuthorizationPolicy(operationTargetRegistry, permissionGrantStore);
         var userManagementGuard = new UserManagementAuthorizationGuard(operationAuthorizationPolicy, permissionGrantStore, operationTargetRegistry);
         var userManagementAuditCoordinator = new UserManagementAuditCoordinator(auditTrail, executor, timeProvider);
+        var pluginExtensionPointRegistry = new PluginExtensionPointRegistry();
+        var pluginLifetimeManager = new PluginLifetimeManager();
+        var installedPluginStateStore = new HostInstalledPluginStateStore(executor, transactionScope);
+        var installedPluginMetadataCache = new HostInstalledPluginMetadataCache(executor, transactionScope);
+        var pluginInstallStagingArea = new PluginInstallStagingArea(options.Runtime.DataRoot, executor);
+        var pluginRuntimeAuditCoordinator = new PluginRuntimeAuditCoordinator(auditTrail, timeProvider);
+        var pluginRuntimeDiagnosticsCoordinator = new PluginRuntimeDiagnosticsCoordinator(_ => { });
+        var pluginTrustVerifier = new PluginTrustVerifier();
+        var pluginHostServices = new PluginHostServices(
+            new InMemoryEventBus(),
+            operationReporter,
+            pluginActivationCancellation);
+        var pluginPackageInstallCoordinator = new HostPluginPackageInstallCoordinator(
+            installedPluginStateStore,
+            installedPluginMetadataCache,
+            pluginInstallStagingArea,
+            pluginRuntimeAuditCoordinator,
+            pluginTrustVerifier);
+        var hostPluginRuntimeCoordinator = new HostPluginRuntimeCoordinator(
+            migrator,
+            installedPluginStateStore,
+            installedPluginMetadataCache,
+            pluginInstallStagingArea,
+            operationTargetRegistry,
+            pluginExtensionPointRegistry,
+            pluginLifetimeManager,
+            pluginActivationCancellation,
+            new PostLoginPluginActivator(new PluginServiceRegistrationBridge(pluginExtensionPointRegistry, pluginLifetimeManager, pluginHostServices)),
+            pluginTrustVerifier,
+            pluginRuntimeAuditCoordinator,
+            operationReporter,
+            pluginRuntimeDiagnosticsCoordinator);
         var managedUserService = new ManagedUserService(
             executor,
             credentialStore,
@@ -193,6 +234,8 @@ public static class HostLoginRuntimeFactory
             settingsNavigationModel,
             aboutInfoProvider,
             diagnosticsExportCoordinator,
+            pluginPackageInstallCoordinator,
+            hostPluginRuntimeCoordinator,
             operationReporter,
             options.Runtime.DataRoot,
             diagnosticsOutputZipPath);

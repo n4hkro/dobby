@@ -39,6 +39,32 @@ public sealed class ShellBackgroundOperationCoordinatorTests
         shell.BackgroundOperationPercent.ShouldBe(80);
     }
 
+    [Fact]
+    public void Plugin_owned_background_operation_reaches_shell_through_official_reporter()
+    {
+        var reporter = new BackgroundOperationReporter();
+        var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());
+        var dispatcher = new RecordingUiDispatcher();
+        var coordinator = new ShellBackgroundOperationCoordinator(shell, reporter, dispatcher);
+        coordinator.Attach();
+
+        reporter.Progress.Report(new BackgroundOperationSnapshot(
+            Guid.NewGuid(),
+            BackgroundOperationOwnerKind.Plugin,
+            "com.dobby.sample",
+            "Dobby.Plugin.Sample.Import",
+            ShortDetailKey: null,
+            BackgroundOperationStatus.Running,
+            BackgroundOperationProgress.Indeterminate(),
+            CanCancel: false,
+            Guid.NewGuid(),
+            FailureReason: null));
+        dispatcher.RunPostedActions();
+
+        shell.BackgroundOperationText.ShouldBe("[[Dobby.Plugin.Sample.Import]]");
+        shell.BackgroundOperationIsIndeterminate.ShouldBeTrue();
+    }
+
     private static BackgroundOperationSnapshot Snapshot(int percent)
     {
         return new BackgroundOperationSnapshot(

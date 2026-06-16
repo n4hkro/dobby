@@ -143,13 +143,19 @@ public sealed class PluginFrameworkTests
     private static PluginManifest ValidManifest()
     {
         return new PluginManifest(
-            1,
             "com.dobby.sample",
+            "dobby.vendor",
             "1.0.0",
             "1.0.0",
-            [new PluginCapability("plugin-page")],
+            "bin/plugins/com.dobby.sample.dll",
+            "Sample Plugin",
+            "Sample plugin description",
+            null,
+            [],
+            [new PluginCapability("plugin-page", "plugin-page")],
             [new PluginOperationTarget("com.dobby.sample.greet", ["execute"], "sample.greet.label")],
             [new PluginExtensionPoint("sample.home", "plugin-page-region", "sample.home", "sample.home.label", null, "default", 100)],
-            []);
+            [new PluginPackageFile("bin/plugins/com.dobby.sample.dll", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")],
+            new PluginPackageSignature("ECDSA-P256-SHA256", 1, "AQ"));
     }
 }

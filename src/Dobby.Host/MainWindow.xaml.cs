@@ -4,7 +4,9 @@ using Dobby.Configuration;
 using Dobby.Core;
 using Dobby.Diagnostics;
 using Dobby.Host.Login;
+using Dobby.Host.Plugins;
 using Dobby.Host.Settings;
+using Dobby.Shell.PluginPages;
 using Dobby.Security.Authentication;
 using Dobby.Shell;
 using Dobby.Shell.WorkSessions;
@@ -21,7 +23,9 @@ public partial class MainWindow : Window
     private ShellViewModel shellViewModel;
     private ShellThemeCoordinator? themeCoordinator;
     private ShellDiagnosticsExportCoordinator? diagnosticsExportCoordinator;
+    private readonly PluginPageRenderRegistry pluginPageRenderRegistry;
     private readonly WorkSessionCloseCoordinator? workSessionCloseCoordinator;
+    private readonly PluginPageRouteCoordinator? pluginPageRouteCoordinator;
     private string? diagnosticsSourceDirectory;
     private string? diagnosticsOutputZipPath;
     private DispatcherTimer? sessionTimer;
@@ -32,9 +36,11 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault();
         InitializeComponent();
         shellViewModel = ShellViewModel.CreateDefault(Dobby.Localization.HostStringCatalog.CreateResourceBacked());
         DataContext = shellViewModel;
+        UpdatePluginPageHost();
         ContentRendered += (_, _) => RecordShellFirstPaint();
     }
 
@@ -67,7 +73,9 @@ public partial class MainWindow : Window
         ShellDiagnosticsExportCoordinator? diagnosticsExportCoordinator,
         string? diagnosticsSourceDirectory,
         string? diagnosticsOutputZipPath,
-        WorkSessionCloseCoordinator? workSessionCloseCoordinator = null)
+        WorkSessionCloseCoordinator? workSessionCloseCoordinator = null,
+        PluginPageRenderRegistry? pluginPageRenderRegistry = null,
+        PluginPageRouteCoordinator? pluginPageRouteCoordinator = null)
         : this()
     {
         this.sessionRuntime = sessionRuntime;
@@ -81,8 +89,20 @@ public partial class MainWindow : Window
         this.workSessionCloseCoordinator = workSessionCloseCoordinator;
         this.diagnosticsSourceDirectory = diagnosticsSourceDirectory;
         this.diagnosticsOutputZipPath = diagnosticsOutputZipPath;
+        this.pluginPageRouteCoordinator = pluginPageRouteCoordinator;
+        if (pluginPageRenderRegistry is not null)
+        {
+            this.pluginPageRenderRegistry = pluginPageRenderRegistry;
+        }
         DataContext = shellViewModel;
         UpdateWorkSessionWarningVisibility();
+        shellViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(ShellViewModel.ActivePluginPageModel))
+            {
+                UpdatePluginPageHost();
+            }
+        };
         Loaded += (_, _) =>
         {
             ApplyPersistedShellPreference();
@@ -193,13 +213,34 @@ public partial class MainWindow : Window
             : Visibility.Collapsed;
     }
 
+    private void UpdatePluginPageHost()
+    {
+        if (shellViewModel.ActivePluginPageModel is null)
+        {
+            PluginPageHost.Content = null;
+            PluginPageHost.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var render = pluginPageRenderRegistry.Render(shellViewModel.ActivePluginPageModel);
+        if (!render.IsSuccess)
+        {
+            PluginPageHost.Content = null;
+            PluginPageHost.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PluginPageHost.Content = render.Value;
+        PluginPageHost.Visibility = Visibility.Visible;
+    }
+
     private void SidebarToggle_Click(object sender, RoutedEventArgs e)
     {
         shellViewModel.ToggleSidebarCollapsed();
         PersistShellPreference();
     }
 
-    private void Navigation_Click(object sender, RoutedEventArgs e)
+    private async void Navigation_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: string routeKey })
         {
@@ -214,7 +255,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        shellViewModel.ActivateRoute(routeKey);
+        var result = pluginPageRouteCoordinator is null
+            ? shellViewModel.ActivateRoute(routeKey)
+            : await pluginPageRouteCoordinator.ActivateRouteAsync(routeKey, CancellationToken.None);
+        if (!result.IsSuccess)
+        {
+            ShowAccountStatus(result.ErrorCode?.ToString() ?? ErrorCode.UnsupportedOperation.ToString());
+            return;
+        }
+
         PersistShellPreference();
     }
 

@@ -1,3 +1,4 @@
+using Dobby.Contracts.BackgroundOperations;
 using Dobby.Contracts.PluginFramework;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core;
@@ -12,8 +13,7 @@ public sealed class SamplePluginModule : PluginBase
         services.AddExtensionPoint<IPluginPage, SampleHomePage>();
     }
 }
-
-public sealed class SampleHomePage : IPluginPage
+public sealed class SampleHomePage(IBackgroundOperationReporter backgroundOperations) : IPluginPage
 {
     public PluginPageDescriptor Descriptor { get; } = new(
         "sample.home",
@@ -24,7 +24,36 @@ public sealed class SampleHomePage : IPluginPage
         PluginPageContext context,
         CancellationToken cancellationToken)
     {
-        return ValueTask.FromResult(Result.Success<IPluginPageModel>(new SampleHomePageModel("sample.home.ready")));
+        var operationId = Guid.NewGuid();
+        var correlationId = Guid.TryParse(context.CorrelationId, out var parsedCorrelationId)
+            ? parsedCorrelationId
+            : Guid.NewGuid();
+        backgroundOperations.Progress.Report(new BackgroundOperationSnapshot(
+            operationId,
+            BackgroundOperationOwnerKind.Plugin,
+            context.PluginId,
+            "sample.home.load",
+            null,
+            BackgroundOperationStatus.Running,
+            BackgroundOperationProgress.Indeterminate(),
+            CanCancel: false,
+            correlationId,
+            FailureReason: null));
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        backgroundOperations.Progress.Report(new BackgroundOperationSnapshot(
+            operationId,
+            BackgroundOperationOwnerKind.Plugin,
+            context.PluginId,
+            "sample.home.load",
+            null,
+            BackgroundOperationStatus.Completed,
+            BackgroundOperationProgress.Determinate(100),
+            CanCancel: false,
+            correlationId,
+            FailureReason: null));
+        return ValueTask.FromResult(Result.Success<IPluginPageModel>(new PluginTextPageModel("sample.home.ready")));
     }
 
     public ValueTask<Result> ActivateAsync(
@@ -48,5 +77,3 @@ public sealed class SampleHomePage : IPluginPage
         return ValueTask.FromResult(Result.Success());
     }
 }
-
-public sealed record SampleHomePageModel(string MessageKey) : IPluginPageModel;

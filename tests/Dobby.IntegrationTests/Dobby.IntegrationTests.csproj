@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\src\Dobby.Host\Dobby.Host.csproj" />
     <ProjectReference Include="..\..\src\Dobby.Infrastructure\Dobby.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Dobby.PluginFramework\Dobby.PluginFramework.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.SDK\Dobby.SDK.csproj" />
     <ProjectReference Include="..\..\src\Dobby.Security\Dobby.Security.csproj" />
   </ItemGroup>
 </Project>

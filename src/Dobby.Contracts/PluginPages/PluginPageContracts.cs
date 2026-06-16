@@ -17,6 +17,8 @@ public interface IPluginPageModel
 {
 }
 
+public sealed record PluginTextPageModel(string MessageKey) : IPluginPageModel;
+
 public interface IPluginPage
 {
     PluginPageDescriptor Descriptor { get; }

@@ -1,8 +1,9 @@
 # Dobby Trust Resources
 
-Production and dev/QA plugin trust public keys are human/vendor input and are not
-present in the skeleton. Do not place placeholder PEM, private key, or fake
-consumable key material in this folder.
+Production and dev/QA plugin trust public keys are approved build inputs. Only
+public PEM files belong in this folder. Private keys must stay outside the
+workspace and repository.
 
-Trust verification resource implementation remains blocked until real public key
-bytes are supplied through the approved signing-key ownership process.
+The current Sprint 8 bootstrap keys were generated with explicit owner approval
+on 2026-06-09 and must be rotated before a production release. Their private
+counterparts are intentionally stored outside the repository.

@@ -22,5 +22,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="native\win-x64\sqlite3mc_x64.dll" CopyToOutputDirectory="PreserveNewest" Link="native\win-x64\sqlite3mc_x64.dll" />
+    <EmbeddedResource Include="Persistence\Migrations\0002_postlogin_bootstrap.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0002_postlogin_bootstrap.sql" />
   </ItemGroup>
 </Project>

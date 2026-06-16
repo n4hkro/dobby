@@ -58,6 +58,7 @@ public sealed class ShellUiStaticScanTests
             "MainContent",
             "BottomStatus",
             "MinimizedWorkStrip",
+            "PluginPageHost",
             "NotificationPresentationList",
             "FeedbackStatePresentationList",
             "WorkSessionWarningPanel",
@@ -98,12 +99,15 @@ public sealed class ShellUiStaticScanTests
         mainWindowCode.ShouldContain("StartupMilestoneNames.ShellFirstPaint");
         mainWindowCode.ShouldContain("ContentRendered");
         mainWindowCode.ShouldContain("WorkSessionCloseCoordinator");
+        mainWindowCode.ShouldContain("PluginPageRenderRegistry");
+        mainWindowCode.ShouldContain("UpdatePluginPageHost");
         mainWindowCode.ShouldContain("RequestLogout");
         mainWindowCode.ShouldContain("HandleLock()");
         workSessionCode.ShouldContain("WorkSessionCloseReason.Logout");
         workSessionCode.ShouldContain("WorkSessionCloseReason.PluginDisable");
         appCode.ShouldContain("ShellLocalizationDiagnosticsRecorder");
         appCode.ShouldContain("ShellBackgroundOperationCoordinator");
+        appCode.ShouldContain("BeginPostLoginActivation");
         appCode.ShouldContain("WpfUiDispatcher");
         appCode.ShouldNotContain("GetInfo(isOwner: true");
         appCode.ShouldContain("UserPermissionStateReader");

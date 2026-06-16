@@ -1,4 +1,5 @@
 using Dobby.Contracts.Ordering;
+using Dobby.Contracts.PluginPages;
 using Dobby.Localization;
 using Dobby.Navigation;
 using Dobby.Shell;
@@ -135,6 +136,58 @@ public sealed class ShellViewModelNavigationTests
         }
     }
 
+    [Fact]
+    public void Active_plugin_page_model_is_exposed_and_notifies_shell_state()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        var propertyChanges = new List<string?>();
+        shell.PropertyChanged += (_, args) => propertyChanges.Add(args.PropertyName);
+
+        shell.SetActivePluginPage(new DummyPluginPageModel("plugin.page"));
+
+        shell.HasActivePluginPage.ShouldBeTrue();
+        shell.ActivePluginPageModel.ShouldNotBeNull();
+        propertyChanges.ShouldContain(nameof(ShellViewModel.ActivePluginPageModel));
+        propertyChanges.ShouldContain(nameof(ShellViewModel.HasActivePluginPage));
+    }
+
+    [Fact]
+    public void Applying_plugin_navigation_contributions_rebuilds_shell_navigation_without_losing_layout_state()
+    {
+        var shell = ShellViewModel.CreateDefault(new HostStringCatalog());
+        shell.ShowBackgroundOperation(new Dobby.Contracts.BackgroundOperations.BackgroundOperationSnapshot(
+            Guid.NewGuid(),
+            Dobby.Contracts.BackgroundOperations.BackgroundOperationOwnerKind.Host,
+            null,
+            "Dobby.Plugin.Activation",
+            null,
+            Dobby.Contracts.BackgroundOperations.BackgroundOperationStatus.Running,
+            Dobby.Contracts.BackgroundOperations.BackgroundOperationProgress.Determinate(25),
+            false,
+            Guid.NewGuid(),
+            null));
+        var contributions = PluginNavigationContributionMapper.Map(
+        [
+            new PluginNavigationContribution(
+                "com.dobby.sample",
+                "sample.home",
+                "sample.home",
+                "sample.home.label",
+                "top-toolbar",
+                null,
+                "default",
+                100,
+                0)
+        ]);
+
+        shell.ApplyPluginNavigationContributions(contributions);
+
+        shell.TopNavigation.Select(item => item.RouteKey).ShouldContain("plugin/com.dobby.sample/sample.home");
+        shell.BackgroundOperationPercent.ShouldBe(25);
+        shell.ActivateRoute("plugin/com.dobby.sample/sample.home").IsSuccess.ShouldBeTrue();
+        shell.ActiveRouteKey.ShouldBe("plugin/com.dobby.sample/sample.home");
+    }
+
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()
     {
         var parent = NavigationContribution.Create(
@@ -165,5 +218,10 @@ public sealed class ShellViewModelNavigationTests
             new UiOrderingKey("default", 60, "sample", 3));
 
         return [parent, child, leaf, reports];
+    }
+
+    private sealed class DummyPluginPageModel(string label) : IPluginPageModel
+    {
+        public string Label { get; } = label;
     }
 }

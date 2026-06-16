@@ -2,9 +2,12 @@ using System.Windows;
 using Dobby.Application;
 using Dobby.Diagnostics;
 using Dobby.Host.Login;
+using Dobby.Host.Plugins;
 using Dobby.Host.Settings;
 using Dobby.Host.Startup;
 using Dobby.Localization;
+using Dobby.Navigation;
+using Dobby.PluginFramework.Activation;
 using Dobby.Shell;
 using Dobby.Shell.Layout;
 using Dobby.Shell.UiDispatch;
@@ -16,7 +19,7 @@ public partial class App : System.Windows.Application
 {
     private SingleInstanceCoordinator? singleInstanceCoordinator;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
@@ -36,9 +39,14 @@ public partial class App : System.Windows.Application
         }
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        await RunLoginLoopAsync();
+    }
+
+    private async Task RunLoginLoopAsync()
+    {
         while (true)
         {
-            var loginRuntime = HostLoginRuntimeFactory.Create();
+            await using var loginRuntime = HostLoginRuntimeFactory.Create();
             var loginWindow = new LoginWindow(loginRuntime.LoginWorkflow, loginRuntime.LoginViewModel, loginRuntime.RecoveryViewModel);
             MainWindow = loginWindow;
             if (loginWindow.ShowDialog() != true)
@@ -48,6 +56,11 @@ public partial class App : System.Windows.Application
             }
 
             var authenticatedSession = loginWindow.AuthenticatedSession;
+            var pluginMigration = loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations();
+            if (!pluginMigration.IsSuccess)
+            {
+                throw new InvalidOperationException(pluginMigration.Error.Message);
+            }
             var scopedPreferenceSource = authenticatedSession is null
                 ? loginRuntime.SettingsPreferenceSource
                 : loginRuntime.SettingsPreferenceSourceFactory(authenticatedSession.UserId);
@@ -68,6 +81,9 @@ public partial class App : System.Windows.Application
             ConfigureSettingsAndAbout(shellViewModel, strings, loginRuntime, authenticatedSession?.UserId);
             WireBackgroundOperations(shellViewModel, loginRuntime.BackgroundOperations);
             ShellThemeCoordinator.ApplyTheme(this, currentTheme);
+            var pluginPageRouteCoordinator = new PluginPageRouteCoordinator(
+                loginRuntime.PluginRuntimeCoordinator.ExtensionPointRegistry,
+                shellViewModel);
 
             var window = new MainWindow(
                 loginRuntime.PostLoginSessionRuntime,
@@ -80,7 +96,19 @@ public partial class App : System.Windows.Application
                 loginRuntime.DiagnosticsExportCoordinator,
                 loginRuntime.DiagnosticsSourceDirectory,
                 loginRuntime.DiagnosticsOutputZipPath,
-                workSessionCloseCoordinator);
+                workSessionCloseCoordinator,
+                pluginPageRouteCoordinator: pluginPageRouteCoordinator);
+            window.ContentRendered += async (_, _) =>
+            {
+                var activation = await loginRuntime.PluginRuntimeCoordinator.BeginPostLoginActivation(
+                    new AssemblyHostVersionProvider(typeof(App).Assembly).Current,
+                    authenticatedSession?.UserId ?? "unknown");
+                if (activation.IsSuccess && activation.Value.Completion == PluginActivationCompletion.Completed)
+                {
+                    shellViewModel.ApplyPluginNavigationContributions(
+                        PluginNavigationContributionMapper.Map(activation.Value.Run.NavigationContributions));
+                }
+            };
             MainWindow = window;
             window.ShowDialog();
             if (!window.ReturnToLoginRequested)

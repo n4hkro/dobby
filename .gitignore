@@ -23,6 +23,8 @@ artifacts/release-evidence/*/
 *.snk
 *.pem
 *.key
+!src/Dobby.Host/Trust/vendor-master-public-key.pem
+!src/Dobby.Host/Trust/dev-qa-public-key.pem
 .worktrees/
 worktrees/
 scratch/

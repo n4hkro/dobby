@@ -30,11 +30,13 @@ public sealed class PostLoginSessionRuntimeTests
         var auditTrail = new InMemoryAuditTrail();
         var audit = new SessionLifecycleAuditCoordinator(auditTrail, time);
         var presenter = new RecordingLockWindowPresenter(unlockResult: true);
+        var pluginCancellation = new RecordingPluginActivationCancellation();
         var runtime = new PostLoginSessionRuntime(
             sessionService,
             audit,
             new LockRuntimeWorkflow(sessionService, audit),
-            presenter);
+            presenter,
+            pluginCancellation);
 
         time.Advance(TimeSpan.FromMinutes(30));
         var result = runtime.Checkpoint(session, CorrelationId.New());
@@ -62,11 +64,13 @@ public sealed class PostLoginSessionRuntimeTests
         var auditTrail = new InMemoryAuditTrail();
         var audit = new SessionLifecycleAuditCoordinator(auditTrail, time);
         var presenter = new RecordingLockWindowPresenter(unlockResult: true);
+        var pluginCancellation = new RecordingPluginActivationCancellation();
         var runtime = new PostLoginSessionRuntime(
             sessionService,
             audit,
             new LockRuntimeWorkflow(sessionService, audit),
-            presenter);
+            presenter,
+            pluginCancellation);
 
         time.Advance(TimeSpan.FromMinutes(30));
         var result = runtime.Checkpoint(session, CorrelationId.New());
@@ -74,6 +78,7 @@ public sealed class PostLoginSessionRuntimeTests
         result.IsSuccess.ShouldBeFalse();
         result.ErrorCode.ShouldBe(ErrorCode.Unauthorized);
         presenter.PresentedSession.ShouldBeNull();
+        pluginCancellation.CancelCount.ShouldBe(1);
         auditTrail.Snapshot().Single().EventName.ShouldBe(AuditEventName.SessionExpired);
     }
 
@@ -94,16 +99,19 @@ public sealed class PostLoginSessionRuntimeTests
         var auditTrail = new InMemoryAuditTrail();
         var audit = new SessionLifecycleAuditCoordinator(auditTrail, time);
         var presenter = new RecordingLockWindowPresenter(unlockResult: true);
+        var pluginCancellation = new RecordingPluginActivationCancellation();
         var runtime = new PostLoginSessionRuntime(
             sessionService,
             audit,
             new LockRuntimeWorkflow(sessionService, audit),
-            presenter);
+            presenter,
+            pluginCancellation);
 
         var result = runtime.LockNow(session, CorrelationId.New());
 
         result.IsSuccess.ShouldBeTrue();
         presenter.PresentedSession.ShouldBe(session);
+        pluginCancellation.CancelCount.ShouldBe(1);
         auditTrail.Snapshot().Single().EventName.ShouldBe(AuditEventName.SessionLock);
         store.DidNotReceiveWithAnyArgs().Invalidate(default!, default!, default);
     }
@@ -181,21 +189,49 @@ public sealed class PostLoginSessionRuntimeTests
         var session = sessionService.Create("user-1").Value;
         var auditTrail = new InMemoryAuditTrail();
         var audit = new SessionLifecycleAuditCoordinator(auditTrail, time);
+        var pluginCancellation = new RecordingPluginActivationCancellation();
         var runtime = new PostLoginSessionRuntime(
             sessionService,
             audit,
             new LockRuntimeWorkflow(sessionService, audit),
-            new RecordingLockWindowPresenter(unlockResult: true));
+            new RecordingLockWindowPresenter(unlockResult: true),
+            pluginCancellation);
         var correlationId = CorrelationId.New();
 
         var result = runtime.Logout(session, correlationId);
 
         result.IsSuccess.ShouldBeTrue();
+        pluginCancellation.CancelCount.ShouldBe(1);
         store.Received(1).Invalidate(session.SessionId, "user.logout", Arg.Any<DateTimeOffset>());
         auditTrail.Snapshot().Single().ShouldSatisfyAllConditions(
             evt => evt.EventName.ShouldBe(AuditEventName.UserLogout),
             evt => evt.ActorId.ShouldBe("user-1"),
             evt => evt.CorrelationId.ShouldBe(correlationId));
+    }
+
+    [Fact]
+    public void Disposing_post_login_runtime_cancels_in_flight_plugin_activation()
+    {
+        var store = Substitute.For<ISessionStore>();
+        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-18T00:00:00Z"));
+        var sessionService = new SessionLifecycleService(
+            store,
+            new ActiveSessionAccessor(),
+            Substitute.For<IUserCredentialVerifier>(),
+            time,
+            new SessionOptions { AbsoluteTimeoutMinutes = 480, IdleTimeoutMinutes = 30 });
+        var audit = new SessionLifecycleAuditCoordinator(new InMemoryAuditTrail(), time);
+        var pluginCancellation = new RecordingPluginActivationCancellation();
+        var runtime = new PostLoginSessionRuntime(
+            sessionService,
+            audit,
+            new LockRuntimeWorkflow(sessionService, audit),
+            new RecordingLockWindowPresenter(unlockResult: true),
+            pluginCancellation);
+
+        runtime.Dispose();
+
+        pluginCancellation.CancelCount.ShouldBe(1);
     }
 
     private sealed class RecordingLockWindowPresenter(bool unlockResult) : ILockWindowPresenter
@@ -206,6 +242,16 @@ public sealed class PostLoginSessionRuntimeTests
         {
             PresentedSession = session;
             return unlockResult;
+        }
+    }
+
+    private sealed class RecordingPluginActivationCancellation : IPostLoginPluginActivationCancellation
+    {
+        public int CancelCount { get; private set; }
+
+        public void CancelPostLoginActivation()
+        {
+            CancelCount++;
         }
     }
 }

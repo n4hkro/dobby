@@ -2,6 +2,7 @@ using Dobby.Configuration;
 using Dobby.Contracts.BackgroundOperations;
 using Dobby.Core;
 using Dobby.Host.Settings;
+using Dobby.Host.Plugins;
 using Dobby.Host.Sessions;
 using Dobby.Security.Authentication;
 using Dobby.Security.Authorization;
@@ -26,6 +27,15 @@ public sealed record HostLoginRuntime(
     SettingsNavigationModel SettingsNavigationModel,
     AboutInfoProvider AboutInfoProvider,
     ShellDiagnosticsExportCoordinator DiagnosticsExportCoordinator,
+    HostPluginPackageInstallCoordinator PluginPackageInstallCoordinator,
+    HostPluginRuntimeCoordinator PluginRuntimeCoordinator,
     IBackgroundOperationReporter BackgroundOperations,
     string DiagnosticsSourceDirectory,
-    string DiagnosticsOutputZipPath);
+    string DiagnosticsOutputZipPath) : IAsyncDisposable
+{
+    public async ValueTask DisposeAsync()
+    {
+        PostLoginSessionRuntime.Dispose();
+        await PluginRuntimeCoordinator.DisposeAsync().ConfigureAwait(false);
+    }
+}

@@ -1,5 +1,6 @@
 using Dobby.Core;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.PluginPages;
 using Dobby.Localization;
 using Dobby.Navigation;
 using Dobby.Shell.Layout;
@@ -11,10 +12,11 @@ namespace Dobby.Shell;
 
 public sealed class ShellViewModel : INotifyPropertyChanged
 {
-    private readonly IReadOnlyList<NavigationContribution> contributions;
+    private IReadOnlyList<NavigationContribution> contributions;
     private readonly bool usesStaticNavigation;
     private readonly HostStringCatalog strings;
     private NavigationComposition navigation;
+    private IPluginPageModel? activePluginPageModel;
 
     public ShellViewModel(HostStringCatalog strings)
         : this(strings, Array.Empty<NavigationContribution>())
@@ -127,6 +129,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public IReadOnlyList<ShellSettingsCategoryItem> SettingsCategories => Layout.SettingsCategories;
 
     public IReadOnlyList<ShellAboutField> AboutFields => Layout.AboutFields;
+
+    public IPluginPageModel? ActivePluginPageModel => activePluginPageModel;
+
+    public bool HasActivePluginPage => activePluginPageModel is not null;
 
     public string BackgroundOperationText => strings.GetString(Layout.BackgroundOperationText);
 
@@ -249,6 +255,34 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(BackgroundOperationText));
         OnPropertyChanged(nameof(BackgroundOperationPercent));
         OnPropertyChanged(nameof(BackgroundOperationIsIndeterminate));
+    }
+
+    public void SetActivePluginPage(IPluginPageModel? model)
+    {
+        activePluginPageModel = model;
+        OnPropertyChanged(nameof(ActivePluginPageModel));
+        OnPropertyChanged(nameof(HasActivePluginPage));
+    }
+
+    public void ApplyPluginNavigationContributions(IEnumerable<NavigationContribution> pluginContributions)
+    {
+        ArgumentNullException.ThrowIfNull(pluginContributions);
+
+        contributions = pluginContributions.ToArray();
+        navigation = NavigationComposer.Compose(contributions, Layout.Preference.NavigationOverrides);
+        var requestedRoute = ActiveRouteKey;
+        Layout = ShellLayoutState.CreateDefault(navigation) with
+        {
+            Preference = Layout.Preference,
+            SettingsCategories = Layout.SettingsCategories,
+            AboutFields = Layout.AboutFields,
+            BackgroundOperationText = Layout.BackgroundOperationText,
+            BackgroundOperationPercent = Layout.BackgroundOperationPercent,
+            BackgroundOperationIsIndeterminate = Layout.BackgroundOperationIsIndeterminate,
+            Theme = Layout.Theme
+        };
+        RebuildNavigationLevels(requestedRoute);
+        OnLayoutChanged();
     }
 
     private void OnLayoutChanged()

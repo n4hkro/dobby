@@ -482,6 +482,29 @@ Decision link rule: Phase A closure requires a decision-log anchor under `artifa
 - `HD-S7-001` / `Q1`: resolved for the exact Sprint 7 UI/MVVM/localization/snapshot/test package set by the Sprint 7 2026-05-26 approval evidence record above. Any package/source/native asset/version/scope drift remains a separate human-decision stop condition.
 - Architecture blockers are tracked in architecture-baseline.md
 
+## Sprint 8 Package Approval - HD-S8-001 / Q1
+
+Status: IMPLEMENTED AND VERIFIED for the package-governance no-drift surface that Sprint 8 changed.
+
+Sprint 8 introduced no new repository package pins or package-source drift. `JsonSchema.Net` was not added; the package-governance evidence for this sprint is a no-drift ledger only.
+
+| Package / Asset | Requirement | Version / Asset Identifier | Source URL / Commit / Tag | Package / Asset URL | SHA-256 | NuGet SHA-512 / Package Hash | NuGet Repository Signature | NuGet Author Signature / Risk | Native Upstream Digest | Native Tag / Release Provenance | License | Vulnerability Scan Date | Approver | Decision Link | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+```json
+{
+  "schema": "dobby.sprint8.toolchainPins.v1",
+  "status": "IMPLEMENTED",
+  "approvalRule": "Sprint 8 package-bearing work introduced no new package IDs, versions, sources, or native assets beyond the existing centrally pinned repository state.",
+  "rows": []
+}
+```
+
+Verification evidence:
+
+- `PackageGovernanceTests.Toolchain_pin_tables_match_test_readable_json_per_sprint` includes the Sprint 8 parity check.
+- `dotnet build .\Dobby.sln -v minimal` and `dotnet test .\Dobby.sln -v minimal` passed on 2026-06-09 with 0 failures.
+
 ## Sprint 4 Package Application Evidence
 
 Date: 2026-05-15 (Asia/Baku)

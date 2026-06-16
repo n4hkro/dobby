@@ -198,3 +198,63 @@ Scope:
 
 Decision:
 - `HD-S7-001` / `Q1`: APPROVED - Sprint 7 may use the exact existing package set recorded in `toolchain-pin-gate.md#sprint-7-package-approval---hd-s7-001--q1` for the scoped runtime UI shell/theme/localization and test-only snapshot/unit/integration verification work. Any package drift or added package scope requires a separate human decision before package-bearing work proceeds.
+
+## Phase B Sprint 8 Authority Decisions 2026-06-08
+
+Anchor: `phase-b-sprint8-authority-2026-06-08`
+
+Status: APPROVED - Sprint 8 package-scope, plugin trust-resource, durable installed-state/cache, and namespace authority decisions approved on 2026-06-08 and reconciled on 2026-06-09.
+
+Designated approver: current human requester in this Codex thread (architecture/security/release approver for this decision)
+
+Patch note: AI-assisted authority patch; human approval recorded from the current Codex thread.
+
+Scope:
+- Closes `HD-S8-001` for `SPRINT_8_EXECUTION_PLAN.md` by approving scoped use of the centrally pinned `JsonSchema.Net` package for plugin manifest schema validation only.
+- Closes `HD-S8-002` for `SPRINT_8_EXECUTION_PLAN.md` by approving the production/dev-QA trust-resource model with host-controlled release/build-time trust inputs and fail-closed production constraints.
+- Closes `HD-S8-003` for `SPRINT_8_EXECUTION_PLAN.md` by approving host-owned durable post-login plugin install/state/cache persistence with authoritative `InstalledPluginState`, durable derived metadata cache, host-owned migration/backing ownership, and recovery/cleanup invariants.
+- Closes `HD-S8-004` for `SPRINT_8_EXECUTION_PLAN.md` by approving narrow, owner-specific Sprint 8 namespace authority constraints and rejecting `Dobby.PluginFramework.Authorization` for authorization policy/enforcement or registry seeding.
+
+Out of scope:
+- Does not approve any package ID, version change, package-source change, or package use beyond plugin manifest schema validation with the existing central `JsonSchema.Net` pin.
+- Does not approve private keys, placeholder keys, test fixture keys, arbitrary/user-writable runtime trust-anchor paths, or dynamic runtime trust-anchor loading.
+- Does not supply the actual production or dev/QA public-key bytes; implementation evidence must still record resource paths/packaging location, key fingerprints or SHA-256 hashes, and approval evidence.
+- Does not approve production packaging that includes active dev/QA trust material.
+- Does not pre-name final durable installed-state/cache schema/table names; implementation evidence must record schema/table names or the approved backing abstraction, post-login migration ownership, staging layout, durable transaction boundary, cache rebuild/repair behavior, and recovery/cleanup verification before durable writes are implemented.
+
+Required before Sprint 8 implementation starts:
+- CLOSED: `SPRINT_8_EXECUTION_PLAN.md` records `HD-S8-001`, `HD-S8-002`, `HD-S8-003`, and `HD-S8-004` in section 13.
+- CLOSED: Sprint 8 package-bearing work may use `JsonSchema.Net` only for plugin manifest schema validation.
+- CLOSED: `PluginTrustPublicKeyProvider` is framed as a host-controlled trust material resolver, not a user-configurable trust-anchor loader.
+- CLOSED: Sprint 8 plugin install/state/cache is host-owned durable post-login persistence; `InstalledPluginState` is authoritative, metadata cache is a durable derived read model, and `Dobby.PluginFramework` must not take a direct `Dobby.Infrastructure` or concrete persistence-adapter dependency.
+- CLOSED: Sprint 8 namespace placements require narrow, owner-specific `docs/08_CODING_STANDARDS.md` authority; `Dobby.PluginFramework.Authorization` is not approved for policy/enforcement or registry seeding, and PluginFramework operation-target work must use contribution builder/validator naming only.
+
+Remaining implementation evidence gates:
+- Before adding or relying on a Sprint 8 `JsonSchema.Net` `PackageReference`, implementation evidence must prove no package ID, version, source, or use drift.
+- CLOSED on 2026-06-09: trust verification wiring records canonical production/dev-QA resource paths, logical resource names, SHA-256 hashes, and explicit current-requester approval. The approved bootstrap private keys remain outside the workspace and require rotation before production release.
+- CLOSED on 2026-06-09: explicit Production and DevQa `Dobby.Security` builds plus `PluginTrustResourcePackagingTests` prove each profile embeds only its selected anchor; production contains no dev/QA trust resource.
+- Before durable installed-state/cache writes are implemented, evidence must record schema/table names or the approved backing abstraction, post-login migration ownership, staging layout, durable state transaction boundary, cache rebuild/repair behavior, and post-login recovery/cleanup tests.
+- Before new Sprint 8 public/plugin-visible or skeleton-critical host-internal namespace files are created, evidence must record the exact narrow `docs/08_CODING_STANDARDS.md` authority rows/docs amendments or relocation into covered placements.
+
+Trust resource implementation evidence (2026-06-09):
+- Explicit approval: the current human requester authorized Codex to generate provisional non-main keys, complete the wiring, and leave rotation to a later replacement step.
+- Production source: `src/Dobby.Host/Trust/vendor-master-public-key.pem`; logical resource: `Dobby.Security.Trust.vendor-master-public-key.pem`; SHA-256: `00bedd1f30da9726b50e6aa6929d3df5e7d5e2dbaf05f6435503c01210f5ad1f`.
+- Dev/QA source: `src/Dobby.Host/Trust/dev-qa-public-key.pem`; logical resource: `Dobby.Security.Trust.dev-qa-public-key.pem`; SHA-256: `cb0d35dafea42031e18c778ff208d7b142b280d73ba68983d5f3afccb6a08afc`.
+- Private counterparts are intentionally outside the workspace at `C:\Users\Evaks\.dobby-signing-keys\sprint8-bootstrap`, whose ACL grants only the current owner full control. They are bootstrap material and must be rotated before production release.
+- Verification: `PluginTrustResourcePackagingTests` passed; explicit `DobbyPluginTrustProfile=Production` and `DobbyPluginTrustProfile=DevQa` builds each succeeded with 0 warnings/errors and exposed only the selected profile resource.
+
+Decision ledger:
+- D-22: APPROVED - Sprint 8 may use the centrally pinned `JsonSchema.Net` package only for plugin manifest schema validation. Any new package ID, version change, package-source change, or non-manifest-validation use requires separate approval.
+- D-23: APPROVED WITH CONSTRAINTS - Sprint 8 trust verification will use approved production and dev/QA public-key resource files as release/build-time trust inputs resolved by `PluginTrustPublicKeyProvider` from host-controlled internal resources. Production and dev/QA trust anchors must be separate. Resource paths/packaging location, key fingerprints or SHA-256 hashes, and approval evidence must be recorded. The implementation must fail closed if a required key is missing, malformed, mismatched, or if production includes or accepts dev/QA trust. Production runtime must not include an active dev/QA trust anchor; production packaging should not include dev/QA trust material at all. Private keys, placeholder keys, test fixture keys, and arbitrary/user-writable runtime trust-anchor paths are forbidden in production/runtime resources.
+- D-24: APPROVED WITH CONSTRAINTS - Sprint 8 plugin install/state/cache is host-owned durable post-login persistence. `InstalledPluginState` is the authoritative durable state for install, enablement, package fingerprint, validation summary, and runtime path. `InstalledPluginMetadataCache` is a durable, derived read model for login-visible display and manager list/detail; it is not the trust, enablement, install, or package-validity truth source and must be rebuildable/repairable from authoritative installed state. Implementation evidence must record schema/table names or the approved backing abstraction, post-login migration ownership, staging layout, durable state transaction boundary, and recovery/cleanup tests. Database and filesystem work must use staging plus recovery/cleanup invariants rather than a simple distributed atomic move claim. `Dobby.PluginFramework` may define domain ports and typed outcomes but must not directly depend on `Dobby.Infrastructure` or a concrete persistence adapter.
+- D-25: APPROVED WITH CONSTRAINTS - Planned Sprint 8 namespace/file placements may be kept only after narrow, owner-specific `docs/08_CODING_STANDARDS.md` authority rows/docs amendments are recorded. `Dobby.Security.Trust`, `Dobby.Shell.PluginPages`, `Dobby.Host.Plugins`, and `Dobby.PluginFramework.Packaging` may be authorized through those rows. `Dobby.PluginFramework.Authorization` is not approved for policy/enforcement or registry seeding; PluginFramework may only produce or validate plugin operation-target contributions using contribution builder/validator naming, while actual seeding is host-wired and authorization policy/enforcement plus registry ownership remain `Dobby.Security`-owned.
+
+## Sprint 8 Closure 2026-06-10
+
+Status: IMPLEMENTED AND VERIFIED.
+
+Verification:
+
+- `dotnet build .\Dobby.sln -c Release --no-restore -warnaserror -v minimal` passed with 0 warnings and 0 errors.
+- `dotnet test .\Dobby.sln -c Release --no-restore --no-build --logger "console;verbosity=minimal"` passed with 0 failures.
+- Supporting suite evidence: Unit 447, Integration 197, Smoke 6.

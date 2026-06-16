@@ -201,6 +201,7 @@ public sealed class PackageGovernanceTests
         AssertPinSectionParity(markdown, "## Sprint 4 Candidate Pin Representation", "dobby.sprint4.toolchainPins.v2");
         AssertPinSectionParity(markdown, "## Sprint 5 Approved Pin Representation", "dobby.sprint5.toolchainPins.v1");
         AssertPinSectionParity(markdown, "## Sprint 7 Package Approval - HD-S7-001 / Q1", "dobby.sprint7.toolchainPins.v1");
+        AssertPinSectionParity(markdown, "## Sprint 8 Package Approval - HD-S8-001 / Q1", "dobby.sprint8.toolchainPins.v1");
     }
 
     [Fact]

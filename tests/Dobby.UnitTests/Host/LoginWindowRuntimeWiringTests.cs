@@ -33,6 +33,22 @@ public sealed class LoginWindowRuntimeWiringTests
     }
 
     [Fact]
+    public void App_and_host_login_runtime_use_explicit_async_cleanup()
+    {
+        var app = ReadSource("src", "Dobby.Host", "App.xaml.cs");
+        var runtime = ReadSource("src", "Dobby.Host", "Login", "HostLoginRuntime.cs");
+
+        app.ShouldContain("protected override async void OnStartup");
+        app.ShouldContain("await RunLoginLoopAsync()");
+        app.ShouldContain("await using var loginRuntime = HostLoginRuntimeFactory.Create()");
+        runtime.ShouldContain("IAsyncDisposable");
+        runtime.ShouldContain("PostLoginSessionRuntime.Dispose();");
+        runtime.ShouldContain("await PluginRuntimeCoordinator.DisposeAsync()");
+        runtime.IndexOf("PostLoginSessionRuntime.Dispose();", StringComparison.Ordinal)
+            .ShouldBeLessThan(runtime.IndexOf("await PluginRuntimeCoordinator.DisposeAsync()", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Main_window_records_host_input_as_session_activity()
     {
         var mainWindow = ReadSource("src", "Dobby.Host", "MainWindow.xaml.cs");

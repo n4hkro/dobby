@@ -175,6 +175,9 @@
         <TextBlock
             Foreground="{DynamicResource Dobby.Brush.Text}"
             Text="{Binding StatusText}" />
+        <ContentControl
+            x:Name="PluginPageHost"
+            Margin="{DynamicResource Dobby.Spacing.Small}" />
         <ItemsControl
             x:Name="NotificationPresentationList"
             Margin="{DynamicResource Dobby.Spacing.Small}"

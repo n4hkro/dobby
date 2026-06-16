@@ -329,3 +329,23 @@ Decision and assumption closure:
 - Q8 dispatcher placement is closed by `src/Dobby.Shell/UiDispatch/WpfUiDispatcher.cs`.
 - Q9 Host namespace placement is closed by flat `Dobby.Host` coordinator files.
 - Implementation assumptions A1-A7 from `SPRINT_7_EXECUTION_PLAN.md` are closed without human-decision escalation.
+
+## Sprint 8 Implementation Evidence
+
+Date: 2026-06-10 (Asia/Baku)
+
+Status: IMPLEMENTED AND VERIFIED.
+
+- SPRINT8-PACKAGE-GOVERNANCE: plugin package reader, validator, fingerprint, installer rollback, runtime activation scheduling, and trust-package coverage are in place; source installs are gated to local `.dobbyplugin` files while installed runtime directories remain an internal activation/recovery input.
+- SPRINT8-SOURCE-PACKAGE-GATE: `HostPluginPackageInstallCoordinator` rejects directory and non-`.dobbyplugin` source paths before staging, records `unsupported-package-source`, and continues to validate trusted `.dobbyplugin` archives before install.
+- SPRINT8-TRUST-RESOURCE-PACKAGING: bootstrap P-256 public trust anchors were generated with explicit owner approval and committed only at the canonical public PEM paths. Production PEM SHA-256 is `00bedd1f30da9726b50e6aa6929d3df5e7d5e2dbaf05f6435503c01210f5ad1f`; dev/QA PEM SHA-256 is `cb0d35dafea42031e18c778ff208d7b142b280d73ba68983d5f3afccb6a08afc`. Private counterparts remain outside the workspace under the owner-only `C:\Users\Evaks\.dobby-signing-keys\sprint8-bootstrap` directory and must be rotated before production release. `PluginTrustResourcePackagingTests` passed, and explicit Production/DevQa builds proved each `Dobby.Security` assembly embeds only its selected logical resource.
+- SPRINT8-ACTIVATION-REVALIDATION: `HostPluginRuntimeCoordinator` re-runs package validation and trust verification against installed runtime packages before compatibility checks, operation-target seeding, or assembly loading; activation rejects trust failures, stale package fingerprints with `package-fingerprint-mismatch`, and plugin id mismatches.
+- SPRINT8-COMPATIBILITY-DEPENDENCY: manifest validation now rejects prerelease versions, malformed package-relative paths, and self-dependencies before activation work; `PluginOperationTargetContributionBuilder` emits Security-ready operation-target contributions only after manifest validation succeeds.
+- SPRINT8-SESSION-CANCELLATION: host post-login runtime cancels in-flight plugin activation on lock, logout, expiry, invalidation, and disposal, and the host coordinator resets activation state after post-login migration recovery.
+- SPRINT8-ALC-ISOLATION: each installed plugin is activated through a non-collectible `PluginLoadContext` with host-pinned shared assemblies and plugin-private dependency resolution from the runtime path.
+- SPRINT8-EVENT-BUS-HOSTING: plugin activation now receives host-owned `PluginHostServices`; the production factory wires `InMemoryEventBus` into plugin service construction and `IPluginActivationContext` without exposing host root DI.
+- SPRINT8-PAGE-RENDER-HOSTING: `PluginPageRenderRegistry.CreateDefault()` allowlists `PluginTextPageModel` into host-rendered WPF content, rejects unknown plugin models, and `MainWindow` uses that approved default registry for the `PluginPageHost` surface.
+- SPRINT8-PLUGIN-PROGRESS-HOSTING: plugin extension points can receive `IBackgroundOperationReporter` and `IBackgroundOperationCancellation` as official host contract services; the sample plugin reports plugin-owned progress through the host reporter while shell progress remains the only UI sink.
+- SPRINT8-BACKGROUND-OPERATION: the host activation path publishes official background-operation snapshots through `BackgroundOperationReporter` and `ShellBackgroundOperationCoordinator`; shell progress remains the only UI sink.
+- SPRINT8-ACTIVATION-SCHEDULING: successful login now schedules post-login plugin activation after the shell window is rendered, using the authenticated runtime and activation cancellation token.
+- SPRINT8-BOUNDARY-VERIFICATION: `dotnet build .\Dobby.sln -c Release --no-restore -warnaserror -v minimal` passed on 2026-06-10 with 0 warnings and 0 errors; `dotnet test .\Dobby.sln -c Release --no-restore --no-build --logger "console;verbosity=minimal"` passed on 2026-06-10 with 0 failures: Unit 447, Integration 197, Smoke 6.

@@ -1,5 +1,6 @@
 using Dobby.Configuration;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Application;
 using Dobby.Host.Login;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
@@ -22,7 +23,7 @@ public sealed class HostLoginRuntimeFactoryTests
             "INSERT INTO AuditLog(AuditId, OccurredAtUtc, EventName, ActorId, Target, Result, CorrelationId, DetailsJson) VALUES ('retained', @Retained, 'audit.retained', 'system', 'audit', 'success', @CorrelationId, '{}');",
             new { Retained = retained, CorrelationId = Guid.NewGuid().ToString("D") });
 
-        _ = HostLoginRuntimeFactory.Create(
+        var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
             new RecordingProtector(),
@@ -33,6 +34,7 @@ public sealed class HostLoginRuntimeFactoryTests
             TimeSpan.FromSeconds(5)).ShouldBeTrue("audit retention must run as a one-shot post-LoginVisible maintenance operation.");
         fixture.Executor.Query<string>("SELECT AuditId FROM AuditLog ORDER BY AuditId;")
             .ShouldBe(["retained"]);
+        WaitForAuditRetentionSweep(runtime);
     }
 
     [Fact]
@@ -79,6 +81,7 @@ public sealed class HostLoginRuntimeFactoryTests
         runtime.AccountSettingsModel.ShouldNotBeNull();
         runtime.SettingsNavigationModel.ShouldNotBeNull();
         runtime.AboutInfoProvider.ShouldNotBeNull();
+        WaitForAuditRetentionSweep(runtime);
     }
 
     [Fact]
@@ -111,6 +114,7 @@ public sealed class HostLoginRuntimeFactoryTests
             "SELECT ConfigKey FROM HostConfiguration WHERE ConfigKey LIKE 'settings.user.%.shell.sidebar-collapsed';");
         keys.Count.ShouldBe(1);
         keys.Single().ShouldNotContain("owner@example.local");
+        WaitForAuditRetentionSweep(runtime);
     }
 
     [Fact]
@@ -131,6 +135,24 @@ public sealed class HostLoginRuntimeFactoryTests
         info.AppVersion.ShouldBe(expectedDisplayVersion);
         info.BuildNumber.ShouldBe(expectedDisplayVersion);
         info.BuildDate.ShouldNotBe("unknown");
+        WaitForAuditRetentionSweep(runtime);
+    }
+
+    private static void WaitForAuditRetentionSweep(HostLoginRuntime runtime)
+    {
+        switch (runtime.BackgroundOperations)
+        {
+            case BackgroundOperationReporter reporter:
+                SpinWait.SpinUntil(
+                    () => reporter.LatestSnapshot?.Status is BackgroundOperationStatus.Completed or BackgroundOperationStatus.Failed,
+                    TimeSpan.FromSeconds(5)).ShouldBeTrue("audit retention sweep must finish before test data root cleanup.");
+                break;
+            case RecordingBackgroundOperationReporter reporter:
+                SpinWait.SpinUntil(
+                    () => reporter.Snapshots.Any(snapshot => snapshot.Status is BackgroundOperationStatus.Completed or BackgroundOperationStatus.Failed),
+                    TimeSpan.FromSeconds(5)).ShouldBeTrue("audit retention sweep must finish before test data root cleanup.");
+                break;
+        }
     }
 
     private sealed class HostRuntimePersistenceFixture : IDisposable
