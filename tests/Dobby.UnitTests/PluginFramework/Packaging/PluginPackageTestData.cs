@@ -98,16 +98,9 @@ internal static class PluginPackageTestData
                 ["verbs"] = target.Verbs.ToArray(),
                 ["labelKey"] = target.LabelKey
             }).ToArray(),
-            ["extensionPoints"] = (extensionPoints ?? [new PluginExtensionPoint("sample.home", "plugin-page-region", "sample.home", "sample.home.label", null, "default", 100)]).Select(extensionPoint => new Dictionary<string, object?>(StringComparer.Ordinal)
-            {
-                ["id"] = extensionPoint.Id,
-                ["target"] = extensionPoint.Target,
-                ["routeKey"] = extensionPoint.RouteKey,
-                ["labelKey"] = extensionPoint.LabelKey,
-                ["parentId"] = extensionPoint.ParentId,
-                ["group"] = extensionPoint.Group,
-                ["weight"] = extensionPoint.Weight
-            }).ToArray(),
+            ["extensionPoints"] = (extensionPoints ?? [new PluginExtensionPoint("sample.home", "plugin-page-region", "sample.home", "sample.home.label", null, "default", 100)])
+                .Select(ExtensionPointJson)
+                .ToArray(),
             ["files"] = (files ?? [new PluginPackageFile(FilePath, FileHash)]).Select(file => new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["path"] = file.Path,
@@ -130,6 +123,38 @@ internal static class PluginPackageTestData
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
+    }
+
+    private static Dictionary<string, object?> ExtensionPointJson(PluginExtensionPoint extensionPoint)
+    {
+        var json = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["id"] = extensionPoint.Id,
+            ["target"] = extensionPoint.Target,
+            ["routeKey"] = extensionPoint.RouteKey
+        };
+
+        if (extensionPoint.LabelKey is not null)
+        {
+            json["labelKey"] = extensionPoint.LabelKey;
+        }
+
+        if (extensionPoint.ParentId is not null)
+        {
+            json["parentId"] = extensionPoint.ParentId;
+        }
+
+        if (extensionPoint.Group is not null)
+        {
+            json["group"] = extensionPoint.Group;
+        }
+
+        if (extensionPoint.Weight is not null)
+        {
+            json["weight"] = extensionPoint.Weight;
+        }
+
+        return json;
     }
 
     public static PluginPackageArchive CreateArchive(

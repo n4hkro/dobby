@@ -484,26 +484,47 @@ Decision link rule: Phase A closure requires a decision-log anchor under `artifa
 
 ## Sprint 8 Package Approval - HD-S8-001 / Q1
 
-Status: IMPLEMENTED AND VERIFIED for the package-governance no-drift surface that Sprint 8 changed.
+Status: APPROVED AND IMPLEMENTED for the Sprint 8 manifest-validation-only `JsonSchema.Net` package use.
 
-Sprint 8 introduced no new repository package pins or package-source drift. `JsonSchema.Net` was not added; the package-governance evidence for this sprint is a no-drift ledger only.
+Sprint 8 uses the existing central `JsonSchema.Net` pin only from `Dobby.PluginFramework` for `docs/schemas/dobby-plugin-manifest.schema.json` validation before typed manifest projection. No `Directory.Packages.props` version change, package source change, or non-manifest-validation use is approved.
 
 | Package / Asset | Requirement | Version / Asset Identifier | Source URL / Commit / Tag | Package / Asset URL | SHA-256 | NuGet SHA-512 / Package Hash | NuGet Repository Signature | NuGet Author Signature / Risk | Native Upstream Digest | Native Tag / Release Provenance | License | Vulnerability Scan Date | Approver | Decision Link | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `JsonSchema.Net` | Required only for Sprint 8 plugin manifest schema validation in `Dobby.PluginFramework` | `9.2.0` | `https://github.com/json-everything/json-everything` commit `112013e3ea98e10d791fa6db51ab9a18846665f6` | `https://api.nuget.org/v3-flatcontainer/jsonschema.net/9.2.0/jsonschema.net.9.2.0.nupkg` | `bf3d895af67b1ccf3b35780673e312d8d7dfdaae2efb0d609ecf062b8d4b3a6c` | SHA512 `pc1hr16zNQSxVsOSIYWliE3rtl5E4MwRXReflPf60l5tSvzMfl65eJV6M+iPXhZ2Ui5o078LJ2pS9O1o5ZT1zQ==` | verified; signer: NuGet.org Repository by Microsoft; cert SHA256 `1F4B311D9ACC115C8DC8018B5A49E00FCE6DA8E2855F9F014CA6F34570BC482D` | absent; risk accepted via NuGet repository signature only | N/A | N/A | MIT source license; package carries OSMFEULA maintenance-fee terms | 2026-06-16; `dotnet list src/Dobby.PluginFramework/Dobby.PluginFramework.csproj package --vulnerable --include-transitive` reported no vulnerable packages | `n4hkro (architecture/security/release approver)` | `artifacts/release-evidence/skeleton-local/decision-log.md#hd-s8-001-q1` | APPROVED |
 
 ```json
 {
   "schema": "dobby.sprint8.toolchainPins.v1",
-  "status": "IMPLEMENTED",
-  "approvalRule": "Sprint 8 package-bearing work introduced no new package IDs, versions, sources, or native assets beyond the existing centrally pinned repository state.",
-  "rows": []
+  "status": "APPROVED",
+  "approvalRule": "JsonSchema.Net is approved only for Sprint 8 plugin manifest schema validation in Dobby.PluginFramework; no package ID, version, source, or non-manifest-validation use drift is approved.",
+  "rows": [
+    {
+      "packageId": "JsonSchema.Net",
+      "requirement": "Required only for Sprint 8 plugin manifest schema validation in Dobby.PluginFramework",
+      "versionOrAsset": "9.2.0",
+      "sourceUrlCommitTag": "https://github.com/json-everything/json-everything commit 112013e3ea98e10d791fa6db51ab9a18846665f6",
+      "packageOrAssetUrl": "https://api.nuget.org/v3-flatcontainer/jsonschema.net/9.2.0/jsonschema.net.9.2.0.nupkg",
+      "sha256": "bf3d895af67b1ccf3b35780673e312d8d7dfdaae2efb0d609ecf062b8d4b3a6c",
+      "nugetSha512OrPackageHash": "SHA512 pc1hr16zNQSxVsOSIYWliE3rtl5E4MwRXReflPf60l5tSvzMfl65eJV6M+iPXhZ2Ui5o078LJ2pS9O1o5ZT1zQ==",
+      "nugetRepositorySignature": "verified; signer: NuGet.org Repository by Microsoft; cert SHA256 1F4B311D9ACC115C8DC8018B5A49E00FCE6DA8E2855F9F014CA6F34570BC482D",
+      "nugetAuthorSignatureOrRisk": "absent; risk accepted via NuGet repository signature only",
+      "nativeUpstreamDigest": "N/A",
+      "nativeTagReleaseProvenance": "N/A",
+      "license": "MIT source license; package carries OSMFEULA maintenance-fee terms",
+      "vulnerabilityScanDate": "2026-06-16; dotnet list src/Dobby.PluginFramework/Dobby.PluginFramework.csproj package --vulnerable --include-transitive reported no vulnerable packages",
+      "approver": "n4hkro (architecture/security/release approver)",
+      "decisionLink": "artifacts/release-evidence/skeleton-local/decision-log.md#hd-s8-001-q1",
+      "status": "APPROVED"
+    }
+  ]
 }
 ```
 
 Verification evidence:
 
 - `PackageGovernanceTests.Toolchain_pin_tables_match_test_readable_json_per_sprint` includes the Sprint 8 parity check.
-- `dotnet build .\Dobby.sln -v minimal` and `dotnet test .\Dobby.sln -v minimal` passed on 2026-06-09 with 0 failures.
+- `PackageGovernanceTests.Approved_sprint8_manifest_schema_package_is_pinned_referenced_and_evidenced` verifies the central pin, the single approved direct `Dobby.PluginFramework` package reference, and the test-readable Sprint 8 evidence row.
+- `dotnet restore .\Dobby.sln`, `dotnet nuget verify --all jsonschema.net.9.2.0.nupkg`, and `dotnet list src/Dobby.PluginFramework/Dobby.PluginFramework.csproj package --vulnerable --include-transitive` passed on 2026-06-16 with no vulnerable packages reported.
 
 ## Sprint 4 Package Application Evidence
 

@@ -318,6 +318,40 @@ public sealed class PackageGovernanceTests
             .ShouldNotContain("System.Management");
     }
 
+    [Fact]
+    public void Approved_sprint8_manifest_schema_package_is_pinned_referenced_and_evidenced()
+    {
+        var root = RepoRoot();
+        PackageVersions(root).ShouldContain("JsonSchema.Net");
+
+        var pluginFrameworkProject = new FileInfo(Path.Combine(
+            root.FullName,
+            "src",
+            "Dobby.PluginFramework",
+            "Dobby.PluginFramework.csproj"));
+        PackageReferences(pluginFrameworkProject).ShouldContain("JsonSchema.Net");
+
+        var unauthorizedReferences = ProjectFiles(root)
+            .Where(project => !project.FullName.Equals(pluginFrameworkProject.FullName, StringComparison.OrdinalIgnoreCase))
+            .Where(project => PackageReferences(project).Contains("JsonSchema.Net", StringComparer.Ordinal))
+            .Select(project => project.FullName)
+            .ToArray();
+        unauthorizedReferences.ShouldBeEmpty("JsonSchema.Net is approved only for Sprint 8 plugin manifest schema validation in Dobby.PluginFramework.");
+
+        var evidencePath = Path.Combine(
+            root.FullName,
+            "artifacts",
+            "release-evidence",
+            "skeleton-local",
+            "toolchain-pin-gate.md");
+        var rows = PinJsonRows(File.ReadAllText(evidencePath), "dobby.sprint8.toolchainPins.v1");
+
+        rows.ShouldContainKey("JsonSchema.Net");
+        var row = rows["JsonSchema.Net"];
+        row.Requirement.ShouldContain("manifest schema validation", Case.Sensitive);
+        row.Status.ShouldBe("APPROVED");
+    }
+
     private static bool IsRejected(string packageId, HashSet<string> rejectedPackages)
     {
         var rejectedPackagePrefixes = new[]

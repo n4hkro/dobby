@@ -126,6 +126,12 @@ public static class PluginPackageReader
             return PluginManifestValidationOutcome.Failure([new PluginManifestValidationReason("invalid-manifest", "Manifest root must be an object.")]);
         }
 
+        var schemaReasons = PluginManifestSchemaValidator.Validate(root);
+        if (schemaReasons.Count != 0)
+        {
+            return PluginManifestValidationOutcome.Failure(schemaReasons);
+        }
+
         var allowedRootProperties = new HashSet<string>(StringComparer.Ordinal)
         {
             "pluginId",

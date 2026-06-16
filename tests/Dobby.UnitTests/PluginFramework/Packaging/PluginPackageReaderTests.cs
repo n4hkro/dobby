@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -56,6 +57,31 @@ public sealed class PluginPackageReaderTests
     }
 
     [Fact]
+    public void Read_valid_manifests_concurrently_through_embedded_schema()
+    {
+        var failures = new ConcurrentBag<string>();
+
+        Parallel.For(0, 64, index =>
+        {
+            using var temp = new TempDirectory();
+            Directory.CreateDirectory(Path.Combine(temp.Path, "content"));
+            File.WriteAllText(
+                Path.Combine(temp.Path, PluginPackageReader.ManifestFileName),
+                PluginPackageTestData.CreateManifestJson(),
+                Encoding.UTF8);
+            File.WriteAllBytes(Path.Combine(temp.Path, "content", "hello.txt"), PluginPackageTestData.FileContent);
+
+            var result = PluginPackageReader.Read(temp.Path);
+            if (!result.IsSuccess)
+            {
+                failures.Add($"{index}: {result.ErrorCode}");
+            }
+        });
+
+        failures.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Read_rejects_manifest_with_unexpected_root_property()
     {
         using var temp = new TempDirectory();
@@ -64,6 +90,23 @@ public sealed class PluginPackageReaderTests
             PluginPackageTestData.CreateManifestJson(includeUnexpectedRootProperty: true),
             Encoding.UTF8);
         File.WriteAllBytes(Path.Combine(temp.Path, "content.txt"), PluginPackageTestData.FileContent);
+
+        var result = PluginPackageReader.Read(temp.Path);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+    }
+
+    [Fact]
+    public void Read_rejects_manifest_that_fails_embedded_schema_before_typed_projection()
+    {
+        using var temp = new TempDirectory();
+        Directory.CreateDirectory(Path.Combine(temp.Path, "content"));
+        File.WriteAllText(
+            Path.Combine(temp.Path, PluginPackageReader.ManifestFileName),
+            CreateManifestJsonWithRootOverride("displayName", string.Empty),
+            Encoding.UTF8);
+        File.WriteAllBytes(Path.Combine(temp.Path, "content", "hello.txt"), PluginPackageTestData.FileContent);
 
         var result = PluginPackageReader.Read(temp.Path);
 
@@ -89,7 +132,7 @@ public sealed class PluginPackageReaderTests
         var result = PluginPackageReader.Read(temp.Path);
 
         result.IsSuccess.ShouldBeFalse();
-        result.ErrorCode.ShouldBe(ErrorCode.SerializationFailed);
+        result.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
     }
 
     private static string CreateManifestJsonWithExtensionOverride(string propertyName, object value)
@@ -97,6 +140,13 @@ public sealed class PluginPackageReaderTests
         var root = JsonNode.Parse(PluginPackageTestData.CreateManifestJson())!.AsObject();
         var extension = root["extensionPoints"]!.AsArray()[0]!.AsObject();
         extension[propertyName] = JsonValue.Create(value);
+        return root.ToJsonString();
+    }
+
+    private static string CreateManifestJsonWithRootOverride(string propertyName, object value)
+    {
+        var root = JsonNode.Parse(PluginPackageTestData.CreateManifestJson())!.AsObject();
+        root[propertyName] = JsonValue.Create(value);
         return root.ToJsonString();
     }
 
