@@ -28,10 +28,11 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
     {
         ArgumentNullException.ThrowIfNull(package);
 
+        string? stagedPath = null;
         try
         {
             var stagingId = Guid.NewGuid().ToString("N");
-            var stagedPath = Path.Combine(stagingRoot, stagingId);
+            stagedPath = Path.Combine(stagingRoot, stagingId);
             Directory.CreateDirectory(stagedPath);
             MaterializePackage(stagedPath, package);
             RecordStaging(stagingId, package, stagedPath, state: "staged", runtimePath: null);
@@ -39,6 +40,7 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
         }
         catch
         {
+            TryDeleteDirectory(stagedPath);
             return Result.Failure<string>(ErrorCode.IoFailed);
         }
     }
@@ -48,9 +50,10 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
         ArgumentException.ThrowIfNullOrWhiteSpace(stagedPath);
         ArgumentNullException.ThrowIfNull(package);
 
+        string? runtimePath = null;
         try
         {
-            var runtimePath = Path.Combine(runtimeRoot, package.Manifest.PluginId, package.Manifest.Version, package.Fingerprint);
+            runtimePath = Path.Combine(runtimeRoot, package.Manifest.PluginId, package.Manifest.Version, package.Fingerprint);
             Directory.CreateDirectory(Path.GetDirectoryName(runtimePath)!);
             if (Directory.Exists(runtimePath))
             {
@@ -63,6 +66,8 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
         }
         catch
         {
+            TryDeleteDirectory(runtimePath);
+            TryRemoveStagingRow(stagedPath, runtimePath);
             return Result.Failure<string>(ErrorCode.IoFailed);
         }
     }
@@ -230,6 +235,19 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
             });
     }
 
+    private void TryRemoveStagingRow(string stagedPath, string? runtimePath)
+    {
+        try
+        {
+            executor.Execute(
+                "DELETE FROM PluginInstallStaging WHERE StagedPath = @StagedPath OR RuntimePath = @RuntimePath;",
+                new { StagedPath = stagedPath, RuntimePath = runtimePath });
+        }
+        catch
+        {
+        }
+    }
+
     private static void MaterializePackage(string stagedPath, PluginPackageDescriptor package)
     {
         File.WriteAllText(Path.Combine(stagedPath, PluginPackageReader.ManifestFileName), package.ManifestJson, new UTF8Encoding(false));
@@ -279,6 +297,22 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
         }
 
         Directory.Delete(normalized);
+    }
+
+    private static void TryDeleteDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch
+        {
+        }
     }
 
     private sealed record StagingRow(

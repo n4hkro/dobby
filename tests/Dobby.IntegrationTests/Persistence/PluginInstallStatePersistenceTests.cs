@@ -81,6 +81,51 @@ public sealed class PluginInstallStatePersistenceTests
     }
 
     [Fact]
+    public void Staging_area_removes_materialized_stage_when_staging_row_write_fails()
+    {
+        using var fixture = PluginPersistenceFixture.Create();
+        fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All).IsSuccess.ShouldBeTrue();
+
+        var package = CreatePackage();
+        var failingExecutor = new FailingExecuteCommandExecutor(fixture.Executor, "INSERT INTO PluginInstallStaging");
+        var staging = new PluginInstallStagingArea(fixture.Root, failingExecutor);
+
+        var result = staging.Stage(package);
+
+        result.IsSuccess.ShouldBeFalse();
+        var stagingRoot = Path.Combine(fixture.Root, "plugins", "staging");
+        Directory.EnumerateDirectories(stagingRoot).ShouldBeEmpty();
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+    }
+
+    [Fact]
+    public void Staging_area_removes_promoted_runtime_when_staging_row_update_fails()
+    {
+        using var fixture = PluginPersistenceFixture.Create();
+        fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All).IsSuccess.ShouldBeTrue();
+
+        var package = CreatePackage();
+        var staging = new PluginInstallStagingArea(fixture.Root, fixture.Executor);
+        var staged = staging.Stage(package).Value;
+        var failingExecutor = new FailingExecuteCommandExecutor(fixture.Executor, "UPDATE PluginInstallStaging");
+        var failingStaging = new PluginInstallStagingArea(fixture.Root, failingExecutor);
+        var runtimePath = Path.Combine(
+            fixture.Root,
+            "plugins",
+            "installed",
+            package.Manifest.PluginId,
+            package.Manifest.Version,
+            package.Fingerprint);
+
+        var result = failingStaging.Promote(staged, package);
+
+        result.IsSuccess.ShouldBeFalse();
+        Directory.Exists(runtimePath).ShouldBeFalse();
+        Directory.Exists(staged).ShouldBeFalse();
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+    }
+
+    [Fact]
     public async Task Post_login_recovery_removes_runtime_orphans_and_rebuilds_metadata_cache_from_state()
     {
         using var fixture = PluginPersistenceFixture.Create();
@@ -225,5 +270,30 @@ public sealed class PluginInstallStatePersistenceTests
     private sealed class AllowAllTrustVerifier : IPluginTrustVerifier
     {
         public PluginTrustVerificationResult Verify(PluginTrustPayload payload) => PluginTrustVerificationResult.Success();
+    }
+
+    private sealed class FailingExecuteCommandExecutor(
+        IHostPersistenceCommandExecutor inner,
+        string failSqlSnippet) : IHostPersistenceCommandExecutor
+    {
+        public int Execute(string sql, object? parameters = null)
+        {
+            if (sql.Contains(failSqlSnippet, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Injected persistence failure.");
+            }
+
+            return inner.Execute(sql, parameters);
+        }
+
+        public IReadOnlyList<T> Query<T>(string sql, object? parameters = null)
+        {
+            return inner.Query<T>(sql, parameters);
+        }
+
+        public T QueryScalar<T>(string sql, object? parameters = null)
+        {
+            return inner.QueryScalar<T>(sql, parameters);
+        }
     }
 }
