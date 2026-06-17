@@ -118,5 +118,10 @@ public sealed class PluginTrustPublicKeyProviderTests
             .SelectMany(constructor => constructor.GetParameters())
             .Any(parameter => parameter.ParameterType == typeof(string))
             .ShouldBeFalse();
+
+        constructors
+            .SelectMany(constructor => constructor.GetParameters())
+            .Any(parameter => parameter.ParameterType == typeof(IReadOnlyDictionary<string, byte[]>))
+            .ShouldBeFalse();
     }
 }

@@ -15,6 +15,7 @@ public sealed class PluginPackageValidatorTests
         var manifest = PluginPackageTestData.CreateManifest();
         var archive = CreateArchive(manifest, [
             new PluginPackageEntry(PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson()), PluginPackageTestData.HashHex("manifest"), false),
+            new PluginPackageEntry(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent, PluginPackageTestData.EntryAssemblyHash, false),
             new PluginPackageEntry(PluginPackageTestData.FilePath, PluginPackageTestData.FileContent, PluginPackageTestData.FileHash, false)
         ]);
 
@@ -30,6 +31,7 @@ public sealed class PluginPackageValidatorTests
         var manifest = PluginPackageTestData.CreateManifest();
         var archive = CreateArchive(manifest, [
             new PluginPackageEntry(PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson()), PluginPackageTestData.HashHex("manifest"), false),
+            new PluginPackageEntry(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent, PluginPackageTestData.EntryAssemblyHash, false),
             new PluginPackageEntry(PluginPackageTestData.FilePath, PluginPackageTestData.FileContent, PluginPackageTestData.FileHash, false)
         ]);
 
@@ -43,6 +45,7 @@ public sealed class PluginPackageValidatorTests
         var manifest = PluginPackageTestData.CreateManifest();
         var archive = CreateArchive(manifest, [
             new PluginPackageEntry(PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson()), PluginPackageTestData.HashHex("manifest"), false),
+            new PluginPackageEntry(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent, PluginPackageTestData.EntryAssemblyHash, false),
             new PluginPackageEntry(PluginPackageTestData.FilePath, Encoding.UTF8.GetBytes("tampered"), PluginPackageTestData.HashHex("tampered"), false)
         ]);
 
@@ -54,15 +57,35 @@ public sealed class PluginPackageValidatorTests
     }
 
     [Fact]
+    public void Validate_rejects_manifest_when_entry_assembly_is_not_declared_in_files()
+    {
+        var manifest = PluginPackageTestData.CreateManifest(
+            files: [new PluginPackageFile(PluginPackageTestData.FilePath, PluginPackageTestData.FileHash)]);
+        var archive = CreateArchive(manifest, [
+            new PluginPackageEntry(PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson()), PluginPackageTestData.HashHex("manifest"), false),
+            new PluginPackageEntry(PluginPackageTestData.FilePath, PluginPackageTestData.FileContent, PluginPackageTestData.FileHash, false)
+        ]);
+
+        var result = PluginPackageValidator.Validate(archive, new HostVersion(1, 0, 0), new AllowAllTrustVerifier());
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Reasons.ShouldContain(reason =>
+            reason.Code == "invalid-manifest" &&
+            reason.Path == "entryAssembly");
+    }
+
+    [Fact]
     public void Validate_rejects_case_colliding_entry()
     {
         var manifest = PluginPackageTestData.CreateManifest(
             files:
             [
+                new PluginPackageFile(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyHash),
                 new PluginPackageFile(PluginPackageTestData.FilePath, PluginPackageTestData.FileHash)
             ]);
         var archive = CreateArchive(manifest, [
             new PluginPackageEntry(PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson()), PluginPackageTestData.HashHex("manifest"), false),
+            new PluginPackageEntry(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent, PluginPackageTestData.EntryAssemblyHash, false),
             new PluginPackageEntry(PluginPackageTestData.AlternateFilePath, PluginPackageTestData.FileContent, PluginPackageTestData.FileHash, false)
         ]);
 
@@ -79,6 +102,7 @@ public sealed class PluginPackageValidatorTests
         var manifest = PluginPackageTestData.CreateManifest();
         var archive = CreateArchive(manifest, [
             new PluginPackageEntry(PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson()), PluginPackageTestData.HashHex("manifest"), false),
+            new PluginPackageEntry(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent, PluginPackageTestData.EntryAssemblyHash, false),
             new PluginPackageEntry(PluginPackageTestData.FilePath, PluginPackageTestData.FileContent, PluginPackageTestData.FileHash, true)
         ]);
 
@@ -94,6 +118,7 @@ public sealed class PluginPackageValidatorTests
         var manifest = PluginPackageTestData.CreateManifest();
         var archive = CreateArchive(manifest, [
             new PluginPackageEntry(PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson()), PluginPackageTestData.HashHex("manifest"), false),
+            new PluginPackageEntry(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent, PluginPackageTestData.EntryAssemblyHash, false),
             new PluginPackageEntry(PluginPackageTestData.FilePath, PluginPackageTestData.FileContent, PluginPackageTestData.FileHash, false)
         ]);
 
@@ -116,9 +141,14 @@ public sealed class PluginPackageValidatorTests
         var content = Encoding.UTF8.GetBytes("forbidden");
         var hash = PluginPackageTestData.HashHex(content);
         var manifest = PluginPackageTestData.CreateManifest(
-            files: [new PluginPackageFile(forbiddenPath, hash)]);
+            files:
+            [
+                new PluginPackageFile(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyHash),
+                new PluginPackageFile(forbiddenPath, hash)
+            ]);
         var archive = CreateArchive(manifest, [
             new PluginPackageEntry(PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson()), PluginPackageTestData.HashHex("manifest"), false),
+            new PluginPackageEntry(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent, PluginPackageTestData.EntryAssemblyHash, false),
             new PluginPackageEntry(forbiddenPath, content, hash, false)
         ]);
 

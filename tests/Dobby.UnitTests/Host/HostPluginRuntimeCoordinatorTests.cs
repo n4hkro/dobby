@@ -142,7 +142,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
     }
 
     [Fact]
-    public void Activate_installed_plugins_reads_runtime_manifest_seeds_operation_targets_and_faults_missing_module()
+    public void Activate_installed_plugins_reads_runtime_manifest_seeds_operation_targets_and_faults_unloadable_module()
     {
         var runtimePath = CreateRuntimePackageDirectory();
         try
@@ -161,7 +161,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
             var outcome = result.Value.Outcomes.Single();
             outcome.PluginId.ShouldBe(PluginPackageTestData.PluginId);
             outcome.Status.ShouldBe(PluginActivationStatus.Faulted);
-            outcome.Reason.ShouldBe(ErrorCode.NotFound.ToString());
+            outcome.Reason.ShouldBe(ErrorCode.PluginInternalError.ToString());
             registry.Get($"{PluginPackageTestData.PluginId}.greet").IsSuccess.ShouldBeTrue();
         }
         finally
@@ -312,6 +312,11 @@ public sealed class HostPluginRuntimeCoordinatorTests
         File.WriteAllText(
             Path.Combine(runtimePath, PluginPackageReader.ManifestFileName),
             PluginPackageTestData.CreateManifestJson());
+        var entryAssemblyPath = Path.Combine(runtimePath, PluginPackageTestData.EntryAssembly.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(entryAssemblyPath)!);
+        File.WriteAllBytes(
+            entryAssemblyPath,
+            PluginPackageTestData.EntryAssemblyContent);
         File.WriteAllBytes(
             Path.Combine(runtimePath, PluginPackageTestData.FilePath),
             PluginPackageTestData.FileContent);

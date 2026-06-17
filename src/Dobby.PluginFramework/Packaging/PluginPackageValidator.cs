@@ -74,6 +74,7 @@ public static class PluginPackageValidator
             .Where(entry => !entry.Path.Equals(archive.ManifestPath, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
+        ValidateEntryAssembly(archive.Manifest.EntryAssembly, manifestFiles, reasons);
         ValidateActualEntries(actualFiles, reasons);
         ValidateForbiddenContent(manifestFiles, actualFiles, reasons);
         ValidateAssemblyBoundaries(actualFiles, reasons);
@@ -108,6 +109,23 @@ public static class PluginPackageValidator
         }
 
         return PluginPackageValidationOutcome.Success(descriptor);
+    }
+
+    private static void ValidateEntryAssembly(
+        string entryAssembly,
+        IReadOnlyList<PluginPackageEntry> manifestFiles,
+        ICollection<PluginPackageValidationReason> reasons)
+    {
+        var normalizedEntryAssembly = NormalizePath(entryAssembly);
+        if (manifestFiles.Any(file => file.Path.Equals(normalizedEntryAssembly, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        reasons.Add(new PluginPackageValidationReason(
+            "invalid-manifest",
+            "Entry assembly must be declared in the manifest files section.",
+            "entryAssembly"));
     }
 
     private static void ValidateActualEntries(

@@ -19,7 +19,10 @@ internal static class PluginPackageTestData
     public const string FilePath = "content/hello.txt";
     public const string AlternateFilePath = "Content/hello.txt";
 
+    public static readonly byte[] EntryAssemblyContent = Encoding.UTF8.GetBytes("sample plugin assembly");
     public static readonly byte[] FileContent = Encoding.UTF8.GetBytes("hello plugin");
+
+    public static string EntryAssemblyHash => HashHex(EntryAssemblyContent);
 
     public static string FileHash => HashHex(FileContent);
 
@@ -52,7 +55,7 @@ internal static class PluginPackageTestData
             capabilities ?? [new PluginCapability("plugin-page", "plugin-page")],
             operationTargets ?? [new PluginOperationTarget($"{PluginId}.greet", ["execute"], "sample.greet.label")],
             extensionPoints ?? [new PluginExtensionPoint("sample.home", "plugin-page-region", "sample.home", "sample.home.label", null, "default", 100)],
-            files ?? [new PluginPackageFile(FilePath, FileHash)],
+            files ?? DefaultFiles(),
             signature ?? new PluginPackageSignature("ECDSA-P256-SHA256", 1, "AQ"));
     }
 
@@ -101,7 +104,7 @@ internal static class PluginPackageTestData
             ["extensionPoints"] = (extensionPoints ?? [new PluginExtensionPoint("sample.home", "plugin-page-region", "sample.home", "sample.home.label", null, "default", 100)])
                 .Select(ExtensionPointJson)
                 .ToArray(),
-            ["files"] = (files ?? [new PluginPackageFile(FilePath, FileHash)]).Select(file => new Dictionary<string, object?>(StringComparer.Ordinal)
+            ["files"] = (files ?? DefaultFiles()).Select(file => new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["path"] = file.Path,
                 ["sha256"] = file.Sha256
@@ -168,8 +171,18 @@ internal static class PluginPackageTestData
             PluginPackageReader.ManifestFileName,
             manifest,
             entries ?? [new PluginPackageEntry(PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(manifestJson ?? CreateManifestJson()), HashHex(Encoding.UTF8.GetBytes(manifestJson ?? CreateManifestJson())), false),
+                new PluginPackageEntry(EntryAssembly, EntryAssemblyContent, EntryAssemblyHash, false),
                 new PluginPackageEntry(FilePath, FileContent, FileHash, false)],
             manifestJson ?? CreateManifestJson());
+    }
+
+    public static IReadOnlyList<PluginPackageFile> DefaultFiles()
+    {
+        return
+        [
+            new PluginPackageFile(EntryAssembly, EntryAssemblyHash),
+            new PluginPackageFile(FilePath, FileHash)
+        ];
     }
 
     public static string HashHex(byte[] bytes)

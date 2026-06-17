@@ -77,7 +77,11 @@ public sealed class HostPluginPackageInstallCoordinatorTests
         var forbiddenPath = "customer-data/export.json";
         var forbiddenBytes = Encoding.UTF8.GetBytes("customer payload");
         var manifestJson = PluginPackageTestData.CreateManifestJson(
-            files: [new PluginPackageFile(forbiddenPath, PluginPackageTestData.HashHex(forbiddenBytes))]);
+            files:
+            [
+                new PluginPackageFile(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyHash),
+                new PluginPackageFile(forbiddenPath, PluginPackageTestData.HashHex(forbiddenBytes))
+            ]);
         var packagePath = CreatePackageZip(manifestJson, forbiddenPath, forbiddenBytes);
         try
         {
@@ -117,7 +121,11 @@ public sealed class HostPluginPackageInstallCoordinatorTests
         var forbiddenPath = "customer-data/export.json";
         var forbiddenBytes = Encoding.UTF8.GetBytes("customer payload");
         var manifestJson = PluginPackageTestData.CreateManifestJson(
-            files: [new PluginPackageFile(forbiddenPath, PluginPackageTestData.HashHex(forbiddenBytes))]);
+            files:
+            [
+                new PluginPackageFile(PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyHash),
+                new PluginPackageFile(forbiddenPath, PluginPackageTestData.HashHex(forbiddenBytes))
+            ]);
         var packagePath = CreatePackageZip(manifestJson, forbiddenPath, forbiddenBytes);
         try
         {
@@ -274,6 +282,11 @@ public sealed class HostPluginPackageInstallCoordinatorTests
         var packagePath = Path.Combine(Path.GetTempPath(), "dobby-package-install-" + Guid.NewGuid().ToString("N") + ".dobbyplugin");
         using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
         WriteZipEntry(archive, PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(manifestJson));
+        if (!filePath.Equals(PluginPackageTestData.EntryAssembly, StringComparison.Ordinal))
+        {
+            WriteZipEntry(archive, PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent);
+        }
+
         WriteZipEntry(archive, filePath, content);
         return packagePath;
     }

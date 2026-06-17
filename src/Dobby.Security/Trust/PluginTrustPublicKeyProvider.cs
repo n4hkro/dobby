@@ -18,10 +18,12 @@ public sealed class PluginTrustPublicKeyProvider
     {
     }
 
-    public PluginTrustPublicKeyProvider(
+    internal PluginTrustPublicKeyProvider(
         DobbyPluginTrustProfile profile,
         IReadOnlyDictionary<string, byte[]> resourceMap)
     {
+        ArgumentNullException.ThrowIfNull(resourceMap);
+
         this.profile = profile;
         this.resourceMap = resourceMap;
         assembly = typeof(PluginTrustPublicKeyProvider).Assembly;

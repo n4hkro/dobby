@@ -20,6 +20,9 @@
       <_Parameter1>DobbyPluginTrustProfile</_Parameter1>
       <_Parameter2>$(DobbyPluginTrustProfile)</_Parameter2>
     </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Dobby.UnitTests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dobby.Configuration\Dobby.Configuration.csproj" />

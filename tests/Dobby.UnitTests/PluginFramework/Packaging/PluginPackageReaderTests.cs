@@ -15,17 +15,25 @@ public sealed class PluginPackageReaderTests
     {
         using var temp = new TempDirectory();
         Directory.CreateDirectory(Path.Combine(temp.Path, "content"));
+        Directory.CreateDirectory(Path.Combine(temp.Path, "bin", "plugins"));
         File.WriteAllText(
             Path.Combine(temp.Path, PluginPackageReader.ManifestFileName),
             PluginPackageTestData.CreateManifestJson(),
             Encoding.UTF8);
+        File.WriteAllBytes(
+            Path.Combine(temp.Path, PluginPackageTestData.EntryAssembly.Replace('/', Path.DirectorySeparatorChar)),
+            PluginPackageTestData.EntryAssemblyContent);
         File.WriteAllBytes(Path.Combine(temp.Path, "content", "hello.txt"), PluginPackageTestData.FileContent);
 
         var result = PluginPackageReader.Read(temp.Path);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Manifest.PluginId.ShouldBe(PluginPackageTestData.PluginId);
-        result.Value.Manifest.Files.Single().Path.ShouldBe(PluginPackageTestData.FilePath);
+        result.Value.Manifest.Files.Select(file => file.Path).ToArray().ShouldBe([
+            PluginPackageTestData.EntryAssembly,
+            PluginPackageTestData.FilePath
+        ]);
+        result.Value.Entries.Select(entry => entry.Path).ShouldContain(PluginPackageTestData.EntryAssembly);
         result.Value.Entries.Select(entry => entry.Path).ShouldContain(PluginPackageTestData.FilePath);
         result.Value.Entries.Select(entry => entry.Path).ShouldContain(PluginPackageReader.ManifestFileName);
     }
@@ -42,6 +50,12 @@ public sealed class PluginPackageReaderTests
             using (var writer = new StreamWriter(manifestEntry.Open(), Encoding.UTF8))
             {
                 writer.Write(PluginPackageTestData.CreateManifestJson());
+            }
+
+            var assemblyEntry = archive.CreateEntry(PluginPackageTestData.EntryAssembly);
+            using (var assemblyStream = assemblyEntry.Open())
+            {
+                assemblyStream.Write(PluginPackageTestData.EntryAssemblyContent);
             }
 
             var fileEntry = archive.CreateEntry(PluginPackageTestData.FilePath);
@@ -65,10 +79,14 @@ public sealed class PluginPackageReaderTests
         {
             using var temp = new TempDirectory();
             Directory.CreateDirectory(Path.Combine(temp.Path, "content"));
+            Directory.CreateDirectory(Path.Combine(temp.Path, "bin", "plugins"));
             File.WriteAllText(
                 Path.Combine(temp.Path, PluginPackageReader.ManifestFileName),
                 PluginPackageTestData.CreateManifestJson(),
                 Encoding.UTF8);
+            File.WriteAllBytes(
+                Path.Combine(temp.Path, PluginPackageTestData.EntryAssembly.Replace('/', Path.DirectorySeparatorChar)),
+                PluginPackageTestData.EntryAssemblyContent);
             File.WriteAllBytes(Path.Combine(temp.Path, "content", "hello.txt"), PluginPackageTestData.FileContent);
 
             var result = PluginPackageReader.Read(temp.Path);
