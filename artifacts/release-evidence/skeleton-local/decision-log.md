@@ -258,3 +258,41 @@ Verification:
 - `dotnet build .\Dobby.sln -c Release --no-restore -warnaserror -v minimal` passed with 0 warnings and 0 errors.
 - `dotnet test .\Dobby.sln -c Release --no-restore --no-build --logger "console;verbosity=minimal"` passed with 0 failures.
 - Supporting suite evidence: Unit 447, Integration 197, Smoke 6.
+
+<a id="phase-b-sprint9-authority-2026-06-17"></a>
+
+## Phase B Sprint 9 Authority Decisions 2026-06-17
+
+Anchor: `phase-b-sprint9-authority-2026-06-17`
+
+Status: APPROVED - Sprint 9 licensing/runtime-mode authority decisions approved on 2026-06-17 after two-agent reconciliation.
+
+Designated approver: human requester/project owner (architecture/security/release approver for this decision)
+
+Patch note: AI-assisted durable authority patch; human approval identity: human requester/project owner.
+
+Scope:
+- Closes `HD-S9-001`, `HD-S9-002`, `HD-S9-003`, and `HD-S9-004` for `SPRINT_9_EXECUTION_PLAN.md`.
+- Records the durable source of truth for Sprint 9 human decisions; `SPRINT_9_EXECUTION_PLAN.md` cites this ledger instead of non-durable approval text.
+- Requires `storage-materialization.md#sprint-9-license-state-schema-review-2026-06-17` as the supporting evidence-layer schema review closure for `HD-S9-001`.
+- Preserves existing Sprint 8 package governance: `JsonSchema.Net` remains approved only for plugin manifest validation unless a later package-governance decision says otherwise.
+
+Out of scope:
+- Does not implement Sprint 9 code, create migrations, add package references, change trust resources, or run build/test/release commands.
+- Does not approve any package ID, version change, package-source change, or license-validation use of `JsonSchema.Net`.
+- Does not approve production/private signing material in the repository or runtime resources.
+- Does not approve checked-in product/Admin signed license fixtures, sample plugin artifacts, Admin license/signing UI, or Sprint 10/11 release-gate work.
+- Does not expand the closed pre-login table set or approve pre-login license tables.
+- Does not approve new skeleton-critical namespaces beyond the flat placements named below.
+
+Required before Sprint 9 implementation starts:
+- CLOSED: `HD-S9-001` has the supporting schema-review closure in `storage-materialization.md#sprint-9-license-state-schema-review-2026-06-17`.
+- CLOSED: `SPRINT_9_EXECUTION_PLAN.md` cites this authority anchor and the storage schema-review anchor instead of non-durable approval text.
+- CLOSED: Sprint 9 license validation remains outside `JsonSchema.Net` package scope and must be pinned by schema-drift tests against `docs/schemas/dobby-plugin-license.schema.json`.
+- CLOSED: Sprint 9 signing tests use generated or clearly non-production test-only material and must not ship as product/Admin fixtures.
+
+Decision ledger:
+- D-26 / `HD-S9-001`: APPROVED WITH CONSTRAINTS (`A'`) - Sprint 9 may add post-login-only durable license state through `0003_license_state` with `PluginLicenseState` keyed by `RevisionSeriesKey = (pluginId, customerId, deploymentId)`. Current validated artifact binding/package fields may be stored only inside protected/encrypted post-login persistence for enforcement. `PluginLicenseImportAttestation` may store only `sourceArtifactHash`, `licenseRevision`, timestamp, result, and correlation ID. Failed imports must not mutate `PluginLicenseState`, but may append the limited support-safe attestation record. Raw license payload, raw signature, full file path, private material, raw binding values, raw MachineGuid, raw stable device id, and full device fingerprint must not appear in audit, UI, plugin surfaces, diagnostics, or export. Attestation retention must not be below the 365-day audit retention floor. The migration must be recorded in `StorageMetadata`, must remain post-login only, and must conform to `storage-materialization.md#sprint-9-license-state-schema-review-2026-06-17`.
+- D-27 / `HD-S9-002`: APPROVED (`A`) - Sprint 9 licensing domain files stay in the existing flat `Dobby.Licensing` placement, and host license coordination stays in the existing flat `Dobby.Host` placement. No new `Dobby.Host.Licensing`, `Dobby.Licensing.Persistence`, or other skeleton-critical namespace is approved unless a narrow coding-standards authority row is recorded first.
+- D-28 / `HD-S9-003`: APPROVED (`A`) - Sprint 9 must not widen `JsonSchema.Net` beyond the existing Sprint 8 plugin manifest validation approval. `.dobbylicense` schema checks must use BCL/manual validation against the canonical schema, and tests must pin required fields, enums, formats, signature-shape rules, and package-governance non-drift.
+- D-29 / `HD-S9-004`: APPROVED WITH CONSTRAINTS (`A+C`) - Sprint 9 may generate signed `.dobbylicense` test artifacts through test-only builder/helper code using generated or clearly non-production ECDSA P-256 material. Helper output must match ADR/schema canonical signing rules, including DER (`DSASignatureFormat.Rfc3279DerSequence`) ECDSA signatures and base64url-no-padding signature values. No committed production/private signing material is approved; test-only keys/artifacts must be generated or clearly non-production and must not ship as product/Admin fixtures. This license-test-material constraint does not prohibit previously approved public trust resources.

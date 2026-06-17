@@ -179,6 +179,39 @@ Migration ledger decision: approved. Use `StorageMetadata` as the approved schem
 
 Post-login boundary: post-login feature tables, non-minimum columns, and feature-specific persistence may be materialized only after the authenticated-session seam is reached; they must not expand the closed pre-login table set. Later additions must use numbered migrations such as `0003_*`, `0004_*`, with `IF NOT EXISTS`, column-exists checks, migration metadata, or equivalent re-entrancy guards so bootstrap -> migration ordering remains idempotent.
 
+<a id="sprint-9-license-state-schema-review-2026-06-17"></a>
+
+## Sprint 9 License State Schema Review 2026-06-17
+
+Anchor: `sprint-9-license-state-schema-review-2026-06-17`
+
+Status: APPROVED WITH CONSTRAINTS - evidence-layer schema review closure for `HD-S9-001` / `D-26` in `decision-log.md#phase-b-sprint9-authority-2026-06-17`.
+
+Scope:
+- Approves post-login-only migration `0003_license_state` for Sprint 9 license persistence.
+- Approves `PluginLicenseState` as the authoritative durable license-state table keyed by `RevisionSeriesKey = (pluginId, customerId, deploymentId)`.
+- Approves `PluginLicenseImportAttestation` as a limited support-safe attestation table for import attempts.
+- Requires migration recording through `StorageMetadata` using the existing numbered migration convention and re-entrancy/ordering guards.
+- Keeps all license state out of the closed pre-login table set.
+
+Schema review closure:
+
+| Item | Approved closure |
+| --- | --- |
+| Migration ID | `0003_license_state`, post-login only, appended after earlier post-login migrations and recorded in `StorageMetadata`. |
+| `PluginLicenseState` key | `RevisionSeriesKey = (pluginId, customerId, deploymentId)`; do not key durable state by artifact binding fields. |
+| Binding-field persistence | Current validated artifact binding/package fields needed for enforcement may be stored only inside protected/encrypted post-login persistence. They must not be exposed through audit, UI, plugin APIs, diagnostics, export, or raw support text. |
+| Failed import behavior | Failed imports must not mutate `PluginLicenseState`. |
+| `PluginLicenseImportAttestation` fields | Limited to `sourceArtifactHash`, `licenseRevision`, timestamp, result, and correlation ID. |
+| Retention | Attestation retention must not be below the 365-day audit retention floor. |
+| Privacy constraints | Raw license payload, raw signature, full file path, private material, raw MachineGuid, raw stable device id, full device fingerprint, and raw binding values must not be persisted in audit-visible, UI-visible, plugin-visible, diagnostics/export-visible, or support-text surfaces. |
+| Owner boundary | `Dobby.Licensing` owns the domain port and policy; Host wires the concrete persistence adapter; `Dobby.Infrastructure.Persistence` remains the primitive migration/backing layer and does not become the licensing owner. |
+
+Out of scope:
+- Does not approve pre-login license tables or changes to the Sprint 4 minimum pre-login schema.
+- Does not approve raw license artifact persistence, production/private signing material, product/Admin signed license fixtures, or Admin/sample plugin license tooling.
+- Does not approve any package, namespace, or trust-resource change beyond the Sprint 9 decisions recorded in `decision-log.md#phase-b-sprint9-authority-2026-06-17`.
+
 ## Minimum Pre-Login Schema Draft
 
 Status: APPROVED - this table is the approved minimum pre-login schema evidence for Sprint 4 Phase A closure.
@@ -205,7 +238,7 @@ Draft review notes:
 - `Credentials` intentionally omits KDF parameter tuning payload fields from the minimum pre-login schema. Sprint 5+ may add `KdfParametersJson` or an equivalent per-mode parameter field by later numbered ALTER migration.
 - `Sessions` intentionally stores only lifecycle metadata needed for expiry/invalidation checks. Refresh-token semantics remain Sprint 5 scope.
 - `ProtectionScope` values in this draft are storage/protected-material scope labels such as `'machine-bound'` and `'currentuser-bound'`; they are not plugin storage taxonomy buckets.
-- License import state and plugin package license cache tables are not part of the closed pre-login set; they are post-login P1 host state and must use later numbered migrations unless explicitly approved during evidence-layer schema review.
+- License import state and plugin package license cache tables are not part of the closed pre-login set; they are post-login P1 host state and must use later numbered migrations unless explicitly approved during evidence-layer schema review. Sprint 9 license state is approved only under `sprint-9-license-state-schema-review-2026-06-17`.
 - Any column that would store protected secret material must store only protected blobs or non-reversible hashes according to ADR-0055.
 
 ## DeviceIdentity Shape
