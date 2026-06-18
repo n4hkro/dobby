@@ -1,3 +1,4 @@
+using Dobby.Contracts.Licensing;
 using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.PluginFramework.Packaging;
@@ -12,10 +13,13 @@ public sealed class HostPluginPackageInstallCoordinator(
     IPluginInstallStagingArea stagingArea,
     PluginRuntimeAuditCoordinator auditCoordinator,
     IPluginTrustVerifier pluginTrustVerifier,
-    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null)
+    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
+    Func<string, Result<PluginRuntimeMode>>? currentRuntimeModeProvider = null)
 {
     private readonly IPluginTrustVerifier trustVerifier = pluginTrustVerifier ?? throw new ArgumentNullException(nameof(pluginTrustVerifier));
     private readonly PluginRuntimeDiagnosticsCoordinator? diagnostics = diagnosticsCoordinator;
+    private readonly Func<string, Result<PluginRuntimeMode>> runtimeModeProvider =
+        currentRuntimeModeProvider ?? (_ => Result.Success(PluginRuntimeMode.FullAccess));
 
     public Result<InstalledPluginState> InstallPackage(
         string actorId,
@@ -76,6 +80,24 @@ public sealed class HostPluginPackageInstallCoordinator(
         }
 
         var descriptor = validation.Descriptor!;
+        var runtimeMode = runtimeModeProvider(descriptor.Manifest.PluginId);
+        if (runtimeMode.IsSuccess && runtimeMode.Value == PluginRuntimeMode.ReadOnlyExpired)
+        {
+            var reasons = new[]
+            {
+                new PluginPackageValidationReason(
+                    "license-read-only",
+                    "Plugin package installation is unavailable in read-only license mode.")
+            };
+            auditCoordinator.AppendInstallRejected(
+                actorId,
+                descriptor.Manifest.PluginId,
+                reasons,
+                correlationId);
+            diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
+            return Result.Failure<InstalledPluginState>(ErrorCode.LicenseReadOnly);
+        }
+
         var install = new PluginPackageInstaller(stagingArea, stateStore, metadataCache).Install(descriptor);
         if (!install.IsSuccess)
         {

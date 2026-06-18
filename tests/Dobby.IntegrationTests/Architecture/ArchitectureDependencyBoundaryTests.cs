@@ -9,14 +9,11 @@ namespace Dobby.IntegrationTests.Architecture;
 
 public sealed class ArchitectureDependencyBoundaryTests
 {
-    private const string PrintBoundaryBlocker = "SPRINT1-INFRA-APP-PRINT-BOUNDARY";
-
     [Fact]
     public void Source_project_references_are_subset_of_architecture_map()
     {
         var root = RepoRoot();
         var allowedReferences = LoadArchitectureMapReferences(root);
-        var printBoundaryBlockerRecorded = PrintBoundaryBlockerIsRecorded(root);
         var violations = new List<string>();
 
         foreach (var project in SourceProjects(root))
@@ -35,21 +32,25 @@ public sealed class ArchitectureDependencyBoundaryTests
                     continue;
                 }
 
-                if (IsTemporaryPrintBoundaryEdge(projectName, reference) && printBoundaryBlockerRecorded)
-                {
-                    continue;
-                }
-
-                var blockerNote = IsTemporaryPrintBoundaryEdge(projectName, reference)
-                    ? $" The only temporary allowance for this edge requires {PrintBoundaryBlocker} in artifacts/release-evidence/skeleton-local/architecture-baseline.md with a Sprint 2 reconfirmation gate."
-                    : string.Empty;
-
                 violations.Add(
-                    $"{project.FullName}: {projectName} references {reference}, which is not allowed by docs/02_ARCHITECTURE_MAP.md Cədvəl 2 row for {projectName}.{blockerNote}");
+                    $"{project.FullName}: {projectName} references {reference}, which is not allowed by docs/02_ARCHITECTURE_MAP.md Cədvəl 2 row for {projectName}.");
             }
         }
 
         violations.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Infrastructure_no_longer_references_application_for_print_boundary()
+    {
+        var root = RepoRoot();
+        var infrastructureProject = new FileInfo(Path.Combine(
+            root.FullName,
+            "src",
+            "Dobby.Infrastructure",
+            "Dobby.Infrastructure.csproj"));
+
+        ProjectReferences(infrastructureProject).ShouldNotContain("Dobby.Application");
     }
 
     [Fact]
@@ -107,7 +108,7 @@ public sealed class ArchitectureDependencyBoundaryTests
             var closure = TransitiveProjectReferences(root, projectName);
             if (closure.Contains("Dobby.Application"))
             {
-                violations.Add($"{projectName} receives Dobby.Application through a transitive project reference; {PrintBoundaryBlocker} must remain isolated by PrivateAssets=all.");
+                violations.Add($"{projectName} receives Dobby.Application through a transitive project reference.");
             }
         }
 
@@ -258,30 +259,6 @@ public sealed class ArchitectureDependencyBoundaryTests
             .Matches(value, @"\bDobby\.[A-Za-z0-9.]+\b")
             .Select(match => match.Value.TrimEnd('.'))
             .ToHashSet(StringComparer.Ordinal);
-    }
-
-    private static bool PrintBoundaryBlockerIsRecorded(DirectoryInfo root)
-    {
-        var evidencePath = Path.Combine(
-            root.FullName,
-            "artifacts",
-            "release-evidence",
-            "skeleton-local",
-            "architecture-baseline.md");
-
-        if (!File.Exists(evidencePath))
-        {
-            return false;
-        }
-
-        var evidence = File.ReadAllText(evidencePath);
-        return evidence.Contains(PrintBoundaryBlocker, StringComparison.Ordinal)
-            && evidence.Contains("## Sprint 2 Reconfirmation", StringComparison.Ordinal);
-    }
-
-    private static bool IsTemporaryPrintBoundaryEdge(string projectName, string reference)
-    {
-        return projectName == "Dobby.Infrastructure" && reference == "Dobby.Application";
     }
 
     private static IEnumerable<FileInfo> SourceProjects(DirectoryInfo root)

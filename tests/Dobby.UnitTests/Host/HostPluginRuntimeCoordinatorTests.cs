@@ -1,7 +1,9 @@
 using Dobby.Core;
 using Dobby.Core.Versioning;
+using Dobby.Contracts.Licensing;
 using Dobby.Host.Plugins;
 using Dobby.Infrastructure.Persistence;
+using Dobby.Licensing;
 using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Manifest;
 using Dobby.PluginFramework.Packaging;
@@ -242,6 +244,120 @@ public sealed class HostPluginRuntimeCoordinatorTests
     }
 
     [Fact]
+    public void Activate_installed_plugins_rejects_denied_license_before_seeding_operation_targets()
+    {
+        var runtimePath = CreateRuntimePackageDirectory();
+        try
+        {
+            var stateStore = Substitute.For<IInstalledPluginStateStore>();
+            stateStore.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>(
+            [
+                CreateInstalledState(runtimePath, RuntimePackageFingerprint(runtimePath))
+            ]));
+            var licenseRuntimeModeProvider = Substitute.For<ILicenseRuntimeModeProvider>();
+            licenseRuntimeModeProvider
+                .GetCurrentMode(PluginPackageTestData.PluginId, RuntimePackageFingerprint(runtimePath))
+                .Returns(Result.Success(PluginRuntimeMode.Denied));
+            var registry = OperationTargetRegistry.CreateDefault();
+            var coordinator = CreateCoordinator(
+                stateStore: stateStore,
+                operationTargetRegistry: registry,
+                licenseRuntimeModeProvider: licenseRuntimeModeProvider);
+
+            var result = coordinator.ActivateInstalledPlugins(new HostVersion(1, 0, 0), CancellationToken.None);
+
+            result.IsSuccess.ShouldBeTrue();
+            var outcome = result.Value.Outcomes.Single();
+            outcome.Status.ShouldBe(PluginActivationStatus.Rejected);
+            outcome.Reason.ShouldBe("license-denied");
+            registry.Get($"{PluginPackageTestData.PluginId}.greet").IsSuccess.ShouldBeFalse();
+        }
+        finally
+        {
+            if (Directory.Exists(runtimePath))
+            {
+                Directory.Delete(runtimePath, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Activate_installed_plugins_rejects_license_binding_mismatch_before_activation()
+    {
+        var runtimePath = CreateRuntimePackageDirectory();
+        try
+        {
+            var stateStore = Substitute.For<IInstalledPluginStateStore>();
+            stateStore.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>(
+            [
+                CreateInstalledState(runtimePath, RuntimePackageFingerprint(runtimePath))
+            ]));
+            var licenseRuntimeModeProvider = Substitute.For<ILicenseRuntimeModeProvider>();
+            licenseRuntimeModeProvider
+                .GetCurrentMode(PluginPackageTestData.PluginId, RuntimePackageFingerprint(runtimePath))
+                .Returns(Result.Failure<PluginRuntimeMode>(ErrorCode.LicenseBindingMismatch));
+            var registry = OperationTargetRegistry.CreateDefault();
+            var coordinator = CreateCoordinator(
+                stateStore: stateStore,
+                operationTargetRegistry: registry,
+                licenseRuntimeModeProvider: licenseRuntimeModeProvider);
+
+            var result = coordinator.ActivateInstalledPlugins(new HostVersion(1, 0, 0), CancellationToken.None);
+
+            result.IsSuccess.ShouldBeTrue();
+            var outcome = result.Value.Outcomes.Single();
+            outcome.Status.ShouldBe(PluginActivationStatus.Rejected);
+            outcome.Reason.ShouldBe("license-binding-mismatch");
+            registry.Get($"{PluginPackageTestData.PluginId}.greet").IsSuccess.ShouldBeFalse();
+        }
+        finally
+        {
+            if (Directory.Exists(runtimePath))
+            {
+                Directory.Delete(runtimePath, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Activate_installed_plugins_allows_read_only_license_to_reach_activation_gates()
+    {
+        var runtimePath = CreateRuntimePackageDirectory();
+        try
+        {
+            var stateStore = Substitute.For<IInstalledPluginStateStore>();
+            stateStore.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>(
+            [
+                CreateInstalledState(runtimePath, RuntimePackageFingerprint(runtimePath))
+            ]));
+            var licenseRuntimeModeProvider = Substitute.For<ILicenseRuntimeModeProvider>();
+            licenseRuntimeModeProvider
+                .GetCurrentMode(PluginPackageTestData.PluginId, RuntimePackageFingerprint(runtimePath))
+                .Returns(Result.Success(PluginRuntimeMode.ReadOnlyExpired));
+            var registry = OperationTargetRegistry.CreateDefault();
+            var coordinator = CreateCoordinator(
+                stateStore: stateStore,
+                operationTargetRegistry: registry,
+                licenseRuntimeModeProvider: licenseRuntimeModeProvider);
+
+            var result = coordinator.ActivateInstalledPlugins(new HostVersion(1, 0, 0), CancellationToken.None);
+
+            result.IsSuccess.ShouldBeTrue();
+            var outcome = result.Value.Outcomes.Single();
+            outcome.Status.ShouldBe(PluginActivationStatus.Faulted);
+            outcome.Reason.ShouldBe(ErrorCode.PluginInternalError.ToString());
+            registry.Get($"{PluginPackageTestData.PluginId}.greet").IsSuccess.ShouldBeTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(runtimePath))
+            {
+                Directory.Delete(runtimePath, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task Begin_post_login_activation_returns_existing_task_for_reentrant_calls()
     {
         var coordinator = CreateCoordinator();
@@ -261,7 +377,8 @@ public sealed class HostPluginRuntimeCoordinatorTests
         IPluginInstallStagingArea? staging = null,
         OperationTargetRegistry? operationTargetRegistry = null,
         HostPluginActivationCancellation? activationCancellation = null,
-        IPluginTrustVerifier? trustVerifier = null)
+        IPluginTrustVerifier? trustVerifier = null,
+        ILicenseRuntimeModeProvider? licenseRuntimeModeProvider = null)
     {
         stateStore ??= CreateDefaultStateStore();
         metadataCache ??= CreateDefaultMetadataCache();
@@ -279,7 +396,8 @@ public sealed class HostPluginRuntimeCoordinatorTests
             lifetimeManager,
             activationCancellation ?? new HostPluginActivationCancellation(),
             new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionPointRegistry, lifetimeManager)),
-            trustVerifier ?? new AllowAllTrustVerifier());
+            trustVerifier ?? new AllowAllTrustVerifier(),
+            licenseRuntimeModeProvider: licenseRuntimeModeProvider ?? new AllowAllLicenseRuntimeModeProvider());
     }
 
     private static IInstalledPluginStateStore CreateDefaultStateStore()
@@ -354,5 +472,13 @@ public sealed class HostPluginRuntimeCoordinatorTests
     private sealed class RejectingTrustVerifier(string code, string message) : IPluginTrustVerifier
     {
         public PluginTrustVerificationResult Verify(PluginTrustPayload payload) => PluginTrustVerificationResult.Failure(code, message);
+    }
+
+    private sealed class AllowAllLicenseRuntimeModeProvider : ILicenseRuntimeModeProvider
+    {
+        public Result<PluginRuntimeMode> GetCurrentMode(string pluginId, string packageFingerprint)
+        {
+            return Result.Success(PluginRuntimeMode.FullAccess);
+        }
     }
 }

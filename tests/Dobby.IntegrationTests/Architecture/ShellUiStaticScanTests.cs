@@ -69,6 +69,11 @@ public sealed class ShellUiStaticScanTests
             "ProfileMenuPanel",
             "SettingsCategoryList",
             "AboutFieldList",
+            "LicensePanel",
+            "LicenseStatusPanel",
+            "LicenseStatusText",
+            "LicenseImportButton",
+            "LicenseFeedbackText",
             "BackgroundStatusText",
             "LogoutButton",
             "ClearSavedLoginButton"

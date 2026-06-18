@@ -1,5 +1,7 @@
 using System.Windows;
 using Dobby.Application;
+using Dobby.Contracts.Licensing;
+using Dobby.Contracts.Policies;
 using Dobby.Diagnostics;
 using Dobby.Host.Login;
 using Dobby.Host.Plugins;
@@ -8,6 +10,7 @@ using Dobby.Host.Startup;
 using Dobby.Localization;
 using Dobby.Navigation;
 using Dobby.PluginFramework.Activation;
+using Dobby.Security.Authorization;
 using Dobby.Shell;
 using Dobby.Shell.Layout;
 using Dobby.Shell.UiDispatch;
@@ -97,7 +100,9 @@ public partial class App : System.Windows.Application
                 loginRuntime.DiagnosticsSourceDirectory,
                 loginRuntime.DiagnosticsOutputZipPath,
                 workSessionCloseCoordinator,
-                pluginPageRouteCoordinator: pluginPageRouteCoordinator);
+                pluginPageRouteCoordinator: pluginPageRouteCoordinator,
+                licenseImportCoordinator: loginRuntime.LicenseImportCoordinator,
+                licenseFilePicker: new WindowsLicenseFilePicker());
             window.ContentRendered += async (_, _) =>
             {
                 var activation = await loginRuntime.PluginRuntimeCoordinator.BeginPostLoginActivation(
@@ -145,6 +150,47 @@ public partial class App : System.Windows.Application
         var isOwner = permissionState is { IsSuccess: true } && permissionState.Value.IsOwner;
         var about = loginRuntime.AboutInfoProvider.GetInfo(isOwner: isOwner, ownerIdentity: actor);
         shellViewModel.SetSettingsAndAbout(categories, BuildAboutFields(strings, about));
+        ConfigureLicenseSurface(shellViewModel, loginRuntime, actor);
+    }
+
+    private static void ConfigureLicenseSurface(
+        ShellViewModel shellViewModel,
+        HostLoginRuntime loginRuntime,
+        string actor)
+    {
+        var correlationId = Dobby.Core.CorrelationId.New();
+        var canView = IsAllowed(loginRuntime.OperationAuthorizationPolicy, actor, OperationVerb.View, correlationId);
+        var canImport = IsAllowed(loginRuntime.OperationAuthorizationPolicy, actor, OperationVerb.Import, correlationId);
+        shellViewModel.SetLicenseSurface(
+            canView,
+            canImport,
+            CurrentPluginRuntimeMode(loginRuntime));
+    }
+
+    private static bool IsAllowed(
+        OperationAuthorizationPolicy authorizationPolicy,
+        string actor,
+        OperationVerb verb,
+        Dobby.Core.CorrelationId correlationId)
+    {
+        var decision = authorizationPolicy.Evaluate(
+            new OperationPermissionCapability(
+                new OperationKey(BuiltInOperationTargets.PluginLicenseTargetId, verb).ToString()),
+            new PolicyContext(actor, null, correlationId));
+        return decision is { IsSuccess: true, Value.Allowed: true };
+    }
+
+    private static PluginRuntimeMode CurrentPluginRuntimeMode(HostLoginRuntime loginRuntime)
+    {
+        var snapshot = loginRuntime.PluginRuntimeCoordinator.StateStore.Snapshot();
+        var installed = snapshot is { IsSuccess: true } ? snapshot.Value.FirstOrDefault() : null;
+        if (installed is null)
+        {
+            return PluginRuntimeMode.Denied;
+        }
+
+        var mode = loginRuntime.LicenseRuntimeModeProvider.GetCurrentMode(installed.PluginId, installed.PackageFingerprint);
+        return mode is { IsSuccess: true } ? mode.Value : PluginRuntimeMode.Denied;
     }
 
     private static IReadOnlyList<ShellAboutField> BuildAboutFields(HostStringCatalog strings, AboutInfo about)

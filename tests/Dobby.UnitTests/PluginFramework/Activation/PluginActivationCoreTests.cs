@@ -1,6 +1,7 @@
 using System.Reflection;
 using Dobby.Contracts.BackgroundOperations;
 using Dobby.Contracts.Events;
+using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginFramework;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core;
@@ -148,10 +149,11 @@ public sealed class PluginActivationCoreTests
         var eventBus = new RecordingEventBus();
         var reporter = new RecordingBackgroundOperationReporter();
         var cancellation = new RecordingBackgroundOperationCancellation();
+        var licensing = new StaticCapabilityLicensing(PluginRuntimeMode.ReadOnlyExpired);
         var bridge = new PluginServiceRegistrationBridge(
             registry,
             lifetimes,
-            new PluginHostServices(eventBus, reporter, cancellation));
+            new PluginHostServices(eventBus, reporter, cancellation, _ => licensing));
 
         var result = bridge.Register("com.dobby.sample", new HostAwareModule());
 
@@ -160,6 +162,8 @@ public sealed class PluginActivationCoreTests
         page.EventBus.ShouldBeSameAs(eventBus);
         page.BackgroundOperations.ShouldBeSameAs(reporter);
         page.BackgroundOperationCancellation.ShouldBeSameAs(cancellation);
+        page.Licensing.ShouldBeSameAs(licensing);
+        page.Licensing.GetCurrentMode().Value.ShouldBe(PluginRuntimeMode.ReadOnlyExpired);
     }
 
     [Fact]
@@ -413,13 +417,16 @@ public sealed class PluginActivationCoreTests
     private sealed class HostAwarePage(
         IEventBus eventBus,
         IBackgroundOperationReporter backgroundOperations,
-        IBackgroundOperationCancellation backgroundOperationCancellation) : IPluginPage
+        IBackgroundOperationCancellation backgroundOperationCancellation,
+        ICapabilityLicensing licensing) : IPluginPage
     {
         public IEventBus EventBus { get; } = eventBus;
 
         public IBackgroundOperationReporter BackgroundOperations { get; } = backgroundOperations;
 
         public IBackgroundOperationCancellation BackgroundOperationCancellation { get; } = backgroundOperationCancellation;
+
+        public ICapabilityLicensing Licensing { get; } = licensing;
 
         public PluginPageDescriptor Descriptor { get; } = new("sample.host", "sample.host", "sample.host.label");
 
@@ -441,6 +448,14 @@ public sealed class PluginActivationCoreTests
         public ValueTask<Result> UnloadAsync(PluginPageContext context, CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(Result.Success());
+        }
+    }
+
+    private sealed class StaticCapabilityLicensing(PluginRuntimeMode mode) : ICapabilityLicensing
+    {
+        public Result<PluginRuntimeMode> GetCurrentMode()
+        {
+            return Result.Success(mode);
         }
     }
 

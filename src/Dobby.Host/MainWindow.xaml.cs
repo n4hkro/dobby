@@ -6,6 +6,8 @@ using Dobby.Diagnostics;
 using Dobby.Host.Login;
 using Dobby.Host.Plugins;
 using Dobby.Host.Settings;
+using Dobby.Localization;
+using Dobby.Licensing;
 using Dobby.Shell.PluginPages;
 using Dobby.Security.Authentication;
 using Dobby.Shell;
@@ -26,6 +28,8 @@ public partial class MainWindow : Window
     private readonly PluginPageRenderRegistry pluginPageRenderRegistry;
     private readonly WorkSessionCloseCoordinator? workSessionCloseCoordinator;
     private readonly PluginPageRouteCoordinator? pluginPageRouteCoordinator;
+    private readonly LicenseImportCoordinator? licenseImportCoordinator;
+    private readonly ILicenseFilePicker? licenseFilePicker;
     private string? diagnosticsSourceDirectory;
     private string? diagnosticsOutputZipPath;
     private DispatcherTimer? sessionTimer;
@@ -75,7 +79,9 @@ public partial class MainWindow : Window
         string? diagnosticsOutputZipPath,
         WorkSessionCloseCoordinator? workSessionCloseCoordinator = null,
         PluginPageRenderRegistry? pluginPageRenderRegistry = null,
-        PluginPageRouteCoordinator? pluginPageRouteCoordinator = null)
+        PluginPageRouteCoordinator? pluginPageRouteCoordinator = null,
+        LicenseImportCoordinator? licenseImportCoordinator = null,
+        ILicenseFilePicker? licenseFilePicker = null)
         : this()
     {
         this.sessionRuntime = sessionRuntime;
@@ -96,6 +102,8 @@ public partial class MainWindow : Window
         }
         DataContext = shellViewModel;
         UpdateWorkSessionWarningVisibility();
+        this.licenseImportCoordinator = licenseImportCoordinator;
+        this.licenseFilePicker = licenseFilePicker;
         shellViewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(ShellViewModel.ActivePluginPageModel))
@@ -396,6 +404,36 @@ public partial class MainWindow : Window
         ShowAccountStatus(result.IsSuccess
             ? shellViewModel.DiagnosticsExportedLabel
             : result.ErrorCode?.ToString() ?? ErrorCode.IoFailed.ToString());
+    }
+
+    private void LicenseImport_Click(object sender, RoutedEventArgs e)
+    {
+        if (licenseImportCoordinator is null || licenseFilePicker is null || session is null)
+        {
+            shellViewModel.SetLicenseImportFeedback(HostResourceKeys.LicenseImportRejected);
+            return;
+        }
+
+        var selectedPath = licenseFilePicker.PickLicenseFile();
+        if (selectedPath is null)
+        {
+            return;
+        }
+
+        shellViewModel.SetLicenseImportFeedback(HostResourceKeys.LicenseImportBusy);
+        var result = licenseImportCoordinator.ImportFile(session.UserId, selectedPath, CorrelationId.New());
+        if (result.IsSuccess)
+        {
+            shellViewModel.SetLicenseRuntimeMode(
+                LicenseRuntimeModeMapper.Map(result.LifecycleState),
+                HostResourceKeys.LicenseImportSuccess);
+            return;
+        }
+
+        shellViewModel.SetLicenseImportFeedback(
+            result.ReasonCode == LicenseRejectReasons.PermissionDenied
+                ? HostResourceKeys.LicenseImportPermissionDenied
+                : HostResourceKeys.LicenseImportRejected);
     }
 
     private void ApplyPersistedShellPreference()

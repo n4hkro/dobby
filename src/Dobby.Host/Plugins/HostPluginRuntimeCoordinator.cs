@@ -1,9 +1,11 @@
 using Dobby.Core;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginFramework;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core.Versioning;
 using Dobby.Infrastructure.Persistence;
+using Dobby.Licensing;
 using Dobby.Navigation;
 using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Manifest;
@@ -28,7 +30,8 @@ public sealed class HostPluginRuntimeCoordinator(
     IPluginTrustVerifier pluginTrustVerifier,
     PluginRuntimeAuditCoordinator? auditCoordinator = null,
     IBackgroundOperationReporter? backgroundOperations = null,
-    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null)
+    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
+    ILicenseRuntimeModeProvider? licenseRuntimeModeProvider = null)
 {
     private readonly object activationGate = new();
     private Task<Result<PluginActivationExecutionOutcome>>? activationTask;
@@ -57,6 +60,9 @@ public sealed class HostPluginRuntimeCoordinator(
     public PluginRuntimeDiagnosticsCoordinator? DiagnosticsCoordinator { get; } = diagnosticsCoordinator;
 
     public IPluginTrustVerifier TrustVerifier { get; } = pluginTrustVerifier ?? throw new ArgumentNullException(nameof(pluginTrustVerifier));
+
+    public ILicenseRuntimeModeProvider LicenseRuntimeModeProvider { get; } =
+        licenseRuntimeModeProvider ?? new AllowAllLicenseRuntimeModeProvider();
 
     public PersistenceResult ApplyPostLoginMigrations()
     {
@@ -270,6 +276,25 @@ public sealed class HostPluginRuntimeCoordinator(
                     state.PluginId,
                     compatibility.Status,
                     compatibility.Reason);
+                continue;
+            }
+
+            var licenseMode = LicenseRuntimeModeProvider.GetCurrentMode(state.PluginId, descriptor.Fingerprint);
+            if (!licenseMode.IsSuccess)
+            {
+                preActivationOutcomes[state.PluginId] = new PluginActivationOutcome(
+                    state.PluginId,
+                    PluginActivationStatus.Rejected,
+                    ToLicenseRejectionReason(licenseMode.ErrorCode));
+                continue;
+            }
+
+            if (licenseMode.Value == PluginRuntimeMode.Denied)
+            {
+                preActivationOutcomes[state.PluginId] = new PluginActivationOutcome(
+                    state.PluginId,
+                    PluginActivationStatus.Rejected,
+                    "license-denied");
                 continue;
             }
 
@@ -538,6 +563,21 @@ public sealed class HostPluginRuntimeCoordinator(
         };
 
         return PersistenceError.Create(code, message);
+    }
+
+    private static string ToLicenseRejectionReason(ErrorCode? errorCode)
+    {
+        return errorCode == ErrorCode.LicenseBindingMismatch
+            ? "license-binding-mismatch"
+            : "license-denied";
+    }
+
+    private sealed class AllowAllLicenseRuntimeModeProvider : ILicenseRuntimeModeProvider
+    {
+        public Result<PluginRuntimeMode> GetCurrentMode(string pluginId, string packageFingerprint)
+        {
+            return Result.Success(PluginRuntimeMode.FullAccess);
+        }
     }
 
     private sealed record InstalledPackageVerification(

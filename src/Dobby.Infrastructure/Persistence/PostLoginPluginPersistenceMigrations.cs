@@ -6,17 +6,20 @@ namespace Dobby.Infrastructure.Persistence;
 public static class PostLoginPluginPersistenceMigrations
 {
     public const string MigrationId = "0002_postlogin_bootstrap";
-    private const string ResourceName = "Dobby.Infrastructure.Persistence.Migrations.0002_postlogin_bootstrap.sql";
+    public const string LicenseStateMigrationId = "0003_license_state";
+    private const string BootstrapResourceName = "Dobby.Infrastructure.Persistence.Migrations.0002_postlogin_bootstrap.sql";
+    private const string LicenseStateResourceName = "Dobby.Infrastructure.Persistence.Migrations.0003_license_state.sql";
 
     public static IReadOnlyDictionary<string, string> All { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        [MigrationId] = LoadSql()
+        [MigrationId] = LoadSql(BootstrapResourceName),
+        [LicenseStateMigrationId] = LoadSql(LicenseStateResourceName)
     };
 
-    private static string LoadSql()
+    private static string LoadSql(string resourceName)
     {
-        using var stream = typeof(PostLoginPluginPersistenceMigrations).Assembly.GetManifestResourceStream(ResourceName)
-            ?? throw new InvalidOperationException($"Missing embedded post-login migration resource '{ResourceName}'.");
+        using var stream = typeof(PostLoginPluginPersistenceMigrations).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Missing embedded post-login migration resource '{resourceName}'.");
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
         return reader.ReadToEnd();
     }

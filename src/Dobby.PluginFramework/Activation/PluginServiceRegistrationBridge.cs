@@ -343,7 +343,7 @@ public sealed class PluginServiceScope : IAsyncDisposable
             return ResolveDescriptor(descriptor);
         }
 
-        if (hostServices.TryResolve(serviceType, out var hostService))
+        if (hostServices.TryResolve(PluginId, serviceType, out var hostService))
         {
             return hostService;
         }

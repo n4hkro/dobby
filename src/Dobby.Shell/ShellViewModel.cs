@@ -1,10 +1,12 @@
 using Dobby.Core;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginPages;
 using Dobby.Localization;
 using Dobby.Navigation;
 using Dobby.Shell.Layout;
 using Dobby.Shell.WorkSessions;
+using System.Windows;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
@@ -17,6 +19,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private readonly HostStringCatalog strings;
     private NavigationComposition navigation;
     private IPluginPageModel? activePluginPageModel;
+    private bool canViewLicenseStatus;
+    private bool canImportLicense;
+    private PluginRuntimeMode licenseRuntimeMode = PluginRuntimeMode.Denied;
+    private string? licenseFeedbackKey;
 
     public ShellViewModel(HostStringCatalog strings)
         : this(strings, Array.Empty<NavigationContribution>())
@@ -105,6 +111,32 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public string ThirdBarLabel => strings.GetString(HostResourceKeys.ShellThirdBar);
 
     public string BackgroundOperationLabel => strings.GetString(HostResourceKeys.ShellBackgroundOperation);
+
+    public string LicenseHeading => strings.GetString(HostResourceKeys.LicenseHeading);
+
+    public string LicenseStatusLabel => strings.GetString(HostResourceKeys.LicenseStatusLabel);
+
+    public string LicenseImportLabel => strings.GetString(HostResourceKeys.LicenseImportAction);
+
+    public string LicenseRuntimeModeText => canViewLicenseStatus
+        ? strings.GetString(LicenseModeKey(licenseRuntimeMode))
+        : string.Empty;
+
+    public string LicenseFeedbackText => string.IsNullOrWhiteSpace(licenseFeedbackKey)
+        ? string.Empty
+        : strings.GetString(licenseFeedbackKey);
+
+    public Visibility LicensePanelVisibility => canViewLicenseStatus || canImportLicense
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility LicenseStatusVisibility => canViewLicenseStatus
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility LicenseImportVisibility => canImportLicense
+        ? Visibility.Visible
+        : Visibility.Collapsed;
 
     public ShellLayoutState Layout { get; private set; }
 
@@ -264,6 +296,38 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(HasActivePluginPage));
     }
 
+    public void SetLicenseSurface(
+        bool canViewStatus,
+        bool canImport,
+        PluginRuntimeMode currentMode,
+        string? feedbackKey = null)
+    {
+        canViewLicenseStatus = canViewStatus;
+        canImportLicense = canImport;
+        licenseRuntimeMode = currentMode;
+        licenseFeedbackKey = feedbackKey;
+
+        OnPropertyChanged(nameof(LicensePanelVisibility));
+        OnPropertyChanged(nameof(LicenseStatusVisibility));
+        OnPropertyChanged(nameof(LicenseImportVisibility));
+        OnPropertyChanged(nameof(LicenseRuntimeModeText));
+        OnPropertyChanged(nameof(LicenseFeedbackText));
+    }
+
+    public void SetLicenseImportFeedback(string? feedbackKey)
+    {
+        licenseFeedbackKey = feedbackKey;
+        OnPropertyChanged(nameof(LicenseFeedbackText));
+    }
+
+    public void SetLicenseRuntimeMode(PluginRuntimeMode currentMode, string? feedbackKey = null)
+    {
+        licenseRuntimeMode = currentMode;
+        licenseFeedbackKey = feedbackKey;
+        OnPropertyChanged(nameof(LicenseRuntimeModeText));
+        OnPropertyChanged(nameof(LicenseFeedbackText));
+    }
+
     public void ApplyPluginNavigationContributions(IEnumerable<NavigationContribution> pluginContributions)
     {
         ArgumentNullException.ThrowIfNull(pluginContributions);
@@ -343,6 +407,16 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             ShellFeedbackState.Error => HostResourceKeys.ShellFeedbackError,
             ShellFeedbackState.Confirmation => HostResourceKeys.ShellFeedbackConfirmation,
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, null)
+        };
+    }
+
+    private static string LicenseModeKey(PluginRuntimeMode mode)
+    {
+        return mode switch
+        {
+            PluginRuntimeMode.FullAccess => HostResourceKeys.LicenseModeFullAccess,
+            PluginRuntimeMode.ReadOnlyExpired => HostResourceKeys.LicenseModeReadOnlyExpired,
+            _ => HostResourceKeys.LicenseModeDenied
         };
     }
 

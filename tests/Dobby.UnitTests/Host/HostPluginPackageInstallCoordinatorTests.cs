@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using Dobby.Audit;
+using Dobby.Contracts.Licensing;
 using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.Host.Plugins;
@@ -151,6 +152,50 @@ public sealed class HostPluginPackageInstallCoordinatorTests
             entry.PluginId.ShouldBe(PluginPackageTestData.PluginId);
             entry.Marker.ShouldBe("plugin.install.rejected:forbidden-content");
             entry.Details.ShouldContain(forbiddenPath);
+        }
+        finally
+        {
+            DeletePackage(packagePath);
+        }
+    }
+
+    [Fact]
+    public void Install_package_returns_license_read_only_before_staging_or_state_mutation()
+    {
+        var packagePath = CreatePackageZip(
+            PluginPackageTestData.CreateManifestJson(),
+            PluginPackageTestData.FilePath,
+            PluginPackageTestData.FileContent);
+        try
+        {
+            var audit = new InMemoryAuditTrail();
+            var staging = CreateSuccessfulStaging();
+            var stateStore = CreateSuccessfulStateStore();
+            var metadataCache = CreateSuccessfulMetadataCache();
+            var coordinator = new HostPluginPackageInstallCoordinator(
+                stateStore,
+                metadataCache,
+                staging,
+                CreateAuditCoordinator(audit),
+                new AllowAllTrustVerifier(),
+                currentRuntimeModeProvider: _ => Result.Success(PluginRuntimeMode.ReadOnlyExpired));
+
+            var result = coordinator.InstallPackage(
+                "owner",
+                packagePath,
+                new HostVersion(1, 0, 0),
+                CorrelationId.New());
+
+            result.IsSuccess.ShouldBeFalse();
+            result.ErrorCode.ShouldBe(ErrorCode.LicenseReadOnly);
+            staging.DidNotReceive().Stage(Arg.Any<PluginPackageDescriptor>());
+            stateStore.DidNotReceive().Upsert(Arg.Any<InstalledPluginState>());
+            metadataCache.DidNotReceive().Upsert(Arg.Any<InstalledPluginMetadata>());
+            audit.Snapshot().Select(evt => evt.EventName).ShouldBe([
+                AuditEventName.PluginInstallAttempted,
+                AuditEventName.PluginInstallRejected
+            ]);
+            audit.Snapshot().Last().Details!["reasonCode"].ShouldBe("license-read-only");
         }
         finally
         {

@@ -4,8 +4,10 @@ using Dobby.Core;
 using Dobby.Host.Settings;
 using Dobby.Host.Plugins;
 using Dobby.Host.Sessions;
+using Dobby.Licensing;
 using Dobby.Security.Authentication;
 using Dobby.Security.Authorization;
+using Dobby.Security.CurrentContext;
 
 namespace Dobby.Host.Login;
 
@@ -28,7 +30,11 @@ public sealed record HostLoginRuntime(
     AboutInfoProvider AboutInfoProvider,
     ShellDiagnosticsExportCoordinator DiagnosticsExportCoordinator,
     HostPluginPackageInstallCoordinator PluginPackageInstallCoordinator,
+    LicenseImportCoordinator LicenseImportCoordinator,
     HostPluginRuntimeCoordinator PluginRuntimeCoordinator,
+    CurrentCustomerDeploymentContextService CurrentCustomerDeploymentContextService,
+    ILicenseStateStore LicenseStateStore,
+    ILicenseRuntimeModeProvider LicenseRuntimeModeProvider,
     IBackgroundOperationReporter BackgroundOperations,
     string DiagnosticsSourceDirectory,
     string DiagnosticsOutputZipPath) : IAsyncDisposable

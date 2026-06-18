@@ -81,6 +81,12 @@ public sealed class HostLoginRuntimeFactoryTests
         runtime.AccountSettingsModel.ShouldNotBeNull();
         runtime.SettingsNavigationModel.ShouldNotBeNull();
         runtime.AboutInfoProvider.ShouldNotBeNull();
+        runtime.CurrentCustomerDeploymentContextService.ShouldNotBeNull();
+        runtime.LicenseStateStore.ShouldNotBeNull();
+        runtime.LicenseRuntimeModeProvider.ShouldNotBeNull();
+        runtime.LicenseImportCoordinator.ShouldNotBeNull();
+        fixture.Executor.Query<string>("SELECT CustomerId || ':' || DeploymentId FROM CustomerDeploymentContext;")
+            .ShouldBe(["default:default"]);
         WaitForAuditRetentionSweep(runtime);
     }
 

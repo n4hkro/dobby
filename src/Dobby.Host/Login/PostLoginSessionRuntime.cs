@@ -14,12 +14,18 @@ public interface IPostLoginPluginActivationCancellation
     void CancelPostLoginActivation();
 }
 
+public interface IPostLoginLicenseImportCancellation
+{
+    void CancelLicenseImport();
+}
+
 public sealed class PostLoginSessionRuntime(
     SessionLifecycleService sessionLifecycleService,
     SessionLifecycleAuditCoordinator auditCoordinator,
     LockRuntimeWorkflow lockRuntimeWorkflow,
     ILockWindowPresenter lockWindowPresenter,
-    IPostLoginPluginActivationCancellation? pluginActivationCancellation = null) : IDisposable
+    IPostLoginPluginActivationCancellation? pluginActivationCancellation = null,
+    IPostLoginLicenseImportCancellation? licenseImportCancellation = null) : IDisposable
 {
     public Result RecordActivity()
     {
@@ -37,7 +43,7 @@ public sealed class PostLoginSessionRuntime(
             return lockResult;
         }
 
-        CancelPluginActivation();
+        CancelInFlightPostLoginWork();
         return lockWindowPresenter.ShowLockWindow(lockRuntimeWorkflow, session)
             ? Result.Success()
             : Result.Failure(ErrorCode.Cancelled);
@@ -51,7 +57,7 @@ public sealed class PostLoginSessionRuntime(
         auditCoordinator.AppendLogout(session.UserId, result, correlationId);
         if (result.IsSuccess)
         {
-            CancelPluginActivation();
+            CancelInFlightPostLoginWork();
         }
 
         return result;
@@ -66,7 +72,7 @@ public sealed class PostLoginSessionRuntime(
 
         if (checkpoint.Kind == SessionCheckpointKind.Locked && checkpoint.JustTransitioned)
         {
-            CancelPluginActivation();
+            CancelInFlightPostLoginWork();
             return lockWindowPresenter.ShowLockWindow(lockRuntimeWorkflow, session)
                 ? Result.Success()
                 : Result.Failure(ErrorCode.Cancelled);
@@ -74,7 +80,7 @@ public sealed class PostLoginSessionRuntime(
 
         if (checkpoint.Kind is SessionCheckpointKind.Expired or SessionCheckpointKind.Invalidated)
         {
-            CancelPluginActivation();
+            CancelInFlightPostLoginWork();
             return Result.Failure(ErrorCode.Unauthorized);
         }
 
@@ -83,11 +89,12 @@ public sealed class PostLoginSessionRuntime(
 
     public void Dispose()
     {
-        CancelPluginActivation();
+        CancelInFlightPostLoginWork();
     }
 
-    private void CancelPluginActivation()
+    private void CancelInFlightPostLoginWork()
     {
         pluginActivationCancellation?.CancelPostLoginActivation();
+        licenseImportCancellation?.CancelLicenseImport();
     }
 }

@@ -93,6 +93,36 @@
   <data name="Dobby.Shell.Diagnostics.Exported" xml:space="preserve">
     <value>Diaqnostika ixrac edildi</value>
   </data>
+  <data name="Dobby.Shell.Plugins.License.Heading" xml:space="preserve">
+    <value>Plugin lisenziyası</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.Import" xml:space="preserve">
+    <value>Lisenziya idxal et</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.ImportSuccess" xml:space="preserve">
+    <value>Lisenziya idxal edildi</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.ImportRejected" xml:space="preserve">
+    <value>Lisenziya idxalı qəbul edilmədi</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.ImportBusy" xml:space="preserve">
+    <value>Lisenziya idxal olunur</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.ImportPermissionDenied" xml:space="preserve">
+    <value>Lisenziya idxalı üçün icazə yoxdur</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.Mode.FullAccess" xml:space="preserve">
+    <value>Tam giriş</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.Mode.ReadOnlyExpired" xml:space="preserve">
+    <value>Yalnız oxuma</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.Mode.Denied" xml:space="preserve">
+    <value>Bloklanıb</value>
+  </data>
   <data name="Dobby.Shell.PasswordChanged" xml:space="preserve">
     <value>Şifrə dəyişdirildi</value>
   </data>

@@ -2,6 +2,7 @@ using Dobby.Audit;
 using Dobby.Application;
 using Dobby.Configuration;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.Licensing;
 using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.Diagnostics;
@@ -12,12 +13,14 @@ using Dobby.Host.Sessions;
 using Dobby.Infrastructure.HardwareIdentity;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
+using Dobby.Licensing;
 using Dobby.Messaging;
 using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Manifest;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authentication;
 using Dobby.Security.Authorization;
+using Dobby.Security.CurrentContext;
 using Dobby.Security.Trust;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -55,7 +58,8 @@ public static class HostLoginRuntimeFactory
         {
             throw new InvalidOperationException("Protected material is unavailable.");
         }
-        var applicationEntropy = protectedMaterialProbe.LoadRequired().ApplicationEntropy;
+        var protectedMaterial = protectedMaterialProbe.LoadRequired();
+        var applicationEntropy = protectedMaterial.ApplicationEntropy;
 
         var persistenceOptions = new HostPersistenceOptions(
             options.Runtime.DataRoot,
@@ -72,6 +76,20 @@ public static class HostLoginRuntimeFactory
 
         var executor = new HostPersistenceCommandExecutor(factory);
         var transactionScope = new HostPersistenceTransactionScope(factory);
+        var currentContextStore = new HostCustomerDeploymentContextStore(executor);
+        var currentContextService = new CurrentCustomerDeploymentContextService(currentContextStore);
+        var currentContext = currentContextService.EnsureDefaultContext();
+        if (!currentContext.IsSuccess)
+        {
+            throw new InvalidOperationException("Current customer/deployment context could not be materialized.");
+        }
+
+        var licenseStateStore = new HostLicenseStateStore(executor, transactionScope);
+        var currentLicenseDeviceFingerprint = CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId);
+        var licenseRuntimeModeProvider = new LicenseRuntimeModeProvider(
+            licenseStateStore,
+            currentContextService,
+            () => currentLicenseDeviceFingerprint);
         var credentialScopeProtector = credentialProtector ?? new DpapiLocalMachineProtector();
         var rememberScopeProtector = rememberMeProtector ?? new DpapiCurrentUserProtector();
         var kdfPolicyResolver = new KdfPolicyResolver(options.Auth);
@@ -98,12 +116,6 @@ public static class HostLoginRuntimeFactory
         var sessionAuditCoordinator = new SessionLifecycleAuditCoordinator(auditTrail, timeProvider);
         var lockRuntimeWorkflow = new LockRuntimeWorkflow(sessionLifecycleService, sessionAuditCoordinator);
         var pluginActivationCancellation = new HostPluginActivationCancellation();
-        var postLoginSessionRuntime = new PostLoginSessionRuntime(
-            sessionLifecycleService,
-            sessionAuditCoordinator,
-            lockRuntimeWorkflow,
-            new WpfLockWindowPresenter(),
-            pluginActivationCancellation);
         var rememberMeSlotService = new RememberMeSlotService(executor, rememberScopeProtector, applicationEntropy);
         var showDisplayNameInput = executor.QueryScalar<int>("SELECT COUNT(*) FROM Users;") == 0;
         var savedLogin = rememberMeSlotService.LoadSavedLogin();
@@ -155,17 +167,38 @@ public static class HostLoginRuntimeFactory
         var pluginRuntimeAuditCoordinator = new PluginRuntimeAuditCoordinator(auditTrail, timeProvider);
         var pluginRuntimeDiagnosticsCoordinator = new PluginRuntimeDiagnosticsCoordinator(_ => { });
         var pluginTrustVerifier = new PluginTrustVerifier();
+        var licenseImportService = new LicenseImportService(
+            new LicenseSignatureVerifier(new PluginTrustPublicKeyProvider()),
+            currentContextService,
+            licenseStateStore);
+        var licenseImportCoordinator = new LicenseImportCoordinator(
+            licenseImportService,
+            installedPluginStateStore,
+            operationAuthorizationPolicy,
+            () => currentLicenseDeviceFingerprint,
+            auditTrail,
+            timeProvider);
+        var postLoginSessionRuntime = new PostLoginSessionRuntime(
+            sessionLifecycleService,
+            sessionAuditCoordinator,
+            lockRuntimeWorkflow,
+            new WpfLockWindowPresenter(),
+            pluginActivationCancellation,
+            licenseImportCoordinator);
         var pluginHostServices = new PluginHostServices(
             new InMemoryEventBus(),
             operationReporter,
-            pluginActivationCancellation);
+            pluginActivationCancellation,
+            pluginId => new PluginCapabilityLicensing(() =>
+                ResolvePluginRuntimeMode(licenseRuntimeModeProvider, installedPluginStateStore, pluginId)));
         var pluginPackageInstallCoordinator = new HostPluginPackageInstallCoordinator(
             installedPluginStateStore,
             installedPluginMetadataCache,
             pluginInstallStagingArea,
             pluginRuntimeAuditCoordinator,
             pluginTrustVerifier,
-            pluginRuntimeDiagnosticsCoordinator);
+            pluginRuntimeDiagnosticsCoordinator,
+            pluginId => ResolvePluginRuntimeMode(licenseRuntimeModeProvider, installedPluginStateStore, pluginId));
         var hostPluginRuntimeCoordinator = new HostPluginRuntimeCoordinator(
             migrator,
             installedPluginStateStore,
@@ -179,7 +212,8 @@ public static class HostLoginRuntimeFactory
             pluginTrustVerifier,
             pluginRuntimeAuditCoordinator,
             operationReporter,
-            pluginRuntimeDiagnosticsCoordinator);
+            pluginRuntimeDiagnosticsCoordinator,
+            licenseRuntimeModeProvider);
         var managedUserService = new ManagedUserService(
             executor,
             credentialStore,
@@ -236,10 +270,44 @@ public static class HostLoginRuntimeFactory
             aboutInfoProvider,
             diagnosticsExportCoordinator,
             pluginPackageInstallCoordinator,
+            licenseImportCoordinator,
             hostPluginRuntimeCoordinator,
+            currentContextService,
+            licenseStateStore,
+            licenseRuntimeModeProvider,
             operationReporter,
             options.Runtime.DataRoot,
             diagnosticsOutputZipPath);
+    }
+
+    private static string CreateCurrentLicenseDeviceFingerprint(byte[] stableDeviceId)
+    {
+        var hardware = new WindowsHardwareIdentityProvider().Read();
+        var fingerprint = LicenseDeviceFingerprintV1.Compute(hardware.MachineGuid, stableDeviceId);
+        if (!fingerprint.IsSuccess)
+        {
+            throw new InvalidOperationException("License device fingerprint could not be computed.");
+        }
+
+        return fingerprint.Value.Value;
+    }
+
+    private static Result<PluginRuntimeMode> ResolvePluginRuntimeMode(
+        ILicenseRuntimeModeProvider licenseRuntimeModeProvider,
+        IInstalledPluginStateStore installedPluginStateStore,
+        string pluginId)
+    {
+        var snapshot = installedPluginStateStore.Snapshot();
+        if (!snapshot.IsSuccess)
+        {
+            return Result.Failure<PluginRuntimeMode>(snapshot.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        var installed = snapshot.Value.SingleOrDefault(state =>
+            state.PluginId.Equals(pluginId, StringComparison.Ordinal));
+        return installed is null
+            ? Result.Success(PluginRuntimeMode.Denied)
+            : licenseRuntimeModeProvider.GetCurrentMode(pluginId, installed.PackageFingerprint);
     }
 
     private static void ValidateOptions(DobbyOptions options)

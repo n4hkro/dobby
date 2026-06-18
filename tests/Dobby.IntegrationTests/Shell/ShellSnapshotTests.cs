@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using Dobby.Configuration;
 using Dobby.Contracts.Ordering;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.Licensing;
 using Dobby.Host;
 using Dobby.Localization;
 using Dobby.Navigation;
@@ -69,6 +70,9 @@ public sealed class ShellSnapshotTests
         evidence.Text.ShouldContain("Host edition/channel");
         evidence.Text.ShouldContain("Plugin versions/status");
         evidence.Text.ShouldContain("Registered owner");
+        evidence.Text.ShouldContain("Plugin lisenziyası");
+        evidence.Text.ShouldContain("Yalnız oxuma");
+        evidence.Text.ShouldContain("Lisenziya idxal et");
         evidence.Text.ShouldContain("Qısa bildiriş");
         evidence.Text.ShouldContain("Banner bildirişi");
         evidence.Text.ShouldContain("Modal bildiriş");
@@ -135,6 +139,10 @@ public sealed class ShellSnapshotTests
                 new ShellAboutField("legal", "Legal", "Local verification"),
                 new ShellAboutField("owner", "Registered owner", "Registered")
             ]);
+        shell.SetLicenseSurface(
+            canViewStatus: true,
+            canImport: true,
+            PluginRuntimeMode.ReadOnlyExpired);
         shell.ShowBackgroundOperation(new BackgroundOperationSnapshot(
             Guid.NewGuid(),
             BackgroundOperationOwnerKind.Host,

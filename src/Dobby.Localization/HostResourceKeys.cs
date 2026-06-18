@@ -74,6 +74,16 @@ public static class HostResourceKeys
     public const string ShellBackgroundOperation = "Dobby.Shell.BackgroundOperation";
     public const string ShellDiagnosticsExport = "Dobby.Shell.Diagnostics.Export";
     public const string ShellDiagnosticsExported = "Dobby.Shell.Diagnostics.Exported";
+    public const string LicenseHeading = "Dobby.Shell.Plugins.License.Heading";
+    public const string LicenseStatusLabel = "Dobby.Shell.Plugins.License.Status";
+    public const string LicenseImportAction = "Dobby.Shell.Plugins.License.Import";
+    public const string LicenseImportSuccess = "Dobby.Shell.Plugins.License.ImportSuccess";
+    public const string LicenseImportRejected = "Dobby.Shell.Plugins.License.ImportRejected";
+    public const string LicenseImportBusy = "Dobby.Shell.Plugins.License.ImportBusy";
+    public const string LicenseImportPermissionDenied = "Dobby.Shell.Plugins.License.ImportPermissionDenied";
+    public const string LicenseModeFullAccess = "Dobby.Shell.Plugins.License.Mode.FullAccess";
+    public const string LicenseModeReadOnlyExpired = "Dobby.Shell.Plugins.License.Mode.ReadOnlyExpired";
+    public const string LicenseModeDenied = "Dobby.Shell.Plugins.License.Mode.Denied";
     public static string ShellPasswordChanged
     {
         get
@@ -142,6 +152,16 @@ public static class HostResourceKeys
         ShellBackgroundOperation,
         ShellDiagnosticsExport,
         ShellDiagnosticsExported,
+        LicenseHeading,
+        LicenseStatusLabel,
+        LicenseImportAction,
+        LicenseImportSuccess,
+        LicenseImportRejected,
+        LicenseImportBusy,
+        LicenseImportPermissionDenied,
+        LicenseModeFullAccess,
+        LicenseModeReadOnlyExpired,
+        LicenseModeDenied,
         ShellPasswordChanged,
         ShellProfileAccountInfo,
         ShellProfileChangePassword,

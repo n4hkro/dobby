@@ -175,6 +175,41 @@
         <TextBlock
             Foreground="{DynamicResource Dobby.Brush.Text}"
             Text="{Binding StatusText}" />
+        <StackPanel
+            x:Name="LicensePanel"
+            Margin="{DynamicResource Dobby.Spacing.Small}"
+            Visibility="{Binding LicensePanelVisibility}">
+          <TextBlock
+              FontSize="{DynamicResource Dobby.FontSize.Title}"
+              Foreground="{DynamicResource Dobby.Brush.Text}"
+              Text="{Binding LicenseHeading}" />
+          <StackPanel
+              x:Name="LicenseStatusPanel"
+              Orientation="Horizontal"
+              Visibility="{Binding LicenseStatusVisibility}">
+            <TextBlock
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding LicenseStatusLabel}" />
+            <TextBlock
+                x:Name="LicenseStatusText"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding LicenseRuntimeModeText}" />
+          </StackPanel>
+          <Button
+              x:Name="LicenseImportButton"
+              Margin="{DynamicResource Dobby.Spacing.Small}"
+              Click="LicenseImport_Click"
+              Content="{Binding LicenseImportLabel}"
+              Visibility="{Binding LicenseImportVisibility}" />
+          <TextBlock
+              x:Name="LicenseFeedbackText"
+              Margin="{DynamicResource Dobby.Spacing.Small}"
+              Foreground="{DynamicResource Dobby.Brush.Text}"
+              Text="{Binding LicenseFeedbackText}"
+              TextWrapping="Wrap" />
+        </StackPanel>
         <ContentControl
             x:Name="PluginPageHost"
             Margin="{DynamicResource Dobby.Spacing.Small}" />

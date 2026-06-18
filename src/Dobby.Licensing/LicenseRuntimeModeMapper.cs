@@ -12,6 +12,20 @@ public enum LicenseArtifactStatus
 
 public static class LicenseRuntimeModeMapper
 {
+    public static PluginRuntimeMode Map(LicenseLifecycleState state)
+    {
+        return state switch
+        {
+            LicenseLifecycleState.Active => PluginRuntimeMode.FullAccess,
+            LicenseLifecycleState.Grace => PluginRuntimeMode.FullAccess,
+            LicenseLifecycleState.ReadOnly => PluginRuntimeMode.ReadOnlyExpired,
+            LicenseLifecycleState.NoLicense => PluginRuntimeMode.Denied,
+            LicenseLifecycleState.Pending => PluginRuntimeMode.Denied,
+            LicenseLifecycleState.Denied => PluginRuntimeMode.Denied,
+            _ => PluginRuntimeMode.Denied
+        };
+    }
+
     public static PluginRuntimeMode Map(LicenseArtifactStatus status)
     {
         return status switch

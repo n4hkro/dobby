@@ -296,3 +296,18 @@ Decision ledger:
 - D-27 / `HD-S9-002`: APPROVED (`A`) - Sprint 9 licensing domain files stay in the existing flat `Dobby.Licensing` placement, and host license coordination stays in the existing flat `Dobby.Host` placement. No new `Dobby.Host.Licensing`, `Dobby.Licensing.Persistence`, or other skeleton-critical namespace is approved unless a narrow coding-standards authority row is recorded first.
 - D-28 / `HD-S9-003`: APPROVED (`A`) - Sprint 9 must not widen `JsonSchema.Net` beyond the existing Sprint 8 plugin manifest validation approval. `.dobbylicense` schema checks must use BCL/manual validation against the canonical schema, and tests must pin required fields, enums, formats, signature-shape rules, and package-governance non-drift.
 - D-29 / `HD-S9-004`: APPROVED WITH CONSTRAINTS (`A+C`) - Sprint 9 may generate signed `.dobbylicense` test artifacts through test-only builder/helper code using generated or clearly non-production ECDSA P-256 material. Helper output must match ADR/schema canonical signing rules, including DER (`DSASignatureFormat.Rfc3279DerSequence`) ECDSA signatures and base64url-no-padding signature values. No committed production/private signing material is approved; test-only keys/artifacts must be generated or clearly non-production and must not ship as product/Admin fixtures. This license-test-material constraint does not prohibit previously approved public trust resources.
+
+### Sprint 9 Current Context Authority Reconciliation 2026-06-18
+
+Status: CLOSED - `Dobby.Security.CurrentContext` is approved for the Sprint 9 current customer/deployment context implementation.
+
+Reconciliation:
+- `docs/02_ARCHITECTURE_MAP.md` row 36 assigns `Current Context` to `Dobby.Security` and states that it owns current user, single active customer/deployment context, and the default tenant primitive under ADR-0052.
+- `docs/02_ARCHITECTURE_MAP.md` table 2 allows `Dobby.Licensing` to reference `Dobby.Security`, so licensing may consume the Security-owned context without inventing a Host-only or Licensing-only context owner.
+- `ADR-0052` requires clean local install to materialize exactly one `(customerId, deploymentId) = (default, default)` context before license import, and forbids `.dobbylicense` import from creating or mutating customer/deployment identifiers opportunistically.
+- `artifacts/release-evidence/skeleton-local/storage-materialization.md` row 230 remains valid as pre-login table-shape evidence for `CustomerDeploymentContext`, but its older `Dobby.Licensing.Context` owner label is superseded for runtime ownership by ADR-0052 and architecture-map row 36. The table remains pre-login storage; the host wires a concrete adapter, while `Dobby.Security.CurrentContext` owns lookup/materialization policy.
+
+Decision:
+- Sprint 9 may create `src/Dobby.Security/CurrentContext/...` files for host-internal current customer/deployment context policy and port types.
+- The implementation must keep raw customer/deployment values out of plugin, UI, diagnostics/export, and user-facing rejection text except support-safe categories.
+- License import and activation must read the existing Security-owned context and fail closed for missing, duplicate, or mismatched context before mutating license state.
