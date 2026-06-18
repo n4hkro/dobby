@@ -197,11 +197,40 @@
                 Foreground="{DynamicResource Dobby.Brush.Text}"
                 Text="{Binding LicenseRuntimeModeText}" />
           </StackPanel>
+          <StackPanel
+              x:Name="LicenseListPanel"
+              Orientation="Horizontal"
+              Visibility="{Binding LicenseListVisibility}">
+            <TextBlock
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding LicenseListLabel}" />
+            <TextBlock
+                x:Name="LicenseListText"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding LicenseListText}" />
+          </StackPanel>
+          <StackPanel
+              x:Name="LicenseDetailPanel"
+              Orientation="Horizontal"
+              Visibility="{Binding LicenseDetailVisibility}">
+            <TextBlock
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding LicenseDetailLabel}" />
+            <TextBlock
+                x:Name="LicenseDetailText"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding LicenseDetailText}" />
+          </StackPanel>
           <Button
               x:Name="LicenseImportButton"
               Margin="{DynamicResource Dobby.Spacing.Small}"
               Click="LicenseImport_Click"
               Content="{Binding LicenseImportLabel}"
+              IsEnabled="{Binding LicenseImportIsEnabled}"
               Visibility="{Binding LicenseImportVisibility}" />
           <TextBlock
               x:Name="LicenseFeedbackText"

@@ -161,10 +161,13 @@ public partial class App : System.Windows.Application
         var correlationId = Dobby.Core.CorrelationId.New();
         var canView = IsAllowed(loginRuntime.OperationAuthorizationPolicy, actor, OperationVerb.View, correlationId);
         var canImport = IsAllowed(loginRuntime.OperationAuthorizationPolicy, actor, OperationVerb.Import, correlationId);
+        var licenseSurface = CurrentPluginLicenseSurface(loginRuntime);
         shellViewModel.SetLicenseSurface(
             canView,
             canImport,
-            CurrentPluginRuntimeMode(loginRuntime));
+            licenseSurface.Mode,
+            pluginId: licenseSurface.PluginId,
+            pluginName: licenseSurface.PluginName);
     }
 
     private static bool IsAllowed(
@@ -182,16 +185,29 @@ public partial class App : System.Windows.Application
 
     private static PluginRuntimeMode CurrentPluginRuntimeMode(HostLoginRuntime loginRuntime)
     {
+        return CurrentPluginLicenseSurface(loginRuntime).Mode;
+    }
+
+    private static LicenseSurfaceSnapshot CurrentPluginLicenseSurface(HostLoginRuntime loginRuntime)
+    {
         var snapshot = loginRuntime.PluginRuntimeCoordinator.StateStore.Snapshot();
         var installed = snapshot is { IsSuccess: true } ? snapshot.Value.FirstOrDefault() : null;
         if (installed is null)
         {
-            return PluginRuntimeMode.Denied;
+            return new LicenseSurfaceSnapshot(PluginRuntimeMode.Denied, null, null);
         }
 
         var mode = loginRuntime.LicenseRuntimeModeProvider.GetCurrentMode(installed.PluginId, installed.PackageFingerprint);
-        return mode is { IsSuccess: true } ? mode.Value : PluginRuntimeMode.Denied;
+        return new LicenseSurfaceSnapshot(
+            mode is { IsSuccess: true } ? mode.Value : PluginRuntimeMode.Denied,
+            installed.PluginId,
+            installed.DisplayName);
     }
+
+    private sealed record LicenseSurfaceSnapshot(
+        PluginRuntimeMode Mode,
+        string? PluginId,
+        string? PluginName);
 
     private static IReadOnlyList<ShellAboutField> BuildAboutFields(HostStringCatalog strings, AboutInfo about)
     {

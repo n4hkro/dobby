@@ -81,6 +81,22 @@ public sealed class HostPluginPackageInstallCoordinator(
 
         var descriptor = validation.Descriptor!;
         var runtimeMode = runtimeModeProvider(descriptor.Manifest.PluginId);
+        if (!runtimeMode.IsSuccess)
+        {
+            var rejection = RuntimeModeFailureRejection(runtimeMode.ErrorCode);
+            var reasons = new[]
+            {
+                new PluginPackageValidationReason(rejection.ReasonCode, rejection.Message)
+            };
+            auditCoordinator.AppendInstallRejected(
+                actorId,
+                descriptor.Manifest.PluginId,
+                reasons,
+                correlationId);
+            diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
+            return Result.Failure<InstalledPluginState>(rejection.ErrorCode);
+        }
+
         if (runtimeMode.IsSuccess && runtimeMode.Value == PluginRuntimeMode.ReadOnlyExpired)
         {
             var reasons = new[]
@@ -123,4 +139,22 @@ public sealed class HostPluginPackageInstallCoordinator(
         return File.Exists(packagePath) &&
             Path.GetExtension(packagePath).Equals(".dobbyplugin", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static RuntimeModeFailure RuntimeModeFailureRejection(ErrorCode? errorCode)
+    {
+        return errorCode == ErrorCode.LicenseBindingMismatch
+            ? new RuntimeModeFailure(
+                ErrorCode.LicenseBindingMismatch,
+                "license-binding-mismatch",
+                "Plugin package installation is unavailable because license binding could not be verified.")
+            : new RuntimeModeFailure(
+                ErrorCode.LicenseDenied,
+                "license-runtime-unavailable",
+                "Plugin package installation is unavailable because license runtime mode could not be verified.");
+    }
+
+    private sealed record RuntimeModeFailure(
+        ErrorCode ErrorCode,
+        string ReasonCode,
+        string Message);
 }

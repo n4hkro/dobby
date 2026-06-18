@@ -21,8 +21,11 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private IPluginPageModel? activePluginPageModel;
     private bool canViewLicenseStatus;
     private bool canImportLicense;
+    private bool licenseImportBusy;
     private PluginRuntimeMode licenseRuntimeMode = PluginRuntimeMode.Denied;
     private string? licenseFeedbackKey;
+    private string? licensePluginId;
+    private string? licensePluginName;
 
     public ShellViewModel(HostStringCatalog strings)
         : this(strings, Array.Empty<NavigationContribution>())
@@ -116,10 +119,22 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string LicenseStatusLabel => strings.GetString(HostResourceKeys.LicenseStatusLabel);
 
+    public string LicenseListLabel => strings.GetString(HostResourceKeys.LicenseListLabel);
+
+    public string LicenseDetailLabel => strings.GetString(HostResourceKeys.LicenseDetailLabel);
+
     public string LicenseImportLabel => strings.GetString(HostResourceKeys.LicenseImportAction);
 
     public string LicenseRuntimeModeText => canViewLicenseStatus
         ? strings.GetString(LicenseModeKey(licenseRuntimeMode))
+        : string.Empty;
+
+    public string LicenseListText => canViewLicenseStatus
+        ? LicenseListDisplayText()
+        : string.Empty;
+
+    public string LicenseDetailText => canViewLicenseStatus
+        ? LicenseRuntimeModeText
         : string.Empty;
 
     public string LicenseFeedbackText => string.IsNullOrWhiteSpace(licenseFeedbackKey)
@@ -134,9 +149,19 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         ? Visibility.Visible
         : Visibility.Collapsed;
 
+    public Visibility LicenseListVisibility => canViewLicenseStatus
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility LicenseDetailVisibility => canViewLicenseStatus
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
     public Visibility LicenseImportVisibility => canImportLicense
         ? Visibility.Visible
         : Visibility.Collapsed;
+
+    public bool LicenseImportIsEnabled => canImportLicense && !licenseImportBusy;
 
     public ShellLayoutState Layout { get; private set; }
 
@@ -300,17 +325,26 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         bool canViewStatus,
         bool canImport,
         PluginRuntimeMode currentMode,
-        string? feedbackKey = null)
+        string? feedbackKey = null,
+        string? pluginId = null,
+        string? pluginName = null)
     {
         canViewLicenseStatus = canViewStatus;
         canImportLicense = canImport;
         licenseRuntimeMode = currentMode;
         licenseFeedbackKey = feedbackKey;
+        licensePluginId = pluginId;
+        licensePluginName = pluginName;
 
         OnPropertyChanged(nameof(LicensePanelVisibility));
         OnPropertyChanged(nameof(LicenseStatusVisibility));
+        OnPropertyChanged(nameof(LicenseListVisibility));
+        OnPropertyChanged(nameof(LicenseDetailVisibility));
         OnPropertyChanged(nameof(LicenseImportVisibility));
+        OnPropertyChanged(nameof(LicenseImportIsEnabled));
         OnPropertyChanged(nameof(LicenseRuntimeModeText));
+        OnPropertyChanged(nameof(LicenseListText));
+        OnPropertyChanged(nameof(LicenseDetailText));
         OnPropertyChanged(nameof(LicenseFeedbackText));
     }
 
@@ -320,11 +354,28 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(LicenseFeedbackText));
     }
 
+    public void SetLicenseImportBusy(bool isBusy)
+    {
+        licenseImportBusy = isBusy;
+        if (isBusy)
+        {
+            licenseFeedbackKey = HostResourceKeys.LicenseImportBusy;
+        }
+        else if (licenseFeedbackKey == HostResourceKeys.LicenseImportBusy)
+        {
+            licenseFeedbackKey = null;
+        }
+
+        OnPropertyChanged(nameof(LicenseImportIsEnabled));
+        OnPropertyChanged(nameof(LicenseFeedbackText));
+    }
+
     public void SetLicenseRuntimeMode(PluginRuntimeMode currentMode, string? feedbackKey = null)
     {
         licenseRuntimeMode = currentMode;
         licenseFeedbackKey = feedbackKey;
         OnPropertyChanged(nameof(LicenseRuntimeModeText));
+        OnPropertyChanged(nameof(LicenseDetailText));
         OnPropertyChanged(nameof(LicenseFeedbackText));
     }
 
@@ -423,6 +474,23 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    private string LicenseListDisplayText()
+    {
+        if (!string.IsNullOrWhiteSpace(licensePluginName) && !string.IsNullOrWhiteSpace(licensePluginId))
+        {
+            return $"{licensePluginName} ({licensePluginId})";
+        }
+
+        if (!string.IsNullOrWhiteSpace(licensePluginName))
+        {
+            return licensePluginName;
+        }
+
+        return string.IsNullOrWhiteSpace(licensePluginId)
+            ? strings.GetString(HostResourceKeys.LicenseNoPlugin)
+            : licensePluginId;
     }
 }
 

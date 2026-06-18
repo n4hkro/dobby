@@ -6,27 +6,42 @@ public static class LicenseRuntimeModeService
     {
         ArgumentNullException.ThrowIfNull(payload);
 
-        if (payload.Status == LicenseArtifactStatus.Denied)
+        return EvaluateLifecycle(
+            payload.Status,
+            payload.NotBefore,
+            payload.ExpiresAt,
+            payload.GracePeriodDays,
+            now);
+    }
+
+    public static LicenseLifecycleState EvaluateLifecycle(
+        LicenseArtifactStatus status,
+        DateTimeOffset notBefore,
+        DateTimeOffset expiresAt,
+        int gracePeriodDays,
+        DateTimeOffset now)
+    {
+        if (status == LicenseArtifactStatus.Denied)
         {
             return LicenseLifecycleState.Denied;
         }
 
-        if (payload.Status == LicenseArtifactStatus.ReadOnly)
+        if (status == LicenseArtifactStatus.ReadOnly)
         {
             return LicenseLifecycleState.ReadOnly;
         }
 
-        if (now < payload.NotBefore)
+        if (now < notBefore)
         {
             return LicenseLifecycleState.Pending;
         }
 
-        if (now <= payload.ExpiresAt)
+        if (now <= expiresAt)
         {
             return LicenseLifecycleState.Active;
         }
 
-        return now <= payload.ExpiresAt.AddDays(payload.GracePeriodDays)
+        return now <= expiresAt.AddDays(gracePeriodDays)
             ? LicenseLifecycleState.Grace
             : LicenseLifecycleState.ReadOnly;
     }

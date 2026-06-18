@@ -203,6 +203,54 @@ public sealed class HostPluginPackageInstallCoordinatorTests
         }
     }
 
+    [Theory]
+    [MemberData(nameof(RuntimeProviderFailureCases))]
+    public void Install_package_fails_closed_when_runtime_mode_provider_fails(
+        ErrorCode providerError,
+        ErrorCode expectedError,
+        string expectedReasonCode)
+    {
+        var packagePath = CreatePackageZip(
+            PluginPackageTestData.CreateManifestJson(),
+            PluginPackageTestData.FilePath,
+            PluginPackageTestData.FileContent);
+        try
+        {
+            var audit = new InMemoryAuditTrail();
+            var staging = CreateSuccessfulStaging();
+            var stateStore = CreateSuccessfulStateStore();
+            var metadataCache = CreateSuccessfulMetadataCache();
+            var coordinator = new HostPluginPackageInstallCoordinator(
+                stateStore,
+                metadataCache,
+                staging,
+                CreateAuditCoordinator(audit),
+                new AllowAllTrustVerifier(),
+                currentRuntimeModeProvider: _ => Result.Failure<PluginRuntimeMode>(providerError));
+
+            var result = coordinator.InstallPackage(
+                "owner",
+                packagePath,
+                new HostVersion(1, 0, 0),
+                CorrelationId.New());
+
+            result.IsSuccess.ShouldBeFalse();
+            result.ErrorCode.ShouldBe(expectedError);
+            staging.DidNotReceive().Stage(Arg.Any<PluginPackageDescriptor>());
+            stateStore.DidNotReceive().Upsert(Arg.Any<InstalledPluginState>());
+            metadataCache.DidNotReceive().Upsert(Arg.Any<InstalledPluginMetadata>());
+            audit.Snapshot().Select(evt => evt.EventName).ShouldBe([
+                AuditEventName.PluginInstallAttempted,
+                AuditEventName.PluginInstallRejected
+            ]);
+            audit.Snapshot().Last().Details!["reasonCode"].ShouldBe(expectedReasonCode);
+        }
+        finally
+        {
+            DeletePackage(packagePath);
+        }
+    }
+
     [Fact]
     public void Install_package_maps_trust_failure_to_trust_audit_event_before_staging()
     {
@@ -284,6 +332,15 @@ public sealed class HostPluginPackageInstallCoordinatorTests
         return new PluginRuntimeAuditCoordinator(
             audit,
             new FakeTimeProvider(DateTimeOffset.Parse("2026-06-09T00:00:00Z")));
+    }
+
+    public static TheoryData<ErrorCode, ErrorCode, string> RuntimeProviderFailureCases()
+    {
+        return new TheoryData<ErrorCode, ErrorCode, string>
+        {
+            { ErrorCode.LicenseBindingMismatch, ErrorCode.LicenseBindingMismatch, "license-binding-mismatch" },
+            { ErrorCode.PluginInternalError, ErrorCode.LicenseDenied, "license-runtime-unavailable" }
+        };
     }
 
     private static IPluginInstallStagingArea CreateSuccessfulStaging()

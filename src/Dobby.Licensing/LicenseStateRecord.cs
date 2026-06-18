@@ -9,4 +9,8 @@ public sealed record LicenseStateRecord(
     string PackageFingerprint,
     int LicenseRevision,
     LicenseLifecycleState LifecycleState,
-    DateTimeOffset ImportedAtUtc);
+    DateTimeOffset ImportedAtUtc,
+    DateTimeOffset? NotBeforeUtc = null,
+    DateTimeOffset? ExpiresAtUtc = null,
+    int? GracePeriodDays = null,
+    LicenseArtifactStatus? SourceStatus = null);

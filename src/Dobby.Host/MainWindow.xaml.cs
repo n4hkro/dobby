@@ -406,11 +406,16 @@ public partial class MainWindow : Window
             : result.ErrorCode?.ToString() ?? ErrorCode.IoFailed.ToString());
     }
 
-    private void LicenseImport_Click(object sender, RoutedEventArgs e)
+    private async void LicenseImport_Click(object sender, RoutedEventArgs e)
     {
         if (licenseImportCoordinator is null || licenseFilePicker is null || session is null)
         {
             shellViewModel.SetLicenseImportFeedback(HostResourceKeys.LicenseImportRejected);
+            return;
+        }
+
+        if (!shellViewModel.LicenseImportIsEnabled)
+        {
             return;
         }
 
@@ -420,20 +425,30 @@ public partial class MainWindow : Window
             return;
         }
 
-        shellViewModel.SetLicenseImportFeedback(HostResourceKeys.LicenseImportBusy);
-        var result = licenseImportCoordinator.ImportFile(session.UserId, selectedPath, CorrelationId.New());
-        if (result.IsSuccess)
+        shellViewModel.SetLicenseImportBusy(true);
+        try
         {
-            shellViewModel.SetLicenseRuntimeMode(
-                LicenseRuntimeModeMapper.Map(result.LifecycleState),
-                HostResourceKeys.LicenseImportSuccess);
-            return;
-        }
+            var result = await licenseImportCoordinator.ImportFileAsync(
+                session.UserId,
+                selectedPath,
+                CorrelationId.New());
+            if (result.IsSuccess)
+            {
+                shellViewModel.SetLicenseRuntimeMode(
+                    LicenseRuntimeModeMapper.Map(result.LifecycleState),
+                    HostResourceKeys.LicenseImportSuccess);
+                return;
+            }
 
-        shellViewModel.SetLicenseImportFeedback(
-            result.ReasonCode == LicenseRejectReasons.PermissionDenied
-                ? HostResourceKeys.LicenseImportPermissionDenied
-                : HostResourceKeys.LicenseImportRejected);
+            shellViewModel.SetLicenseImportFeedback(
+                result.ReasonCode == LicenseRejectReasons.PermissionDenied
+                    ? HostResourceKeys.LicenseImportPermissionDenied
+                    : HostResourceKeys.LicenseImportRejected);
+        }
+        finally
+        {
+            shellViewModel.SetLicenseImportBusy(false);
+        }
     }
 
     private void ApplyPersistedShellPreference()

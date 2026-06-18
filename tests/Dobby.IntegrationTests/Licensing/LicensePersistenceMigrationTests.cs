@@ -24,8 +24,19 @@ public sealed class LicensePersistenceMigrationTests
             new { MigrationId = PostLoginPluginPersistenceMigrations.LicenseStateMigrationId })
             .ShouldBe(1);
         fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = @MigrationId;",
+            new { MigrationId = PostLoginPluginPersistenceMigrations.LicenseLifecycleInputsMigrationId })
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='PluginLicenseState';")
             .ShouldBe(1);
+        var licenseStateColumns = fixture.Executor.Query<string>(
+                "SELECT name FROM pragma_table_info('PluginLicenseState') ORDER BY name;")
+            .ToArray();
+        licenseStateColumns.ShouldContain("ExpiresAtUtc");
+        licenseStateColumns.ShouldContain("GracePeriodDays");
+        licenseStateColumns.ShouldContain("NotBeforeUtc");
+        licenseStateColumns.ShouldContain("SourceStatus");
     }
 
     [Fact]
@@ -46,7 +57,11 @@ public sealed class LicensePersistenceMigrationTests
             new string('b', 64),
             7,
             LicenseLifecycleState.Active,
-            importedAt);
+            importedAt,
+            new DateTimeOffset(2026, 06, 18, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 07, 18, 0, 0, 0, TimeSpan.Zero),
+            3,
+            LicenseArtifactStatus.Active);
 
         store.Save(state);
         store.AppendAttestation(new LicenseImportAttestation(

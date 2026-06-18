@@ -72,6 +72,10 @@ public sealed class ShellUiStaticScanTests
             "LicensePanel",
             "LicenseStatusPanel",
             "LicenseStatusText",
+            "LicenseListPanel",
+            "LicenseListText",
+            "LicenseDetailPanel",
+            "LicenseDetailText",
             "LicenseImportButton",
             "LicenseFeedbackText",
             "BackgroundStatusText",
@@ -88,6 +92,7 @@ public sealed class ShellUiStaticScanTests
         shell.ShouldContain("ClearSavedLogin_Click");
         shell.ShouldContain("Navigation_Click");
         shell.ShouldContain("WorkSessionStay_Click");
+        shell.ShouldContain("IsEnabled=\"{Binding LicenseImportIsEnabled}\"");
         shell.ShouldContain("WorkSessionMinimize_Click");
         shell.ShouldContain("WorkSessionClose_Click");
         shell.ShouldContain("Tag=\"{Binding RouteKey}\"");

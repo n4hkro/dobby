@@ -21,5 +21,6 @@
     <None Include="native\win-x64\sqlite3mc_x64.dll" CopyToOutputDirectory="PreserveNewest" Link="native\win-x64\sqlite3mc_x64.dll" />
     <EmbeddedResource Include="Persistence\Migrations\0002_postlogin_bootstrap.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0002_postlogin_bootstrap.sql" />
     <EmbeddedResource Include="Persistence\Migrations\0003_license_state.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0003_license_state.sql" />
+    <EmbeddedResource Include="Persistence\Migrations\0004_license_lifecycle_inputs.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0004_license_lifecycle_inputs.sql" />
   </ItemGroup>
 </Project>

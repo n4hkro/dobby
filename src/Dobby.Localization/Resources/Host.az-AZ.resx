@@ -99,6 +99,15 @@
   <data name="Dobby.Shell.Plugins.License.Status" xml:space="preserve">
     <value>Status</value>
   </data>
+  <data name="Dobby.Shell.Plugins.License.List" xml:space="preserve">
+    <value>Lisenziyalar</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.Detail" xml:space="preserve">
+    <value>Detallar</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.License.NoPlugin" xml:space="preserve">
+    <value>Quraşdırılmış plugin yoxdur</value>
+  </data>
   <data name="Dobby.Shell.Plugins.License.Import" xml:space="preserve">
     <value>Lisenziya idxal et</value>
   </data>

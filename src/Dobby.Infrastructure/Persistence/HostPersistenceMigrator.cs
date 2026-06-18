@@ -51,8 +51,14 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
                         "Post-login migration id must use a numbered post-login migration prefix."));
                 }
 
+                var checksum = Checksum(migration.Value);
+                if (MigrationAlreadyRecorded(executor, migration.Key, checksum))
+                {
+                    continue;
+                }
+
                 executor.Execute(migration.Value);
-                RecordMigration(executor, migration.Key, Checksum(migration.Value));
+                RecordMigration(executor, migration.Key, checksum);
             }
 
             return PersistenceResult.Success();
@@ -112,6 +118,28 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
                 ChecksumSha256 = checksum,
                 AppliedByVersion = "Sprint4"
             });
+    }
+
+    private static bool MigrationAlreadyRecorded(
+        IHostPersistenceCommandExecutor executor,
+        string migrationId,
+        string checksum)
+    {
+        var existing = executor.Query<string>(
+            "SELECT ChecksumSha256 FROM StorageMetadata WHERE MigrationId = @MigrationId;",
+            new { MigrationId = migrationId }).SingleOrDefault();
+
+        if (existing is null)
+        {
+            return false;
+        }
+
+        if (!existing.Equals(checksum, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Migration checksum mismatch.");
+        }
+
+        return true;
     }
 
     private void MirrorDeviceIdentity(IHostPersistenceCommandExecutor executor)

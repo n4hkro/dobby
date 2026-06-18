@@ -76,6 +76,9 @@ public static class HostResourceKeys
     public const string ShellDiagnosticsExported = "Dobby.Shell.Diagnostics.Exported";
     public const string LicenseHeading = "Dobby.Shell.Plugins.License.Heading";
     public const string LicenseStatusLabel = "Dobby.Shell.Plugins.License.Status";
+    public const string LicenseListLabel = "Dobby.Shell.Plugins.License.List";
+    public const string LicenseDetailLabel = "Dobby.Shell.Plugins.License.Detail";
+    public const string LicenseNoPlugin = "Dobby.Shell.Plugins.License.NoPlugin";
     public const string LicenseImportAction = "Dobby.Shell.Plugins.License.Import";
     public const string LicenseImportSuccess = "Dobby.Shell.Plugins.License.ImportSuccess";
     public const string LicenseImportRejected = "Dobby.Shell.Plugins.License.ImportRejected";
@@ -154,6 +157,9 @@ public static class HostResourceKeys
         ShellDiagnosticsExported,
         LicenseHeading,
         LicenseStatusLabel,
+        LicenseListLabel,
+        LicenseDetailLabel,
+        LicenseNoPlugin,
         LicenseImportAction,
         LicenseImportSuccess,
         LicenseImportRejected,

@@ -18,11 +18,28 @@ public sealed class LicenseImportCoordinator(
     IAuditTrail auditTrail,
     TimeProvider timeProvider) : IPostLoginLicenseImportCancellation
 {
+    private readonly SemaphoreSlim importGate = new(1, 1);
+    private readonly object cancellationGate = new();
+    private CancellationTokenSource? activeImportCancellation;
+
     public void CancelLicenseImport()
     {
+        lock (cancellationGate)
+        {
+            activeImportCancellation?.Cancel();
+        }
     }
 
     public LicenseImportResult ImportFile(string actorId, string path, CorrelationId correlationId)
+    {
+        return ImportFileAsync(actorId, path, correlationId).GetAwaiter().GetResult();
+    }
+
+    public async Task<LicenseImportResult> ImportFileAsync(
+        string actorId,
+        string path,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -36,52 +53,111 @@ public sealed class LicenseImportCoordinator(
             correlationId,
             "attempted");
 
-        byte[] bytes;
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Cancelled(actorId, correlationId);
+        }
+
+        if (!await importGate.WaitAsync(0).ConfigureAwait(false))
+        {
+            var busy = LicenseImportResult.Failure(LicenseRejectReasons.InvalidLicenseFile, "import-in-progress");
+            AppendRejected(actorId, "license:unknown", busy, correlationId);
+            return busy;
+        }
+
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        lock (cancellationGate)
+        {
+            activeImportCancellation = linkedCancellation;
+        }
+
         try
         {
-            bytes = File.ReadAllBytes(path);
-        }
-        catch (IOException)
-        {
-            var failure = LicenseImportResult.Failure(LicenseRejectReasons.InvalidLicenseFile, "file-read-failed");
-            AppendRejected(actorId, "unknown", failure, correlationId);
-            return failure;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            var failure = LicenseImportResult.Failure(LicenseRejectReasons.InvalidLicenseFile, "file-read-failed");
-            AppendRejected(actorId, "unknown", failure, correlationId);
-            return failure;
-        }
+            if (linkedCancellation.IsCancellationRequested)
+            {
+                return Cancelled(actorId, correlationId);
+            }
 
-        var permissionGranted = HasImportPermission(actorId, correlationId);
+            var permissionGranted = HasImportPermission(actorId, correlationId);
+            if (!permissionGranted)
+            {
+                var failure = LicenseImportResult.Failure(LicenseRejectReasons.PermissionDenied, "permission-denied");
+                AppendRejected(actorId, "license:unknown", failure, correlationId);
+                return failure;
+            }
 
-        var result = importService.Import(new LicenseImportRequest(
-            fileName,
-            bytes,
-            currentDeviceFingerprintProvider,
-            FindInstalledPackageFingerprint,
-            permissionGranted,
-            correlationId.ToString(),
-            timeProvider.GetUtcNow()));
+            if (linkedCancellation.IsCancellationRequested)
+            {
+                return Cancelled(actorId, correlationId);
+            }
 
-        if (result.IsSuccess)
-        {
-            AppendAudit(
-                AuditEventName.LicenseImportSucceeded,
-                actorId,
-                Target(result.PluginId),
-                AuditResult.Success,
-                correlationId,
-                "succeeded",
-                result.LifecycleState.ToString());
+            byte[] bytes;
+            try
+            {
+                bytes = await File.ReadAllBytesAsync(path, linkedCancellation.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return Cancelled(actorId, correlationId);
+            }
+            catch (IOException)
+            {
+                var failure = LicenseImportResult.Failure(LicenseRejectReasons.InvalidLicenseFile, "file-read-failed");
+                AppendRejected(actorId, "unknown", failure, correlationId);
+                return failure;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                var failure = LicenseImportResult.Failure(LicenseRejectReasons.InvalidLicenseFile, "file-read-failed");
+                AppendRejected(actorId, "unknown", failure, correlationId);
+                return failure;
+            }
+
+            if (linkedCancellation.IsCancellationRequested)
+            {
+                return Cancelled(actorId, correlationId);
+            }
+
+            var result = importService.Import(new LicenseImportRequest(
+                fileName,
+                bytes,
+                currentDeviceFingerprintProvider,
+                FindInstalledPackageFingerprint,
+                permissionGranted,
+                correlationId.ToString(),
+                timeProvider.GetUtcNow(),
+                linkedCancellation.Token));
+
+            if (result.IsSuccess)
+            {
+                AppendAudit(
+                    AuditEventName.LicenseImportSucceeded,
+                    actorId,
+                    Target(result.PluginId),
+                    AuditResult.Success,
+                    correlationId,
+                    "succeeded",
+                    result.LifecycleState.ToString());
+            }
+            else
+            {
+                AppendRejected(actorId, Target(result.PluginId), result, correlationId);
+            }
+
+            return result;
         }
-        else
+        finally
         {
-            AppendRejected(actorId, Target(result.PluginId), result, correlationId);
-        }
+            lock (cancellationGate)
+            {
+                if (ReferenceEquals(activeImportCancellation, linkedCancellation))
+                {
+                    activeImportCancellation = null;
+                }
+            }
 
-        return result;
+            importGate.Release();
+        }
     }
 
     private bool HasImportPermission(string actorId, CorrelationId correlationId)
@@ -124,6 +200,13 @@ public sealed class LicenseImportCoordinator(
             AuditResult.Denied,
             correlationId,
             result.ReasonCode);
+    }
+
+    private LicenseImportResult Cancelled(string actorId, CorrelationId correlationId)
+    {
+        var failure = LicenseImportResult.Failure(LicenseRejectReasons.Cancelled, "cancelled");
+        AppendRejected(actorId, "license:unknown", failure, correlationId);
+        return failure;
     }
 
     private void AppendAudit(

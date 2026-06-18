@@ -27,6 +27,34 @@ public sealed class ShellViewModelLicenseSurfaceTests
     }
 
     [Fact]
+    public void License_surface_exposes_safe_list_detail_and_busy_import_state()
+    {
+        var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());
+
+        shell.SetLicenseSurface(
+            canViewStatus: true,
+            canImport: true,
+            PluginRuntimeMode.FullAccess,
+            pluginId: "plugin.sample",
+            pluginName: "Sample plugin");
+
+        shell.LicenseListVisibility.ShouldBe(Visibility.Visible);
+        shell.LicenseDetailVisibility.ShouldBe(Visibility.Visible);
+        shell.LicenseImportIsEnabled.ShouldBeTrue();
+        shell.LicenseListText.ShouldBe("Sample plugin (plugin.sample)");
+        shell.LicenseDetailText.ShouldBe("Tam giriş");
+        shell.LicenseDetailText.ShouldNotContain("2026");
+        shell.LicenseDetailText.ShouldNotContain("default");
+        shell.LicenseDetailText.ShouldNotContain("revision");
+        shell.LicenseDetailText.ShouldNotContain("deployment");
+
+        shell.SetLicenseImportBusy(true);
+
+        shell.LicenseImportIsEnabled.ShouldBeFalse();
+        shell.LicenseFeedbackText.ShouldBe("Lisenziya idxal olunur");
+    }
+
+    [Fact]
     public void License_surface_collapses_when_user_has_no_license_permissions()
     {
         var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());
@@ -38,6 +66,9 @@ public sealed class ShellViewModelLicenseSurfaceTests
 
         shell.LicensePanelVisibility.ShouldBe(Visibility.Collapsed);
         shell.LicenseStatusVisibility.ShouldBe(Visibility.Collapsed);
+        shell.LicenseListVisibility.ShouldBe(Visibility.Collapsed);
+        shell.LicenseDetailVisibility.ShouldBe(Visibility.Collapsed);
         shell.LicenseImportVisibility.ShouldBe(Visibility.Collapsed);
+        shell.LicenseImportIsEnabled.ShouldBeFalse();
     }
 }

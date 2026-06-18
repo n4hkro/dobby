@@ -15,7 +15,8 @@ public sealed class HostLicenseStateStore(
             """
             SELECT
                 PluginId, CustomerId, DeploymentId, DeviceFingerprint, PackageFingerprint,
-                LicenseRevision, LifecycleState, ImportedAtUtc
+                LicenseRevision, LifecycleState, ImportedAtUtc,
+                NotBeforeUtc, ExpiresAtUtc, GracePeriodDays, SourceStatus
             FROM PluginLicenseState
             WHERE PluginId = @PluginId
               AND CustomerId = @CustomerId
@@ -37,17 +38,23 @@ public sealed class HostLicenseStateStore(
                 """
                 INSERT INTO PluginLicenseState (
                     PluginId, CustomerId, DeploymentId, DeviceFingerprint, PackageFingerprint,
-                    LicenseRevision, LifecycleState, ImportedAtUtc
+                    LicenseRevision, LifecycleState, ImportedAtUtc,
+                    NotBeforeUtc, ExpiresAtUtc, GracePeriodDays, SourceStatus
                 ) VALUES (
                     @PluginId, @CustomerId, @DeploymentId, @DeviceFingerprint, @PackageFingerprint,
-                    @LicenseRevision, @LifecycleState, @ImportedAtUtc
+                    @LicenseRevision, @LifecycleState, @ImportedAtUtc,
+                    @NotBeforeUtc, @ExpiresAtUtc, @GracePeriodDays, @SourceStatus
                 )
                 ON CONFLICT(PluginId, CustomerId, DeploymentId) DO UPDATE SET
                     DeviceFingerprint = excluded.DeviceFingerprint,
                     PackageFingerprint = excluded.PackageFingerprint,
                     LicenseRevision = excluded.LicenseRevision,
                     LifecycleState = excluded.LifecycleState,
-                    ImportedAtUtc = excluded.ImportedAtUtc;
+                    ImportedAtUtc = excluded.ImportedAtUtc,
+                    NotBeforeUtc = excluded.NotBeforeUtc,
+                    ExpiresAtUtc = excluded.ExpiresAtUtc,
+                    GracePeriodDays = excluded.GracePeriodDays,
+                    SourceStatus = excluded.SourceStatus;
                 """,
                 new
                 {
@@ -58,7 +65,11 @@ public sealed class HostLicenseStateStore(
                     state.PackageFingerprint,
                     state.LicenseRevision,
                     LifecycleState = state.LifecycleState.ToString(),
-                    ImportedAtUtc = state.ImportedAtUtc.ToString("O")
+                    ImportedAtUtc = state.ImportedAtUtc.ToString("O"),
+                    NotBeforeUtc = state.NotBeforeUtc?.ToString("O"),
+                    ExpiresAtUtc = state.ExpiresAtUtc?.ToString("O"),
+                    state.GracePeriodDays,
+                    SourceStatus = state.SourceStatus?.ToString()
                 });
         });
     }
@@ -96,6 +107,10 @@ public sealed class HostLicenseStateStore(
         public int LicenseRevision { get; set; }
         public string LifecycleState { get; set; } = string.Empty;
         public string ImportedAtUtc { get; set; } = string.Empty;
+        public string? NotBeforeUtc { get; set; }
+        public string? ExpiresAtUtc { get; set; }
+        public int? GracePeriodDays { get; set; }
+        public string? SourceStatus { get; set; }
 
         public LicenseStateRecord ToState()
         {
@@ -108,7 +123,23 @@ public sealed class HostLicenseStateStore(
                 PackageFingerprint,
                 LicenseRevision,
                 Enum.Parse<LicenseLifecycleState>(LifecycleState),
-                DateTimeOffset.Parse(ImportedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind));
+                ParseDateTimeOffset(ImportedAtUtc),
+                ParseNullableDateTimeOffset(NotBeforeUtc),
+                ParseNullableDateTimeOffset(ExpiresAtUtc),
+                GracePeriodDays,
+                string.IsNullOrWhiteSpace(SourceStatus)
+                    ? null
+                    : Enum.Parse<LicenseArtifactStatus>(SourceStatus));
+        }
+
+        private static DateTimeOffset ParseDateTimeOffset(string value)
+        {
+            return DateTimeOffset.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);
+        }
+
+        private static DateTimeOffset? ParseNullableDateTimeOffset(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : ParseDateTimeOffset(value);
         }
     }
 }

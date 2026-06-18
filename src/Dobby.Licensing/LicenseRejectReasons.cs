@@ -9,4 +9,5 @@ public static class LicenseRejectReasons
     public const string PackageMismatch = "package-mismatch";
     public const string OlderRevision = "older-revision";
     public const string PermissionDenied = "permission-denied";
+    public const string Cancelled = "cancelled";
 }

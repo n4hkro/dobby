@@ -7,8 +7,17 @@ namespace Dobby.Licensing;
 public sealed class LicenseRuntimeModeProvider(
     ILicenseStateStore stateStore,
     CurrentCustomerDeploymentContextService currentContextService,
-    Func<string> currentDeviceFingerprintProvider) : ILicenseRuntimeModeProvider
+    Func<string> currentDeviceFingerprintProvider,
+    TimeProvider timeProvider) : ILicenseRuntimeModeProvider
 {
+    public LicenseRuntimeModeProvider(
+        ILicenseStateStore stateStore,
+        CurrentCustomerDeploymentContextService currentContextService,
+        Func<string> currentDeviceFingerprintProvider)
+        : this(stateStore, currentContextService, currentDeviceFingerprintProvider, TimeProvider.System)
+    {
+    }
+
     public Result<PluginRuntimeMode> GetCurrentMode(string pluginId, string packageFingerprint)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
@@ -44,6 +53,18 @@ public sealed class LicenseRuntimeModeProvider(
             return Result.Failure<PluginRuntimeMode>(ErrorCode.LicenseBindingMismatch);
         }
 
-        return Result.Success(LicenseRuntimeModeMapper.Map(state.LifecycleState));
+        var lifecycleState = state.SourceStatus.HasValue &&
+            state.NotBeforeUtc.HasValue &&
+            state.ExpiresAtUtc.HasValue &&
+            state.GracePeriodDays.HasValue
+            ? LicenseRuntimeModeService.EvaluateLifecycle(
+                state.SourceStatus.Value,
+                state.NotBeforeUtc.Value,
+                state.ExpiresAtUtc.Value,
+                state.GracePeriodDays.Value,
+                timeProvider.GetUtcNow())
+            : state.LifecycleState;
+
+        return Result.Success(LicenseRuntimeModeMapper.Map(lifecycleState));
     }
 }

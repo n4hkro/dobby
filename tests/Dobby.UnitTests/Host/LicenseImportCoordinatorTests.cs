@@ -75,6 +75,54 @@ public sealed class LicenseImportCoordinatorTests
     }
 
     [Fact]
+    public void Import_file_checks_permission_before_reading_selected_file()
+    {
+        using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
+        var missingPath = Path.Combine(
+            Path.GetTempPath(),
+            "dobby-license-missing-" + Guid.NewGuid().ToString("N") + ".dobbylicense");
+        var licenseStateStore = new InMemoryLicenseStateStore();
+        var audit = new InMemoryAuditTrail();
+        var coordinator = CreateCoordinator(publicKeyPem, licenseStateStore, audit, isOwner: false);
+
+        var result = coordinator.ImportFile("managed", missingPath, CorrelationId.New());
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.PermissionDenied);
+        licenseStateStore.State.ShouldBeNull();
+        audit.Snapshot().Select(evt => evt.EventName).ShouldBe([
+            AuditEventName.LicenseImportAttempted,
+            AuditEventName.LicenseImportRejected
+        ]);
+        audit.Snapshot().Last().Details!["reasonCode"].ShouldBe(LicenseRejectReasons.PermissionDenied);
+    }
+
+    [Fact]
+    public async Task Import_file_async_rejects_when_cancelled_before_file_read()
+    {
+        using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
+        var artifact = LicenseArtifactFixtureBuilder.CreateSignedArtifact(key);
+        var path = WriteLicenseFile(artifact.Bytes);
+        try
+        {
+            var licenseStateStore = new InMemoryLicenseStateStore();
+            var coordinator = CreateCoordinator(publicKeyPem, licenseStateStore, new InMemoryAuditTrail(), isOwner: true);
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+
+            var result = await coordinator.ImportFileAsync("owner", path, CorrelationId.New(), cancellation.Token);
+
+            result.IsSuccess.ShouldBeFalse();
+            result.ReasonCode.ShouldBe(LicenseRejectReasons.Cancelled);
+            licenseStateStore.State.ShouldBeNull();
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Import_file_does_not_resolve_installed_package_before_signature_success()
     {
         using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);

@@ -7,4 +7,5 @@ public sealed record LicenseImportRequest(
     Func<string, string> InstalledPackageFingerprintResolver,
     bool PermissionGranted,
     string CorrelationId,
-    DateTimeOffset ImportedAtUtc);
+    DateTimeOffset ImportedAtUtc,
+    CancellationToken CancellationToken = default);

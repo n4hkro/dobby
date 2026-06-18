@@ -50,6 +50,25 @@ public sealed class LicenseImportServiceTests
     }
 
     [Fact]
+    public void Import_observes_cancellation_before_parsing_without_state_mutation()
+    {
+        using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
+        var store = new InMemoryLicenseStateStore();
+        var service = CreateService(publicKeyPem, store);
+        var artifact = LicenseArtifactFixtureBuilder.CreateSignedArtifact(key);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var result = service.Import(Request(artifact.Bytes, cancellationToken: cancellation.Token));
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.Cancelled);
+        store.SavedStates.ShouldBeEmpty();
+        store.Attestations.ShouldHaveSingleItem();
+        store.Attestations[0].Result.ShouldBe(LicenseRejectReasons.Cancelled);
+    }
+
+    [Fact]
     public void Import_stops_at_signature_failure_before_payload_semantics()
     {
         using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
@@ -161,7 +180,8 @@ public sealed class LicenseImportServiceTests
         byte[] artifactBytes,
         bool permissionGranted = true,
         string? deviceFingerprint = null,
-        string? packageFingerprint = null)
+        string? packageFingerprint = null,
+        CancellationToken cancellationToken = default)
     {
         return new LicenseImportRequest(
             "license.dobbylicense",
@@ -170,7 +190,8 @@ public sealed class LicenseImportServiceTests
             _ => packageFingerprint ?? new string('b', 64),
             permissionGranted,
             "corr-1",
-            new DateTimeOffset(2026, 06, 18, 0, 0, 0, TimeSpan.Zero));
+            new DateTimeOffset(2026, 06, 18, 0, 0, 0, TimeSpan.Zero),
+            cancellationToken);
     }
 
     private sealed class InMemoryLicenseStateStore : ILicenseStateStore
