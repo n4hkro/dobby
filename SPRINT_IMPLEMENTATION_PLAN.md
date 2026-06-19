@@ -12,12 +12,12 @@
 | 2 | Core Contracts and Shared Primitives | Implement the stable Core/Contracts/SDK surfaces allowed by ADRs | Result/error/correlation/versioning contracts, plugin-facing storage, policy, navigation, operation, event, and page contracts | Sprint 1 | Ready after Sprint 1 |
 | 3 | Configuration, Runtime Folders, Diagnostics, and Audit | Establish host configuration floors, runtime layout, local logging, diagnostics, and append-only audit boundaries | Config model, runtime folder handling, diagnostics sink, audit service boundary, redaction and retention floors | Sprints 1-2 | Ready after dependencies |
 | 4 | Protected Storage and Persistence Materialization | Materialize protected local persistence required for P1 release | Protected storage, local encrypted DB proof, schema/bootstrap/migration, storage tests | Human-approved storage abstraction table and ADR-0054 provider materialization decision | Blocked by documented storage decisions |
-| 5 | Login-First Auth, Sessions, and Owner Recovery | Build login-first startup, local auth, session lifecycle, first Owner bootstrap, and host-side recovery flow | Login/lock/logout/password-change flows, Owner bootstrap, recovery request/import against the Sprint 5 TEST-ONLY fixture authority ledger | Sprints 2-4; approved Sprint 5 TEST-ONLY fixture authority; production vendor key handover deferred to Sprint 11 | Ready after storage foundation exists; production/Admin-generated AC-007 evidence depends on Sprint 10/11 |
+| 5 | Login-First Auth, Sessions, and Owner Recovery | Build login-first startup, local auth, session lifecycle, first Owner bootstrap, and host-side recovery flow | Login/lock/logout/password-change flows, Owner bootstrap, recovery request/import against the Sprint 5 TEST-ONLY fixture authority ledger | Sprints 2-4; approved Sprint 5 TEST-ONLY fixture authority; production vendor key handover deferred to Sprint 11 | Ready after storage foundation exists; Sprint 10 supplies only AC-007 technical-path support, while production/Admin release evidence is a Sprint 11/vendor handover gate |
 | 6 | Operation Authorization, Users, and Settings | Implement permission model, User Management, Settings, Account, Security/Session, and About surfaces | Operation registry, grant-only permissions, Owner guards, Settings tree | Sprints 2-5 | Ready after dependencies |
 | 7 | Shell, Navigation, Theme, Localization, and Work Sessions | Build the authenticated WPF shell and documented UX surfaces | TopToolbar/Sidebar/Third Bar/Main Content/status strip, theme/localization, in-memory work sessions | Sprints 2-6 | Ready after dependencies |
 | 8 | Plugin Package Trust and Activation Runtime | Implement signed plugin install, package validation, ALC loading, dependency ordering, DI registration, and post-login activation | Trusted local .dobbyplugin runtime foundation | Sprints 2-7 | Ready after dependencies |
 | 9 | Licensing and Runtime Mode Enforcement | Implement detached .dobbylicense lifecycle and host-enforced runtime modes | License import/status, binding checks, FullAccess/ReadOnlyExpired/Denied enforcement | Sprints 4, 6, 8 | Ready after dependencies |
-| 10 | Plugins Manager, Sample Plugin, and Admin Artifact Tools | Complete P1 plugin management workflows and validation artifacts | Plugins UI, sample plugin, signing/license/recovery tools, dev/QA trust exclusion | Sprints 5, 8-9; admin option naming decision | Partly blocked by tool option decision |
+| 10 | Plugins Manager, Sample Plugin, and Admin Artifact Tools | Complete P1 plugin management workflows and validation artifacts | Plugins UI, sample plugin, signing/license/recovery tools, dev/QA trust exclusion | Sprints 5, 8-9; D-30 approved Admin option contract; D-33 AC-007 evidence split | Ready after dependencies; production/Admin AC-007 release evidence deferred to Sprint 11/vendor handover |
 | 11 | Release Gates, Installer, Evidence, and Smoke | Prove P1 readiness against documented acceptance criteria | Installer artifacts, smoke/integration/unit evidence, performance baseline, release gate checklist | Sprints 1-10 | Ready after implementation dependencies |
 
 # 3. Detailed Sprint Breakdown
@@ -284,7 +284,7 @@ Implement offline-first login, local credential handling, session lifecycle, fir
   - Expected result: session state is predictable and plugin runtime starts only after authentication.
 - **Owner Recovery**
   - Concrete tasks: implement host-side `.dobbyrecoveryrequest` export, `.dobbyrecovery` import, signature/expiry/one-use/device-bound checks, nonce consumption, password reset, and audit.
-  - Expected result: Owner recovery host behavior is offline, signed against the Sprint 5 TEST-ONLY fixture authority in `artifacts/release-evidence/skeleton-local/test-fixture-authority.md`, bounded, and separate from managed user reset; production vendor-key handover and Admin-generated end-to-end evidence are explicitly deferred to Sprint 10/11.
+  - Expected result: Owner recovery host behavior is offline, signed against the Sprint 5 TEST-ONLY fixture authority in `artifacts/release-evidence/skeleton-local/test-fixture-authority.md`, bounded, and separate from managed user reset; Sprint 10 supplies AC-007 technical-path support, while production vendor-key handover and production/Admin release evidence are explicitly deferred to Sprint 11.
 
 ### Dependencies
 - Sprints 2-4.
@@ -295,7 +295,7 @@ Implement offline-first login, local credential handling, session lifecycle, fir
 
 ### Acceptance Criteria
 - Primary AC ownership: AC-001, AC-002, AC-007 host-side request/export/import checks, AC-025, AC-026, AC-028, AC-029, AC-044, AC-045, AC-050, AC-051 skeleton-time KDF selection/floors/salt/fail-closed checks.
-- AC-007 end-to-end evidence using an Admin-generated signed `.dobbyrecovery` is owned by Sprint 10/Sprint 11 after `create-recovery-response` exists.
+- AC-007 technical-path evidence for Admin `create-recovery-response` begins in Sprint 10, while production/Admin AC-007 release evidence is owned by Sprint 11/vendor handover after the technical path exists.
 - AC-008 contribution: Sprint 5 owns offline login/auth evidence; Sprint 7 shell evidence and Sprint 8 local plugin-host foundation evidence complete the AC, with Sprint 11 consolidating release smoke.
 - AC-051 split ownership: Sprint 5 owns skeleton-time KDF selection, minimum floors, salt requirements, and fail-closed floor enforcement; Sprint 11 owns ADR-0042 baseline-latency evidence used to justify PBKDF2 fallback.
 - No plugin runtime work happens before successful login.
@@ -312,11 +312,11 @@ Implement offline-first login, local credential handling, session lifecycle, fir
 ### Risks / Blockers
 - Requires protected persistence from Sprint 4.
 - Exact KDF implementation depends on approved package pins.
-- Production end-to-end AC-007 evidence through an Admin-generated signed `.dobbyrecovery` depends on Sprint 10 `create-recovery-response` and Sprint 11 release evidence.
+- Production/Admin AC-007 release evidence through an Admin-generated signed `.dobbyrecovery` depends on the Sprint 10 `create-recovery-response` technical path and the Sprint 11/vendor handover release gate.
 - Sprint 5 host-side recovery import evidence depends on the TEST-ONLY ledger being populated with public-key, fixture inventory, private-key custody, TEST-ONLY exclusion, and handover evidence before closure.
 
 ### Exit Condition
-Sprint finishes when a clean install can create/login an Owner, maintain sessions correctly, and validate host-side Owner recovery request/export/import behavior against the approved Sprint 5 TEST-ONLY fixture set; documented production end-to-end recovery with an Admin-generated artifact and production vendor key custody is verified in Sprint 10/11.
+Sprint finishes when a clean install can create/login an Owner, maintain sessions correctly, and validate host-side Owner recovery request/export/import behavior against the approved Sprint 5 TEST-ONLY fixture set; documented production end-to-end recovery with an Admin-generated artifact and production vendor key custody is verified at the Sprint 11 release gate after Sprint 10 technical-path support exists.
 
 ## Sprint 6 — Operation Authorization, Users, and Settings
 
@@ -572,8 +572,8 @@ Complete P1 plugin management workflows and the artifacts used to prove package,
   - Concrete tasks: complete/finalize the existing dev/QA signed sample plugin scaffold covering manifest, extension hosting, Main Content page, operation target denial, Result boundary, fault behavior, progress, and work session behavior.
   - Expected result: sample plugin validates host plugin surfaces and is not a production feature.
 - **Admin Artifact Tools**
-  - Concrete tasks: provide scripted flows for `sign-plugin-package`, `create-plugin-license`, optional `verify-plugin-package`, and `create-recovery-response` through documented Admin boundaries; production recovery response generation follows ADR-0033 vendor-side signing custody and is not treated as dev/QA or Sprint 5 TEST-ONLY fixture material.
-  - Expected result: operator flows can generate artifacts needed for P1 tests, including Admin-generated production signed `.dobbyrecovery` evidence for AC-007.
+  - Concrete tasks: provide scripted flows for `sign-plugin-package`, `create-plugin-license`, optional `verify-plugin-package`, and `create-recovery-response` through documented Admin boundaries; `create-recovery-response` must cover AC-007 technical-path evidence, fail-closed exit `66`, redacted diagnostics, approved non-production or otherwise available non-release signing-material proof, and host-import compatibility, without treating dev/QA or Sprint 5 TEST-ONLY fixture material as production evidence.
+  - Expected result: operator flows can generate artifacts needed for P1 tests; Sprint 10 produces AC-007 technical-path and host-import compatibility evidence only, while production/Admin AC-007 release evidence remains a Sprint 11/vendor handover gate.
 - **Trust Profile Guard**
   - Concrete tasks: ensure dev/QA `dobby.dev-qa` artifacts work only in dev/QA profile and are rejected by production builds.
   - Expected result: release evidence proves production cannot accept dev/QA trust.
@@ -584,27 +584,27 @@ Complete P1 plugin management workflows and the artifacts used to prove package,
 - `docs/specs/admin-tool.md`.
 - `docs/specs/plugins-manager.md`.
 - `docs/specs/sample-plugin.md`.
-- Sprint 5 recovery request/import contract and the Sprint 5 TEST-ONLY fixture evidence boundary, plus the Sprint 11 production handover requirement.
+- Sprint 5 recovery request/import contract and the Sprint 5 TEST-ONLY fixture evidence boundary, D-33 AC-007 evidence split, plus the Sprint 11 production handover requirement.
 
 ### Acceptance Criteria
 - Primary AC ownership: AC-031, AC-036.
-- Admin artifact tooling owns production/Admin-generated AC-007 recovery-response evidence and supports evidence for AC-018 and AC-034; Sprint 5 remains the host-side AC-007 owner and uses only the approved TEST-ONLY fixture authority for Sprint 5 closure.
+- Admin artifact tooling owns the AC-007 `create-recovery-response` technical path and host-import compatibility evidence, and supports evidence for AC-018 and AC-034; Sprint 5 remains the host-side AC-007 owner and uses only the approved TEST-ONLY fixture authority for Sprint 5 closure; production/Admin AC-007 release evidence remains a Sprint 11/vendor handover gate.
 - Plugin update, repair, downgrade, marketplace/catalog, and production sample-plugin feature behavior stay out of P1.
-- Admin tool exact option names are not invented before approval.
+- Admin tool exact option names must follow the D-30 / `HD-S10-001` approved contract in `docs/specs/admin-tool.md`.
 
 ### Verification
 - Smoke tests installing and running the sample plugin.
 - Integration tests for plugin lifecycle state changes and lifecycle audit.
-- Tool tests for artifact generation and exit behavior after option names are approved, including `create-recovery-response` producing a production/Admin-signed `.dobbyrecovery` from documented request input.
+- Tool tests for artifact generation and exit behavior after option names are approved, including `create-recovery-response` producing a signed `.dobbyrecovery` from documented request input using approved non-production or otherwise available non-release signing material, with host-import compatibility evidence and no production/Admin release closure claim.
 - Production build check rejects dev/QA packages and licenses.
 
 ### Risks / Blockers
-- Exact Admin tool option names are blocked pending human/tooling decision.
+- Exact Admin tool option names are closed by D-30 / `HD-S10-001`; implementation must follow `docs/specs/admin-tool.md`, and future option changes require a separate human decision.
 - Full Admin UI is P1-if-time/P2 and must not block P1 scripted flows.
-- Dev/QA signing material applies to sample plugin and smoke license artifacts only; production recovery response generation uses vendor-side signing material governed by ADR-0033 and replaces the Sprint 5 TEST-ONLY fixture path at the Sprint 11 release gate.
+- Dev/QA signing material applies to sample plugin and smoke license artifacts only; Sprint 10 recovery-response proof uses only approved non-production or otherwise available non-release signing material, while production recovery response generation uses vendor-side signing material governed by ADR-0033 and replaces the Sprint 5 TEST-ONLY fixture path at the Sprint 11 release gate.
 
 ### Exit Condition
-Sprint finishes when plugin management is usable, sample plugin proves host contracts, and required operator artifacts can be generated for release testing.
+Sprint finishes when plugin management is usable, sample plugin proves host contracts, required operator artifacts can be generated for release testing, and AC-007 technical-path/host-import compatibility evidence is documented without claiming production/Admin release closure.
 
 ## Sprint 11 — Release Gates, Installer, Evidence, and Smoke
 
@@ -658,7 +658,7 @@ Prove P1 release readiness against documented acceptance criteria and release pr
 - Documented command sequence succeeds.
 - Unit/integration/smoke test evidence is collected.
 - AC-008 release smoke proves no mandatory internet dependency for login, shell, and local plugin-host foundation by consolidating Sprint 5, Sprint 7, and Sprint 8 evidence.
-- AC-007 evidence includes the Sprint 5 host-side TEST-ONLY recovery checks, the Sprint 10 Admin-generated signed `.dobbyrecovery` path, and Sprint 11 production vendor key handover evidence replacing the Sprint 5 TEST-ONLY fixture path for release-candidate validation.
+- Production/Admin AC-007 release evidence includes the Sprint 5 host-side TEST-ONLY recovery checks, the Sprint 10 AC-007 technical-path and host-import compatibility evidence, and Sprint 11 production vendor key handover evidence replacing the Sprint 5 TEST-ONLY fixture path for release-candidate validation.
 - AC-046 smoke instrumentation proves UI dispatcher heartbeat continues during plugin install, license import, and storage operations.
 - UI screenshots and performance measurements are stored as release evidence.
 - Installer/upgrade checks pass.
@@ -677,12 +677,12 @@ Sprint finishes when release evidence is complete enough for a P1 release-gate r
 - Sprint 2 provides the shared API vocabulary used by security, shell, plugins, licensing, and sample plugin work.
 - Sprint 3 provides configuration, diagnostics, audit, diagnostics export package/redaction boundaries, and runtime folder foundations for all later host behavior; Sprint 7 provides the user/Owner diagnostics export action surface.
 - Sprint 4 is the major release-blocking dependency for durable auth, sessions, permissions, licenses, plugin state, audit retention, and release storage proof.
-- Sprint 5 depends on protected persistence and provides host-side AC-007 recovery request/import behavior plus AC-008 offline login/auth evidence using the approved TEST-ONLY fixture authority ledger; production/Admin-generated AC-007 recovery evidence remains dependent on Sprint 10/11.
+- Sprint 5 depends on protected persistence and provides host-side AC-007 recovery request/import behavior plus AC-008 offline login/auth evidence using the approved TEST-ONLY fixture authority ledger; Sprint 10 provides AC-007 technical-path and host-import compatibility evidence, while production/Admin AC-007 release evidence remains dependent on Sprint 11/vendor handover.
 - Sprint 6 depends on auth/session state and protects Settings, User Management, Plugins, License, and operation surfaces; plugin-declared target evidence depends on Sprint 8 manifest seeding.
 - Sprint 7 depends on auth and authorization, owns rendered AC-035 shell/Settings evidence and the AC-033 diagnostics export action surface, and later hosts plugin navigation from Sprint 8.
 - Sprint 8 depends on shared contracts, shell route/page hosting, and post-login activation rules; it seeds plugin `operationTargets` into the Sprint 6 permission registry before activation.
 - Sprint 9 depends on plugin package state, authorization, protected device identity, and durable license storage.
-- Sprint 10 depends on Sprint 5 recovery request/import contracts, plugin runtime, and licensing to validate lifecycle and artifact tooling, and provides Admin-generated production AC-007 recovery-response evidence.
+- Sprint 10 depends on Sprint 5 recovery request/import contracts, plugin runtime, and licensing to validate lifecycle and artifact tooling, and provides AC-007 technical-path and host-import compatibility evidence for Admin `create-recovery-response`.
 - Sprint 11 depends on all P1 implementation sprints and produces release evidence.
 
 # 5. Blocked or Decision-Dependent Work
@@ -691,8 +691,8 @@ Sprint finishes when release evidence is complete enough for a P1 release-gate r
 - Any package/version not present in the approved pin list requires human-approved input before package-bearing files are changed.
 - Host-internal provider-neutral storage abstraction names, owner project/namespace placements, method surfaces, Result behavior, and error-code surfaces require human/architecture-approved input.
 - ADR-0054 persistence materialization requires accepted encrypted SQLite provider/package/tooling proof before P1 release.
-- Sprint 5 host-side Owner recovery import evidence uses the approved TEST-ONLY fixture authority in `artifacts/release-evidence/skeleton-local/test-fixture-authority.md`; production vendor key custody and production/Admin-generated recovery-response evidence remain Sprint 10/11 release gates.
-- Exact Admin scripted tool option names are blocked pending human/tooling decision.
+- Sprint 5 host-side Owner recovery import evidence uses the approved TEST-ONLY fixture authority in `artifacts/release-evidence/skeleton-local/test-fixture-authority.md`; after Sprint 10 technical-path evidence exists, production vendor key custody and production/Admin AC-007 release evidence remain Sprint 11/vendor handover release gates.
+- Exact Admin scripted tool option names are closed by D-30 / `HD-S10-001`; future option-contract changes require a separate human decision.
 - Full Admin UI is P1-if-time/P2; P1 critical path uses scripted artifact flows only.
 - Home/favorites polish, expanded shared UI controls, richer process reporting, and full audit viewer are not P1-core unless explicitly pulled in.
 - Backup/restore/migration, shared data tools, plugin update/repair/downgrade, marketplace/catalog, host update automation, runtime language switching, owner transfer, out-of-process plugin worker, and extended retention tooling are P2/P3 or future.

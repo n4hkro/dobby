@@ -62,24 +62,54 @@ Canonical scripted commands:
 Minimum scripted wrapper contract:
 
 - wrappers return exit code `0` on success and non-zero on validation, signing,
-  verification or I/O failure;
-- stdout contains the produced artifact path and a redacted summary;
+  verification or I/O failure, using the approved exit-code table below;
+- stdout contains produced artifact/report paths and a redacted summary;
 - stderr contains only typed, non-secret failure reason codes and never raw private
-  key material, raw license payload, full local path disclosure or stack trace;
+  key material, raw license payload, raw recovery payload, private key path, full
+  canonical payload, full local path disclosure or stack trace;
 - wrapper folder names, command names, invocation through
   `Dobby.Admin.exe --cli <command>`, exit code, stdout and stderr behavior are
   canonical for P1 smoke automation;
-- exact option names and option sets are blocked pending human/tooling decision
-  unless an approved option table is supplied.
+- exact option names and option sets are approved by `HD-S10-001` in
+  `artifacts/release-evidence/skeleton-local/decision-log.md`.
 
-Future approved option tables must use this shape:
+### Approved P1 CLI contract
 
-| Wrapper | Option | Argument type | Required? | Multiplicity | Default | Owner |
-|---|---|---|---|---|---|---|
-| `sign-plugin-package` | blocked pending human/tooling decision | - | - | - | - | - |
-| `create-plugin-license` | blocked pending human/tooling decision | - | - | - | - | - |
-| `create-recovery-response` | blocked pending human/tooling decision | - | - | - | - | - |
-| `verify-plugin-package` (optional) | blocked pending human/tooling decision | - | - | - | - | - |
+This table is the canonical public CLI contract for Sprint 10 scripted Admin
+flows. Each command accepts only the options listed for that command; an unknown
+option, an option from another command, a missing required value, or a repeated
+single-value option exits `64`. `--overwrite` is a switch and may appear at most
+once.
+
+| Wrapper | Required options | Optional options | Defaults and validation |
+|---|---|---|---|
+| `sign-plugin-package` | `--input-path`, `--signing-profile`, `--output-path` | `--trust-profile`, `--report-path`, `--overwrite` | `--trust-profile` defaults from `--signing-profile`; `--report-path` defaults to `<output-path>.report.json`; if both profiles are supplied they must map to the same trust profile or exit `65`. |
+| `create-plugin-license` | `--plugin-package-path`, `--signing-profile`, `--customer-id`, `--deployment-id`, `--device-binding-fixture-path`, `--valid-from`, `--valid-until`, `--revision`, `--output-path` | `--report-path`, `--overwrite` | `--report-path` defaults to `<output-path>.report.json`; `--valid-from` and `--valid-until` are ISO-8601 UTC values with `Z` suffix and `valid-until > valid-from`; `--revision` is a positive integer. |
+| `create-recovery-response` | `--request-path`, `--signing-profile`, `--output-path` | `--report-path`, `--overwrite` | `--report-path` defaults to `<output-path>.report.json`; production signing material remains governed by `HD-S10-002` and `ADR-0033`. |
+| `verify-plugin-package` (optional) | `--plugin-package-path`, `--report-path` | `--trust-profile`, `--overwrite` | Optional command only; not a Sprint 10 release gate. `--trust-profile` defaults to `production`. |
+
+Approved profile values are `dev-qa` and `production`. Parsing is
+case-insensitive for operator ergonomics, but reports and documentation must emit
+canonical lowercase values. Internal trust-profile mapping is fixed:
+`dev-qa -> DobbyPluginTrustProfile.DevQa` and
+`production -> DobbyPluginTrustProfile.Production`. Unknown profile values,
+unknown mappings, invalid profile combinations, invalid timestamps, invalid
+revision values, validation failures and output/report path conflicts exit `65`.
+Known profiles whose signing material is missing or unavailable exit `66`.
+
+`--output-path` is required for artifact-producing commands. `--report-path` is
+required for `verify-plugin-package` because verification produces only a report
+and must not write beside the input package implicitly. `--overwrite` defaults
+to `false`; if output or report targets already exist and `--overwrite` is not
+supplied, the command exits `65`.
+
+| Exit code | Meaning |
+|---:|---|
+| `0` | Success. |
+| `64` | Usage error, invalid command shape, unknown/foreign/repeated option, or missing required argument. |
+| `65` | Input validation failure, profile mismatch, invalid timestamp/revision, or output/report conflict. |
+| `66` | Required signing material is known but unavailable. |
+| `70` | Internal failure after redaction. |
 
 The scripted path does not create customer production artifacts by default. It
 uses dev/QA signing material, `vendorId = "dobby.dev-qa"` for sample packages and

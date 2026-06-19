@@ -103,7 +103,7 @@ Required before Sprint 5 implementation starts:
 
 Decision ledger:
 
-- D-13: APPROVED - B-01/B-02 Sprint 5 host-side recovery import closure uses the TEST-ONLY fixture authority in `artifacts/release-evidence/skeleton-local/test-fixture-authority.md`. Sprint 5 may embed a TEST-ONLY public key resource in the integration-test assembly and commit pre-signed TEST-ONLY `.dobbyrecovery` fixtures under the test fixture tree; implementation must fill every `PENDING_IMPLEMENTATION_EVIDENCE` field in that ledger before Sprint 5 closure. Production vendor private keys are out of Sprint 5 scope; production vendor public key/resource custody and Admin-generated production `.dobbyrecovery` evidence are Sprint 10/11 release gates.
+- D-13: APPROVED - B-01/B-02 Sprint 5 host-side recovery import closure uses the TEST-ONLY fixture authority in `artifacts/release-evidence/skeleton-local/test-fixture-authority.md`. Sprint 5 may embed a TEST-ONLY public key resource in the integration-test assembly and commit pre-signed TEST-ONLY `.dobbyrecovery` fixtures under the test fixture tree; implementation must fill every `PENDING_IMPLEMENTATION_EVIDENCE` field in that ledger before Sprint 5 closure. Production vendor private keys are out of Sprint 5 scope; production vendor public key/resource custody and recovery release evidence are later release gates, with D-33 later splitting Sprint 10 technical-path evidence from Sprint 11 production/Admin release evidence.
 - D-14: APPROVED - B-03 permits `System.Management` version `10.0.8` for the `net10.0-windows` hardware-identity adapter slice only. The approval basis is ADR-0039's five-source fingerprint requirement for CPU ID, motherboard serial, and disk serial WMI reads. The package row in `toolchain-pin-gate.md#sprint-5-approved-pin-representation` is the required package-governance evidence before `Directory.Packages.props` or project files are edited.
 - D-15: APPROVED - B-05 canonical placements are: session lifecycle and remember-me services under the existing `Dobby.Security.Authentication` namespace; login/lock/recovery WPF views and view models under `Dobby.Host.Login`; Owner bootstrap coordination and single-instance/pre-login orchestration under `Dobby.Host.Startup`; hardware identity adapters under `Dobby.Infrastructure.HardwareIdentity`. `Dobby.Security.Sessions` and `Dobby.Host.Authentication` are not created for Sprint 5.
 - D-16: APPROVED - B-04 Owner-bootstrap audit composition uses Host-coordinated transaction-aware audit append. `Dobby.Host` owns `OwnerBootstrapCoordinator`, opens one `IHostPersistenceTransactionScope`, calls `Dobby.Security` `OwnerBootstrapService` for `Users`/`Credentials` mutations, and appends the bootstrap audit row through `Dobby.Audit` `IHostTransactionAuditTrail` resolved by Host DI. `Dobby.Security` must not reference `Dobby.Audit`. Owner bootstrap audit emission uses canonical `user.create` with closed details schema `{bootstrapKind=first-user-owner, principalRole=Owner, permissionState=is-owner-short-circuit, composition=B04-transaction-aware-host-audit}`; no new audit event names are added in Sprint 5. Schema enforcement is owned by `OwnerBootstrapCoordinator` emission tests; `AuditDetailsSanitizer` remains an event-agnostic secret-leakage guard.
@@ -128,7 +128,7 @@ Out of scope:
 
 - Does not approve Sprint 6 runtime authorization registry, managed-user CRUD, operation target inventory, or permission key parsing in Sprint 5.
 - Does not approve any `Permissions` row shape beyond the Phase 1 Owner bootstrap clarification recorded in D-17.
-- Does not approve production vendor private key material, production vendor public key custody, or Admin-generated production `.dobbyrecovery` evidence in Sprint 5.
+- Does not approve production vendor private key material, production vendor public key custody, or production/Admin `.dobbyrecovery` release evidence in Sprint 5.
 - Does not approve any new package pin beyond the already approved `System.Management` `10.0.8` row.
 - Does not change ADR-0033 key-rotation scope; Phase 1 `keyVersion` remains numeric JSON value `1`.
 
@@ -311,3 +311,41 @@ Decision:
 - Sprint 9 may create `src/Dobby.Security/CurrentContext/...` files for host-internal current customer/deployment context policy and port types.
 - The implementation must keep raw customer/deployment values out of plugin, UI, diagnostics/export, and user-facing rejection text except support-safe categories.
 - License import and activation must read the existing Security-owned context and fail closed for missing, duplicate, or mismatched context before mutating license state.
+
+<a id="phase-b-sprint10-admin-artifact-decisions-2026-06-19"></a>
+
+## Phase B Sprint 10 Admin Artifact Decisions 2026-06-19
+
+Anchor: `phase-b-sprint10-admin-artifact-decisions-2026-06-19`
+
+Status: APPROVED - Sprint 10 Admin CLI option contract, production recovery evidence deferral, master-plan AC-007 evidence split, and optional verifier stance approved on 2026-06-19 after two-agent reconciliation.
+
+Designated approver: current human requester in this Codex thread (architecture/security/release approver for this decision)
+
+Patch note: AI-assisted authority patch; human approval recorded from the current Codex thread.
+
+Scope:
+- Closes `HD-S10-001` for `SPRINT_10_EXECUTION_PLAN.md` by approving the canonical command-specific Admin CLI option contract recorded in `docs/specs/admin-tool.md`.
+- Closes `HD-S10-002` as a decision to defer production/Admin `.dobbyrecovery` release evidence to Sprint 11/vendor handover while allowing Sprint 10 to implement and test the fail-closed Admin technical path.
+- Closes `HD-S10-003` by keeping `verify-plugin-package` optional P1 debug/smoke support, not a Sprint 10 release gate.
+- Adds D-33 as the controlling authority amendment for the `SPRINT_IMPLEMENTATION_PLAN.md` AC-007 evidence split.
+
+Out of scope:
+- Does not approve production private signing material in the repository, test fixtures, runtime resources, or source-controlled evidence.
+- Does not provide production/Admin AC-007 release evidence in Sprint 10.
+- Does not make `verify-plugin-package` required for Sprint 10 closure.
+- Does not amend `SPRINT_IMPLEMENTATION_PLAN.md`. Superseded by D-33 only for the AC-007 evidence split; D-31 custody, deferral, and no-production-private-key constraints remain in force.
+- Does not implement Admin commands, wrappers, signing services, recovery generation, or tests.
+
+Required before Sprint 10 implementation starts:
+- CLOSED: `docs/specs/admin-tool.md` records the command-specific Admin CLI contract, required/optional/default semantics, profile parsing/mapping, mismatch rule, overwrite/report behavior, exit codes, and redaction requirements.
+- CLOSED: `SPRINT_10_EXECUTION_PLAN.md` cites this authority and uses the approved Admin CLI contract as the implementation source.
+- CLOSED: `SPRINT_IMPLEMENTATION_PLAN.md` records D-33's controlling AC-007 evidence split between Sprint 10 technical-path evidence and Sprint 11 production/Admin release evidence.
+- CLOSED: Sprint 10 implementation treats production signing material absence as exit `66` and must not commit private keys or raw signing/recovery material.
+- CLOSED: Sprint 10 implementation treats approved non-production or otherwise available non-release recovery generation only as technical-path proof, not production AC-007 release evidence.
+
+Decision ledger:
+- D-30 / `HD-S10-001`: APPROVED WITH CONSTRAINTS - Admin CLI uses the command-specific long-option contract in `docs/specs/admin-tool.md`. Each command accepts only its approved options; unknown, foreign, repeated, or missing required options exit `64`. Path options use `*-path` names where the value is a path. Profile values are `dev-qa` and `production`, parsed case-insensitively and emitted as canonical lowercase in reports/docs. Internal trust mapping is `dev-qa -> DobbyPluginTrustProfile.DevQa` and `production -> DobbyPluginTrustProfile.Production`. For `sign-plugin-package`, a supplied `--trust-profile` must match the trust profile derived from `--signing-profile`; mismatch exits `65`. Known profiles with unavailable signing material exit `66`. `--overwrite` defaults to false; output/report conflicts without `--overwrite` exit `65`. stdout/stderr must be redacted and must not expose secrets, raw payloads, private key paths, stack traces, or full canonical payloads.
+- D-31 / `HD-S10-002`: APPROVED WITH DEFERRAL - Production/Admin `.dobbyrecovery` release evidence is deferred to Sprint 11/vendor handover. Sprint 10 may implement and test the Admin recovery technical path with fail-closed behavior, but approved non-production or otherwise available non-release recovery generation is technical-path proof only and is not production AC-007 release evidence. Production private key custody remains governed by `ADR-0033`.
+- D-32 / `HD-S10-003`: APPROVED - `verify-plugin-package` remains optional debug/smoke support and is not a Sprint 10 release gate. If implemented, it requires `--plugin-package-path` and `--report-path`, may accept `--trust-profile` and `--overwrite`, defaults `--trust-profile` to `production`, and must not replace install-time package verification.
+- D-33 / `HD-S10-004`: APPROVED - Controlling authority amendment for the AC-007 evidence split. This decision amends `SPRINT_IMPLEMENTATION_PLAN.md` so Sprint 10 owns only `create-recovery-response` AC-007 technical-path evidence, fail-closed exit `66`, redacted diagnostics, approved non-production or otherwise available non-release signing-material proof, and host-import compatibility evidence. Sprint 10 must not claim production/Admin AC-007 release evidence. Production/Admin AC-007 release evidence remains a Sprint 11/vendor handover gate covering production custody proof and release-candidate validation. D-33 supersedes only D-31's out-of-scope phrase "Does not amend `SPRINT_IMPLEMENTATION_PLAN.md`."; D-31 remains authoritative for production key custody, Sprint 11 deferral, and the prohibition on production private signing material in repository, tests, runtime resources, or source-controlled evidence.
