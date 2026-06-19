@@ -28,6 +28,64 @@ public sealed class Sprint9ReleaseEvidenceTests
         evidence.ShouldNotContain("PrintBoundaryBlockerIsRecorded");
     }
 
+    [Fact]
+    public void Sprint9_evidence_records_license_lifecycle_inputs_migration_authority()
+    {
+        var evidence = Sprint9Evidence();
+        var storageReview = Sprint9StorageReview();
+
+        evidence.ShouldContain("SPRINT9-LICENSE-LIFECYCLE-INPUTS-MIGRATION");
+        evidence.ShouldContain("0004_license_lifecycle_inputs");
+        storageReview.ShouldContain("0004_license_lifecycle_inputs");
+        storageReview.ShouldContain("post-login-only lifecycle input migration");
+    }
+
+    [Fact]
+    public void Sprint9_promised_license_integration_test_files_exist_with_behavior_coverage()
+    {
+        var root = RepoRoot();
+        var requiredFiles = new[]
+        {
+            (
+                Path.Combine(root.FullName, "tests", "Dobby.IntegrationTests", "Licensing", "LicenseImportIntegrationTests.cs"),
+                "public sealed class LicenseImportIntegrationTests",
+                "LicenseImportService"),
+            (
+                Path.Combine(root.FullName, "tests", "Dobby.IntegrationTests", "Licensing", "LicenseRuntimeModeIntegrationTests.cs"),
+                "public sealed class LicenseRuntimeModeIntegrationTests",
+                "LicenseRuntimeModeProvider"),
+            (
+                Path.Combine(root.FullName, "tests", "Dobby.IntegrationTests", "Shell", "LicenseImportShellSurfaceTests.cs"),
+                "public sealed class LicenseImportShellSurfaceTests",
+                "ShellViewModel")
+        };
+
+        foreach (var (path, classMarker, behaviorMarker) in requiredFiles)
+        {
+            File.Exists(path).ShouldBeTrue($"{Path.GetFileName(path)} must exist because Sprint 9 named it as required integration coverage.");
+            var text = File.ReadAllText(path);
+            text.ShouldContain(classMarker);
+            text.ShouldContain(behaviorMarker);
+            text.ShouldContain("[Fact]");
+        }
+    }
+
+    [Fact]
+    public void Sprint9_payload_validator_tests_pin_manual_validation_to_canonical_schema_file()
+    {
+        var root = RepoRoot();
+        var validatorTests = File.ReadAllText(Path.Combine(
+            root.FullName,
+            "tests",
+            "Dobby.UnitTests",
+            "Licensing",
+            "LicensePayloadValidatorTests.cs"));
+
+        validatorTests.ShouldContain("dobby-plugin-license.schema.json");
+        validatorTests.ShouldContain("CanonicalPayloadRequiredProperties");
+        validatorTests.ShouldContain("CanonicalPayloadStatusValues");
+    }
+
     private static string Sprint9Evidence()
     {
         var path = Path.Combine(
@@ -39,6 +97,25 @@ public sealed class Sprint9ReleaseEvidenceTests
 
         var text = File.ReadAllText(path);
         var start = text.IndexOf("## Sprint 9 Implementation Evidence", StringComparison.Ordinal);
+        start.ShouldBeGreaterThanOrEqualTo(0);
+        var nextSection = text.IndexOf("\n## ", start + 1, StringComparison.Ordinal);
+
+        return nextSection >= 0
+            ? text[start..nextSection]
+            : text[start..];
+    }
+
+    private static string Sprint9StorageReview()
+    {
+        var path = Path.Combine(
+            RepoRoot().FullName,
+            "artifacts",
+            "release-evidence",
+            "skeleton-local",
+            "storage-materialization.md");
+
+        var text = File.ReadAllText(path);
+        var start = text.IndexOf("## Sprint 9 License State Schema Review 2026-06-17", StringComparison.Ordinal);
         start.ShouldBeGreaterThanOrEqualTo(0);
         var nextSection = text.IndexOf("\n## ", start + 1, StringComparison.Ordinal);
 

@@ -12,6 +12,7 @@ using Dobby.Host.Startup;
 using Dobby.Host.Sessions;
 using Dobby.Infrastructure.HardwareIdentity;
 using Dobby.Infrastructure.Persistence;
+using Dobby.Infrastructure.Printing;
 using Dobby.Infrastructure.ProtectedStorage;
 using Dobby.Licensing;
 using Dobby.Messaging;
@@ -246,6 +247,7 @@ public static class HostLoginRuntimeFactory
             auditTrail,
             timeProvider);
         var diagnosticsOutputZipPath = Path.Combine(options.Runtime.DataRoot, "temp", "dobby-diagnostics.zip");
+        var printTargetClassifier = new WindowsPrintTargetClassifierAdapter(new WindowsPrintTargetClassifier());
 
         return new HostLoginRuntime(
             loginWorkflow,
@@ -275,6 +277,7 @@ public static class HostLoginRuntimeFactory
             currentContextService,
             licenseStateStore,
             licenseRuntimeModeProvider,
+            printTargetClassifier,
             operationReporter,
             options.Runtime.DataRoot,
             diagnosticsOutputZipPath);

@@ -189,6 +189,7 @@ Status: APPROVED WITH CONSTRAINTS - evidence-layer schema review closure for `HD
 
 Scope:
 - Approves post-login-only migration `0003_license_state` for Sprint 9 license persistence.
+- Approves `0004_license_lifecycle_inputs` as a post-login-only lifecycle input migration appended after `0003_license_state`; it may add only the lifecycle re-evaluation inputs already present in signed payload validation (`NotBeforeUtc`, `ExpiresAtUtc`, `GracePeriodDays`, `SourceStatus`) and must be recorded in `StorageMetadata`.
 - Approves `PluginLicenseState` as the authoritative durable license-state table keyed by `RevisionSeriesKey = (pluginId, customerId, deploymentId)`.
 - Approves `PluginLicenseImportAttestation` as a limited support-safe attestation table for import attempts.
 - Requires migration recording through `StorageMetadata` using the existing numbered migration convention and re-entrancy/ordering guards.
@@ -198,7 +199,8 @@ Schema review closure:
 
 | Item | Approved closure |
 | --- | --- |
-| Migration ID | `0003_license_state`, post-login only, appended after earlier post-login migrations and recorded in `StorageMetadata`. |
+| Migration ID | `0003_license_state`, post-login only, appended after earlier post-login migrations and recorded in `StorageMetadata`; `0004_license_lifecycle_inputs`, post-login-only lifecycle input migration, appended after `0003_license_state` and recorded in `StorageMetadata`. |
+| Lifecycle input columns | `0004_license_lifecycle_inputs` may add `NotBeforeUtc`, `ExpiresAtUtc`, `GracePeriodDays`, and `SourceStatus` to `PluginLicenseState` only so runtime mode can re-evaluate pending/grace/read-only transitions from the already-validated signed payload. |
 | `PluginLicenseState` key | `RevisionSeriesKey = (pluginId, customerId, deploymentId)`; do not key durable state by artifact binding fields. |
 | Binding-field persistence | Current validated artifact binding/package fields needed for enforcement may be stored only inside protected/encrypted post-login persistence. They must not be exposed through audit, UI, plugin APIs, diagnostics, export, or raw support text. |
 | Failed import behavior | Failed imports must not mutate `PluginLicenseState`. |

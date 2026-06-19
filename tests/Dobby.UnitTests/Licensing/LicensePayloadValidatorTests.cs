@@ -100,9 +100,52 @@ public sealed class LicensePayloadValidatorTests
         result.Payload!.Status.ShouldBe(LicenseArtifactStatus.ReadOnly);
     }
 
+    [Fact]
+    public void Validate_required_payload_fields_match_canonical_schema()
+    {
+        var requiredProperties = CanonicalPayloadRequiredProperties();
+        var validPayload = ValidPayload();
+
+        validPayload.Keys.ShouldBe(requiredProperties);
+        foreach (var requiredProperty in requiredProperties)
+        {
+            var artifact = CreateArtifact(payload => payload.Remove(requiredProperty));
+
+            var result = LicensePayloadValidator.Validate(artifact);
+
+            result.IsSuccess.ShouldBeFalse($"missing canonical payload field '{requiredProperty}' must be rejected.");
+            result.ReasonCode.ShouldBe(LicenseRejectReasons.InvalidLicenseFile);
+        }
+    }
+
+    [Fact]
+    public void Validate_status_vocabulary_matches_canonical_schema()
+    {
+        foreach (var status in CanonicalPayloadStatusValues())
+        {
+            var artifact = CreateArtifact(payload => payload["status"] = status);
+
+            var result = LicensePayloadValidator.Validate(artifact);
+
+            result.IsSuccess.ShouldBeTrue($"canonical payload status '{status}' must be accepted.");
+        }
+    }
+
     private static LicenseArtifact CreateArtifact(Action<Dictionary<string, object?>>? mutate = null)
     {
-        var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
+        var payload = ValidPayload();
+        mutate?.Invoke(payload);
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+        var element = document.RootElement.Clone();
+        return new LicenseArtifact(
+            element,
+            new LicenseSignatureBlock("ECDSA-P256-SHA256", 1, "AQID"),
+            LicenseCanonicalJsonWriter.Write(element));
+    }
+
+    private static Dictionary<string, object?> ValidPayload()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["schemaVersion"] = 2,
             ["licenseId"] = "license-1",
@@ -120,13 +163,51 @@ public sealed class LicensePayloadValidatorTests
             ["status"] = "active",
             ["keyVersion"] = 1
         };
+    }
 
-        mutate?.Invoke(payload);
-        using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload));
-        var element = document.RootElement.Clone();
-        return new LicenseArtifact(
-            element,
-            new LicenseSignatureBlock("ECDSA-P256-SHA256", 1, "AQID"),
-            LicenseCanonicalJsonWriter.Write(element));
+    private static string[] CanonicalPayloadRequiredProperties()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(CanonicalLicenseSchemaPath()));
+        return document.RootElement
+            .GetProperty("properties")
+            .GetProperty("payload")
+            .GetProperty("required")
+            .EnumerateArray()
+            .Select(property => property.GetString()!)
+            .ToArray();
+    }
+
+    private static string[] CanonicalPayloadStatusValues()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(CanonicalLicenseSchemaPath()));
+        return document.RootElement
+            .GetProperty("properties")
+            .GetProperty("payload")
+            .GetProperty("properties")
+            .GetProperty("status")
+            .GetProperty("enum")
+            .EnumerateArray()
+            .Select(status => status.GetString()!)
+            .ToArray();
+    }
+
+    private static string CanonicalLicenseSchemaPath()
+    {
+        return Path.Combine(
+            RepoRoot().FullName,
+            "docs",
+            "schemas",
+            "dobby-plugin-license.schema.json");
+    }
+
+    private static DirectoryInfo RepoRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null && !File.Exists(Path.Combine(current.FullName, "Dobby.sln")))
+        {
+            current = current.Parent;
+        }
+
+        return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
     }
 }

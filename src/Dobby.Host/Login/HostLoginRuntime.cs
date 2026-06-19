@@ -1,6 +1,7 @@
 using Dobby.Configuration;
 using Dobby.Contracts.BackgroundOperations;
 using Dobby.Core;
+using Dobby.Application.Printing;
 using Dobby.Host.Settings;
 using Dobby.Host.Plugins;
 using Dobby.Host.Sessions;
@@ -35,6 +36,7 @@ public sealed record HostLoginRuntime(
     CurrentCustomerDeploymentContextService CurrentCustomerDeploymentContextService,
     ILicenseStateStore LicenseStateStore,
     ILicenseRuntimeModeProvider LicenseRuntimeModeProvider,
+    IPrintTargetClassifier PrintTargetClassifier,
     IBackgroundOperationReporter BackgroundOperations,
     string DiagnosticsSourceDirectory,
     string DiagnosticsOutputZipPath) : IAsyncDisposable

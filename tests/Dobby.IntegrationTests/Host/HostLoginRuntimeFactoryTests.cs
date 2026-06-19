@@ -1,6 +1,7 @@
 using Dobby.Configuration;
 using Dobby.Contracts.BackgroundOperations;
 using Dobby.Application;
+using Dobby.Application.Printing;
 using Dobby.Host.Login;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
@@ -85,6 +86,13 @@ public sealed class HostLoginRuntimeFactoryTests
         runtime.LicenseStateStore.ShouldNotBeNull();
         runtime.LicenseRuntimeModeProvider.ShouldNotBeNull();
         runtime.LicenseImportCoordinator.ShouldNotBeNull();
+        runtime.PrintTargetClassifier.ShouldNotBeNull();
+        runtime.PrintTargetClassifier.Classify(new PrintTargetDescriptor(
+                "Microsoft Print to PDF",
+                "Microsoft Print To PDF",
+                "PORTPROMPT:",
+                IsLocalPhysicalPrinter: false))
+            .ShouldBe(PrintTargetClass.VirtualOrFileOutput);
         fixture.Executor.Query<string>("SELECT CustomerId || ':' || DeploymentId FROM CustomerDeploymentContext;")
             .ShouldBe(["default:default"]);
         WaitForAuditRetentionSweep(runtime);
