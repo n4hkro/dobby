@@ -56,14 +56,16 @@ public sealed class HostPluginLifecycleCoordinatorTests
     }
 
     [Fact]
-    public void Uninstall_non_activated_plugin_removes_runtime_state_cache_and_audits_data_choice()
+    public void Uninstall_enabled_but_not_current_process_activated_plugin_removes_runtime_state_cache_and_audits_data_choice()
     {
         var audit = new InMemoryAuditTrail();
         var stateStore = Substitute.For<IInstalledPluginStateStore>();
         var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
         var staging = Substitute.For<IPluginInstallStagingArea>();
+        var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
         var state = CreateState(isEnabled: true);
         stateStore.Get(state.PluginId).Returns(Result.Success<InstalledPluginState?>(state));
+        activationTracker.IsActivatedInCurrentProcess(state.PluginId).Returns(false);
         staging.Cleanup(state.RuntimePath).Returns(Result.Success());
         stateStore.Remove(state.PluginId).Returns(Result.Success());
         metadataCache.Remove(state.PluginId).Returns(Result.Success());
@@ -71,13 +73,13 @@ public sealed class HostPluginLifecycleCoordinatorTests
             stateStore: stateStore,
             metadataCache: metadataCache,
             staging: staging,
+            activationTracker: activationTracker,
             auditTrail: audit);
 
         var result = coordinator.UninstallPlugin(
             "owner",
             state.PluginId,
             PluginUninstallDataChoice.DeleteData,
-            wasActivatedInCurrentProcess: false,
             CorrelationId.New());
 
         result.IsSuccess.ShouldBeTrue();
@@ -97,21 +99,23 @@ public sealed class HostPluginLifecycleCoordinatorTests
         var stateStore = Substitute.For<IInstalledPluginStateStore>();
         var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
         var staging = Substitute.For<IPluginInstallStagingArea>();
+        var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
         var state = CreateState(isEnabled: true);
         stateStore.Get(state.PluginId).Returns(Result.Success<InstalledPluginState?>(state));
+        activationTracker.IsActivatedInCurrentProcess(state.PluginId).Returns(true);
         stateStore.Upsert(Arg.Any<InstalledPluginState>()).Returns(Result.Success());
         metadataCache.Upsert(Arg.Any<InstalledPluginMetadata>()).Returns(Result.Success());
         var coordinator = CreateCoordinator(
             stateStore: stateStore,
             metadataCache: metadataCache,
             staging: staging,
+            activationTracker: activationTracker,
             auditTrail: audit);
 
         var result = coordinator.UninstallPlugin(
             "owner",
             state.PluginId,
             PluginUninstallDataChoice.KeepData,
-            wasActivatedInCurrentProcess: true,
             CorrelationId.New());
 
         result.IsSuccess.ShouldBeTrue();
@@ -138,13 +142,16 @@ public sealed class HostPluginLifecycleCoordinatorTests
         IInstalledPluginStateStore? stateStore = null,
         IInstalledPluginMetadataCache? metadataCache = null,
         IPluginInstallStagingArea? staging = null,
+        IPluginCurrentProcessActivationTracker? activationTracker = null,
         OperationAuthorizationPolicy? policy = null,
         InMemoryAuditTrail? auditTrail = null)
     {
+        activationTracker ??= Substitute.For<IPluginCurrentProcessActivationTracker>();
         return new HostPluginLifecycleCoordinator(
             stateStore ?? Substitute.For<IInstalledPluginStateStore>(),
             metadataCache ?? Substitute.For<IInstalledPluginMetadataCache>(),
             staging ?? Substitute.For<IPluginInstallStagingArea>(),
+            activationTracker,
             policy ?? CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
             new PluginRuntimeAuditCoordinator(
                 auditTrail ?? new InMemoryAuditTrail(),

@@ -152,6 +152,7 @@ public sealed class PluginActivationRuntimeIntegrationTests
             lifetimes,
             activationCancellation ?? new HostPluginActivationCancellation(),
             new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionRegistry, lifetimes)),
+            Substitute.For<IPluginCurrentProcessActivationTracker>(),
             new AllowAllTrustVerifier());
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Security.Cryptography;
 using Shouldly;
 
 namespace Dobby.IntegrationTests.Architecture;
@@ -40,12 +41,28 @@ public sealed class SamplePluginManifestTests
         files.Keys.ShouldContain("bin/plugins/Dobby.Sample.Plugin.dll");
         files.Keys.ShouldContain("assets/sample-plugin.png");
         files.Values.ShouldAllBe(hash => hash.Length == 64 && hash.All(Uri.IsHexDigit));
-        files["bin/plugins/Dobby.Sample.Plugin.dll"].ShouldNotBe(new string('0', 64));
+        files["assets/sample-plugin.png"].ShouldBe(Sha256File(Path.Combine(
+            RepoRoot().FullName,
+            "samples",
+            "Dobby.Sample.Plugin",
+            "assets",
+            "sample-plugin.png")));
+        files["bin/plugins/Dobby.Sample.Plugin.dll"].ShouldBe(new string('0', 64));
         var signatureValue = root.GetProperty("signature").GetProperty("value").GetString();
         signatureValue.ShouldNotBeNull();
-        signatureValue!.ShouldNotContain("skeleton");
-        signatureValue.ShouldNotBe("AQ");
-        signatureValue.Length.ShouldBeGreaterThan(20);
+        signatureValue!.ShouldBe("AQ");
+    }
+
+    [Fact]
+    public void Sample_plugin_build_outputs_unsigned_package_candidate_layout_for_admin_signing()
+    {
+        var candidate = SamplePackageCandidatePath();
+
+        File.Exists(Path.Combine(candidate, "dobby-plugin.manifest.json")).ShouldBeTrue();
+        File.Exists(Path.Combine(candidate, "assets", "sample-plugin.png")).ShouldBeTrue();
+        File.Exists(Path.Combine(candidate, "bin", "plugins", "Dobby.Sample.Plugin.dll")).ShouldBeTrue();
+        File.Exists(Path.Combine(candidate, "Dobby.Sample.Plugin.dll")).ShouldBeFalse(
+            "the package candidate should contain only package-declared runtime files");
     }
 
     private static string SampleManifestPath()
@@ -55,6 +72,33 @@ public sealed class SamplePluginManifestTests
             "samples",
             "Dobby.Sample.Plugin",
             "dobby-plugin.manifest.json");
+    }
+
+    private static string SamplePackageCandidatePath()
+    {
+        return Path.Combine(
+            RepoRoot().FullName,
+            "samples",
+            "Dobby.Sample.Plugin",
+            "bin",
+            BuildConfiguration(),
+            "net10.0",
+            "package");
+    }
+
+    private static string BuildConfiguration()
+    {
+#if DEBUG
+        return "Debug";
+#else
+        return "Release";
+#endif
+    }
+
+    private static string Sha256File(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
     }
 
     private static DirectoryInfo RepoRoot()

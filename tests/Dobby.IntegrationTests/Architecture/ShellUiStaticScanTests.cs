@@ -150,6 +150,11 @@ public sealed class ShellUiStaticScanTests
         mainWindowCode.ShouldContain("pluginUninstallConfirmation.Confirm(");
         mainWindowCode.ShouldContain("PluginUninstallConfirmationRequest");
         mainWindowCode.ShouldContain("confirmation.DataChoice");
+        mainWindowCode.ShouldContain("private async void PluginsManagerUninstall_Click");
+        mainWindowCode.ShouldContain("WasActivatedInCurrentProcess(selectedPlugin.PluginId)");
+        mainWindowCode.ShouldContain("await RunSelectedPluginLifecycleActionAsync");
+        mainWindowCode.ShouldContain("Task.Run(() => action(");
+        mainWindowCode.ShouldNotContain("var wasActivatedInCurrentProcess = selectedPlugin.IsEnabled");
         mainWindowCode.ShouldNotContain("PluginUninstallDataChoice.KeepData,\r\n                wasActivatedInCurrentProcess: true");
         mainWindowCode.ShouldNotContain("PluginUninstallDataChoice.KeepData,\n                wasActivatedInCurrentProcess: true");
     }

@@ -65,7 +65,12 @@ public static class AdminCommandHost
 
     public static AdminCommandResult Run(IReadOnlyList<string> args)
     {
-        return Run(args, new UnavailableAdminSigningMaterialProvider(), TimeProvider.System);
+        return Run(args, new EnvironmentAdminSigningMaterialProvider(), TimeProvider.System);
+    }
+
+    public static AdminCommandResult Run(IReadOnlyList<string> args, TimeProvider? timeProvider)
+    {
+        return Run(args, new EnvironmentAdminSigningMaterialProvider(), timeProvider ?? TimeProvider.System);
     }
 
     public static AdminCommandResult Run(
@@ -189,22 +194,42 @@ public static class AdminCommandHost
         }
 
         var archive = read.Value;
-        var fingerprint = PluginPackageFingerprint.Compute(archive.Manifest);
+        var packageEntries = new Dictionary<string, PluginPackageEntry>(StringComparer.Ordinal);
+        foreach (var entry in archive.Entries.Where(entry => !entry.Path.Equals(archive.ManifestPath, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (!packageEntries.TryAdd(entry.Path, entry))
+            {
+                return Validation("invalid-package");
+            }
+        }
+
+        var refreshedFiles = new List<PluginPackageFile>();
+        foreach (var file in archive.Manifest.Files)
+        {
+            if (!packageEntries.TryGetValue(file.Path, out var entry))
+            {
+                return Validation("invalid-package");
+            }
+
+            refreshedFiles.Add(file with { Sha256 = entry.Sha256 });
+        }
+
+        var refreshedManifest = archive.Manifest with { Files = refreshedFiles };
+        var fingerprint = PluginPackageFingerprint.Compute(refreshedManifest);
         var signature = ToBase64Url(material.Key.SignData(
             fingerprint.CanonicalPayload,
             HashAlgorithmName.SHA256,
             DSASignatureFormat.Rfc3279DerSequence));
-        var manifestJson = WritePluginManifestJson(archive.Manifest, signature);
+        var manifestJson = WritePluginManifestJson(refreshedManifest, signature);
 
         EnsureParentDirectory(outputPath);
         using (var stream = File.Create(outputPath))
         using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false))
         {
             AddZipEntry(zip, PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(manifestJson));
-            foreach (var entry in archive.Entries
-                         .Where(entry => !entry.Path.Equals(archive.ManifestPath, StringComparison.OrdinalIgnoreCase))
-                         .OrderBy(entry => entry.Path, StringComparer.Ordinal))
+            foreach (var file in refreshedManifest.Files.OrderBy(file => file.Path, StringComparer.Ordinal))
             {
+                var entry = packageEntries[file.Path];
                 AddZipEntry(zip, entry.Path, entry.Content);
             }
         }
@@ -740,6 +765,44 @@ public sealed class UnavailableAdminSigningMaterialProvider : IAdminSigningMater
     public AdminSigningMaterialResult Resolve(string signingProfile)
     {
         return AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
+    }
+}
+
+public sealed class EnvironmentAdminSigningMaterialProvider : IAdminSigningMaterialProvider
+{
+    private const string DevQaSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_KEY_PATH";
+    private const string ProductionSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_PRODUCTION_KEY_PATH";
+
+    public AdminSigningMaterialResult Resolve(string signingProfile)
+    {
+        var variable = signingProfile switch
+        {
+            "dev-qa" => DevQaSigningKeyPathVariable,
+            "production" => ProductionSigningKeyPathVariable,
+            _ => string.Empty
+        };
+        if (string.IsNullOrWhiteSpace(variable))
+        {
+            return AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
+        }
+
+        var path = Environment.GetEnvironmentVariable(variable);
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
+        }
+
+        var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        try
+        {
+            key.ImportFromPem(File.ReadAllText(path));
+            return AdminSigningMaterialResult.Success(new AdminSigningMaterial(signingProfile, key));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or CryptographicException)
+        {
+            key.Dispose();
+            return AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
+        }
     }
 }
 

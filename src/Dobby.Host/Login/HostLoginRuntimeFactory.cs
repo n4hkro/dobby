@@ -169,6 +169,7 @@ public static class HostLoginRuntimeFactory
         var pluginInstallStagingArea = new PluginInstallStagingArea(options.Runtime.DataRoot, executor);
         var pluginRuntimeAuditCoordinator = new PluginRuntimeAuditCoordinator(auditTrail, timeProvider);
         var pluginRuntimeDiagnosticsCoordinator = new PluginRuntimeDiagnosticsCoordinator(_ => { });
+        var pluginCurrentProcessActivationTracker = new PluginCurrentProcessActivationTracker();
         var pluginTrustVerifier = new PluginTrustVerifier();
         var licenseImportService = new LicenseImportService(
             new LicenseSignatureVerifier(new PluginTrustPublicKeyProvider()),
@@ -209,6 +210,7 @@ public static class HostLoginRuntimeFactory
             installedPluginStateStore,
             installedPluginMetadataCache,
             pluginInstallStagingArea,
+            pluginCurrentProcessActivationTracker,
             operationAuthorizationPolicy,
             pluginRuntimeAuditCoordinator);
         var hostPluginRuntimeCoordinator = new HostPluginRuntimeCoordinator(
@@ -221,6 +223,7 @@ public static class HostLoginRuntimeFactory
             pluginLifetimeManager,
             pluginActivationCancellation,
             new PostLoginPluginActivator(new PluginServiceRegistrationBridge(pluginExtensionPointRegistry, pluginLifetimeManager, pluginHostServices)),
+            pluginCurrentProcessActivationTracker,
             pluginTrustVerifier,
             pluginRuntimeAuditCoordinator,
             operationReporter,

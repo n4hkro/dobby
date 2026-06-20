@@ -397,7 +397,7 @@ public partial class MainWindow : Window
             coordinator.DisablePlugin(actor, pluginId, correlationId));
     }
 
-    private void PluginsManagerUninstall_Click(object sender, RoutedEventArgs e)
+    private async void PluginsManagerUninstall_Click(object sender, RoutedEventArgs e)
     {
         if (pluginLifecycleCoordinator is null ||
             session is null ||
@@ -407,7 +407,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var wasActivatedInCurrentProcess = selectedPlugin.IsEnabled;
+        var wasActivatedInCurrentProcess = pluginLifecycleCoordinator.WasActivatedInCurrentProcess(selectedPlugin.PluginId);
         var confirmation = pluginUninstallConfirmation.Confirm(new PluginUninstallConfirmationRequest(
             selectedPlugin.PluginId,
             selectedPlugin.DisplayName,
@@ -417,12 +417,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        RunSelectedPluginLifecycleAction((coordinator, actor, pluginId, correlationId) =>
+        await RunSelectedPluginLifecycleActionAsync((coordinator, actor, pluginId, correlationId) =>
             coordinator.UninstallPlugin(
                 actor,
                 pluginId,
                 confirmation.DataChoice,
-                wasActivatedInCurrentProcess,
                 correlationId));
     }
 
@@ -447,6 +446,39 @@ public partial class MainWindow : Window
         }
 
         RefreshPluginsManagerItems(selectedPluginId);
+    }
+
+    private async Task RunSelectedPluginLifecycleActionAsync(
+        Func<HostPluginLifecycleCoordinator, string, string, CorrelationId, Result> action)
+    {
+        if (pluginLifecycleCoordinator is null || session is null || shellViewModel.PluginsManagerSelectedItem is null)
+        {
+            shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.PluginsManagerOperationDenied);
+            return;
+        }
+
+        var coordinator = pluginLifecycleCoordinator;
+        var actor = session.UserId;
+        var selectedPluginId = shellViewModel.PluginsManagerSelectedItem.PluginId;
+        shellViewModel.SetPluginsManagerBusy(true);
+        try
+        {
+            var result = await Task.Run(() => action(coordinator, actor, selectedPluginId, CorrelationId.New()));
+            if (!result.IsSuccess)
+            {
+                shellViewModel.SetPluginsManagerFeedback(
+                    result.ErrorCode == ErrorCode.Forbidden
+                        ? HostResourceKeys.PluginsManagerOperationDenied
+                        : HostResourceKeys.ShellFeedbackError);
+                return;
+            }
+
+            RefreshPluginsManagerItems(selectedPluginId);
+        }
+        finally
+        {
+            shellViewModel.SetPluginsManagerBusy(false);
+        }
     }
 
     private void RefreshPluginsManagerItems(string? selectedPluginId = null)

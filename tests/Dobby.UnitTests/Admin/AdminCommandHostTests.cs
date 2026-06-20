@@ -16,6 +16,9 @@ namespace Dobby.UnitTests.Admin;
 
 public sealed class AdminCommandHostTests
 {
+    private const string DevQaSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_KEY_PATH";
+    private const string ProductionSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_PRODUCTION_KEY_PATH";
+
     [Theory]
     [MemberData(nameof(InvalidOptionShapes))]
     public void Run_rejects_unknown_foreign_repeated_and_missing_option_shapes(string[] args)
@@ -83,6 +86,7 @@ public sealed class AdminCommandHostTests
     [Fact]
     public void Run_returns_unavailable_signing_material_for_known_profile_without_default_material()
     {
+        using var environment = SigningKeyEnvironmentScope.Clear();
         using var fixture = TempFixture.Create();
         File.WriteAllText(fixture.Path("request.dobbyrecoveryrequest"), RecoveryRequestJson());
 
@@ -96,6 +100,105 @@ public sealed class AdminCommandHostTests
         result.ExitCode.ShouldBe(66);
         result.StandardError.ShouldContain("signing-material-unavailable");
         result.StandardError.ShouldNotContain(fixture.Root);
+    }
+
+    [Fact]
+    public void Run_uses_default_environment_signing_material_for_recovery_response()
+    {
+        using var fixture = TempFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var environment = SigningKeyEnvironmentScope.ForDevQa(fixture, key);
+        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T10:00:00Z"));
+        var requestPath = fixture.Path("request.dobbyrecoveryrequest");
+        var outputPath = fixture.Path("response.dobbyrecovery");
+        File.WriteAllText(requestPath, RecoveryRequestJson());
+
+        var result = AdminCommandHost.Run([
+            "--cli", "create-recovery-response",
+            "--request-path", requestPath,
+            "--signing-profile", "dev-qa",
+            "--output-path", outputPath
+        ], timeProvider: time);
+
+        result.ExitCode.ShouldBe(0, result.StandardError);
+        File.Exists(outputPath).ShouldBeTrue();
+        RecoveryResponseImporter.ReadEnvelope(File.ReadAllText(outputPath)).Signature.ShouldContain("=");
+    }
+
+    [Fact]
+    public void Sign_plugin_package_uses_default_environment_material_and_refreshes_candidate_hashes()
+    {
+        using var fixture = TempFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var environment = SigningKeyEnvironmentScope.ForDevQa(fixture, key);
+        var publicKeyPem = EncodePem(key.ExportSubjectPublicKeyInfo());
+        var unsignedPackagePath = fixture.Path("unsigned-stale.dobbyplugin");
+        var signedPackagePath = fixture.Path("signed.dobbyplugin");
+        CreateUnsignedSamplePackage(unsignedPackagePath, staleAssemblyHash: true);
+
+        var result = AdminCommandHost.Run([
+            "--cli", "sign-plugin-package",
+            "--input-path", unsignedPackagePath,
+            "--signing-profile", "dev-qa",
+            "--output-path", signedPackagePath
+        ]);
+
+        result.ExitCode.ShouldBe(0, result.StandardError);
+        var archive = PluginPackageReader.Read(signedPackagePath);
+        archive.IsSuccess.ShouldBeTrue(archive.ErrorCode?.ToString());
+        archive.Value.Manifest.Files
+            .Single(file => file.Path == "bin/plugins/Dobby.Sample.Plugin.dll")
+            .Sha256.ShouldNotBe(new string('0', 64));
+        var validation = PluginPackageValidator.Validate(
+            archive.Value,
+            new HostVersion(1, 0, 0),
+            new PluginTrustVerifier(new PluginTrustPublicKeyProvider(
+                DobbyPluginTrustProfile.DevQa,
+                new Dictionary<string, byte[]>(StringComparer.Ordinal)
+                {
+                    [PluginTrustPublicKeyProvider.DevQaResourceName] = publicKeyPem
+                })));
+
+        validation.IsSuccess.ShouldBeTrue(validation.IsSuccess ? null : validation.Reasons.First().Message);
+    }
+
+    [Fact]
+    public void Create_plugin_license_uses_default_environment_signing_material()
+    {
+        using var fixture = TempFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var environment = SigningKeyEnvironmentScope.ForDevQa(fixture, key);
+        var publicKeyPem = EncodePem(key.ExportSubjectPublicKeyInfo());
+        var packagePath = fixture.Path("package.dobbyplugin");
+        var bindingPath = fixture.Path("device.json");
+        var outputPath = fixture.Path("sample.dobbylicense");
+        File.WriteAllText(packagePath, "package-bytes");
+        File.WriteAllText(bindingPath, """{"deviceFingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}""");
+
+        var result = AdminCommandHost.Run([
+            "--cli", "create-plugin-license",
+            "--plugin-package-path", packagePath,
+            "--signing-profile", "dev-qa",
+            "--customer-id", "customer",
+            "--deployment-id", "deployment",
+            "--device-binding-fixture-path", bindingPath,
+            "--valid-from", "2026-06-20T00:00:00Z",
+            "--valid-until", "2026-07-20T00:00:00Z",
+            "--revision", "3",
+            "--output-path", outputPath
+        ]);
+
+        result.ExitCode.ShouldBe(0, result.StandardError);
+        var parsed = LicenseArtifactParser.Parse(Path.GetFileName(outputPath), File.ReadAllBytes(outputPath));
+        parsed.IsSuccess.ShouldBeTrue(parsed.ReasonCode);
+        new LicenseSignatureVerifier(new PluginTrustPublicKeyProvider(
+                DobbyPluginTrustProfile.DevQa,
+                new Dictionary<string, byte[]>(StringComparer.Ordinal)
+                {
+                    [PluginTrustPublicKeyProvider.DevQaResourceName] = publicKeyPem
+                }))
+            .Verify(parsed.Artifact!.Signature, parsed.Artifact.CanonicalPayload)
+            .IsSuccess.ShouldBeTrue();
     }
 
     [Fact]
@@ -268,10 +371,11 @@ public sealed class AdminCommandHostTests
         return Encoding.UTF8.GetBytes($"-----BEGIN PUBLIC KEY-----\n{base64}\n-----END PUBLIC KEY-----\n");
     }
 
-    private static void CreateUnsignedSamplePackage(string packagePath)
+    private static void CreateUnsignedSamplePackage(string packagePath, bool staleAssemblyHash = false)
     {
         var assemblyPath = FindSamplePluginAssembly();
         var assemblyBytes = File.ReadAllBytes(assemblyPath);
+        var assemblyHash = staleAssemblyHash ? new string('0', 64) : Sha256(assemblyBytes);
         var manifestJson =
             "{\"pluginId\":\"com.dobby.sample\"," +
             "\"version\":\"1.0.0\"," +
@@ -284,7 +388,7 @@ public sealed class AdminCommandHostTests
             "\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}]," +
             "\"operationTargets\":[{\"id\":\"com.dobby.sample.greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}]," +
             "\"extensionPoints\":[{\"id\":\"sample.greet.page\",\"target\":\"sidebar\",\"routeKey\":\"greet\",\"labelKey\":\"sample.nav.greet\",\"group\":\"default\",\"weight\":100}]," +
-            "\"files\":[{\"path\":\"bin/plugins/Dobby.Sample.Plugin.dll\",\"sha256\":\"" + Sha256(assemblyBytes) + "\"}]," +
+            "\"files\":[{\"path\":\"bin/plugins/Dobby.Sample.Plugin.dll\",\"sha256\":\"" + assemblyHash + "\"}]," +
             "\"signature\":{\"algorithm\":\"ECDSA-P256-SHA256\",\"keyVersion\":1,\"value\":\"AQ\"}}";
 
         using var stream = File.Create(packagePath);
@@ -342,6 +446,41 @@ public sealed class AdminCommandHostTests
     private sealed class StaticDeviceFingerprint(DeviceFingerprint fingerprint) : IDeviceFingerprintSource
     {
         public Result<DeviceFingerprint> Current() => Result.Success(fingerprint);
+    }
+
+    private sealed class SigningKeyEnvironmentScope : IDisposable
+    {
+        private readonly string? previousDevQa;
+        private readonly string? previousProduction;
+
+        private SigningKeyEnvironmentScope()
+        {
+            previousDevQa = Environment.GetEnvironmentVariable(DevQaSigningKeyPathVariable);
+            previousProduction = Environment.GetEnvironmentVariable(ProductionSigningKeyPathVariable);
+        }
+
+        public static SigningKeyEnvironmentScope Clear()
+        {
+            var scope = new SigningKeyEnvironmentScope();
+            Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, null);
+            Environment.SetEnvironmentVariable(ProductionSigningKeyPathVariable, null);
+            return scope;
+        }
+
+        public static SigningKeyEnvironmentScope ForDevQa(TempFixture fixture, ECDsa key)
+        {
+            var scope = Clear();
+            var keyPath = fixture.Path("dev-qa-private-key.pem");
+            File.WriteAllText(keyPath, key.ExportPkcs8PrivateKeyPem(), new UTF8Encoding(false));
+            Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, keyPath);
+            return scope;
+        }
+
+        public void Dispose()
+        {
+            Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, previousDevQa);
+            Environment.SetEnvironmentVariable(ProductionSigningKeyPathVariable, previousProduction);
+        }
     }
 
     private sealed class TempFixture : IDisposable

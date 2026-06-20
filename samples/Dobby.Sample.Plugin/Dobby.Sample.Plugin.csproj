@@ -11,4 +11,25 @@
     <None Include="dobby-plugin.manifest.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="assets\sample-plugin.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="CreateSamplePluginPackageCandidate" AfterTargets="Build">
+    <PropertyGroup>
+      <SamplePackageCandidateDir>$(OutputPath)package\</SamplePackageCandidateDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <SamplePackageCandidateFile Include="dobby-plugin.manifest.json">
+        <PackageRelativePath>dobby-plugin.manifest.json</PackageRelativePath>
+      </SamplePackageCandidateFile>
+      <SamplePackageCandidateFile Include="assets\sample-plugin.png">
+        <PackageRelativePath>assets\sample-plugin.png</PackageRelativePath>
+      </SamplePackageCandidateFile>
+      <SamplePackageCandidateFile Include="$(TargetPath)">
+        <PackageRelativePath>bin\plugins\$(TargetFileName)</PackageRelativePath>
+      </SamplePackageCandidateFile>
+    </ItemGroup>
+    <RemoveDir Directories="$(SamplePackageCandidateDir)" />
+    <MakeDir Directories="$(SamplePackageCandidateDir)assets;$(SamplePackageCandidateDir)bin\plugins" />
+    <Copy
+      SourceFiles="@(SamplePackageCandidateFile)"
+      DestinationFiles="@(SamplePackageCandidateFile->'$(SamplePackageCandidateDir)%(PackageRelativePath)')" />
+  </Target>
 </Project>

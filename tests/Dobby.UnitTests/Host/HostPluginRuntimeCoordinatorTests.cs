@@ -34,6 +34,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
                 lifetimeManager,
                 new HostPluginActivationCancellation(),
                 new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionPointRegistry, lifetimeManager)),
+                Substitute.For<IPluginCurrentProcessActivationTracker>(),
                 pluginTrustVerifier: null!));
     }
 
@@ -217,6 +218,36 @@ public sealed class HostPluginRuntimeCoordinatorTests
             {
                 Directory.Delete(runtimePath, recursive: true);
             }
+        }
+    }
+
+    [Fact]
+    public void Activate_installed_plugins_marks_successful_activations_as_current_process_activated()
+    {
+        var runtimePath = CreateActivatableRuntimePackageDirectory();
+        try
+        {
+            var stateStore = Substitute.For<IInstalledPluginStateStore>();
+            stateStore.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>(
+            [
+                CreateInstalledState(runtimePath, RuntimePackageFingerprint(runtimePath))
+            ]));
+            var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
+            var coordinator = CreateCoordinator(
+                stateStore: stateStore,
+                activationTracker: activationTracker);
+
+            var result = coordinator.ActivateInstalledPlugins(new HostVersion(1, 0, 0), CancellationToken.None);
+
+            result.IsSuccess.ShouldBeTrue(result.ErrorCode?.ToString());
+            result.Value.ActivatedPluginIds.ShouldBe([PluginPackageTestData.PluginId]);
+            activationTracker.Received(1).MarkActivatedInCurrentProcess(
+                Arg.Is<IReadOnlyCollection<string>>(pluginIds =>
+                    pluginIds.SequenceEqual(new[] { PluginPackageTestData.PluginId })));
+        }
+        finally
+        {
+            DeleteRuntimeDirectory(runtimePath);
         }
     }
 
@@ -448,6 +479,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
         OperationTargetRegistry? operationTargetRegistry = null,
         HostPluginActivationCancellation? activationCancellation = null,
         IPluginTrustVerifier? trustVerifier = null,
+        IPluginCurrentProcessActivationTracker? activationTracker = null,
         ILicenseRuntimeModeProvider? licenseRuntimeModeProvider = null)
     {
         stateStore ??= CreateDefaultStateStore();
@@ -466,6 +498,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
             lifetimeManager,
             activationCancellation ?? new HostPluginActivationCancellation(),
             new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionPointRegistry, lifetimeManager)),
+            activationTracker ?? Substitute.For<IPluginCurrentProcessActivationTracker>(),
             trustVerifier ?? new AllowAllTrustVerifier(),
             licenseRuntimeModeProvider: licenseRuntimeModeProvider ?? new AllowAllLicenseRuntimeModeProvider());
     }
@@ -511,6 +544,32 @@ public sealed class HostPluginRuntimeCoordinatorTests
         return runtimePath;
     }
 
+    private static string CreateActivatableRuntimePackageDirectory()
+    {
+        var runtimePath = Path.Combine(Path.GetTempPath(), "dobby-plugin-runtime-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(runtimePath);
+        Directory.CreateDirectory(Path.Combine(runtimePath, "content"));
+        var entryAssemblyBytes = File.ReadAllBytes(FindSamplePluginAssembly());
+        File.WriteAllText(
+            Path.Combine(runtimePath, PluginPackageReader.ManifestFileName),
+            PluginPackageTestData.CreateManifestJson(files:
+            [
+                new PluginPackageFile(
+                    PluginPackageTestData.EntryAssembly,
+                    PluginPackageTestData.HashHex(entryAssemblyBytes)),
+                new PluginPackageFile(
+                    PluginPackageTestData.FilePath,
+                    PluginPackageTestData.FileHash)
+            ]));
+        var entryAssemblyPath = Path.Combine(runtimePath, PluginPackageTestData.EntryAssembly.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(entryAssemblyPath)!);
+        File.WriteAllBytes(entryAssemblyPath, entryAssemblyBytes);
+        File.WriteAllBytes(
+            Path.Combine(runtimePath, PluginPackageTestData.FilePath),
+            PluginPackageTestData.FileContent);
+        return runtimePath;
+    }
+
     private static InstalledPluginState CreateInstalledState(string runtimePath, string packageFingerprint)
     {
         return new InstalledPluginState(
@@ -532,6 +591,54 @@ public sealed class HostPluginRuntimeCoordinatorTests
         var archive = PluginPackageReader.Read(runtimePath);
         archive.IsSuccess.ShouldBeTrue();
         return PluginPackageFingerprint.Compute(archive.Value.Manifest).Fingerprint;
+    }
+
+    private static void DeleteRuntimeDirectory(string runtimePath)
+    {
+        try
+        {
+            if (Directory.Exists(runtimePath))
+            {
+                Directory.Delete(runtimePath, recursive: true);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static string FindSamplePluginAssembly()
+    {
+        var root = RepoRoot().FullName;
+        var candidates = new[]
+        {
+            Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", BuildConfiguration(), "net10.0", "Dobby.Sample.Plugin.dll"),
+            Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", "Release", "net10.0", "Dobby.Sample.Plugin.dll"),
+            Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", "Debug", "net10.0", "Dobby.Sample.Plugin.dll")
+        };
+
+        return candidates.FirstOrDefault(File.Exists)
+            ?? throw new FileNotFoundException("Sample plugin assembly must be built before runtime activation verification.");
+    }
+
+    private static string BuildConfiguration()
+    {
+#if DEBUG
+        return "Debug";
+#else
+        return "Release";
+#endif
+    }
+
+    private static DirectoryInfo RepoRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null && !File.Exists(Path.Combine(current.FullName, "Dobby.sln")))
+        {
+            current = current.Parent;
+        }
+
+        return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
     }
 
     private sealed class AllowAllTrustVerifier : IPluginTrustVerifier

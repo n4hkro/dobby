@@ -96,6 +96,11 @@ canonical lowercase values. Internal trust-profile mapping is fixed:
 unknown mappings, invalid profile combinations, invalid timestamps, invalid
 revision values, validation failures and output/report path conflicts exit `65`.
 Known profiles whose signing material is missing or unavailable exit `66`.
+The default CLI signing-material provider reads private-key PEM paths only from
+operator-supplied environment variables: `DOBBY_ADMIN_SIGNING_DEV_QA_KEY_PATH`
+for `dev-qa` and `DOBBY_ADMIN_SIGNING_PRODUCTION_KEY_PATH` for `production`.
+These values are never emitted to stdout/stderr or reports; absent, unreadable
+or malformed material still exits `66`.
 
 `--output-path` is required for artifact-producing commands. `--report-path` is
 required for `verify-plugin-package` because verification produces only a report

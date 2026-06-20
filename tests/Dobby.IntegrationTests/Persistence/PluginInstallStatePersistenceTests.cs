@@ -213,6 +213,7 @@ public sealed class PluginInstallStatePersistenceTests
             lifetimeManager,
             new HostPluginActivationCancellation(),
             new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionPointRegistry, lifetimeManager)),
+            new PluginCurrentProcessActivationTracker(),
             new AllowAllTrustVerifier());
 
         var result = coordinator.ApplyPostLoginMigrations();

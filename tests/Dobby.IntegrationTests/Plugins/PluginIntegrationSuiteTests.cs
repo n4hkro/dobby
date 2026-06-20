@@ -100,6 +100,7 @@ public sealed class PluginIntegrationSuiteTests
             lifetimes,
             activationCancellation,
             new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionRegistry, lifetimes, pluginHostServices)),
+            Substitute.For<IPluginCurrentProcessActivationTracker>(),
             new AllowAllTrustVerifier(),
             auditCoordinator: null,
             backgroundOperations: reporter);

@@ -15,6 +15,7 @@ public sealed class HostPluginLifecycleCoordinator(
     IInstalledPluginStateStore stateStore,
     IInstalledPluginMetadataCache metadataCache,
     IPluginInstallStagingArea stagingArea,
+    IPluginCurrentProcessActivationTracker activationTracker,
     OperationAuthorizationPolicy authorizationPolicy,
     PluginRuntimeAuditCoordinator auditCoordinator)
 {
@@ -40,7 +41,6 @@ public sealed class HostPluginLifecycleCoordinator(
         string actorId,
         string pluginId,
         PluginUninstallDataChoice dataChoice,
-        bool wasActivatedInCurrentProcess,
         CorrelationId correlationId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
@@ -63,6 +63,7 @@ public sealed class HostPluginLifecycleCoordinator(
         }
 
         var choice = ToWireValue(dataChoice);
+        var wasActivatedInCurrentProcess = WasActivatedInCurrentProcess(pluginId);
         if (wasActivatedInCurrentProcess)
         {
             var now = DateTimeOffset.UtcNow;
@@ -111,6 +112,12 @@ public sealed class HostPluginLifecycleCoordinator(
 
         auditCoordinator.AppendPluginUninstalled(actorId, pluginId, choice, restartRequired: false, correlationId);
         return Result.Success();
+    }
+
+    public bool WasActivatedInCurrentProcess(string pluginId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+        return activationTracker.IsActivatedInCurrentProcess(pluginId);
     }
 
     private Result SetEnabled(

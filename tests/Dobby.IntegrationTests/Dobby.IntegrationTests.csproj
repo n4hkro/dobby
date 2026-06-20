@@ -16,6 +16,7 @@
     <PackageReference Include="coverlet.collector" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\samples\Dobby.Sample.Plugin\Dobby.Sample.Plugin.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\src\Dobby.Host\Dobby.Host.csproj" />
     <ProjectReference Include="..\..\src\Dobby.Infrastructure\Dobby.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Dobby.PluginFramework\Dobby.PluginFramework.csproj" />

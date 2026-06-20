@@ -27,6 +27,7 @@ public sealed class HostPluginRuntimeCoordinator(
     PluginLifetimeManager lifetimeManager,
     HostPluginActivationCancellation activationCancellation,
     PostLoginPluginActivator postLoginPluginActivator,
+    IPluginCurrentProcessActivationTracker activationTracker,
     IPluginTrustVerifier pluginTrustVerifier,
     PluginRuntimeAuditCoordinator? auditCoordinator = null,
     IBackgroundOperationReporter? backgroundOperations = null,
@@ -52,6 +53,9 @@ public sealed class HostPluginRuntimeCoordinator(
     public HostPluginActivationCancellation ActivationCancellation { get; } = activationCancellation;
 
     public PostLoginPluginActivator PostLoginPluginActivator { get; } = postLoginPluginActivator;
+
+    public IPluginCurrentProcessActivationTracker ActivationTracker { get; } =
+        activationTracker ?? throw new ArgumentNullException(nameof(activationTracker));
 
     public PluginRuntimeAuditCoordinator? AuditCoordinator { get; } = auditCoordinator;
 
@@ -376,6 +380,7 @@ public sealed class HostPluginRuntimeCoordinator(
             return Result.Failure<PluginActivationExecutionOutcome>(activation.ErrorCode ?? ErrorCode.PluginInternalError);
         }
 
+        ActivationTracker.MarkActivatedInCurrentProcess(activation.Value.Run.ActivatedPluginIds);
         var outcomes = preActivationOutcomes.Values
             .Concat(activation.Value.Run.Outcomes)
             .OrderBy(outcome => outcome.PluginId, StringComparer.Ordinal)
