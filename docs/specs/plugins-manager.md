@@ -127,10 +127,18 @@ event names bu user-facing reason list-ə qaytarılmır.
 
 Raw key material, full local path, stack trace və internal verifier detail UI-da göstərilmir və raw audit payload kimi yazılmır. Diagnostics redacted support-safe detail saxlayır; audit yalnız action id, status, typed reason və correlation id kimi audit-safe field-lərlə məhdudlaşır.
 
-License denial install validation səbəbi deyil. Structurally valid, signed və trusted
-package install oluna bilər; license state post-install runtime/license status
-surface-ində `ADR-0051` və `ADR-0053` qaydaları ilə `Denied`, `ReadOnlyExpired` və ya
-UI status kimi görünür.
+License/runtime-mode denial package validation səbəbi deyil. Structurally valid,
+signed və trusted package `package-invalid` kimi göstərilmir. Bununla belə,
+`ReadOnlyExpired` mode-da local `.dobbyplugin` package install/import host
+installed plugin state, install staging/runtime files və installed plugin
+metadata/cache mutation etdiyi üçün policy/license-mode denial kimi bloklanır.
+User-facing `license-read-only` / `LicenseReadOnly` mapping-i package validation
+failure kimi göstərilmir. `.dobbylicense` import `ReadOnlyExpired`
+mutation/import block-un recovery exception-ı olaraq qalır. License/runtime mode
+host mutation-a icazə verdikdə structurally valid, signed və trusted package
+install oluna bilər; post-install runtime/license status surface-ində
+`ADR-0051` və `ADR-0053` qaydaları ilə `Denied`, `ReadOnlyExpired` və ya UI
+status kimi görünür.
 
 Missing dependency install validation failure deyil. Structurally valid, signed və
 trusted package install oluna bilər; missing/disabled dependency yalnız

@@ -349,3 +349,29 @@ Decision ledger:
 - D-31 / `HD-S10-002`: APPROVED WITH DEFERRAL - Production/Admin `.dobbyrecovery` release evidence is deferred to Sprint 11/vendor handover. Sprint 10 may implement and test the Admin recovery technical path with fail-closed behavior, but approved non-production or otherwise available non-release recovery generation is technical-path proof only and is not production AC-007 release evidence. Production private key custody remains governed by `ADR-0033`.
 - D-32 / `HD-S10-003`: APPROVED - `verify-plugin-package` remains optional debug/smoke support and is not a Sprint 10 release gate. If implemented, it requires `--plugin-package-path` and `--report-path`, may accept `--trust-profile` and `--overwrite`, defaults `--trust-profile` to `production`, and must not replace install-time package verification.
 - D-33 / `HD-S10-004`: APPROVED - Controlling authority amendment for the AC-007 evidence split. This decision amends `SPRINT_IMPLEMENTATION_PLAN.md` so Sprint 10 owns only `create-recovery-response` AC-007 technical-path evidence, fail-closed exit `66`, redacted diagnostics, approved non-production or otherwise available non-release signing-material proof, and host-import compatibility evidence. Sprint 10 must not claim production/Admin AC-007 release evidence. Production/Admin AC-007 release evidence remains a Sprint 11/vendor handover gate covering production custody proof and release-candidate validation. D-33 supersedes only D-31's out-of-scope phrase "Does not amend `SPRINT_IMPLEMENTATION_PLAN.md`."; D-31 remains authoritative for production key custody, Sprint 11 deferral, and the prohibition on production private signing material in repository, tests, runtime resources, or source-controlled evidence.
+
+## Phase B Sprint 10 ReadOnlyExpired Plugin Package Decision 2026-06-20
+
+Designated approver: current human requester in this Codex thread (architecture/security/licensing approver for this decision)
+
+Patch note: AI-assisted authority patch; human approval recorded from the current Codex thread.
+
+Scope:
+- Closes `HD-S10-005` for `SPRINT_10_EXECUTION_PLAN.md` and `docs/specs/plugins-manager.md`.
+- Defines `ReadOnlyExpired` behavior for local `.dobbyplugin` package install/import.
+- Keeps `.dobbylicense` import as the recovery exception to the `ReadOnlyExpired` mutation/import block.
+- Preserves the distinction between package validity and operation policy.
+
+Out of scope:
+- Does not change plugin package manifest, signature, trust, fingerprint, compatibility, or forbidden-content validation rules.
+- Does not allow plugin package install/import to mutate host state under `ReadOnlyExpired`.
+- Does not add new `ErrorCode` values, audit event names, operation targets, package formats, or license artifact formats.
+- Does not implement code, tests, UI, Admin tooling, or release evidence.
+
+Required before Sprint 10 implementation starts:
+- CLOSED: `docs/specs/plugins-manager.md` states that structurally valid signed trusted packages are not treated as package-invalid when `ReadOnlyExpired` blocks install/import.
+- CLOSED: `SPRINT_10_EXECUTION_PLAN.md` states that `LicenseReadOnly` / `license-read-only` is a policy/license-mode denial, not package validation failure.
+- CLOSED: Sprint 10 implementation treats existing coordinator/tests as the implementation baseline for this decision.
+
+Decision ledger:
+- D-34 / `HD-S10-005`: APPROVED - Under `ReadOnlyExpired`, local `.dobbyplugin` package install/import is blocked because it mutates host installed plugin state, install staging/runtime files, and installed plugin metadata/cache. `.dobbylicense` import remains the recovery exception to the `ReadOnlyExpired` mutation/import block. This human decision makes the existing coordinator/tests the Sprint 10 implementation baseline. `docs/specs/plugins-manager.md` and `SPRINT_10_EXECUTION_PLAN.md` must be reconciled so structurally valid signed trusted packages are not treated as package-invalid, but may install only when the current license/runtime mode allows host mutation. Under `ReadOnlyExpired`, rejection is a policy/license-mode denial, not package validation failure.

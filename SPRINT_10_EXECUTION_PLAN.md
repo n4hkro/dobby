@@ -9,7 +9,7 @@
 | Main goal | Complete P1 plugin management workflows and the artifacts used to prove package, license, recovery, and plugin behavior, per `SPRINT_IMPLEMENTATION_PLAN.md` Sprint 10. |
 | Expected deliverable | Permission-gated Plugins Manager lifecycle UI, finalized dev/QA sample plugin verification artifact, scripted Admin artifact flows, and release evidence that production rejects dev/QA trust artifacts. |
 | Why this sprint exists | Sprint 5 supplies host-side recovery request/import behavior and TEST-ONLY fixture boundary; Sprint 8 supplies plugin package trust, install, activation, sample scaffold, and dev/QA/production trust profile foundation; Sprint 9 supplies license import/runtime mode enforcement. Sprint 10 consumes those outputs and provides the Admin recovery technical path plus plugin/sample validation artifacts for Sprint 11 release gates, while production/Admin `.dobbyrecovery` release evidence is deferred by `HD-S10-002` and the D-33 AC-007 evidence split, per `SPRINT_IMPLEMENTATION_PLAN.md`, `artifacts/release-evidence/skeleton-local/architecture-baseline.md`, and `artifacts/release-evidence/skeleton-local/decision-log.md`. |
-| Readiness | READY FOR SPRINT 10 IMPLEMENTATION WITH PRODUCTION EVIDENCE DEFERRAL. `HD-S10-001`, `HD-S10-002`, `HD-S10-003`, and `HD-S10-004` are decided in `artifacts/release-evidence/skeleton-local/decision-log.md`; the canonical Admin CLI contract is now `docs/specs/admin-tool.md`. Production/Admin `.dobbyrecovery` release evidence remains deferred to Sprint 11/vendor handover and must not be claimed by Sprint 10 technical-path or host-import compatibility proof. |
+| Readiness | READY FOR SPRINT 10 IMPLEMENTATION WITH PRODUCTION EVIDENCE DEFERRAL. `HD-S10-001`, `HD-S10-002`, `HD-S10-003`, `HD-S10-004`, and `HD-S10-005` are decided in `artifacts/release-evidence/skeleton-local/decision-log.md`; the canonical Admin CLI contract is now `docs/specs/admin-tool.md`. Production/Admin `.dobbyrecovery` release evidence remains deferred to Sprint 11/vendor handover and must not be claimed by Sprint 10 technical-path or host-import compatibility proof. |
 | Strategy | 1. Implement Admin public CLI behavior from the approved `docs/specs/admin-tool.md` contract. 2. Extend current installed plugin state/cache/runtime coordinator surfaces for manager lifecycle. 3. Wire manager UI through existing post-login shell and operation authorization policy. 4. Finalize sample plugin as a dev/QA artifact using current Contracts/SDK-only boundary. 5. Add Admin artifact services and wrappers with fail-closed production signing-material handling. 6. Add release/static scans and evidence appends for dev/QA trust exclusion and AC coverage. |
 | Dependency summary | Consumes Sprints 5, 8, and 9; unblocks Sprint 11 release evidence for AC-007, AC-018, AC-034, AC-036, production package hygiene, and P1 smoke consolidation. Evidence: `SPRINT_IMPLEMENTATION_PLAN.md`, `SPRINT_5_EXECUTION_PLAN.md`, `SPRINT_8_EXECUTION_PLAN.md`, `SPRINT_9_EXECUTION_PLAN.md`, `artifacts/release-evidence/skeleton-local/architecture-baseline.md`. |
 
@@ -147,7 +147,7 @@ Inspection depth legend: **deep** = full file or sprint section read and used di
 | Project / config / build files | `tests/Dobby.IntegrationTests/Dobby.IntegrationTests.csproj` | deep | Integration references and TFM. |
 | Project / config / build files | `tests/Dobby.SmokeTests/Dobby.SmokeTests.csproj` | deep | Smoke currently references `Dobby.Admin`. |
 | Release / evidence artifacts | `artifacts/release-evidence/skeleton-local/architecture-baseline.md` | deep | Verified Sprint 8/Sprint 9 closure and test counts. |
-| Release / evidence artifacts | `artifacts/release-evidence/skeleton-local/decision-log.md` | deep | D-13, D-22-D-29 closure and Admin/Sprint 10 gates. |
+| Release / evidence artifacts | `artifacts/release-evidence/skeleton-local/decision-log.md` | deep | D-13, D-22-D-34 closure and Admin/Sprint 10 gates. |
 | Release / evidence artifacts | `artifacts/release-evidence/skeleton-local/storage-materialization.md` | targeted | Append-only numbered migration authority and `StorageMetadata` checksum ledger. |
 | Release / evidence artifacts | `artifacts/release-evidence/skeleton-local/test-fixture-authority.md` | targeted | Sprint 5 TEST-ONLY recovery fixture boundary. |
 | Release / evidence artifacts | `artifacts/release-evidence/skeleton-local/toolchain-pin-gate.md` | targeted | Existing package pin evidence and no-new-pin policy. |
@@ -193,8 +193,9 @@ Carry-over decisions and risks:
 - `HD-S10-002`: DECIDED: production evidence deferred. Production vendor signing material/custody remains governed by ADR-0033 and Sprint 11/vendor handover; Sprint 10 must not commit private keys or treat Sprint 5 TEST-ONLY/dev/QA recovery artifacts as production release evidence.
 - `HD-S10-003`: DECIDED: optional, not Sprint 10 release gate. `verify-plugin-package` may remain unimplemented unless implementation chooses to add optional debug/smoke support.
 - `HD-S10-004`: DECIDED: D-33 amends `SPRINT_IMPLEMENTATION_PLAN.md` for the AC-007 evidence split. Sprint 10 owns only technical-path and host-import compatibility evidence; production/Admin AC-007 release evidence remains a Sprint 11/vendor handover gate.
+- `HD-S10-005`: DECIDED/CLOSED. Under `ReadOnlyExpired`, local `.dobbyplugin` package install/import is blocked as policy/license-mode denial because it mutates host installed plugin state, install staging/runtime files, and installed plugin metadata/cache. Structurally valid signed trusted packages are not treated as package-invalid; `.dobbylicense` import remains the recovery exception.
 
-Readiness conclusion: dependency code is present and the Admin public option contract is approved, so Sprint 10 implementation may proceed. Production/Admin `.dobbyrecovery` release evidence remains deferred to Sprint 11/vendor handover and must not be claimed by Sprint 10 technical-path or host-import compatibility proof.
+Readiness conclusion: dependency code is present, the Admin public option contract is approved, and the ReadOnlyExpired package install/import policy is closed, so Sprint 10 implementation may proceed. Production/Admin `.dobbyrecovery` release evidence remains deferred to Sprint 11/vendor handover and must not be claimed by Sprint 10 technical-path or host-import compatibility proof.
 
 ## 5. Current Codebase State
 
@@ -249,10 +250,10 @@ Readiness conclusion: dependency code is present and the Admin public option con
 
 ## 6. Documentation and ADR Alignment
 
-### Fully aligned, no planning-time edits
+### Fully aligned after this authority patch
 
 - `SPRINT_IMPLEMENTATION_PLAN.md` aligns with current docs/specs: Sprint 10 owns manager/sample/Admin tools/trust guard and recorded the prior Admin option decision dependency. No master-plan edit in this authority patch. Source: Sprint 10 section.
-- `docs/specs/plugins-manager.md` aligns with `AC-031` and existing authorization target `plugins.management`; implementation work remains. Sources: `docs/07_ACCEPTANCE_CRITERIA.md`, `src/Dobby.Security/Authorization/BuiltInOperationTargets.cs`.
+- `docs/specs/plugins-manager.md` aligns with `AC-031`, existing authorization target `plugins.management`, and `HD-S10-005`: local `.dobbyplugin` package install/import is blocked under `ReadOnlyExpired` as policy/license-mode denial, not package validation failure. Implementation work remains. Sources: `docs/07_ACCEPTANCE_CRITERIA.md`, `src/Dobby.Security/Authorization/BuiltInOperationTargets.cs`, `artifacts/release-evidence/skeleton-local/decision-log.md` D-34.
 - `docs/specs/sample-plugin.md` aligns with current architecture/test boundaries; implementation work remains in sample scaffold. Sources: `tests/Dobby.IntegrationTests/Architecture/PluginAndSdkBoundaryTests.cs`, `samples/Dobby.Sample.Plugin/`.
 - `docs/specs/admin-tool.md` now carries the `HD-S10-001` canonical Admin CLI contract; implementation must update the current `AdminCommandHost` skeleton to match it. Source: `src/Dobby.Admin/Commands/AdminCommandHost.cs`.
 - `docs/09_BUILD_RUN_AND_RELEASE.md` aligns with Admin wrapper folder names and production dev/QA exclusion requirement; implementation evidence remains. Sources: `tools/*/README.md`, `tests/Dobby.IntegrationTests/Architecture/PluginTrustResourcePackagingTests.cs`.
@@ -260,7 +261,7 @@ Readiness conclusion: dependency code is present and the Admin public option con
 ### Documents requiring only implementation-time evidence appends
 
 - `artifacts/release-evidence/skeleton-local/architecture-baseline.md`: append Sprint 10 closure evidence, test counts, and artifact/tool results after implementation. Evidence convention from Sprint 8/9 sections.
-- `artifacts/release-evidence/skeleton-local/decision-log.md`: `HD-S10-001`, `HD-S10-002`, `HD-S10-003`, and `HD-S10-004` are recorded in D-30 through D-33; append implementation evidence only after verified Sprint 10 work. Existing D-13, D-23, and D-29 continue to govern prior boundaries.
+- `artifacts/release-evidence/skeleton-local/decision-log.md`: `HD-S10-001`, `HD-S10-002`, `HD-S10-003`, `HD-S10-004`, and `HD-S10-005` are recorded in D-30 through D-34; append implementation evidence only after verified Sprint 10 work. Existing D-13, D-23, and D-29 continue to govern prior boundaries.
 - `artifacts/release-evidence/<build-id>/packaging-static-scan.md`: implementation-time release evidence path for sample/devQA exclusion is defined by `docs/09_BUILD_RUN_AND_RELEASE.md`; do not create it during planning.
 
 ### Documents that may need an implementation-time note, not planning edit
@@ -389,7 +390,7 @@ Implementation assumption count: 6.
 | `tools/*/README.md` | Update to match the approved option table when wrappers are implemented. | Tool operator docs/evidence. | Do not drift from `docs/specs/admin-tool.md`; `docs/09_BUILD_RUN_AND_RELEASE.md` examples remain illustrative unless separately updated. | Tool/readme static tests if present. |
 | `tests/**` | Add/extend targeted unit, integration, architecture, and smoke tests described in §14. | Required AC/evidence coverage. | Test project references follow current TFM/package governance. | Full test suite at closure. |
 | `artifacts/release-evidence/skeleton-local/architecture-baseline.md` | Append Sprint 10 evidence only after implementation and verification. | Release evidence continuity. | No planning-time edit. | Sprint 10 release evidence test if added. |
-| `artifacts/release-evidence/skeleton-local/decision-log.md` | Append only if human decision closes option/key gate. | Authority closure. | No invented decision IDs. | Evidence/decision tests if added. |
+| `artifacts/release-evidence/skeleton-local/decision-log.md` | Append only for actual human decisions, including the closed `HD-S10-005` ReadOnlyExpired package install/import policy. | Authority closure. | No invented decision IDs; no implementation evidence before verified Sprint 10 work. | Evidence/decision tests if added. |
 
 ## 9. Files Not Touched
 
@@ -399,7 +400,7 @@ Implementation assumption count: 6.
 | `SPRINT_1_EXECUTION_PLAN.md` through `SPRINT_9_EXECUTION_PLAN.md` | Prior plans are inputs; Sprint 10 must not rewrite predecessor evidence. | User prompt; prior plan discovery. |
 | `SPRINT_11_*` or release sprint scope | Sprint 11 owns installer/release-gate consolidation; Sprint 10 only supplies named inputs. | `SPRINT_IMPLEMENTATION_PLAN.md`. |
 | `docs/adr/**` | ADR changes require authority; Sprint 10 should implement existing ADRs. | User prompt; `docs/08_CODING_STANDARDS.md`. |
-| `docs/specs/**` and `docs/schemas/**` except the approved `docs/specs/admin-tool.md` contract update | Specs/schema are current behavior authority; only update after human/tooling decision or ADR/spec amendment. | User prompt; `docs/specs/admin-tool.md`; D-30. |
+| `docs/specs/**` and `docs/schemas/**` except the approved `docs/specs/admin-tool.md` contract update and `HD-S10-005` Plugins Manager reconciliation | Specs/schema are current behavior authority; only update after human/tooling decision or ADR/spec amendment. | User prompt; `docs/specs/admin-tool.md`; D-30; D-34. |
 | `docs/09_BUILD_RUN_AND_RELEASE.md` | Current Admin option examples are illustrative; do not freeze option names by editing docs. | `docs/09_BUILD_RUN_AND_RELEASE.md`. |
 | `Directory.Packages.props` | No new package pins needed or approved for Sprint 10; new pins require human decision. | `docs/03_TECH_STACK_AND_VERSIONS.md`, `tests/Dobby.IntegrationTests/Architecture/PackageGovernanceTests.cs`. |
 | `global.json`, `Directory.Build.props` | Toolchain/build policy already pinned. | Current files and `docs/03_TECH_STACK_AND_VERSIONS.md`. |
@@ -417,7 +418,7 @@ Implementation assumption count: 6.
 | Surface | Expected failures use | Existing `ErrorCode` values | Local sub-codes / reason strings | Audit / diagnostics | User-facing policy |
 |---|---|---|---|---|---|
 | Manager view/list | `Result<IReadOnlyList<InstalledPluginMetadata>>` or bindable empty/error state | `DatabaseUnavailable`, `Forbidden`/non-disclosing deny if authorization fails | Status values from `docs/specs/plugins-manager.md`: `Enabled`, `Disabled`, `Skipped`, `Rejected`, `Faulted`, `ReadOnlyExpired`, `Pending uninstall` | Diagnostics only for data load failures; no raw DB details. | Empty/error/loading states localized; no stack traces. |
-| Install local `.dobbyplugin` | Existing `HostPluginPackageInstallCoordinator.InstallPackage` `Result<InstalledPluginState>` | `InvalidInput`, `ValidationFailed`, `IoFailed`, `DatabaseUnavailable`, `LicenseReadOnly`, `LicenseDenied`, `LicenseBindingMismatch` | `invalid-manifest`, `signature-failed`, `trust-failed`, `forbidden-content`, `hash-mismatch`, `compatibility-mismatch`; current code also uses `unsupported-package-source`, `license-read-only`, `install-failed`. | Existing install audit names; diagnostics marker `plugin.install.rejected:<reason>`. | Non-disclosing typed reason label; no raw paths except sanitized package name if already approved in audit. |
+| Install local `.dobbyplugin` package | Existing `HostPluginPackageInstallCoordinator.InstallPackage` `Result<InstalledPluginState>` | `InvalidInput`, `ValidationFailed`, `IoFailed`, `DatabaseUnavailable`, `LicenseReadOnly`, `LicenseDenied`, `LicenseBindingMismatch` | Package validation reasons: `invalid-manifest`, `signature-failed`, `trust-failed`, `forbidden-content`, `hash-mismatch`, `compatibility-mismatch`; policy/license-mode reason: `license-read-only`; current code also uses `unsupported-package-source`, `install-failed`. | Existing install audit names; diagnostics marker `plugin.install.rejected:<reason>`. | `LicenseReadOnly` / `license-read-only` is a policy/license-mode denial, not package validation failure; no raw paths except sanitized package name if already approved in audit. |
 | Enable/disable | `Result` | `NotFound`, `Forbidden`, `DatabaseUnavailable`, `Cancelled` | Status summary `Enabled`/`Disabled`; no new error code. | Use existing `plugin.enable`, `plugin.disable` audit names in `AuditEventName`; add non-secret details. | Permission denial shown as non-disclosing localized message. |
 | Uninstall | `Result` | `NotFound`, `Forbidden`, `DatabaseUnavailable`, `IoFailed`, `Cancelled` | Data choice: keep/delete data; lifecycle status `Pending uninstall` for activated plugin. | Use existing `plugin.uninstall`; diagnostics may record schedule/delete outcome without secrets/full raw paths. | Confirmation required; cannot proceed without keep/delete data choice. |
 | Activation after lifecycle changes | Existing activation `Result<PluginActivationExecutionOutcome>` | `Cancelled`, `DatabaseUnavailable`, `PluginInternalError`, `ValidationFailed`, license errors | `license-denied`, `license-binding-mismatch`, dependency/compatibility/package reasons already used. | Existing `plugin.activation.skipped`, `plugin.activation.rejected`, `plugin.runtime.faulted`. | Disabled/pending uninstall plugins hidden from navigation/runtime. |
@@ -542,6 +543,7 @@ Zero-warning / format / encoding constraints:
 | D-25 | Sprint 8 namespace constraints for Packaging/Trust/Host.Plugins/Shell.PluginPages. | `decision-log.md`, `docs/08_CODING_STANDARDS.md`. |
 | D-29 / `HD-S9-004` | Sprint 9 generated signed license test material may be test-only; no product/Admin signed license fixtures. | `decision-log.md`, `tests/Dobby.UnitTests/Licensing/LicenseArtifactFixtureBuilder.cs`. |
 | D-33 / `HD-S10-004` | Master-plan AC-007 split: Sprint 10 owns technical-path/host-import compatibility evidence only; production/Admin AC-007 release evidence is Sprint 11/vendor handover. | `decision-log.md`, `SPRINT_IMPLEMENTATION_PLAN.md`, this plan. |
+| D-34 / `HD-S10-005` | Under `ReadOnlyExpired`, local `.dobbyplugin` package install/import is blocked as policy/license-mode denial because it mutates host installed plugin state, install staging/runtime files, and installed plugin metadata/cache; `.dobbylicense` import remains the recovery exception. | `decision-log.md`, `docs/specs/plugins-manager.md`, this plan. |
 
 ### Approved implementation choices grounded in source
 
@@ -549,6 +551,7 @@ Zero-warning / format / encoding constraints:
 - Use existing audit names for plugin lifecycle; do not add audit names. Source: `AuditEventName.cs`, `docs/specs/audit-and-diagnostics.md`.
 - Use existing `Dobby.Admin.exe --cli <command>` invocation model and wrapper folders. Source: `docs/specs/admin-tool.md`, `tools/*/README.md`.
 - Keep sample plugin `net10.0` and Contracts/SDK-only references. Source: `samples/Dobby.Sample.Plugin/Dobby.Sample.Plugin.csproj`, `PluginAndSdkBoundaryTests.cs`.
+- Treat `LicenseReadOnly` / `license-read-only` on local `.dobbyplugin` package install/import as `HD-S10-005` policy/license-mode denial, not package validation failure. Source: `docs/specs/plugins-manager.md`, `decision-log.md` D-34, `HostPluginPackageInstallCoordinatorTests.cs`.
 
 ### Risks and mitigations
 
@@ -562,6 +565,7 @@ Zero-warning / format / encoding constraints:
 | Dev/QA artifacts leak into production package. | Release-blocking security issue. | Extend static packaging scan per `docs/09_BUILD_RUN_AND_RELEASE.md`; production `PluginTrustVerifier` rejects `dobby.dev-qa`. |
 | Recovery signature format confused with plugin/license signature format. | Admin-generated recovery artifacts rejected by host or unsafe. | Tests must verify ADR-0039 P1363 standard base64 for recovery and existing DER/base64url for plugin/license. |
 | Long install/uninstall blocks UI thread. | Violates AC-046/NFR-021. | Background operation reporter tests; no `.Result`/`.Wait()` on UI path. |
+| ReadOnlyExpired package install denial is surfaced as package-invalid. | User-facing manager behavior and tests contradict `HD-S10-005` and blur package validity with operation policy. | Preserve `LicenseReadOnly` / `license-read-only` as policy/license-mode denial in manager UI, diagnostics, audit assertions, and coordinator tests. |
 
 ### Carry-over requiring no new decision
 
@@ -577,6 +581,7 @@ Zero-warning / format / encoding constraints:
 | `HD-S10-002` | DECIDED: production evidence deferred. | Sprint 10 may implement fail-closed Admin recovery technical path, but production/Admin `.dobbyrecovery` release evidence remains Sprint 11/vendor handover and must not be claimed. | `decision-log.md` D-31/D-33, `docs/adr/ADR-0033-signing-key-ownership.md`, `docs/adr/ADR-0039-owner-password-recovery.md`, D-13 in `decision-log.md`, `SPRINT_IMPLEMENTATION_PLAN.md`. |
 | `HD-S10-003` | DECIDED: optional, not Sprint 10 release gate. | `verify-plugin-package` may remain unimplemented; if implemented, it follows `docs/specs/admin-tool.md` and must not replace install-time package verification. | `decision-log.md` D-32, `docs/specs/admin-tool.md`, `docs/09_BUILD_RUN_AND_RELEASE.md`, `SPRINT_IMPLEMENTATION_PLAN.md`. |
 | `HD-S10-004` | DECIDED: controlling authority amendment for AC-007 evidence split. | Sprint 10 closure may include AC-007 technical-path and host-import compatibility evidence only; production/Admin AC-007 release evidence remains Sprint 11/vendor handover. | `decision-log.md` D-33, `SPRINT_IMPLEMENTATION_PLAN.md`, this plan. |
+| `HD-S10-005` | DECIDED/CLOSED. ReadOnlyExpired package install/import policy. | Local `.dobbyplugin` package install/import is blocked under `ReadOnlyExpired` because it mutates host installed plugin state, install staging/runtime files, and installed plugin metadata/cache; `.dobbylicense` import remains the recovery exception; `LicenseReadOnly` / `license-read-only` is policy/license-mode denial, not package validation failure. | `decision-log.md` D-34, `docs/specs/plugins-manager.md`, `docs/specs/license-import.md`, this plan. |
 
 ## 14. Test Plan
 
@@ -586,7 +591,7 @@ Previous Sprint 9 verified baseline: Unit 570, Integration 213, Smoke 6, with `d
 
 | File / placement | Scenarios | AC coverage |
 |---|---|---|
-| Extend `tests/Dobby.UnitTests/Host/HostPluginPackageInstallCoordinatorTests.cs` | Permission-aware manager install rejection if coordinator surface changes; local `.dobbyplugin` only; typed reason mapping preserved; ReadOnlyExpired rejection unchanged. | AC-004, AC-031, AC-034 support. |
+| Extend `tests/Dobby.UnitTests/Host/HostPluginPackageInstallCoordinatorTests.cs` | Permission-aware manager install rejection if coordinator surface changes; local `.dobbyplugin` package only; typed reason mapping preserved; ReadOnlyExpired rejection unchanged and asserted as policy/license-mode denial, not package validation failure. | AC-004, AC-031, AC-034 support. |
 | Extend or add under `tests/Dobby.UnitTests/Host/` for lifecycle coordinator | Enable/disable/uninstall permission checks; missing plugin `NotFound`; active plugin requests work-session close; pending uninstall scheduling; audit calls. | AC-031, AC-019. |
 | Extend `tests/Dobby.UnitTests/Host/PluginRuntimeAuditCoordinatorTests.cs` | `plugin.enable`, `plugin.disable`, `plugin.uninstall` events use existing names and redacted details. | AC-031. |
 | Extend `tests/Dobby.UnitTests/Host/PluginRuntimeDiagnosticsCoordinatorTests.cs` | Lifecycle diagnostics markers contain no raw secret/private key/raw license/recovery payload. | AC-032, NFR-020. |
@@ -651,6 +656,7 @@ Architecture / boundary expectations:
 - `Dobby.Admin.exe --cli <command>` is a real process path that calls `AdminCommandHost`, preserves redacted stdout/stderr and exit code behavior, and does not open the WPF window.
 - Production security assembly/package has no active devQA trust material and rejects `dobby.dev-qa`.
 - No new package pins, audit names, operation targets, or `ErrorCode` values unless a cited human decision was recorded.
+- Local `.dobbyplugin` package install/import under `ReadOnlyExpired` returns `LicenseReadOnly` / `license-read-only` as policy/license-mode denial, not package validation failure, per `HD-S10-005`.
 - Lifecycle schema changes use append-only `0005_plugin_lifecycle_state` migration registration/resource embedding; existing `0002`-`0004` migration checksums are not changed.
 
 Per-AC expectations:
@@ -659,7 +665,7 @@ Per-AC expectations:
 |---|---|
 | AC-007 technical-path support | Admin `create-recovery-response` can generate a signed `.dobbyrecovery` from documented request input using approved non-production or otherwise available non-release signing material; host import tests accept it; Sprint 5 TEST-ONLY fixtures remain separate; production/Admin release evidence is not claimed. |
 | AC-018 support | Signed `.dobbyplugin` package and detached `.dobbylicense` are generated/validated/imported through existing package/license boundaries; package has no forbidden license/customer/device/private-key/host config/migration content. |
-| AC-031 primary | Plugins Manager list/detail/install/enable/disable/uninstall/pending uninstall/data choice/restart-required behavior is covered by integration/snapshot tests, append-only lifecycle migration evidence, and lifecycle audit evidence. |
+| AC-031 primary | Plugins Manager list/detail/install/enable/disable/uninstall/pending uninstall/data choice/restart-required behavior is covered by integration/snapshot tests, append-only lifecycle migration evidence, lifecycle audit evidence, and `HD-S10-005` ReadOnlyExpired package install/import policy-denial evidence. |
 | AC-034 support | Admin-generated sample `.dobbylicense` imports through existing `Plugins > License` path; Sprint 9 remains host import owner. |
 | AC-036 primary | Signed sample plugin dev/QA artifact covers manifest, operation target, permission deny, Main Content, `Result` success/invalid, fault isolation, progress, work session behavior, and no production default visibility. |
 | AC-043 | Sample plugin project/package boundary tests prove Contracts/SDK-only references and no host/infrastructure leakage. |
@@ -667,7 +673,7 @@ Per-AC expectations:
 
 Evidence expectations:
 - Append Sprint 10 block to `artifacts/release-evidence/skeleton-local/architecture-baseline.md` with test counts, commands run, artifact outputs, and scope notes.
-- `HD-S10-001`, `HD-S10-002`, `HD-S10-003`, and `HD-S10-004` decisions are recorded in `artifacts/release-evidence/skeleton-local/decision-log.md`; append implementation evidence after verified Sprint 10 work.
+- `HD-S10-001`, `HD-S10-002`, `HD-S10-003`, `HD-S10-004`, and `HD-S10-005` decisions are recorded in `artifacts/release-evidence/skeleton-local/decision-log.md`; append implementation evidence after verified Sprint 10 work.
 - Produce `artifacts/release-evidence/<build-id>/packaging-static-scan.md` during release/evidence run for sample/devQA production exclusion per `docs/09_BUILD_RUN_AND_RELEASE.md`.
 - Record non-secret artifact hashes/fingerprints where useful; never record private keys, raw license payloads, raw recovery material, or raw secrets.
 
@@ -707,6 +713,7 @@ Items that must be closed for Sprint 10 completion:
 - [ ] Confirm `HD-S10-001` approved contract in `docs/specs/admin-tool.md` and D-30.
 - [ ] Confirm `HD-S10-002`/D-33 production recovery evidence remains deferred to Sprint 11/vendor handover unless a separate release-evidence decision closes it.
 - [ ] Confirm optional `verify-plugin-package` stance (`HD-S10-003` / D-32).
+- [ ] Confirm `HD-S10-005` ReadOnlyExpired local `.dobbyplugin` package install/import denial is treated as policy/license-mode denial, not package validation failure.
 - [ ] Re-read `docs/specs/plugins-manager.md`, `docs/specs/sample-plugin.md`, `docs/specs/admin-tool.md`, `ADR-0033`, `ADR-0039`, and `ADR-0045`.
 - [ ] Confirm no new package pins are needed.
 
@@ -734,6 +741,7 @@ Items that must be closed for Sprint 10 completion:
 - [ ] Verify lifecycle migration registration/resource embedding with fresh and already-migrated database tests if schema changed.
 - [ ] Verify Admin CLI process/wrapper smoke coverage, not only `AdminCommandHost` in-process tests.
 - [ ] Verify sample/devQA production exclusion static scan.
+- [ ] Verify manager/coordinator tests preserve `LicenseReadOnly` / `license-read-only` as policy/license-mode denial under `ReadOnlyExpired`.
 - [ ] Verify release evidence contains test counts and non-secret artifact evidence.
 - [ ] Verify no forbidden files/surfaces from §9 were touched.
 - [ ] Verify all open authority gates are either closed with evidence or explicitly block Sprint 10 closure.
@@ -744,7 +752,7 @@ Items that must be closed for Sprint 10 completion:
 |---|---|---|
 | Sprint scope | High | Master Sprint 10 section and cross-sprint dependencies were read and mapped to ACs. |
 | Prior continuity | High | Sprints 5/8/9 claims were verified against current code, tests, and release evidence. |
-| Plugins Manager behavior | High | `docs/specs/plugins-manager.md`, AC-031, current state/cache/runtime/shell code, and tests were inspected. |
+| Plugins Manager behavior | High | `docs/specs/plugins-manager.md`, AC-031, current state/cache/runtime/shell code, tests, and `HD-S10-005` policy-denial decision were inspected. |
 | Sample plugin behavior | High | Sample spec, schema, current sample files, and architecture tests were inspected; gaps are concrete. |
 | Admin artifact tooling | Medium | Spec/ADR/current skeleton were inspected; option table is now approved, while production recovery release evidence remains deferred by `HD-S10-002`/D-33. |
 | Trust profile guard | High | ADR-0033, current trust verifier/provider/project file, architecture tests, and release docs align. |
@@ -761,4 +769,4 @@ Confidence limits:
 - Exact new file names for manager lifecycle/UI/Admin service classes remain implementation assumptions unless an existing file is extended.
 - Sprint 11 remains responsible for final release gate consolidation and installer/release packaging closure.
 
-Planning stance: READY FOR SPRINT 10 IMPLEMENTATION WITH PRODUCTION EVIDENCE DEFERRAL. Admin tool option names/sets are resolved by `HD-S10-001`; `HD-S10-002` and D-33 defer production/Admin `.dobbyrecovery` release evidence to Sprint 11/vendor handover; `HD-S10-003` keeps `verify-plugin-package` optional and outside the Sprint 10 release gate; `HD-S10-004` makes Sprint 10 AC-007 work technical-path/host-import compatibility evidence only.
+Planning stance: READY FOR SPRINT 10 IMPLEMENTATION WITH PRODUCTION EVIDENCE DEFERRAL. Admin tool option names/sets are resolved by `HD-S10-001`; `HD-S10-002` and D-33 defer production/Admin `.dobbyrecovery` release evidence to Sprint 11/vendor handover; `HD-S10-003` keeps `verify-plugin-package` optional and outside the Sprint 10 release gate; `HD-S10-004` makes Sprint 10 AC-007 work technical-path/host-import compatibility evidence only; `HD-S10-005` closes ReadOnlyExpired local `.dobbyplugin` package install/import as policy/license-mode denial, not package validation failure.
