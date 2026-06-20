@@ -71,6 +71,7 @@ Inspection depth legend: **deep** = full file or sprint section read and used di
 | Source code | `src/Dobby.Security/Authentication/RecoveryResponsePayload.cs` | deep | Recovery response payload/envelope shape. |
 | Source code | `src/Dobby.Security/Authentication/RecoveryCanonicalJsonWriter.cs` | deep | Recovery payload canonical bytes. |
 | Source code | `src/Dobby.Security/Authentication/RecoveryResponseImporter.cs` | deep | Recovery verification and signature format accepted by host. |
+| Source code | `src/Dobby.Security/Authentication/VendorRecoveryPublicKey.cs` | deep | Concrete host recovery signature verifier currently fails closed until approved public-key material is wired. |
 | Source code | `src/Dobby.Licensing/LicenseArtifact.cs` | targeted | Existing license artifact read model. |
 | Source code | `src/Dobby.Licensing/LicenseCanonicalJsonWriter.cs` | targeted | License canonicalization for future Admin generation. |
 | Source code | `src/Dobby.Licensing/LicenseSignatureVerifier.cs` | targeted | License DER/base64url signature verification; distinct from recovery. |
@@ -93,7 +94,7 @@ Inspection depth legend: **deep** = full file or sprint section read and used di
 | Source code | `src/Dobby.Host/Plugins/PluginInstallStagingArea.cs` | targeted | Staging/runtime root and cleanup behavior. |
 | Source code | `src/Dobby.Host/Plugins/PluginRuntimeAuditCoordinator.cs` | deep | Existing install/activation audit emission and missing lifecycle audit methods. |
 | Source code | `src/Dobby.Host/Plugins/PluginRuntimeDiagnosticsCoordinator.cs` | deep | Existing diagnostic markers. |
-| Source code | `src/Dobby.Host/Login/HostLoginRuntimeFactory.cs` | deep | Composition root wiring for plugin runtime, install, license, authorization. |
+| Source code | `src/Dobby.Host/Login/HostLoginRuntimeFactory.cs` | deep | Composition root wiring for plugin runtime, install, license, authorization, and concrete recovery verifier. |
 | Source code | `src/Dobby.Host/Login/HostLoginRuntime.cs` | targeted | Runtime record exposes coordinators consumed by shell. |
 | Source code | `src/Dobby.Host/App.xaml.cs` | deep | Post-login shell wiring, plugin activation, license surface. |
 | Source code | `src/Dobby.Host/MainWindow.xaml` | deep | Current shell view lacks Plugins Manager UI. |
@@ -127,6 +128,7 @@ Inspection depth legend: **deep** = full file or sprint section read and used di
 | Tests | `tests/Dobby.UnitTests/PluginFramework/Packaging/PluginPackageInstallerTests.cs` | targeted | Current install state/cache rollback tests. |
 | Tests | `tests/Dobby.UnitTests/PluginFramework/Packaging/PluginPackageValidatorTests.cs` | targeted | Package validation/reason coverage. |
 | Tests | `tests/Dobby.UnitTests/Recovery/RecoveryResponseImporterUnitTests.cs` | targeted | Host recovery response verification semantics. |
+| Tests | `tests/Dobby.UnitTests/Recovery/VendorRecoveryPublicKeyTests.cs` | targeted | Current fail-closed concrete recovery verifier behavior. |
 | Tests | `tests/Dobby.UnitTests/Recovery/RecoveryCanonicalJsonWriterTests.cs` | targeted | Recovery canonical JSON semantics. |
 | Tests | `tests/Dobby.UnitTests/Licensing/LicenseArtifactParserTests.cs` | targeted | Existing license import/parser coverage. |
 | Tests | `tests/Dobby.UnitTests/Licensing/LicenseSignatureVerifierTests.cs` | targeted | License signature verification semantics. |
@@ -209,6 +211,7 @@ Readiness conclusion: dependency code is present, the Admin public option contra
 - `src/Dobby.Security/Authorization/OperationAuthorizationPolicy.cs` returns non-disclosing deny reason `permission-denied`; UI must avoid revealing grant details. Source: `docs/specs/plugins-manager.md`, `docs/specs/audit-and-diagnostics.md`.
 - `src/Dobby.Security/Trust/PluginTrustVerifier.cs` accepts `vendorId="dobby.dev-qa"` only in `DevQa` profile and rejects it in production; `src/Dobby.Security/Dobby.Security.csproj` embeds only one selected trust profile resource. Sources: `docs/adr/ADR-0033-signing-key-ownership.md`, `tests/Dobby.IntegrationTests/Architecture/PluginTrustResourcePackagingTests.cs`.
 - `src/Dobby.Security/Authentication/RecoveryResponsePayload.cs`, `RecoveryCanonicalJsonWriter.cs`, and `RecoveryResponseImporter.cs` define the host-side `.dobbyrecovery` format and verification rules; Admin generation must emit the same payload/envelope semantics. Source: `docs/adr/ADR-0039-owner-password-recovery.md`.
+- Mismatch: `src/Dobby.Security/Authentication/VendorRecoveryPublicKey.cs` is the concrete verifier wired into the host recovery import path, but it currently returns `false` for every signature. Sprint 10 must wire this verifier to approved non-production or otherwise available non-release public-key material for AC-007 technical-path/host-import proof, while preserving Sprint 11 production/Admin release evidence deferral. Sources: `docs/adr/ADR-0033-signing-key-ownership.md`, `docs/adr/ADR-0039-owner-password-recovery.md`, `SPRINT_IMPLEMENTATION_PLAN.md`, `tests/Dobby.UnitTests/Recovery/VendorRecoveryPublicKeyTests.cs`.
 
 ### `Dobby.PluginFramework`
 
@@ -373,7 +376,8 @@ Implementation assumption count: 6.
 | `src/Dobby.Host/Plugins/HostPluginPackageInstallCoordinator.cs` | Add manager-facing install result/rejection mapping only if current result lacks necessary typed user feedback. | Manager install UI needs typed non-raw reasons. | Keep package validation in PluginFramework/Security. | Host coordinator tests. |
 | `src/Dobby.Host/Plugins/PluginRuntimeAuditCoordinator.cs` | Add audit methods for `plugin.enable`, `plugin.disable`, `plugin.uninstall` using existing `AuditEventName` constants and redacted details. | AC-031/spec require lifecycle audit. | No new audit names without ADR/spec approval. | Plugin audit coordinator tests and audit taxonomy tests if constants change. |
 | `src/Dobby.Host/Plugins/PluginRuntimeDiagnosticsCoordinator.cs` | Add non-secret lifecycle diagnostics only if needed for support/review. | Diagnostics spec allows plugin lifecycle troubleshooting detail. | No raw paths/secrets/private keys/raw license/recovery payload. | Diagnostics tests. |
-| `src/Dobby.Host/Login/HostLoginRuntimeFactory.cs` and `src/Dobby.Host/Login/HostLoginRuntime.cs` | Wire any new manager/lifecycle coordinator and expose only post-login surfaces needed by shell. | Existing composition root owns plugin runtime/install/license wiring. | No pre-login discovery; no service locator. | Login/runtime wiring tests or host unit tests. |
+| `src/Dobby.Security/Authentication/VendorRecoveryPublicKey.cs` | Replace fail-closed stub behavior with verification against approved embedded public-key material selected by the existing trust-profile/resource mechanism for the Sprint 10 technical-path proof; preserve fail-closed behavior when key material is unavailable or invalid. | AC-007 host-import compatibility cannot close if the real host verifier always rejects Admin-generated recovery responses. | Reuse existing trust-resource/profile ownership where possible; no production private key, arbitrary runtime trust-anchor path, or Sprint 5 TEST-ONLY fixture authority. | `VendorRecoveryPublicKeyTests` plus Admin-generated recovery import tests through the real verifier path. |
+| `src/Dobby.Host/Login/HostLoginRuntimeFactory.cs` and `src/Dobby.Host/Login/HostLoginRuntime.cs` | Wire any new manager/lifecycle coordinator and expose only post-login surfaces needed by shell; keep recovery import composed through the concrete `VendorRecoveryPublicKey` verifier. | Existing composition root owns plugin runtime/install/license/recovery wiring. | No pre-login discovery; no service locator. | Login/runtime wiring tests or host unit tests; recovery import tests prove real verifier wiring. |
 | `src/Dobby.Host/App.xaml.cs` | Configure manager surface permissions and shell state using `plugins.management` verbs; preserve existing license setup. | Manager UI authorization. | Use `OperationAuthorizationPolicy`; no UI-only authorization. | Shell/host tests. |
 | `src/Dobby.Host/MainWindow.xaml` | Add Plugins Manager list/detail/action/import/confirmation states in the existing shell surface or a new sourced view. | AC-031 UI. | View-only wiring; no business rules in XAML/code-behind. | Snapshot/static UI tests. |
 | `src/Dobby.Host/MainWindow.xaml.cs` | Add click/adapter wiring for file picker/confirm dialogs only where binding is not practical; delegate business rules to coordinators/view models. | Install/uninstall confirmation and action invocation. | Code-behind remains view wiring per `docs/08_CODING_STANDARDS.md`; no direct business rules. | Host UI interaction tests. |
@@ -504,8 +508,8 @@ Zero-warning / format / encoding constraints:
    - Out-of-scope guardrail: sample is not bundled/preinstalled/default-visible in production.
 
 8. Implement Admin artifact services and CLI command dispatch from the approved `HD-S10-001` contract.
-   - Action: parse approved options into DTOs, call shared application/security/plugin/licensing services, write artifacts and redacted reports, preserve exit code/stdout/stderr contract, and wire `Dobby.Admin` process startup so `Dobby.Admin.exe --cli <command>` invokes `AdminCommandHost` without opening the WPF window.
-   - Success criteria: `sign-plugin-package`, `create-plugin-license`, and `create-recovery-response` generate artifacts that current host/package/license/recovery import paths verify; recovery-response proof uses approved non-production or otherwise available non-release signing material; executable/wrapper smoke tests prove exit code/stdout/stderr behavior through the real process path; optional `verify-plugin-package` remains optional debug/smoke support and not a Sprint 10 release gate.
+   - Action: first close the concrete recovery verifier path in `VendorRecoveryPublicKey.cs`, then parse approved options into DTOs, call shared application/security/plugin/licensing services, write artifacts and redacted reports, preserve exit code/stdout/stderr contract, and wire `Dobby.Admin` process startup so `Dobby.Admin.exe --cli <command>` invokes `AdminCommandHost` without opening the WPF window.
+   - Success criteria: `sign-plugin-package`, `create-plugin-license`, and `create-recovery-response` generate artifacts that current host/package/license/recovery import paths verify; recovery-response proof uses approved non-production or otherwise available non-release signing material and the real `VendorRecoveryPublicKey` host verifier path, not only a fake `IVendorRecoveryPublicKey`; executable/wrapper smoke tests prove exit code/stdout/stderr behavior through the real process path; optional `verify-plugin-package` remains optional debug/smoke support and not a Sprint 10 release gate.
    - Out-of-scope guardrail: no production private key committed, no separate `Dobby.Admin.Cli` project, no host runtime data access, no full Admin UI blocker, and no WPF `MainWindow` startup for `--cli` invocations.
 
 9. Implement trust/profile and production packaging guard tests.
@@ -564,6 +568,7 @@ Zero-warning / format / encoding constraints:
 | Sample plugin references host/WPF/infrastructure. | Violates AC-043 and plugin boundary. | `PluginAndSdkBoundaryTests.cs`, `PluginNoInfrastructureReferenceTests.cs`, package validator forbidden content checks. |
 | Dev/QA artifacts leak into production package. | Release-blocking security issue. | Extend static packaging scan per `docs/09_BUILD_RUN_AND_RELEASE.md`; production `PluginTrustVerifier` rejects `dobby.dev-qa`. |
 | Recovery signature format confused with plugin/license signature format. | Admin-generated recovery artifacts rejected by host or unsafe. | Tests must verify ADR-0039 P1363 standard base64 for recovery and existing DER/base64url for plugin/license. |
+| Concrete recovery verifier remains fail-closed while Admin generation tests use a fake verifier. | AC-007 technical-path/host-import compatibility would be falsely closed even though the real host path rejects the response. | Implement `VendorRecoveryPublicKey` against approved embedded public-key material and require Admin-generated recovery import tests through the real verifier path. |
 | Long install/uninstall blocks UI thread. | Violates AC-046/NFR-021. | Background operation reporter tests; no `.Result`/`.Wait()` on UI path. |
 | ReadOnlyExpired package install denial is surfaced as package-invalid. | User-facing manager behavior and tests contradict `HD-S10-005` and blur package validity with operation policy. | Preserve `LicenseReadOnly` / `license-read-only` as policy/license-mode denial in manager UI, diagnostics, audit assertions, and coordinator tests. |
 
@@ -600,7 +605,8 @@ Previous Sprint 9 verified baseline: Unit 570, Integration 213, Smoke 6, with `d
 | Extend `tests/Dobby.UnitTests/Shell/PluginPageRenderRegistryTests.cs` or add shell manager tests | Manager list/detail/action state, confirmation state, busy state, feedback localization keys. | AC-031. |
 | Extend `tests/Dobby.UnitTests/Localization/*` | Manager labels exist in `HostResourceKeys`, fallback catalog, and az-AZ resource where required. | AC-031, localization boundary. |
 | Add Admin command tests for approved `HD-S10-001` contract | Approved option parsing, parsed DTO handoff, unknown command/invalid option exit `64`, validation conflicts exit `65`, unavailable signing material exit `66`, stdout/stderr redaction, no raw key/path/stack leak. | AC-007 technical-path support, AC-018 support, AC-034 support. |
-| Add Admin recovery generation tests under `HD-S10-002`/D-33 deferral | `.dobbyrecovery` payload fields, no target user fields, P1363 standard base64 signature, host importer accepts generated response using approved non-production or otherwise available non-release signing material; non-release technical-path proof is not production/Admin AC-007 release evidence. | AC-007 technical-path support; production release evidence deferred. |
+| Extend `tests/Dobby.UnitTests/Recovery/VendorRecoveryPublicKeyTests.cs` | Concrete verifier accepts valid P1363 signatures for approved embedded public-key material with matching non-release signing input, rejects invalid signatures/key material, and remains fail-closed without runtime trust-anchor paths or private keys. | AC-007 technical-path support. |
+| Add Admin recovery generation tests under `HD-S10-002`/D-33 deferral | `.dobbyrecovery` payload fields, no target user fields, P1363 standard base64 signature, host importer accepts generated response using approved non-production or otherwise available non-release signing material through the real `VendorRecoveryPublicKey` path, not only a fake `IVendorRecoveryPublicKey`; non-release technical-path proof is not production/Admin AC-007 release evidence. | AC-007 technical-path support; production release evidence deferred. |
 | Add Admin package/license generation tests for approved `HD-S10-001` contract | `.dobbyplugin` signature/fingerprint, detached `.dobbylicense` v2 canonical payload and DER/base64url signature compatible with current import verifier. | AC-018, AC-034, AC-036. |
 
 ### Integration tests
@@ -610,7 +616,7 @@ Previous Sprint 9 verified baseline: Unit 570, Integration 213, Smoke 6, with `d
 | Extend `tests/Dobby.IntegrationTests/Persistence/PluginInstallStatePersistenceTests.cs` | New lifecycle schema migration, `PostLoginPluginPersistenceMigrations` registration, embedded SQL resource availability, `StorageMetadata` record, fresh database application, already-migrated `0002`-`0004` upgrade, state/cache persistence, cache rebuild, pending uninstall fields, immediate delete vs scheduled delete state. | AC-031. |
 | Extend `tests/Dobby.IntegrationTests/Plugins/PluginIntegrationSuiteTests.cs` | Install sample plugin, list/details display, status updates, enable/disable, uninstall confirmation model, lifecycle audit trail. | AC-031, AC-036. |
 | Extend `tests/Dobby.IntegrationTests/Plugins/PluginActivationRuntimeIntegrationTests.cs` | Disabled/pending uninstall plugins do not activate or contribute navigation; restart cleanup before fresh discovery; dependencies still skipped per ADR-0009. | AC-005, AC-031, AC-032. |
-| Extend `tests/Dobby.IntegrationTests/Recovery/RecoveryResponseImportFixtureTests.cs` or add Admin-generated fixture test under `HD-S10-002`/D-33 deferral | Host accepts Admin-generated `.dobbyrecovery` using approved non-production or otherwise available non-release signing material, not Sprint 5 TEST-ONLY material; no target user fields; production/Admin release evidence is not claimed until Sprint 11/vendor handover. | AC-007 technical-path support. |
+| Extend `tests/Dobby.IntegrationTests/Recovery/RecoveryResponseImportFixtureTests.cs` or add Admin-generated fixture test under `HD-S10-002`/D-33 deferral | Host accepts Admin-generated `.dobbyrecovery` using approved non-production or otherwise available non-release signing material through the concrete `VendorRecoveryPublicKey` verifier, not Sprint 5 TEST-ONLY material and not a fake verifier; no target user fields; production/Admin release evidence is not claimed until Sprint 11/vendor handover. | AC-007 technical-path support. |
 | Extend `tests/Dobby.IntegrationTests/Licensing/LicenseImportIntegrationTests.cs` | Admin-generated sample `.dobbylicense` imports through existing `Plugins > License` flow and package fingerprint binding. | AC-034. |
 | Extend `tests/Dobby.IntegrationTests/Architecture/PluginTrustResourcePackagingTests.cs` or `PackageGovernanceTests.cs` | Production package/static scan fails for devQA public key, devQA trust profile metadata, sample `.dobbyplugin`, sample `.dobbylicense`, preinstalled sample runtime folder. | AC-018, AC-036, release gate. |
 | Extend `tests/Dobby.IntegrationTests/Architecture/PluginAndSdkBoundaryTests.cs` | Sample plugin still references only `Dobby.Contracts` and `Dobby.SDK`. | AC-043, AC-036. |
@@ -654,6 +660,7 @@ Architecture / boundary expectations:
 - Sample plugin still references only `Dobby.Contracts` and `Dobby.SDK`.
 - `Dobby.Admin` remains standalone vendor-side tool and does not read host runtime data or ship to customer host.
 - `Dobby.Admin.exe --cli <command>` is a real process path that calls `AdminCommandHost`, preserves redacted stdout/stderr and exit code behavior, and does not open the WPF window.
+- `VendorRecoveryPublicKey` no longer remains a blanket `false` stub for Sprint 10 AC-007 technical-path proof; it verifies approved non-production or otherwise available non-release recovery signatures through embedded public-key material and still fails closed for missing/invalid material.
 - Production security assembly/package has no active devQA trust material and rejects `dobby.dev-qa`.
 - No new package pins, audit names, operation targets, or `ErrorCode` values unless a cited human decision was recorded.
 - Local `.dobbyplugin` package install/import under `ReadOnlyExpired` returns `LicenseReadOnly` / `license-read-only` as policy/license-mode denial, not package validation failure, per `HD-S10-005`.
@@ -663,7 +670,7 @@ Per-AC expectations:
 
 | AC | Done evidence |
 |---|---|
-| AC-007 technical-path support | Admin `create-recovery-response` can generate a signed `.dobbyrecovery` from documented request input using approved non-production or otherwise available non-release signing material; host import tests accept it; Sprint 5 TEST-ONLY fixtures remain separate; production/Admin release evidence is not claimed. |
+| AC-007 technical-path support | Admin `create-recovery-response` can generate a signed `.dobbyrecovery` from documented request input using approved non-production or otherwise available non-release signing material; host import tests accept it through the real `VendorRecoveryPublicKey` verifier path; Sprint 5 TEST-ONLY fixtures remain separate; production/Admin release evidence is not claimed. |
 | AC-018 support | Signed `.dobbyplugin` package and detached `.dobbylicense` are generated/validated/imported through existing package/license boundaries; package has no forbidden license/customer/device/private-key/host config/migration content. |
 | AC-031 primary | Plugins Manager list/detail/install/enable/disable/uninstall/pending uninstall/data choice/restart-required behavior is covered by integration/snapshot tests, append-only lifecycle migration evidence, lifecycle audit evidence, and `HD-S10-005` ReadOnlyExpired package install/import policy-denial evidence. |
 | AC-034 support | Admin-generated sample `.dobbylicense` imports through existing `Plugins > License` path; Sprint 9 remains host import owner. |
@@ -685,7 +692,7 @@ Items that must be closed for Sprint 10 completion:
 - Implementation and tests for required Admin wrapper option behavior from the approved `HD-S10-001` contract, including process-level `Dobby.Admin.exe --cli <command>` routing.
 - Implementation and tests for any required lifecycle schema expansion, including `0005_plugin_lifecycle_state` migration registration/resource embedding and fresh/already-migrated database coverage.
 - Required manager/sample/trust-exclusion tests and evidence.
-- AC-007 technical-path and host-import compatibility evidence for required `create-recovery-response` implementation must be closed; production/Admin AC-007 release evidence is not a Sprint 10 completion item and remains deferred by `HD-S10-002`/D-33 to Sprint 11/vendor handover.
+- AC-007 technical-path and host-import compatibility evidence for required `create-recovery-response` implementation must be closed through the concrete `VendorRecoveryPublicKey` verifier path; production/Admin AC-007 release evidence is not a Sprint 10 completion item and remains deferred by `HD-S10-002`/D-33 to Sprint 11/vendor handover.
 
 ## 17. Reviewer Focus
 
@@ -698,7 +705,7 @@ Items that must be closed for Sprint 10 completion:
 7. Inspect `tests/Dobby.IntegrationTests/Architecture/PluginAndSdkBoundaryTests.cs` and `PluginNoInfrastructureReferenceTests.cs` for sample boundary enforcement.
 8. Inspect Admin command implementation and tests against `HD-S10-001`; confirm option names match the approved table and no illustrative option names leaked from `docs/09_BUILD_RUN_AND_RELEASE.md`.
 9. Inspect `Dobby.Admin` startup and process-level smoke coverage; confirm `Dobby.Admin.exe --cli <command>` writes redacted stdout/stderr, exits with the command result, and does not open `MainWindow` in CLI mode.
-10. Inspect recovery generation tests for ADR-0039 P1363 standard base64 signatures and no target user fields.
+10. Inspect recovery generation tests for ADR-0039 P1363 standard base64 signatures, no target user fields, and host import acceptance through the concrete `VendorRecoveryPublicKey` verifier path.
 11. Inspect plugin/license generation tests for ADR-0045/ADR-0051 DER/base64url and detached artifact boundaries.
 12. Inspect production devQA exclusion static scan and `PluginTrustResourcePackagingTests.cs`; confirm production rejects `dobby.dev-qa`.
 13. Inspect package governance: `Directory.Packages.props` unchanged unless a human-approved pin decision exists; `PackageGovernanceTests.cs` passes.
@@ -712,6 +719,7 @@ Items that must be closed for Sprint 10 completion:
 - [ ] Confirm `SPRINT_10_EXECUTION_PLAN.md` is being executed, not re-planned.
 - [ ] Confirm `HD-S10-001` approved contract in `docs/specs/admin-tool.md` and D-30.
 - [ ] Confirm `HD-S10-002`/D-33 production recovery evidence remains deferred to Sprint 11/vendor handover unless a separate release-evidence decision closes it.
+- [ ] Confirm `VendorRecoveryPublicKey.cs` is part of the AC-007 technical-path scope and currently fails closed until approved public-key verification is implemented.
 - [ ] Confirm optional `verify-plugin-package` stance (`HD-S10-003` / D-32).
 - [ ] Confirm `HD-S10-005` ReadOnlyExpired local `.dobbyplugin` package install/import denial is treated as policy/license-mode denial, not package validation failure.
 - [ ] Re-read `docs/specs/plugins-manager.md`, `docs/specs/sample-plugin.md`, `docs/specs/admin-tool.md`, `ADR-0033`, `ADR-0039`, and `ADR-0045`.
@@ -730,6 +738,7 @@ Items that must be closed for Sprint 10 completion:
 - [ ] Keep ViewModels free of OS dialogs and WPF control references.
 - [ ] Keep long file/package/license work off UI thread and report progress.
 - [ ] Keep Admin CLI parsing separate from business/signing rules.
+- [ ] Implement the concrete `VendorRecoveryPublicKey` verifier before claiming Admin recovery host-import compatibility.
 - [ ] Route `Dobby.Admin.exe --cli <command>` through Admin process startup without opening `MainWindow`.
 - [ ] Preserve wrapper exit code/stdout/stderr redaction.
 - [ ] Do not commit private keys, raw license/recovery payloads, production signing material, or devQA artifacts into production package paths.
@@ -740,6 +749,7 @@ Items that must be closed for Sprint 10 completion:
 - [ ] Run full restore/build/test/format verification.
 - [ ] Verify lifecycle migration registration/resource embedding with fresh and already-migrated database tests if schema changed.
 - [ ] Verify Admin CLI process/wrapper smoke coverage, not only `AdminCommandHost` in-process tests.
+- [ ] Verify Admin-generated `.dobbyrecovery` imports through the real `VendorRecoveryPublicKey` host path, not only a fake `IVendorRecoveryPublicKey`.
 - [ ] Verify sample/devQA production exclusion static scan.
 - [ ] Verify manager/coordinator tests preserve `LicenseReadOnly` / `license-read-only` as policy/license-mode denial under `ReadOnlyExpired`.
 - [ ] Verify release evidence contains test counts and non-secret artifact evidence.
@@ -757,7 +767,7 @@ Items that must be closed for Sprint 10 completion:
 | Admin artifact tooling | Medium | Spec/ADR/current skeleton were inspected; option table is now approved, while production recovery release evidence remains deferred by `HD-S10-002`/D-33. |
 | Trust profile guard | High | ADR-0033, current trust verifier/provider/project file, architecture tests, and release docs align. |
 | License generation support | Medium | Import/verification code is clear; generator surface is not implemented and option/key decisions affect exact workflow. |
-| Recovery generation support | Medium | Host verification and ADR semantics are clear; production/Admin generation depends on approved options and key custody. |
+| Recovery generation support | Medium | Host verification, the concrete verifier path, and ADR semantics are clear; production/Admin generation depends on approved options and key custody. |
 | UI implementation detail | Medium | Current shell is simple and lacks manager surface; exact file split is an implementation assumption. |
 | Test plan | High | Existing test files and required new coverage areas are mapped to ACs. |
 | Package/toolchain impact | High | Current pins and package governance tests inspected; no new package is needed by plan. |
@@ -766,6 +776,7 @@ Items that must be closed for Sprint 10 completion:
 Confidence limits:
 - Admin public CLI behavior must match the approved `HD-S10-001` contract in `docs/specs/admin-tool.md`.
 - Production/Admin `.dobbyrecovery` release evidence remains deferred by `HD-S10-002`/D-33 to Sprint 11/vendor handover unless a later release-evidence decision closes it.
+- AC-007 technical-path proof cannot be closed with fake `IVendorRecoveryPublicKey` tests alone; it must include the concrete `VendorRecoveryPublicKey` path.
 - Exact new file names for manager lifecycle/UI/Admin service classes remain implementation assumptions unless an existing file is extended.
 - Sprint 11 remains responsible for final release gate consolidation and installer/release packaging closure.
 
