@@ -127,7 +127,7 @@ public sealed class LicenseImportCoordinatorTests
     {
         using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
         var artifact = LicenseArtifactFixtureBuilder.CreateSignedArtifact(key);
-        artifact.Bytes[^8] = artifact.Bytes[^8] == (byte)'X' ? (byte)'Y' : (byte)'X';
+        LicenseArtifactFixtureBuilder.CorruptSignature(artifact);
         var path = WriteLicenseFile(artifact.Bytes);
         try
         {

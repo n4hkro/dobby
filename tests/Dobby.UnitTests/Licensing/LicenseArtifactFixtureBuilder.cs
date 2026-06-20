@@ -49,6 +49,23 @@ internal static class LicenseArtifactFixtureBuilder
         return new SignedLicenseArtifact(Encoding.UTF8.GetBytes(artifactJson), signature);
     }
 
+    public static void CorruptSignature(SignedLicenseArtifact artifact)
+    {
+        ArgumentNullException.ThrowIfNull(artifact);
+
+        var signatureValueBytes = Encoding.UTF8.GetBytes(artifact.SignatureValue);
+        if (signatureValueBytes.Length < 8)
+        {
+            throw new InvalidOperationException("Signature value is too short to corrupt deterministically.");
+        }
+
+        var matchIndex = FindSingleOccurrence(artifact.Bytes, signatureValueBytes);
+        var mutationIndex = matchIndex + signatureValueBytes.Length - 4;
+        artifact.Bytes[mutationIndex] = artifact.Bytes[mutationIndex] == (byte)'X'
+            ? (byte)'Y'
+            : (byte)'X';
+    }
+
     private static Dictionary<string, object?> ValidPayload()
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -76,6 +93,42 @@ internal static class LicenseArtifactFixtureBuilder
         var base64 = Convert.ToBase64String(der, Base64FormattingOptions.InsertLineBreaks);
         var pem = $"-----BEGIN PUBLIC KEY-----\n{base64}\n-----END PUBLIC KEY-----\n";
         return Encoding.UTF8.GetBytes(pem);
+    }
+
+    private static int FindSingleOccurrence(byte[] haystack, byte[] needle)
+    {
+        var matchIndex = -1;
+        for (var index = 0; index <= haystack.Length - needle.Length; index++)
+        {
+            var matches = true;
+            for (var needleIndex = 0; needleIndex < needle.Length; needleIndex++)
+            {
+                if (haystack[index + needleIndex] != needle[needleIndex])
+                {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (!matches)
+            {
+                continue;
+            }
+
+            if (matchIndex >= 0)
+            {
+                throw new InvalidOperationException("Signature value found more than once in artifact bytes.");
+            }
+
+            matchIndex = index;
+        }
+
+        if (matchIndex < 0)
+        {
+            throw new InvalidOperationException("Signature value not found in artifact bytes.");
+        }
+
+        return matchIndex;
     }
 }
 

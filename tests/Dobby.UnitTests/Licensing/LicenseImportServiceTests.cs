@@ -77,7 +77,7 @@ public sealed class LicenseImportServiceTests
         var artifact = LicenseArtifactFixtureBuilder.CreateSignedArtifact(
             key,
             payload => payload["status"] = "grace");
-        artifact.Bytes[^8] = (byte)'X';
+        LicenseArtifactFixtureBuilder.CorruptSignature(artifact);
 
         var result = service.Import(Request(artifact.Bytes));
 
