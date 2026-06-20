@@ -49,7 +49,9 @@ public partial class App : System.Windows.Application
     {
         while (true)
         {
-            await using var loginRuntime = HostLoginRuntimeFactory.Create();
+            var workSessionRegistry = new WorkSessionRegistry();
+            await using var loginRuntime = HostLoginRuntimeFactory.Create(
+                pluginWorkSessions: new ShellPluginWorkSessionService(workSessionRegistry));
             var loginWindow = new LoginWindow(loginRuntime.LoginWorkflow, loginRuntime.LoginViewModel, loginRuntime.RecoveryViewModel);
             MainWindow = loginWindow;
             if (loginWindow.ShowDialog() != true)
@@ -79,7 +81,6 @@ public partial class App : System.Windows.Application
                 shellViewModel.ApplyPreference(ShellPreferenceMapper.ToRuntimePreference(preferences.Value.ShellView));
             }
 
-            var workSessionRegistry = new WorkSessionRegistry();
             var workSessionCloseCoordinator = new WorkSessionCloseCoordinator(workSessionRegistry);
             ConfigureSettingsAndAbout(shellViewModel, strings, loginRuntime, authenticatedSession?.UserId);
             ConfigurePluginsManagerSurface(shellViewModel, loginRuntime, authenticatedSession?.UserId);
@@ -87,7 +88,8 @@ public partial class App : System.Windows.Application
             ShellThemeCoordinator.ApplyTheme(this, currentTheme);
             var pluginPageRouteCoordinator = new PluginPageRouteCoordinator(
                 loginRuntime.PluginRuntimeCoordinator.ExtensionPointRegistry,
-                shellViewModel);
+                shellViewModel,
+                () => authenticatedSession?.UserId);
 
             var window = new MainWindow(
                 loginRuntime.PostLoginSessionRuntime,

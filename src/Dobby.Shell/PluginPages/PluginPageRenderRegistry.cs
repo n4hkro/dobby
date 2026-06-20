@@ -17,6 +17,7 @@ public sealed class PluginPageRenderRegistry
             Text = model.MessageKey,
             TextWrapping = TextWrapping.Wrap
         });
+        registry.Register<PluginActionPageModel>(RenderActionPage);
         return registry;
     }
 
@@ -56,5 +57,52 @@ public sealed class PluginPageRenderRegistry
         }
 
         return depth;
+    }
+
+    private static FrameworkElement RenderActionPage(PluginActionPageModel model)
+    {
+        var panel = new StackPanel();
+        var message = new TextBlock
+        {
+            Text = model.MessageKey,
+            TextWrapping = TextWrapping.Wrap
+        };
+        panel.Children.Add(message);
+
+        var status = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        foreach (var action in model.Actions)
+        {
+            var button = new Button
+            {
+                Content = action.LabelKey
+            };
+            button.Click += async (_, _) =>
+            {
+                button.IsEnabled = false;
+                try
+                {
+                    var result = await action.ExecuteAsync(model.Context, CancellationToken.None);
+                    status.Text = result.IsSuccess
+                        ? result.Value.MessageKey
+                        : result.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString();
+                }
+                catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+                {
+                    status.Text = ErrorCode.PluginInternalError.ToString();
+                }
+                finally
+                {
+                    button.IsEnabled = true;
+                }
+            };
+            panel.Children.Add(button);
+        }
+
+        panel.Children.Add(status);
+        return panel;
     }
 }

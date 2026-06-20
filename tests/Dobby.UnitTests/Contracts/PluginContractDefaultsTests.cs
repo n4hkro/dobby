@@ -39,6 +39,29 @@ public sealed class PluginContractDefaultsTests
     }
 
     [Fact]
+    public async Task Plugin_action_page_model_carries_host_rendered_actions_and_execution_context()
+    {
+        var actionContext = new PluginPageActionContext(
+            "sample.plugin",
+            "sample.route",
+            "managed",
+            "correlation-id");
+        var action = new PluginPageAction(
+            "sample.greet",
+            "sample.greet.label",
+            (_, _) => ValueTask.FromResult(Result.Success(new PluginPageActionResult("sample.greet.ok"))));
+        var model = new PluginActionPageModel("sample.home.ready", actionContext, [action]);
+
+        var result = await model.Actions.Single().ExecuteAsync(model.Context, CancellationToken.None);
+
+        model.MessageKey.ShouldBe("sample.home.ready");
+        model.Context.UserId.ShouldBe("managed");
+        model.Actions.Single().ActionId.ShouldBe("sample.greet");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.MessageKey.ShouldBe("sample.greet.ok");
+    }
+
+    [Fact]
     public void PolicyDecision_shape_matches_ADR_0004()
     {
         var type = typeof(PolicyDecision);

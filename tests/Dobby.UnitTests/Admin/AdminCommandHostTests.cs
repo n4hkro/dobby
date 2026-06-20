@@ -1,9 +1,12 @@
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Dobby.Admin.Commands;
 using Dobby.Core;
+using Dobby.Core.Versioning;
 using Dobby.Licensing;
+using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authentication;
 using Dobby.Security.Trust;
 using Microsoft.Extensions.Time.Testing;
@@ -93,6 +96,48 @@ public sealed class AdminCommandHostTests
         result.ExitCode.ShouldBe(66);
         result.StandardError.ShouldContain("signing-material-unavailable");
         result.StandardError.ShouldNotContain(fixture.Root);
+    }
+
+    [Fact]
+    public void Sign_plugin_package_writes_validator_compatible_package_with_redacted_report()
+    {
+        using var fixture = TempFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var publicKeyPem = EncodePem(key.ExportSubjectPublicKeyInfo());
+        var unsignedPackagePath = fixture.Path("unsigned.dobbyplugin");
+        var signedPackagePath = fixture.Path("signed.dobbyplugin");
+        var reportPath = fixture.Path("signed.report.json");
+        CreateUnsignedSamplePackage(unsignedPackagePath);
+
+        var result = AdminCommandHost.Run([
+            "--cli", "sign-plugin-package",
+            "--input-path", unsignedPackagePath,
+            "--signing-profile", "dev-qa",
+            "--output-path", signedPackagePath,
+            "--report-path", reportPath
+        ], new InMemorySigningMaterialProvider("dev-qa", key));
+
+        result.ExitCode.ShouldBe(0, result.StandardError);
+        result.StandardOutput.ShouldContain("sign-plugin-package");
+        result.StandardOutput.ShouldNotContain(fixture.Root);
+        File.Exists(signedPackagePath).ShouldBeTrue();
+        File.Exists(reportPath).ShouldBeTrue();
+        File.ReadAllText(reportPath).ShouldNotContain(fixture.Root);
+
+        var archive = PluginPackageReader.Read(signedPackagePath);
+        archive.IsSuccess.ShouldBeTrue(archive.ErrorCode?.ToString());
+        archive.Value.Manifest.Signature.Value.ShouldNotBe("AQ");
+        var validation = PluginPackageValidator.Validate(
+            archive.Value,
+            new HostVersion(1, 0, 0),
+            new PluginTrustVerifier(new PluginTrustPublicKeyProvider(
+                DobbyPluginTrustProfile.DevQa,
+                new Dictionary<string, byte[]>(StringComparer.Ordinal)
+                {
+                    [PluginTrustPublicKeyProvider.DevQaResourceName] = publicKeyPem
+                })));
+
+        validation.IsSuccess.ShouldBeTrue(validation.IsSuccess ? null : validation.Reasons.First().Message);
     }
 
     [Fact]
@@ -221,6 +266,67 @@ public sealed class AdminCommandHostTests
     {
         var base64 = Convert.ToBase64String(der, Base64FormattingOptions.InsertLineBreaks);
         return Encoding.UTF8.GetBytes($"-----BEGIN PUBLIC KEY-----\n{base64}\n-----END PUBLIC KEY-----\n");
+    }
+
+    private static void CreateUnsignedSamplePackage(string packagePath)
+    {
+        var assemblyPath = FindSamplePluginAssembly();
+        var assemblyBytes = File.ReadAllBytes(assemblyPath);
+        var manifestJson =
+            "{\"pluginId\":\"com.dobby.sample\"," +
+            "\"version\":\"1.0.0\"," +
+            "\"vendorId\":\"dobby.dev-qa\"," +
+            "\"minHostVersion\":\"1.0.0\"," +
+            "\"entryAssembly\":\"bin/plugins/Dobby.Sample.Plugin.dll\"," +
+            "\"displayName\":\"Dobby Sample\"," +
+            "\"description\":\"Dev and QA plugin verification artifact for Dobby host/plugin boundaries.\"," +
+            "\"dependsOn\":[]," +
+            "\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}]," +
+            "\"operationTargets\":[{\"id\":\"com.dobby.sample.greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}]," +
+            "\"extensionPoints\":[{\"id\":\"sample.greet.page\",\"target\":\"sidebar\",\"routeKey\":\"greet\",\"labelKey\":\"sample.nav.greet\",\"group\":\"default\",\"weight\":100}]," +
+            "\"files\":[{\"path\":\"bin/plugins/Dobby.Sample.Plugin.dll\",\"sha256\":\"" + Sha256(assemblyBytes) + "\"}]," +
+            "\"signature\":{\"algorithm\":\"ECDSA-P256-SHA256\",\"keyVersion\":1,\"value\":\"AQ\"}}";
+
+        using var stream = File.Create(packagePath);
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false);
+        WriteZipEntry(archive, PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(manifestJson));
+        WriteZipEntry(archive, "bin/plugins/Dobby.Sample.Plugin.dll", assemblyBytes);
+    }
+
+    private static void WriteZipEntry(ZipArchive archive, string path, byte[] content)
+    {
+        var entry = archive.CreateEntry(path, CompressionLevel.NoCompression);
+        using var stream = entry.Open();
+        stream.Write(content);
+    }
+
+    private static string FindSamplePluginAssembly()
+    {
+        var root = RepoRoot().FullName;
+        var candidates = new[]
+        {
+            Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", "Release", "net10.0", "Dobby.Sample.Plugin.dll"),
+            Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", "Debug", "net10.0", "Dobby.Sample.Plugin.dll")
+        };
+
+        return candidates.FirstOrDefault(File.Exists)
+            ?? throw new FileNotFoundException("Sample plugin assembly must be built before admin signing verification.");
+    }
+
+    private static string Sha256(byte[] bytes)
+    {
+        return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+
+    private static DirectoryInfo RepoRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null && !File.Exists(Path.Combine(current.FullName, "Dobby.sln")))
+        {
+            current = current.Parent;
+        }
+
+        return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
     }
 
     private sealed class InMemorySigningMaterialProvider(string profile, ECDsa key) : IAdminSigningMaterialProvider

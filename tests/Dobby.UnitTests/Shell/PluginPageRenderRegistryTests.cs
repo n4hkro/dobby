@@ -45,6 +45,31 @@ public sealed class PluginPageRenderRegistryTests
         });
     }
 
+    [Fact]
+    public void Default_registry_renders_approved_action_page_model_to_host_buttons()
+    {
+        RunOnSta(() =>
+        {
+            var registry = PluginPageRenderRegistry.CreateDefault();
+            var model = new PluginActionPageModel(
+                "sample.home.ready",
+                new PluginPageActionContext("com.dobby.sample", "plugin/com.dobby.sample/greet", "managed", "correlation"),
+                [
+                    new PluginPageAction(
+                        "sample.greet",
+                        "sample.greet.label",
+                        (_, _) => ValueTask.FromResult(Dobby.Core.Result.Success(new PluginPageActionResult("sample.greet.ok"))))
+                ]);
+
+            var render = registry.Render(model);
+
+            render.IsSuccess.ShouldBeTrue();
+            var panel = render.Value.ShouldBeOfType<StackPanel>();
+            panel.Children.OfType<TextBlock>().First().Text.ShouldBe("sample.home.ready");
+            panel.Children.OfType<Button>().Single().Content.ShouldBe("sample.greet.label");
+        });
+    }
+
     private sealed class AnalyticsModel(string label) : IPluginPageModel
     {
         public string Label { get; } = label;

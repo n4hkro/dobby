@@ -10,7 +10,8 @@ public sealed class LoginWindowRuntimeWiringTests
     {
         var app = ReadSource("src", "Dobby.Host", "App.xaml.cs");
 
-        app.ShouldContain("HostLoginRuntimeFactory.Create()");
+        app.ShouldContain("HostLoginRuntimeFactory.Create(");
+        app.ShouldContain("new ShellPluginWorkSessionService(workSessionRegistry)");
         app.ShouldContain("new LoginWindow(loginRuntime.LoginWorkflow, loginRuntime.LoginViewModel, loginRuntime.RecoveryViewModel)");
         app.ShouldContain("new MainWindow(");
         app.ShouldContain("loginRuntime.PostLoginSessionRuntime");
@@ -40,7 +41,7 @@ public sealed class LoginWindowRuntimeWiringTests
 
         app.ShouldContain("protected override async void OnStartup");
         app.ShouldContain("await RunLoginLoopAsync()");
-        app.ShouldContain("await using var loginRuntime = HostLoginRuntimeFactory.Create()");
+        app.ShouldContain("await using var loginRuntime = HostLoginRuntimeFactory.Create(");
         runtime.ShouldContain("IAsyncDisposable");
         runtime.ShouldContain("PostLoginSessionRuntime.Dispose();");
         runtime.ShouldContain("await PluginRuntimeCoordinator.DisposeAsync()");

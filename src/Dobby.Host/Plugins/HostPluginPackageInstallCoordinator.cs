@@ -1,7 +1,9 @@
+using Dobby.Contracts.Policies;
 using Dobby.Contracts.Licensing;
 using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.PluginFramework.Packaging;
+using Dobby.Security.Authorization;
 using Dobby.Security.Trust;
 using System.IO;
 
@@ -11,11 +13,13 @@ public sealed class HostPluginPackageInstallCoordinator(
     IInstalledPluginStateStore stateStore,
     IInstalledPluginMetadataCache metadataCache,
     IPluginInstallStagingArea stagingArea,
+    OperationAuthorizationPolicy authorizationPolicy,
     PluginRuntimeAuditCoordinator auditCoordinator,
     IPluginTrustVerifier pluginTrustVerifier,
     PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
     Func<string, Result<PluginRuntimeMode>>? currentRuntimeModeProvider = null)
 {
+    private readonly OperationAuthorizationPolicy authorization = authorizationPolicy ?? throw new ArgumentNullException(nameof(authorizationPolicy));
     private readonly IPluginTrustVerifier trustVerifier = pluginTrustVerifier ?? throw new ArgumentNullException(nameof(pluginTrustVerifier));
     private readonly PluginRuntimeDiagnosticsCoordinator? diagnostics = diagnosticsCoordinator;
     private readonly Func<string, Result<PluginRuntimeMode>> runtimeModeProvider =
@@ -30,6 +34,12 @@ public sealed class HostPluginPackageInstallCoordinator(
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         ArgumentException.ThrowIfNullOrWhiteSpace(packagePath);
         ArgumentNullException.ThrowIfNull(auditCoordinator);
+
+        var authorized = Authorize(actorId, correlationId);
+        if (!authorized.IsSuccess)
+        {
+            return Result.Failure<InstalledPluginState>(authorized.ErrorCode ?? ErrorCode.Forbidden);
+        }
 
         auditCoordinator.AppendInstallAttempt(actorId, packagePath, correlationId);
 
@@ -138,6 +148,22 @@ public sealed class HostPluginPackageInstallCoordinator(
     {
         return File.Exists(packagePath) &&
             Path.GetExtension(packagePath).Equals(".dobbyplugin", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private Result Authorize(string actorId, CorrelationId correlationId)
+    {
+        var operationKey = new OperationKey(BuiltInOperationTargets.PluginManagementTargetId, OperationVerb.Import).ToString();
+        var decision = authorization.Evaluate(
+            new OperationPermissionCapability(operationKey),
+            new PolicyContext(actorId, null, correlationId));
+        if (!decision.IsSuccess)
+        {
+            return Result.Failure(decision.ErrorCode ?? ErrorCode.Forbidden);
+        }
+
+        return decision.Value.Allowed
+            ? Result.Success()
+            : Result.Failure(ErrorCode.Forbidden);
     }
 
     private static RuntimeModeFailure RuntimeModeFailureRejection(ErrorCode? errorCode)

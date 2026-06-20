@@ -51,12 +51,12 @@
     },
     {
       "path": "bin/plugins/Dobby.Sample.Plugin.dll",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "sha256": "2ec0f98eaf3b59e2f267b26b927b890c9fac077aff5d4d5da8cc5f9eee097675"
     }
   ],
   "signature": {
     "algorithm": "ECDSA-P256-SHA256",
     "keyVersion": 1,
-    "value": "AQ"
+    "value": "Ildsv3YzP3BG-ibLK039BZPOMZq862gOrjUwRKGgm-o"
   }
 }

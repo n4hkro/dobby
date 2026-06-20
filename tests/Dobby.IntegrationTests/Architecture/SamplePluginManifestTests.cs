@@ -40,9 +40,12 @@ public sealed class SamplePluginManifestTests
         files.Keys.ShouldContain("bin/plugins/Dobby.Sample.Plugin.dll");
         files.Keys.ShouldContain("assets/sample-plugin.png");
         files.Values.ShouldAllBe(hash => hash.Length == 64 && hash.All(Uri.IsHexDigit));
+        files["bin/plugins/Dobby.Sample.Plugin.dll"].ShouldNotBe(new string('0', 64));
         var signatureValue = root.GetProperty("signature").GetProperty("value").GetString();
         signatureValue.ShouldNotBeNull();
         signatureValue!.ShouldNotContain("skeleton");
+        signatureValue.ShouldNotBe("AQ");
+        signatureValue.Length.ShouldBeGreaterThan(20);
     }
 
     private static string SampleManifestPath()

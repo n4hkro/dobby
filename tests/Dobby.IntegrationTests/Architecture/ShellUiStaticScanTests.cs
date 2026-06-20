@@ -141,6 +141,20 @@ public sealed class ShellUiStaticScanTests
     }
 
     [Fact]
+    public void Plugins_manager_uninstall_requires_confirmation_and_explicit_data_choice()
+    {
+        var root = RepoRoot();
+        var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+
+        mainWindowCode.ShouldContain("IPluginUninstallConfirmation");
+        mainWindowCode.ShouldContain("pluginUninstallConfirmation.Confirm(");
+        mainWindowCode.ShouldContain("PluginUninstallConfirmationRequest");
+        mainWindowCode.ShouldContain("confirmation.DataChoice");
+        mainWindowCode.ShouldNotContain("PluginUninstallDataChoice.KeepData,\r\n                wasActivatedInCurrentProcess: true");
+        mainWindowCode.ShouldNotContain("PluginUninstallDataChoice.KeepData,\n                wasActivatedInCurrentProcess: true");
+    }
+
+    [Fact]
     public void Theme_resources_include_accessibility_motion_and_focus_tokens()
     {
         var root = RepoRoot();

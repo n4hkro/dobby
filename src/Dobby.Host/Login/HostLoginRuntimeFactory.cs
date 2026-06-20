@@ -3,6 +3,7 @@ using Dobby.Application;
 using Dobby.Configuration;
 using Dobby.Contracts.BackgroundOperations;
 using Dobby.Contracts.Licensing;
+using Dobby.Contracts.PluginPages;
 using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.Diagnostics;
@@ -31,7 +32,7 @@ namespace Dobby.Host.Login;
 
 public static class HostLoginRuntimeFactory
 {
-    public static HostLoginRuntime Create()
+    public static HostLoginRuntime Create(IPluginWorkSessionService? pluginWorkSessions = null)
     {
         var configuration = HostConfigurationSources.Build(new HostConfigurationSourceOptions(
             Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
@@ -40,7 +41,7 @@ public static class HostLoginRuntimeFactory
             null));
         var options = HostConfigurationSources.BindDobbyOptions(configuration);
         ValidateOptions(options);
-        return Create(options, TimeProvider.System, null, null);
+        return Create(options, TimeProvider.System, null, null, pluginWorkSessions: pluginWorkSessions);
     }
 
     public static HostLoginRuntime Create(
@@ -48,7 +49,8 @@ public static class HostLoginRuntimeFactory
         TimeProvider timeProvider,
         IProtectedDataProtector? credentialProtector = null,
         IProtectedDataProtector? rememberMeProtector = null,
-        IBackgroundOperationReporter? backgroundOperations = null)
+        IBackgroundOperationReporter? backgroundOperations = null,
+        IPluginWorkSessionService? pluginWorkSessions = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -191,11 +193,14 @@ public static class HostLoginRuntimeFactory
             operationReporter,
             pluginActivationCancellation,
             pluginId => new PluginCapabilityLicensing(() =>
-                ResolvePluginRuntimeMode(licenseRuntimeModeProvider, installedPluginStateStore, pluginId)));
+                ResolvePluginRuntimeMode(licenseRuntimeModeProvider, installedPluginStateStore, pluginId)),
+            operationAuthorizationPolicy,
+            pluginWorkSessions);
         var pluginPackageInstallCoordinator = new HostPluginPackageInstallCoordinator(
             installedPluginStateStore,
             installedPluginMetadataCache,
             pluginInstallStagingArea,
+            operationAuthorizationPolicy,
             pluginRuntimeAuditCoordinator,
             pluginTrustVerifier,
             pluginRuntimeDiagnosticsCoordinator,

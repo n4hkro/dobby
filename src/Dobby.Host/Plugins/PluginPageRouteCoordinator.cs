@@ -8,7 +8,8 @@ namespace Dobby.Host.Plugins;
 
 public sealed class PluginPageRouteCoordinator(
     PluginExtensionPointRegistry extensionPointRegistry,
-    ShellViewModel shellViewModel)
+    ShellViewModel shellViewModel,
+    Func<string?>? currentUserIdProvider = null)
 {
     private ActivePluginPage? activePage;
 
@@ -44,7 +45,8 @@ public sealed class PluginPageRouteCoordinator(
             registration.PluginId,
             descriptor.ExtensionPointId,
             registration.RouteKey,
-            CorrelationId.New().ToString());
+            CorrelationId.New().ToString(),
+            currentUserIdProvider?.Invoke());
 
         if (activePage is not null &&
             !activePage.RouteKey.Equals(registration.RouteKey, StringComparison.Ordinal))

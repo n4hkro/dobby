@@ -2,11 +2,13 @@ using System.IO.Compression;
 using System.Text;
 using Dobby.Audit;
 using Dobby.Contracts.Licensing;
+using Dobby.Contracts.Policies;
 using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.Host.Plugins;
 using Dobby.PluginFramework.Manifest;
 using Dobby.PluginFramework.Packaging;
+using Dobby.Security.Authorization;
 using Dobby.Security.Trust;
 using Dobby.UnitTests.PluginFramework.Packaging;
 using Microsoft.Extensions.Time.Testing;
@@ -25,8 +27,40 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 CreateSuccessfulStateStore(),
                 CreateSuccessfulMetadataCache(),
                 Substitute.For<IPluginInstallStagingArea>(),
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(new InMemoryAuditTrail()),
                 null!));
+    }
+
+    [Fact]
+    public void Install_package_requires_import_permission_before_audit_trust_or_staging()
+    {
+        var audit = new InMemoryAuditTrail();
+        var stateStore = CreateSuccessfulStateStore();
+        var metadataCache = CreateSuccessfulMetadataCache();
+        var staging = CreateSuccessfulStaging();
+        var trustVerifier = Substitute.For<IPluginTrustVerifier>();
+        var coordinator = new HostPluginPackageInstallCoordinator(
+            stateStore,
+            metadataCache,
+            staging,
+            CreatePolicy(new UserPermissionState("managed", IsOwner: false, IsActive: true)),
+            CreateAuditCoordinator(audit),
+            trustVerifier);
+
+        var result = coordinator.InstallPackage(
+            "managed",
+            Path.Combine(Path.GetTempPath(), "missing.dobbyplugin"),
+            new HostVersion(1, 0, 0),
+            CorrelationId.New());
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        audit.Snapshot().ShouldBeEmpty();
+        trustVerifier.DidNotReceive().Verify(Arg.Any<PluginTrustPayload>());
+        staging.DidNotReceive().Stage(Arg.Any<PluginPackageDescriptor>());
+        stateStore.DidNotReceive().Upsert(Arg.Any<InstalledPluginState>());
+        metadataCache.DidNotReceive().Upsert(Arg.Any<InstalledPluginMetadata>());
     }
 
     [Fact]
@@ -46,6 +80,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 stateStore,
                 metadataCache,
                 staging,
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
                 new AllowAllTrustVerifier());
 
@@ -92,6 +127,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 CreateSuccessfulStateStore(),
                 CreateSuccessfulMetadataCache(),
                 staging,
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
                 new AllowAllTrustVerifier());
 
@@ -136,6 +172,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 CreateSuccessfulStateStore(),
                 CreateSuccessfulMetadataCache(),
                 staging,
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(new InMemoryAuditTrail()),
                 new AllowAllTrustVerifier(),
                 new PluginRuntimeDiagnosticsCoordinator(diagnostics.Add));
@@ -176,6 +213,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 stateStore,
                 metadataCache,
                 staging,
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
                 new AllowAllTrustVerifier(),
                 currentRuntimeModeProvider: _ => Result.Success(PluginRuntimeMode.ReadOnlyExpired));
@@ -224,6 +262,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 stateStore,
                 metadataCache,
                 staging,
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
                 new AllowAllTrustVerifier(),
                 currentRuntimeModeProvider: _ => Result.Failure<PluginRuntimeMode>(providerError));
@@ -266,6 +305,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 CreateSuccessfulStateStore(),
                 CreateSuccessfulMetadataCache(),
                 staging,
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
                 new RejectingTrustVerifier("trust-failed", "not trusted"));
 
@@ -303,6 +343,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 CreateSuccessfulStateStore(),
                 CreateSuccessfulMetadataCache(),
                 staging,
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
                 new AllowAllTrustVerifier());
 
@@ -368,6 +409,13 @@ public sealed class HostPluginPackageInstallCoordinatorTests
         return cache;
     }
 
+    private static OperationAuthorizationPolicy CreatePolicy(UserPermissionState state)
+    {
+        return new OperationAuthorizationPolicy(
+            OperationTargetRegistry.CreateDefault(),
+            new StaticGrantReader(state));
+    }
+
     private static string CreatePackageDirectory(string manifestJson, string filePath, byte[] content)
     {
         var packagePath = Path.Combine(Path.GetTempPath(), "dobby-package-install-" + Guid.NewGuid().ToString("N"));
@@ -421,5 +469,20 @@ public sealed class HostPluginPackageInstallCoordinatorTests
     private sealed class RejectingTrustVerifier(string code, string message) : IPluginTrustVerifier
     {
         public PluginTrustVerificationResult Verify(PluginTrustPayload payload) => PluginTrustVerificationResult.Failure(code, message);
+    }
+
+    private sealed class StaticGrantReader(UserPermissionState state) : IPermissionGrantReader
+    {
+        public Result<UserPermissionState> LoadUserState(string userId)
+        {
+            return userId.Equals(state.UserId, StringComparison.Ordinal)
+                ? Result.Success(state)
+                : Result.Failure<UserPermissionState>(ErrorCode.NotFound);
+        }
+
+        public Result<bool> HasGrant(string userId, OperationKey key)
+        {
+            return Result.Success(false);
+        }
     }
 }

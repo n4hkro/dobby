@@ -11,6 +11,8 @@ artifacts/packages/
 artifacts/publish/
 artifacts/release-evidence/*/
 !artifacts/release-evidence/skeleton-local/
+!artifacts/release-evidence/sprint10-local-2026-06-20/
+!artifacts/release-evidence/sprint10-local-2026-06-20/*.md
 *.nupkg
 *.snupkg
 *.dobbyplugin

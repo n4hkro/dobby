@@ -80,16 +80,22 @@ public sealed class PluginIntegrationSuiteTests
         ]));
         var reporter = new RecordingBackgroundOperationReporter();
         var activationCancellation = new HostPluginActivationCancellation();
+        var operationTargets = OperationTargetRegistry.CreateDefault();
+        var grants = new MutableGrantReader(new UserPermissionState("managed", IsOwner: false, IsActive: true));
+        var operationAuthorization = new OperationAuthorizationPolicy(operationTargets, grants);
+        var workSessions = new RecordingPluginWorkSessionService();
         var pluginHostServices = new PluginHostServices(
             new InMemoryEventBus(),
             reporter,
-            activationCancellation);
+            activationCancellation,
+            operationAuthorizationPolicy: operationAuthorization,
+            pluginWorkSessions: workSessions);
         var coordinator = new HostPluginRuntimeCoordinator(
             Substitute.For<IHostPersistenceMigrator>(),
             stateStore,
             Substitute.For<IInstalledPluginMetadataCache>(),
             Substitute.For<IPluginInstallStagingArea>(),
-            OperationTargetRegistry.CreateDefault(),
+            operationTargets,
             extensionRegistry,
             lifetimes,
             activationCancellation,
@@ -98,7 +104,7 @@ public sealed class PluginIntegrationSuiteTests
             auditCoordinator: null,
             backgroundOperations: reporter);
 
-        var activation = await coordinator.BeginPostLoginActivation(new HostVersion(1, 0, 0), "owner");
+        var activation = await coordinator.BeginPostLoginActivation(new HostVersion(1, 0, 0), "managed");
 
         activation.IsSuccess.ShouldBeTrue(activation.IsSuccess ? null : activation.ErrorCode.ToString());
         activation.Value.Completion.ShouldBe(PluginActivationCompletion.Completed);
@@ -111,7 +117,7 @@ public sealed class PluginIntegrationSuiteTests
         var shell = ShellViewModel.CreateDefault(new HostStringCatalog());
         shell.ApplyPluginNavigationContributions(
             PluginNavigationContributionMapper.Map(activation.Value.Run.NavigationContributions));
-        var pageCoordinator = new PluginPageRouteCoordinator(extensionRegistry, shell);
+        var pageCoordinator = new PluginPageRouteCoordinator(extensionRegistry, shell, () => "managed");
 
         var route = await pageCoordinator.ActivateRouteAsync(
             "plugin/com.dobby.sample/greet",
@@ -119,8 +125,57 @@ public sealed class PluginIntegrationSuiteTests
 
         route.IsSuccess.ShouldBeTrue();
         shell.HasActivePluginPage.ShouldBeTrue();
-        var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginTextPageModel>();
+        var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginActionPageModel>();
         pageModel.MessageKey.ShouldBe("sample.home.ready");
+        pageModel.Context.UserId.ShouldBe("managed");
+        pageModel.Actions.Select(action => action.ActionId).ShouldBe([
+            "sample.greet",
+            "sample.invalid-input",
+            "sample.fault",
+            "sample.progress",
+            "sample.work-session"
+        ]);
+
+        var greet = pageModel.Actions.Single(action => action.ActionId == "sample.greet");
+        var denied = await greet.ExecuteAsync(pageModel.Context, CancellationToken.None);
+        denied.IsSuccess.ShouldBeFalse();
+        denied.ErrorCode.ShouldBe(ErrorCode.Forbidden);
+
+        grants.Grant("managed", new OperationKey("com.dobby.sample.greet", OperationVerb.Execute));
+        var success = await greet.ExecuteAsync(pageModel.Context, CancellationToken.None);
+        success.IsSuccess.ShouldBeTrue();
+        success.Value.MessageKey.ShouldBe("sample.greet.success");
+
+        var invalid = await pageModel.Actions.Single(action => action.ActionId == "sample.invalid-input")
+            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        invalid.IsSuccess.ShouldBeFalse();
+        invalid.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+
+        var fault = await pageModel.Actions.Single(action => action.ActionId == "sample.fault")
+            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        fault.IsSuccess.ShouldBeFalse();
+        fault.ErrorCode.ShouldBe(ErrorCode.PluginInternalError);
+
+        var progress = await pageModel.Actions.Single(action => action.ActionId == "sample.progress")
+            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        progress.IsSuccess.ShouldBeTrue();
+        reporter.Snapshots.ShouldContain(snapshot =>
+            snapshot.OwnerKind == BackgroundOperationOwnerKind.Plugin &&
+            snapshot.OwnerId == SamplePluginPackageFixture.PluginId &&
+            snapshot.DisplayNameKey == "sample.greet.progress" &&
+            snapshot.Status == BackgroundOperationStatus.Running);
+        reporter.Snapshots.ShouldContain(snapshot =>
+            snapshot.OwnerKind == BackgroundOperationOwnerKind.Plugin &&
+            snapshot.OwnerId == SamplePluginPackageFixture.PluginId &&
+            snapshot.DisplayNameKey == "sample.greet.progress" &&
+            snapshot.Status == BackgroundOperationStatus.Completed);
+
+        var workSession = await pageModel.Actions.Single(action => action.ActionId == "sample.work-session")
+            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        workSession.IsSuccess.ShouldBeTrue();
+        workSessions.Events.ShouldContain("open:com.dobby.sample:plugin/com.dobby.sample/greet:sample.work-session");
+        workSessions.Events.ShouldContain("progress:50");
+        workSessions.Events.ShouldContain("result:sample.work-session.completed");
         reporter.Snapshots.ShouldContain(snapshot =>
             snapshot.OwnerKind == BackgroundOperationOwnerKind.Plugin &&
             snapshot.OwnerId == SamplePluginPackageFixture.PluginId &&
@@ -180,6 +235,70 @@ public sealed class PluginIntegrationSuiteTests
     private sealed class AllowAllTrustVerifier : IPluginTrustVerifier
     {
         public PluginTrustVerificationResult Verify(PluginTrustPayload payload) => PluginTrustVerificationResult.Success();
+    }
+
+    private sealed class MutableGrantReader(UserPermissionState state) : IPermissionGrantReader
+    {
+        private readonly HashSet<string> grants = new(StringComparer.Ordinal);
+
+        public void Grant(string userId, OperationKey key)
+        {
+            grants.Add($"{userId}:{key}");
+        }
+
+        public Result<UserPermissionState> LoadUserState(string userId)
+        {
+            return StringComparer.Ordinal.Equals(userId, state.UserId)
+                ? Result.Success(state)
+                : Result.Failure<UserPermissionState>(ErrorCode.NotFound);
+        }
+
+        public Result<bool> HasGrant(string userId, OperationKey key)
+        {
+            return Result.Success(grants.Contains($"{userId}:{key}"));
+        }
+    }
+
+    private sealed class RecordingPluginWorkSessionService : IPluginWorkSessionService
+    {
+        private Guid currentSessionId;
+
+        public List<string> Events { get; } = [];
+
+        public Result<PluginWorkSessionHandle> Open(string ownerId, string routeKey, string labelKey)
+        {
+            currentSessionId = Guid.NewGuid();
+            Events.Add($"open:{ownerId}:{routeKey}:{labelKey}");
+            return Result.Success(new PluginWorkSessionHandle(currentSessionId, ownerId, routeKey, labelKey));
+        }
+
+        public Result UpdateProgress(Guid sessionId, int percent)
+        {
+            sessionId.ShouldBe(currentSessionId);
+            Events.Add($"progress:{percent}");
+            return Result.Success();
+        }
+
+        public Result RecordResult(Guid sessionId, string resultSummaryKey)
+        {
+            sessionId.ShouldBe(currentSessionId);
+            Events.Add($"result:{resultSummaryKey}");
+            return Result.Success();
+        }
+
+        public Result RecordError(Guid sessionId, string errorSummaryKey)
+        {
+            sessionId.ShouldBe(currentSessionId);
+            Events.Add($"error:{errorSummaryKey}");
+            return Result.Success();
+        }
+
+        public Result Close(Guid sessionId)
+        {
+            sessionId.ShouldBe(currentSessionId);
+            Events.Add("close");
+            return Result.Success();
+        }
     }
 
     private sealed class PrivateDependencyPluginFixture : IDisposable

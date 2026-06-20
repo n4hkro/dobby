@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly HostPluginPackageInstallCoordinator? pluginPackageInstallCoordinator;
     private readonly HostPluginLifecycleCoordinator? pluginLifecycleCoordinator;
     private readonly IPluginPackageFilePicker? pluginPackageFilePicker;
+    private readonly IPluginUninstallConfirmation pluginUninstallConfirmation;
     private readonly LicenseImportCoordinator? licenseImportCoordinator;
     private readonly ILicenseFilePicker? licenseFilePicker;
     private string? diagnosticsSourceDirectory;
@@ -45,6 +46,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault();
+        pluginUninstallConfirmation = new WpfPluginUninstallConfirmation(this);
         InitializeComponent();
         shellViewModel = ShellViewModel.CreateDefault(Dobby.Localization.HostStringCatalog.CreateResourceBacked());
         DataContext = shellViewModel;
@@ -87,6 +89,7 @@ public partial class MainWindow : Window
         HostPluginPackageInstallCoordinator? pluginPackageInstallCoordinator = null,
         HostPluginLifecycleCoordinator? pluginLifecycleCoordinator = null,
         IPluginPackageFilePicker? pluginPackageFilePicker = null,
+        IPluginUninstallConfirmation? pluginUninstallConfirmation = null,
         LicenseImportCoordinator? licenseImportCoordinator = null,
         ILicenseFilePicker? licenseFilePicker = null)
         : this()
@@ -106,6 +109,7 @@ public partial class MainWindow : Window
         this.pluginPackageInstallCoordinator = pluginPackageInstallCoordinator;
         this.pluginLifecycleCoordinator = pluginLifecycleCoordinator;
         this.pluginPackageFilePicker = pluginPackageFilePicker;
+        this.pluginUninstallConfirmation = pluginUninstallConfirmation ?? new WpfPluginUninstallConfirmation(this);
         if (pluginPageRenderRegistry is not null)
         {
             this.pluginPageRenderRegistry = pluginPageRenderRegistry;
@@ -395,12 +399,30 @@ public partial class MainWindow : Window
 
     private void PluginsManagerUninstall_Click(object sender, RoutedEventArgs e)
     {
+        if (pluginLifecycleCoordinator is null ||
+            session is null ||
+            shellViewModel.PluginsManagerSelectedItem is not { } selectedPlugin)
+        {
+            shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.PluginsManagerOperationDenied);
+            return;
+        }
+
+        var wasActivatedInCurrentProcess = selectedPlugin.IsEnabled;
+        var confirmation = pluginUninstallConfirmation.Confirm(new PluginUninstallConfirmationRequest(
+            selectedPlugin.PluginId,
+            selectedPlugin.DisplayName,
+            wasActivatedInCurrentProcess));
+        if (!confirmation.Confirmed)
+        {
+            return;
+        }
+
         RunSelectedPluginLifecycleAction((coordinator, actor, pluginId, correlationId) =>
             coordinator.UninstallPlugin(
                 actor,
                 pluginId,
-                PluginUninstallDataChoice.KeepData,
-                wasActivatedInCurrentProcess: true,
+                confirmation.DataChoice,
+                wasActivatedInCurrentProcess,
                 correlationId));
     }
 
