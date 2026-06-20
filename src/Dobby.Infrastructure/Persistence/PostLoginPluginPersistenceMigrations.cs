@@ -8,15 +8,18 @@ public static class PostLoginPluginPersistenceMigrations
     public const string MigrationId = "0002_postlogin_bootstrap";
     public const string LicenseStateMigrationId = "0003_license_state";
     public const string LicenseLifecycleInputsMigrationId = "0004_license_lifecycle_inputs";
+    public const string PluginLifecycleStateMigrationId = "0005_plugin_lifecycle_state";
     private const string BootstrapResourceName = "Dobby.Infrastructure.Persistence.Migrations.0002_postlogin_bootstrap.sql";
     private const string LicenseStateResourceName = "Dobby.Infrastructure.Persistence.Migrations.0003_license_state.sql";
     private const string LicenseLifecycleInputsResourceName = "Dobby.Infrastructure.Persistence.Migrations.0004_license_lifecycle_inputs.sql";
+    private const string PluginLifecycleStateResourceName = "Dobby.Infrastructure.Persistence.Migrations.0005_plugin_lifecycle_state.sql";
 
     public static IReadOnlyDictionary<string, string> All { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         [MigrationId] = LoadSql(BootstrapResourceName),
         [LicenseStateMigrationId] = LoadSql(LicenseStateResourceName),
-        [LicenseLifecycleInputsMigrationId] = LoadSql(LicenseLifecycleInputsResourceName)
+        [LicenseLifecycleInputsMigrationId] = LoadSql(LicenseLifecycleInputsResourceName),
+        [PluginLifecycleStateMigrationId] = LoadSql(PluginLifecycleStateResourceName)
     };
 
     private static string LoadSql(string resourceName)

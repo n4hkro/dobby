@@ -13,7 +13,11 @@ public sealed record InstalledPluginState(
     string RuntimePath,
     string StatusSummary,
     DateTimeOffset InstalledAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    bool IsPendingUninstall = false,
+    string DataRetentionChoice = "keep",
+    bool RestartRequired = false,
+    DateTimeOffset? LastActivatedAtUtc = null);
 
 public interface IInstalledPluginStateStore
 {

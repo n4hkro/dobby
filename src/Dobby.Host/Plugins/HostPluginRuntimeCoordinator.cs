@@ -88,8 +88,40 @@ public sealed class HostPluginRuntimeCoordinator(
                 "Installed plugin state snapshot could not be read during post-login recovery."));
         }
 
+        var pendingStates = snapshot.Value.Where(state => state.IsPendingUninstall).ToArray();
+        foreach (var state in pendingStates)
+        {
+            var pendingCleanup = StagingArea.Cleanup(state.RuntimePath);
+            if (!pendingCleanup.IsSuccess)
+            {
+                return PersistenceResult.Failure(ToPersistenceError(
+                    pendingCleanup.ErrorCode,
+                    "Pending uninstall plugin runtime cleanup failed during post-login recovery."));
+            }
+
+            var stateRemove = StateStore.Remove(state.PluginId);
+            if (!stateRemove.IsSuccess)
+            {
+                return PersistenceResult.Failure(ToPersistenceError(
+                    stateRemove.ErrorCode,
+                    "Pending uninstall plugin state could not be removed during post-login recovery."));
+            }
+
+            var cacheRemove = MetadataCache.Remove(state.PluginId);
+            if (!cacheRemove.IsSuccess)
+            {
+                return PersistenceResult.Failure(ToPersistenceError(
+                    cacheRemove.ErrorCode,
+                "Pending uninstall plugin metadata cache could not be removed during post-login recovery."));
+            }
+        }
+
+        var activeStates = pendingStates.Length == 0
+            ? snapshot.Value
+            : snapshot.Value.Where(state => !state.IsPendingUninstall).ToArray();
+
         var orphanCleanup = StagingArea.CleanupRuntimeOrphans(
-            snapshot.Value.Select(state => state.RuntimePath).ToArray());
+            activeStates.Select(state => state.RuntimePath).ToArray());
         if (!orphanCleanup.IsSuccess)
         {
             return PersistenceResult.Failure(ToPersistenceError(
@@ -97,7 +129,7 @@ public sealed class HostPluginRuntimeCoordinator(
                 "Installed plugin runtime orphan cleanup failed during post-login recovery."));
         }
 
-        var cacheRebuild = MetadataCache.RebuildFrom(snapshot.Value);
+        var cacheRebuild = MetadataCache.RebuildFrom(activeStates);
         if (!cacheRebuild.IsSuccess)
         {
             return PersistenceResult.Failure(ToPersistenceError(
@@ -238,6 +270,11 @@ public sealed class HostPluginRuntimeCoordinator(
         var preActivationOutcomes = new Dictionary<string, PluginActivationOutcome>(StringComparer.Ordinal);
         foreach (var state in snapshot.Value.OrderBy(item => item.PluginId, StringComparer.Ordinal))
         {
+            if (state.IsPendingUninstall)
+            {
+                continue;
+            }
+
             if (cancellationToken.IsCancellationRequested)
             {
                 return Result.Success(new PluginActivationExecutionOutcome(

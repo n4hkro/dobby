@@ -1,10 +1,18 @@
 {
-  "schemaVersion": 1,
   "pluginId": "com.dobby.sample",
   "version": "1.0.0",
+  "vendorId": "dobby.dev-qa",
   "minHostVersion": "1.0.0",
+  "entryAssembly": "bin/plugins/Dobby.Sample.Plugin.dll",
+  "displayName": "Dobby Sample",
+  "description": "Dev and QA plugin verification artifact for Dobby host/plugin boundaries.",
+  "icon": {
+    "path": "assets/sample-plugin.png"
+  },
+  "dependsOn": [],
   "capabilities": [
     {
+      "name": "plugin-page",
       "scope": "plugin-page"
     }
   ],
@@ -19,18 +27,36 @@
   ],
   "extensionPoints": [
     {
-      "id": "sample.home",
-      "target": "plugin-page-region",
-      "routeKey": "sample.home",
-      "labelKey": "sample.home.label",
+      "id": "sample.root",
+      "target": "top-toolbar",
+      "routeKey": "sample",
+      "labelKey": "sample.nav.root",
+      "group": "default",
+      "weight": 100
+    },
+    {
+      "id": "sample.greet.page",
+      "target": "sidebar",
+      "parentId": "sample.root",
+      "routeKey": "greet",
+      "labelKey": "sample.nav.greet",
       "group": "default",
       "weight": 100
     }
   ],
-  "dependsOn": [],
+  "files": [
+    {
+      "path": "assets/sample-plugin.png",
+      "sha256": "09674a3e53a60e8cdcd210b1b0e48b2386c1ce3f3c909af3752872dae2d41db8"
+    },
+    {
+      "path": "bin/plugins/Dobby.Sample.Plugin.dll",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
   "signature": {
     "algorithm": "ECDSA-P256-SHA256",
     "keyVersion": 1,
-    "value": "skeleton-non-release-placeholder"
+    "value": "AQ"
   }
 }

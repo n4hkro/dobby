@@ -9,5 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="dobby-plugin.manifest.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\sample-plugin.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

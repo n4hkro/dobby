@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 using Dobby.Configuration;
 using Dobby.Core;
+using Dobby.Core.Versioning;
 using Dobby.Diagnostics;
 using Dobby.Host.Login;
 using Dobby.Host.Plugins;
@@ -28,6 +29,9 @@ public partial class MainWindow : Window
     private readonly PluginPageRenderRegistry pluginPageRenderRegistry;
     private readonly WorkSessionCloseCoordinator? workSessionCloseCoordinator;
     private readonly PluginPageRouteCoordinator? pluginPageRouteCoordinator;
+    private readonly HostPluginPackageInstallCoordinator? pluginPackageInstallCoordinator;
+    private readonly HostPluginLifecycleCoordinator? pluginLifecycleCoordinator;
+    private readonly IPluginPackageFilePicker? pluginPackageFilePicker;
     private readonly LicenseImportCoordinator? licenseImportCoordinator;
     private readonly ILicenseFilePicker? licenseFilePicker;
     private string? diagnosticsSourceDirectory;
@@ -80,6 +84,9 @@ public partial class MainWindow : Window
         WorkSessionCloseCoordinator? workSessionCloseCoordinator = null,
         PluginPageRenderRegistry? pluginPageRenderRegistry = null,
         PluginPageRouteCoordinator? pluginPageRouteCoordinator = null,
+        HostPluginPackageInstallCoordinator? pluginPackageInstallCoordinator = null,
+        HostPluginLifecycleCoordinator? pluginLifecycleCoordinator = null,
+        IPluginPackageFilePicker? pluginPackageFilePicker = null,
         LicenseImportCoordinator? licenseImportCoordinator = null,
         ILicenseFilePicker? licenseFilePicker = null)
         : this()
@@ -96,6 +103,9 @@ public partial class MainWindow : Window
         this.diagnosticsSourceDirectory = diagnosticsSourceDirectory;
         this.diagnosticsOutputZipPath = diagnosticsOutputZipPath;
         this.pluginPageRouteCoordinator = pluginPageRouteCoordinator;
+        this.pluginPackageInstallCoordinator = pluginPackageInstallCoordinator;
+        this.pluginLifecycleCoordinator = pluginLifecycleCoordinator;
+        this.pluginPackageFilePicker = pluginPackageFilePicker;
         if (pluginPageRenderRegistry is not null)
         {
             this.pluginPageRenderRegistry = pluginPageRenderRegistry;
@@ -317,6 +327,143 @@ public partial class MainWindow : Window
                 CompleteLogout();
             }
         }
+    }
+
+    private void PluginsManagerSelect_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string pluginId })
+        {
+            shellViewModel.SelectPlugin(pluginId);
+        }
+    }
+
+    private async void PluginsManagerInstall_Click(object sender, RoutedEventArgs e)
+    {
+        if (pluginPackageInstallCoordinator is null || pluginPackageFilePicker is null || session is null)
+        {
+            shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.PluginsManagerOperationDenied);
+            return;
+        }
+
+        if (!shellViewModel.PluginsManagerInstallIsEnabled)
+        {
+            return;
+        }
+
+        var selectedPath = pluginPackageFilePicker.PickPluginPackageFile();
+        if (selectedPath is null)
+        {
+            return;
+        }
+
+        shellViewModel.SetPluginsManagerBusy(true);
+        try
+        {
+            var result = await Task.Run(() => pluginPackageInstallCoordinator.InstallPackage(
+                session.UserId,
+                selectedPath,
+                new HostVersion(1, 0, 0),
+                CorrelationId.New()));
+            if (!result.IsSuccess)
+            {
+                shellViewModel.SetPluginsManagerFeedback(
+                    result.ErrorCode == ErrorCode.Forbidden
+                        ? HostResourceKeys.PluginsManagerOperationDenied
+                        : HostResourceKeys.ShellFeedbackError);
+                return;
+            }
+
+            RefreshPluginsManagerItems(result.Value.PluginId);
+        }
+        finally
+        {
+            shellViewModel.SetPluginsManagerBusy(false);
+        }
+    }
+
+    private void PluginsManagerEnable_Click(object sender, RoutedEventArgs e)
+    {
+        RunSelectedPluginLifecycleAction((coordinator, actor, pluginId, correlationId) =>
+            coordinator.EnablePlugin(actor, pluginId, correlationId));
+    }
+
+    private void PluginsManagerDisable_Click(object sender, RoutedEventArgs e)
+    {
+        RunSelectedPluginLifecycleAction((coordinator, actor, pluginId, correlationId) =>
+            coordinator.DisablePlugin(actor, pluginId, correlationId));
+    }
+
+    private void PluginsManagerUninstall_Click(object sender, RoutedEventArgs e)
+    {
+        RunSelectedPluginLifecycleAction((coordinator, actor, pluginId, correlationId) =>
+            coordinator.UninstallPlugin(
+                actor,
+                pluginId,
+                PluginUninstallDataChoice.KeepData,
+                wasActivatedInCurrentProcess: true,
+                correlationId));
+    }
+
+    private void RunSelectedPluginLifecycleAction(
+        Func<HostPluginLifecycleCoordinator, string, string, CorrelationId, Result> action)
+    {
+        if (pluginLifecycleCoordinator is null || session is null || shellViewModel.PluginsManagerSelectedItem is null)
+        {
+            shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.PluginsManagerOperationDenied);
+            return;
+        }
+
+        var selectedPluginId = shellViewModel.PluginsManagerSelectedItem.PluginId;
+        var result = action(pluginLifecycleCoordinator, session.UserId, selectedPluginId, CorrelationId.New());
+        if (!result.IsSuccess)
+        {
+            shellViewModel.SetPluginsManagerFeedback(
+                result.ErrorCode == ErrorCode.Forbidden
+                    ? HostResourceKeys.PluginsManagerOperationDenied
+                    : HostResourceKeys.ShellFeedbackError);
+            return;
+        }
+
+        RefreshPluginsManagerItems(selectedPluginId);
+    }
+
+    private void RefreshPluginsManagerItems(string? selectedPluginId = null)
+    {
+        if (pluginLifecycleCoordinator is null || session is null)
+        {
+            return;
+        }
+
+        var list = pluginLifecycleCoordinator.ListPlugins(session.UserId, CorrelationId.New());
+        if (!list.IsSuccess)
+        {
+            shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.ShellFeedbackError);
+            return;
+        }
+
+        shellViewModel.SetPluginsManagerSurface(
+            shellViewModel.PluginsManagerCanView,
+            shellViewModel.PluginsManagerCanImport,
+            shellViewModel.PluginsManagerCanConfigure,
+            shellViewModel.PluginsManagerCanDelete,
+            list.Value.Select(ToShellPluginManagerItem).ToArray());
+        if (!string.IsNullOrWhiteSpace(selectedPluginId))
+        {
+            shellViewModel.SelectPlugin(selectedPluginId);
+        }
+    }
+
+    private static ShellPluginManagerItem ToShellPluginManagerItem(Dobby.PluginFramework.Packaging.InstalledPluginMetadata plugin)
+    {
+        return new ShellPluginManagerItem(
+            plugin.PluginId,
+            plugin.DisplayName,
+            plugin.Version,
+            plugin.Description,
+            plugin.IsEnabled,
+            plugin.StatusSummary,
+            plugin.IsPendingUninstall,
+            plugin.RestartRequired);
     }
 
     private void ThemeToggle_Click(object sender, RoutedEventArgs e)

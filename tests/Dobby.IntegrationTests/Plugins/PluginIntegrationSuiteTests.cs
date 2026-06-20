@@ -104,7 +104,7 @@ public sealed class PluginIntegrationSuiteTests
         activation.Value.Completion.ShouldBe(PluginActivationCompletion.Completed);
         activation.Value.Run.Outcomes.Single().Status.ShouldBe(PluginActivationStatus.Active);
         activation.Value.Run.NavigationContributions.Select(item => item.RouteKey)
-            .ShouldBe(["plugin/com.dobby.sample/sample.home"]);
+            .ShouldBe(["plugin/com.dobby.sample/greet"]);
         reporter.Snapshots.Select(snapshot => snapshot.Status).ShouldContain(BackgroundOperationStatus.Running);
         reporter.Snapshots.Select(snapshot => snapshot.Status).ShouldContain(BackgroundOperationStatus.Completed);
 
@@ -114,7 +114,7 @@ public sealed class PluginIntegrationSuiteTests
         var pageCoordinator = new PluginPageRouteCoordinator(extensionRegistry, shell);
 
         var route = await pageCoordinator.ActivateRouteAsync(
-            "plugin/com.dobby.sample/sample.home",
+            "plugin/com.dobby.sample/greet",
             CancellationToken.None);
 
         route.IsSuccess.ShouldBeTrue();
@@ -410,8 +410,8 @@ internal sealed class SamplePluginPackageFixture : IDisposable
             "\",\"version\":\"" + Version +
             "\",\"vendorId\":\"dobby.vendor\",\"minHostVersion\":\"1.0.0\",\"entryAssembly\":\"" + entryAssembly +
             "\",\"displayName\":\"Sample Plugin\",\"description\":\"Sample plugin description\",\"dependsOn\":[],\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}],\"operationTargets\":[{\"id\":\"" + PluginId +
-            ".greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}],\"extensionPoints\":[{\"id\":\"sample.home\",\"target\":\"" + navigationTarget +
-            "\",\"routeKey\":\"sample.home\",\"labelKey\":\"sample.home.label\",\"group\":\"default\",\"weight\":100}],\"files\":[" + filesJson +
+            ".greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}],\"extensionPoints\":[{\"id\":\"sample.greet.page\",\"target\":\"" + navigationTarget +
+            "\",\"routeKey\":\"greet\",\"labelKey\":\"sample.nav.greet\",\"group\":\"default\",\"weight\":100}],\"files\":[" + filesJson +
             "],\"signature\":{\"algorithm\":\"ECDSA-P256-SHA256\",\"keyVersion\":1,\"value\":\"AQ\"}}";
     }
 

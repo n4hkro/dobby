@@ -26,6 +26,14 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private string? licenseFeedbackKey;
     private string? licensePluginId;
     private string? licensePluginName;
+    private bool canViewPluginsManager;
+    private bool canImportPluginsManager;
+    private bool canConfigurePluginsManager;
+    private bool canDeletePluginsManager;
+    private bool pluginsManagerBusy;
+    private IReadOnlyList<ShellPluginManagerItem> pluginsManagerItems = [];
+    private string? selectedPluginManagerPluginId;
+    private string? pluginsManagerFeedbackKey;
 
     public ShellViewModel(HostStringCatalog strings)
         : this(strings, Array.Empty<NavigationContribution>())
@@ -114,6 +122,68 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public string ThirdBarLabel => strings.GetString(HostResourceKeys.ShellThirdBar);
 
     public string BackgroundOperationLabel => strings.GetString(HostResourceKeys.ShellBackgroundOperation);
+
+    public string PluginsManagerHeading => strings.GetString(HostResourceKeys.PluginsManagerHeading);
+
+    public string PluginsManagerInstallLabel => strings.GetString(HostResourceKeys.PluginsManagerInstall);
+
+    public string PluginsManagerEnableLabel => strings.GetString(HostResourceKeys.PluginsManagerEnable);
+
+    public string PluginsManagerDisableLabel => strings.GetString(HostResourceKeys.PluginsManagerDisable);
+
+    public string PluginsManagerUninstallLabel => strings.GetString(HostResourceKeys.PluginsManagerUninstall);
+
+    public string PluginsManagerEmptyText => strings.GetString(HostResourceKeys.PluginsManagerEmpty);
+
+    public string PluginsManagerFeedbackText => string.IsNullOrWhiteSpace(pluginsManagerFeedbackKey)
+        ? string.Empty
+        : strings.GetString(pluginsManagerFeedbackKey);
+
+    public IReadOnlyList<ShellPluginManagerItem> PluginsManagerItems => canViewPluginsManager
+        ? pluginsManagerItems
+        : [];
+
+    public ShellPluginManagerItem? PluginsManagerSelectedItem => pluginsManagerItems
+        .FirstOrDefault(item => item.PluginId.Equals(selectedPluginManagerPluginId, StringComparison.Ordinal));
+
+    public string PluginsManagerSelectedDetailText => PluginsManagerSelectedItem is { } selected
+        ? PluginManagerDetailText(selected)
+        : string.Empty;
+
+    public Visibility PluginsManagerPanelVisibility => canViewPluginsManager || canImportPluginsManager
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility PluginsManagerListVisibility => canViewPluginsManager && pluginsManagerItems.Count > 0
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility PluginsManagerEmptyVisibility => canViewPluginsManager && pluginsManagerItems.Count == 0
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility PluginsManagerInstallVisibility => canImportPluginsManager
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public bool PluginsManagerCanView => canViewPluginsManager;
+
+    public bool PluginsManagerCanImport => canImportPluginsManager;
+
+    public bool PluginsManagerCanConfigure => canConfigurePluginsManager;
+
+    public bool PluginsManagerCanDelete => canDeletePluginsManager;
+
+    public bool PluginsManagerInstallIsEnabled => canImportPluginsManager && !pluginsManagerBusy;
+
+    public bool PluginsManagerEnableIsEnabled => CanUseSelectedPluginAction(canConfigurePluginsManager) &&
+        PluginsManagerSelectedItem is { IsEnabled: false, IsPendingUninstall: false };
+
+    public bool PluginsManagerDisableIsEnabled => CanUseSelectedPluginAction(canConfigurePluginsManager) &&
+        PluginsManagerSelectedItem is { IsEnabled: true, IsPendingUninstall: false };
+
+    public bool PluginsManagerUninstallIsEnabled => CanUseSelectedPluginAction(canDeletePluginsManager) &&
+        PluginsManagerSelectedItem is { IsPendingUninstall: false };
 
     public string LicenseHeading => strings.GetString(HostResourceKeys.LicenseHeading);
 
@@ -348,6 +418,67 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(LicenseFeedbackText));
     }
 
+    public void SetPluginsManagerSurface(
+        bool canView,
+        bool canImport,
+        bool canConfigure,
+        bool canDelete,
+        IReadOnlyList<ShellPluginManagerItem> plugins,
+        string? feedbackKey = null,
+        bool isBusy = false)
+    {
+        ArgumentNullException.ThrowIfNull(plugins);
+
+        canViewPluginsManager = canView;
+        canImportPluginsManager = canImport;
+        canConfigurePluginsManager = canConfigure;
+        canDeletePluginsManager = canDelete;
+        pluginsManagerBusy = isBusy;
+        pluginsManagerItems = plugins
+            .OrderBy(plugin => plugin.DisplayName, StringComparer.Ordinal)
+            .ThenBy(plugin => plugin.PluginId, StringComparer.Ordinal)
+            .ToArray();
+        pluginsManagerFeedbackKey = feedbackKey;
+        if (selectedPluginManagerPluginId is null ||
+            pluginsManagerItems.All(item => !item.PluginId.Equals(selectedPluginManagerPluginId, StringComparison.Ordinal)))
+        {
+            selectedPluginManagerPluginId = pluginsManagerItems.FirstOrDefault()?.PluginId;
+        }
+
+        NotifyPluginsManagerChanged();
+    }
+
+    public void SelectPlugin(string pluginId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+
+        selectedPluginManagerPluginId = pluginsManagerItems.Any(item => item.PluginId.Equals(pluginId, StringComparison.Ordinal))
+            ? pluginId
+            : null;
+        NotifyPluginsManagerChanged();
+    }
+
+    public void SetPluginsManagerBusy(bool isBusy)
+    {
+        pluginsManagerBusy = isBusy;
+        if (isBusy)
+        {
+            pluginsManagerFeedbackKey = HostResourceKeys.PluginsManagerInstallBusy;
+        }
+        else if (pluginsManagerFeedbackKey == HostResourceKeys.PluginsManagerInstallBusy)
+        {
+            pluginsManagerFeedbackKey = null;
+        }
+
+        NotifyPluginsManagerChanged();
+    }
+
+    public void SetPluginsManagerFeedback(string? feedbackKey)
+    {
+        pluginsManagerFeedbackKey = feedbackKey;
+        OnPropertyChanged(nameof(PluginsManagerFeedbackText));
+    }
+
     public void SetLicenseImportFeedback(string? feedbackKey)
     {
         licenseFeedbackKey = feedbackKey;
@@ -407,6 +538,26 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(FocusTraversal));
         OnPropertyChanged(nameof(NotificationPresentation));
         OnPropertyChanged(nameof(FeedbackStatePresentation));
+    }
+
+    private void NotifyPluginsManagerChanged()
+    {
+        OnPropertyChanged(nameof(PluginsManagerPanelVisibility));
+        OnPropertyChanged(nameof(PluginsManagerListVisibility));
+        OnPropertyChanged(nameof(PluginsManagerEmptyVisibility));
+        OnPropertyChanged(nameof(PluginsManagerInstallVisibility));
+        OnPropertyChanged(nameof(PluginsManagerCanView));
+        OnPropertyChanged(nameof(PluginsManagerCanImport));
+        OnPropertyChanged(nameof(PluginsManagerCanConfigure));
+        OnPropertyChanged(nameof(PluginsManagerCanDelete));
+        OnPropertyChanged(nameof(PluginsManagerInstallIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerEnableIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerDisableIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerUninstallIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerItems));
+        OnPropertyChanged(nameof(PluginsManagerSelectedItem));
+        OnPropertyChanged(nameof(PluginsManagerSelectedDetailText));
+        OnPropertyChanged(nameof(PluginsManagerFeedbackText));
     }
 
     private void RebuildNavigationLevels(string? routeKey)
@@ -492,8 +643,34 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             ? strings.GetString(HostResourceKeys.LicenseNoPlugin)
             : licensePluginId;
     }
+
+    private bool CanUseSelectedPluginAction(bool hasPermission)
+    {
+        return hasPermission &&
+            canViewPluginsManager &&
+            !pluginsManagerBusy &&
+            PluginsManagerSelectedItem is not null;
+    }
+
+    private string PluginManagerDetailText(ShellPluginManagerItem plugin)
+    {
+        var detail = $"{plugin.DisplayName} {plugin.Version} - {plugin.StatusSummary}";
+        return plugin.RestartRequired
+            ? $"{detail} - {strings.GetString(HostResourceKeys.PluginsManagerRestartRequired)}"
+            : detail;
+    }
 }
 
 public sealed record ShellNavigationItem(string RouteKey, string Label, int Order);
 
 public sealed record ShellPresentationItem(string Key, string Label);
+
+public sealed record ShellPluginManagerItem(
+    string PluginId,
+    string DisplayName,
+    string Version,
+    string Description,
+    bool IsEnabled,
+    string StatusSummary,
+    bool IsPendingUninstall,
+    bool RestartRequired);

@@ -82,6 +82,7 @@ public partial class App : System.Windows.Application
             var workSessionRegistry = new WorkSessionRegistry();
             var workSessionCloseCoordinator = new WorkSessionCloseCoordinator(workSessionRegistry);
             ConfigureSettingsAndAbout(shellViewModel, strings, loginRuntime, authenticatedSession?.UserId);
+            ConfigurePluginsManagerSurface(shellViewModel, loginRuntime, authenticatedSession?.UserId);
             WireBackgroundOperations(shellViewModel, loginRuntime.BackgroundOperations);
             ShellThemeCoordinator.ApplyTheme(this, currentTheme);
             var pluginPageRouteCoordinator = new PluginPageRouteCoordinator(
@@ -101,6 +102,9 @@ public partial class App : System.Windows.Application
                 loginRuntime.DiagnosticsOutputZipPath,
                 workSessionCloseCoordinator,
                 pluginPageRouteCoordinator: pluginPageRouteCoordinator,
+                pluginPackageInstallCoordinator: loginRuntime.PluginPackageInstallCoordinator,
+                pluginLifecycleCoordinator: loginRuntime.PluginLifecycleCoordinator,
+                pluginPackageFilePicker: new WindowsPluginPackageFilePicker(),
                 licenseImportCoordinator: loginRuntime.LicenseImportCoordinator,
                 licenseFilePicker: new WindowsLicenseFilePicker());
             window.ContentRendered += async (_, _) =>
@@ -170,15 +174,80 @@ public partial class App : System.Windows.Application
             pluginName: licenseSurface.PluginName);
     }
 
+    private static void ConfigurePluginsManagerSurface(
+        ShellViewModel shellViewModel,
+        HostLoginRuntime loginRuntime,
+        string? userId)
+    {
+        var actor = string.IsNullOrWhiteSpace(userId) ? "unknown" : userId;
+        var correlationId = Dobby.Core.CorrelationId.New();
+        var canView = IsAllowed(
+            loginRuntime.OperationAuthorizationPolicy,
+            actor,
+            BuiltInOperationTargets.PluginManagementTargetId,
+            OperationVerb.View,
+            correlationId);
+        var canImport = IsAllowed(
+            loginRuntime.OperationAuthorizationPolicy,
+            actor,
+            BuiltInOperationTargets.PluginManagementTargetId,
+            OperationVerb.Import,
+            correlationId);
+        var canConfigure = IsAllowed(
+            loginRuntime.OperationAuthorizationPolicy,
+            actor,
+            BuiltInOperationTargets.PluginManagementTargetId,
+            OperationVerb.Configure,
+            correlationId);
+        var canDelete = IsAllowed(
+            loginRuntime.OperationAuthorizationPolicy,
+            actor,
+            BuiltInOperationTargets.PluginManagementTargetId,
+            OperationVerb.Delete,
+            correlationId);
+        var snapshot = loginRuntime.PluginRuntimeCoordinator.MetadataCache.Snapshot();
+        shellViewModel.SetPluginsManagerSurface(
+            canView,
+            canImport,
+            canConfigure,
+            canDelete,
+            snapshot is { IsSuccess: true }
+                ? snapshot.Value.Select(plugin => new ShellPluginManagerItem(
+                    plugin.PluginId,
+                    plugin.DisplayName,
+                    plugin.Version,
+                    plugin.Description,
+                    plugin.IsEnabled,
+                    plugin.StatusSummary,
+                    plugin.IsPendingUninstall,
+                    plugin.RestartRequired)).ToArray()
+                : []);
+    }
+
     private static bool IsAllowed(
         OperationAuthorizationPolicy authorizationPolicy,
         string actor,
         OperationVerb verb,
         Dobby.Core.CorrelationId correlationId)
     {
+        return IsAllowed(
+            authorizationPolicy,
+            actor,
+            BuiltInOperationTargets.PluginLicenseTargetId,
+            verb,
+            correlationId);
+    }
+
+    private static bool IsAllowed(
+        OperationAuthorizationPolicy authorizationPolicy,
+        string actor,
+        string targetId,
+        OperationVerb verb,
+        Dobby.Core.CorrelationId correlationId)
+    {
         var decision = authorizationPolicy.Evaluate(
             new OperationPermissionCapability(
-                new OperationKey(BuiltInOperationTargets.PluginLicenseTargetId, verb).ToString()),
+                new OperationKey(targetId, verb).ToString()),
             new PolicyContext(actor, null, correlationId));
         return decision is { IsSuccess: true, Value.Allowed: true };
     }

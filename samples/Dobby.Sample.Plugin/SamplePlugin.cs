@@ -16,9 +16,9 @@ public sealed class SamplePluginModule : PluginBase
 public sealed class SampleHomePage(IBackgroundOperationReporter backgroundOperations) : IPluginPage
 {
     public PluginPageDescriptor Descriptor { get; } = new(
-        "sample.home",
-        "sample.home",
-        "sample.home.label");
+        "sample.greet.page",
+        "greet",
+        "sample.nav.greet");
 
     public ValueTask<Result<IPluginPageModel>> LoadAsync(
         PluginPageContext context,

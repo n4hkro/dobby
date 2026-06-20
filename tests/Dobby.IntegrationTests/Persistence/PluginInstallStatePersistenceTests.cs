@@ -37,6 +37,42 @@ public sealed class PluginInstallStatePersistenceTests
     }
 
     [Fact]
+    public void Post_login_migration_registers_append_only_plugin_lifecycle_state_columns()
+    {
+        using var fixture = PluginPersistenceFixture.Create();
+
+        fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All)
+            .IsSuccess.ShouldBeTrue();
+
+        PostLoginPluginPersistenceMigrations.All.Keys.ShouldContain("0005_plugin_lifecycle_state");
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = @MigrationId;",
+            new { MigrationId = "0005_plugin_lifecycle_state" })
+            .ShouldBe(1);
+        var stateColumns = fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('InstalledPluginState');")
+            .ToHashSet(StringComparer.Ordinal);
+        stateColumns.ShouldContain("IsPendingUninstall");
+        stateColumns.ShouldContain("DataRetentionChoice");
+        stateColumns.ShouldContain("RestartRequired");
+        stateColumns.ShouldContain("LastActivatedAtUtc");
+        var cacheColumns = fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('InstalledPluginMetadataCache');")
+            .ToHashSet(StringComparer.Ordinal);
+        cacheColumns.ShouldContain("IsPendingUninstall");
+        cacheColumns.ShouldContain("RestartRequired");
+    }
+
+    [Fact]
+    public void Installed_plugin_state_and_metadata_cache_expose_lifecycle_fields()
+    {
+        typeof(InstalledPluginState).GetProperty("IsPendingUninstall").ShouldNotBeNull();
+        typeof(InstalledPluginState).GetProperty("DataRetentionChoice").ShouldNotBeNull();
+        typeof(InstalledPluginState).GetProperty("RestartRequired").ShouldNotBeNull();
+        typeof(InstalledPluginState).GetProperty("LastActivatedAtUtc").ShouldNotBeNull();
+        typeof(InstalledPluginMetadata).GetProperty("IsPendingUninstall").ShouldNotBeNull();
+        typeof(InstalledPluginMetadata).GetProperty("RestartRequired").ShouldNotBeNull();
+    }
+
+    [Fact]
     public void Plugin_package_installer_writes_state_cache_and_cleans_staging_artifacts()
     {
         using var fixture = PluginPersistenceFixture.Create();

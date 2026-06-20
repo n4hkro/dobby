@@ -17,6 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Dobby.Application\Dobby.Application.csproj" />
+    <ProjectReference Include="..\..\src\Dobby.Admin\Dobby.Admin.csproj" />
     <ProjectReference Include="..\..\src\Dobby.Audit\Dobby.Audit.csproj" />
     <ProjectReference Include="..\..\src\Dobby.Configuration\Dobby.Configuration.csproj" />
     <ProjectReference Include="..\..\src\Dobby.Contracts\Dobby.Contracts.csproj" />

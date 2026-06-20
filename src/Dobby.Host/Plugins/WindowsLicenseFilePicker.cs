@@ -21,3 +21,23 @@ public sealed class WindowsLicenseFilePicker : ILicenseFilePicker
         return dialog.ShowDialog() == true ? dialog.FileName : null;
     }
 }
+
+public interface IPluginPackageFilePicker
+{
+    string? PickPluginPackageFile();
+}
+
+public sealed class WindowsPluginPackageFilePicker : IPluginPackageFilePicker
+{
+    public string? PickPluginPackageFile()
+    {
+        var dialog = new OpenFileDialog
+        {
+            CheckFileExists = true,
+            Filter = "Dobby plugin packages (*.dobbyplugin)|*.dobbyplugin|All files (*.*)|*.*",
+            Multiselect = false
+        };
+
+        return dialog.ShowDialog() == true ? dialog.FileName : null;
+    }
+}

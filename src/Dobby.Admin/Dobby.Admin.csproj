@@ -7,6 +7,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Dobby.Application\Dobby.Application.csproj" />
     <ProjectReference Include="..\Dobby.Core\Dobby.Core.csproj" />
+    <ProjectReference Include="..\Dobby.Licensing\Dobby.Licensing.csproj" />
+    <ProjectReference Include="..\Dobby.PluginFramework\Dobby.PluginFramework.csproj" />
     <ProjectReference Include="..\Dobby.Security\Dobby.Security.csproj" />
   </ItemGroup>
 </Project>

@@ -200,6 +200,12 @@ public static class HostLoginRuntimeFactory
             pluginTrustVerifier,
             pluginRuntimeDiagnosticsCoordinator,
             pluginId => ResolvePluginRuntimeMode(licenseRuntimeModeProvider, installedPluginStateStore, pluginId));
+        var pluginLifecycleCoordinator = new HostPluginLifecycleCoordinator(
+            installedPluginStateStore,
+            installedPluginMetadataCache,
+            pluginInstallStagingArea,
+            operationAuthorizationPolicy,
+            pluginRuntimeAuditCoordinator);
         var hostPluginRuntimeCoordinator = new HostPluginRuntimeCoordinator(
             migrator,
             installedPluginStateStore,
@@ -272,6 +278,7 @@ public static class HostLoginRuntimeFactory
             aboutInfoProvider,
             diagnosticsExportCoordinator,
             pluginPackageInstallCoordinator,
+            pluginLifecycleCoordinator,
             licenseImportCoordinator,
             hostPluginRuntimeCoordinator,
             currentContextService,

@@ -1,0 +1,216 @@
+using Dobby.Contracts.Policies;
+using Dobby.Core;
+using Dobby.PluginFramework.Packaging;
+using Dobby.Security.Authorization;
+
+namespace Dobby.Host.Plugins;
+
+public enum PluginUninstallDataChoice
+{
+    KeepData,
+    DeleteData
+}
+
+public sealed class HostPluginLifecycleCoordinator(
+    IInstalledPluginStateStore stateStore,
+    IInstalledPluginMetadataCache metadataCache,
+    IPluginInstallStagingArea stagingArea,
+    OperationAuthorizationPolicy authorizationPolicy,
+    PluginRuntimeAuditCoordinator auditCoordinator)
+{
+    public Result<IReadOnlyList<InstalledPluginMetadata>> ListPlugins(string actorId, CorrelationId correlationId)
+    {
+        var authorized = Authorize(actorId, OperationVerb.View, correlationId);
+        return authorized.IsSuccess
+            ? metadataCache.Snapshot()
+            : Result.Failure<IReadOnlyList<InstalledPluginMetadata>>(authorized.ErrorCode ?? ErrorCode.Forbidden);
+    }
+
+    public Result EnablePlugin(string actorId, string pluginId, CorrelationId correlationId)
+    {
+        return SetEnabled(actorId, pluginId, isEnabled: true, "Enabled", OperationVerb.Configure, correlationId);
+    }
+
+    public Result DisablePlugin(string actorId, string pluginId, CorrelationId correlationId)
+    {
+        return SetEnabled(actorId, pluginId, isEnabled: false, "Disabled", OperationVerb.Configure, correlationId);
+    }
+
+    public Result UninstallPlugin(
+        string actorId,
+        string pluginId,
+        PluginUninstallDataChoice dataChoice,
+        bool wasActivatedInCurrentProcess,
+        CorrelationId correlationId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+
+        var authorized = Authorize(actorId, OperationVerb.Delete, correlationId);
+        if (!authorized.IsSuccess)
+        {
+            return authorized;
+        }
+
+        var existing = stateStore.Get(pluginId);
+        if (!existing.IsSuccess)
+        {
+            return Result.Failure(existing.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        if (existing.Value is null)
+        {
+            return Result.Failure(ErrorCode.NotFound);
+        }
+
+        var choice = ToWireValue(dataChoice);
+        if (wasActivatedInCurrentProcess)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var pending = existing.Value with
+            {
+                IsEnabled = false,
+                IsPendingUninstall = true,
+                DataRetentionChoice = choice,
+                RestartRequired = true,
+                StatusSummary = "Pending uninstall",
+                UpdatedAtUtc = now
+            };
+            var updateState = stateStore.Upsert(pending);
+            if (!updateState.IsSuccess)
+            {
+                return Result.Failure(updateState.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+            }
+
+            var updateCache = metadataCache.Upsert(ToMetadata(pending));
+            if (!updateCache.IsSuccess)
+            {
+                return Result.Failure(updateCache.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+            }
+
+            auditCoordinator.AppendPluginUninstalled(actorId, pluginId, choice, restartRequired: true, correlationId);
+            return Result.Success();
+        }
+
+        var cleanup = stagingArea.Cleanup(existing.Value.RuntimePath);
+        if (!cleanup.IsSuccess)
+        {
+            return Result.Failure(cleanup.ErrorCode ?? ErrorCode.IoFailed);
+        }
+
+        var removeState = stateStore.Remove(pluginId);
+        if (!removeState.IsSuccess)
+        {
+            return Result.Failure(removeState.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        var removeCache = metadataCache.Remove(pluginId);
+        if (!removeCache.IsSuccess)
+        {
+            return Result.Failure(removeCache.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        auditCoordinator.AppendPluginUninstalled(actorId, pluginId, choice, restartRequired: false, correlationId);
+        return Result.Success();
+    }
+
+    private Result SetEnabled(
+        string actorId,
+        string pluginId,
+        bool isEnabled,
+        string statusSummary,
+        OperationVerb verb,
+        CorrelationId correlationId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+
+        var authorized = Authorize(actorId, verb, correlationId);
+        if (!authorized.IsSuccess)
+        {
+            return authorized;
+        }
+
+        var existing = stateStore.Get(pluginId);
+        if (!existing.IsSuccess)
+        {
+            return Result.Failure(existing.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        if (existing.Value is null)
+        {
+            return Result.Failure(ErrorCode.NotFound);
+        }
+
+        var updateState = stateStore.SetEnabled(pluginId, isEnabled, statusSummary);
+        if (!updateState.IsSuccess)
+        {
+            return Result.Failure(updateState.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        var updated = existing.Value with
+        {
+            IsEnabled = isEnabled,
+            StatusSummary = statusSummary,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+        var updateCache = metadataCache.Upsert(ToMetadata(updated));
+        if (!updateCache.IsSuccess)
+        {
+            return Result.Failure(updateCache.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        if (isEnabled)
+        {
+            auditCoordinator.AppendPluginEnabled(actorId, pluginId, correlationId);
+        }
+        else
+        {
+            auditCoordinator.AppendPluginDisabled(actorId, pluginId, correlationId);
+        }
+
+        return Result.Success();
+    }
+
+    private Result Authorize(string actorId, OperationVerb verb, CorrelationId correlationId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+
+        var operationKey = new OperationKey(BuiltInOperationTargets.PluginManagementTargetId, verb).ToString();
+        var decision = authorizationPolicy.Evaluate(
+            new OperationPermissionCapability(operationKey),
+            new PolicyContext(actorId, null, correlationId));
+        if (!decision.IsSuccess)
+        {
+            return Result.Failure(decision.ErrorCode ?? ErrorCode.Forbidden);
+        }
+
+        return decision.Value.Allowed
+            ? Result.Success()
+            : Result.Failure(ErrorCode.Forbidden);
+    }
+
+    private static InstalledPluginMetadata ToMetadata(InstalledPluginState state)
+    {
+        return new InstalledPluginMetadata(
+            state.PluginId,
+            state.DisplayName,
+            state.Version,
+            state.Description,
+            state.PackageFingerprint,
+            state.IsEnabled,
+            state.StatusSummary,
+            state.InstalledAtUtc,
+            state.UpdatedAtUtc,
+            state.IsPendingUninstall,
+            state.RestartRequired);
+    }
+
+    private static string ToWireValue(PluginUninstallDataChoice dataChoice)
+    {
+        return dataChoice switch
+        {
+            PluginUninstallDataChoice.KeepData => "keep",
+            PluginUninstallDataChoice.DeleteData => "delete",
+            _ => throw new ArgumentOutOfRangeException(nameof(dataChoice), dataChoice, "Unsupported plugin uninstall data choice.")
+        };
+    }
+}

@@ -1,7 +1,29 @@
 # create-plugin-license
 
-Path owner for detached sample `.dobbylicense` creation.
+Detached sample `.dobbylicense` creation wrapper.
 
-The skeleton intentionally does not define public option names or emit production
-license artifacts. Use `Dobby.Admin.exe --cli create-plugin-license` as the stable
-command-name boundary until the approved option table exists.
+The wrapper invokes:
+
+```powershell
+Dobby.Admin.exe --cli create-plugin-license
+```
+
+Required options:
+
+- `--plugin-package-path`
+- `--signing-profile`
+- `--customer-id`
+- `--deployment-id`
+- `--device-binding-fixture-path`
+- `--valid-from`
+- `--valid-until`
+- `--revision`
+- `--output-path`
+
+Optional options:
+
+- `--report-path`
+- `--overwrite`
+
+The approved option and exit-code contract is documented in
+`docs/specs/admin-tool.md`.

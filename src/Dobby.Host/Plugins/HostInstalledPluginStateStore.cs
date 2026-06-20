@@ -18,10 +18,12 @@ public sealed class HostInstalledPluginStateStore(
                     """
                     INSERT INTO InstalledPluginState (
                         PluginId, Version, PackageFingerprint, DisplayName, Description, IsEnabled,
-                        ValidationSummary, RuntimePath, StatusSummary, InstalledAtUtc, UpdatedAtUtc
+                        ValidationSummary, RuntimePath, StatusSummary, InstalledAtUtc, UpdatedAtUtc,
+                        IsPendingUninstall, DataRetentionChoice, RestartRequired, LastActivatedAtUtc
                     ) VALUES (
                         @PluginId, @Version, @PackageFingerprint, @DisplayName, @Description, @IsEnabled,
-                        @ValidationSummary, @RuntimePath, @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc
+                        @ValidationSummary, @RuntimePath, @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc,
+                        @IsPendingUninstall, @DataRetentionChoice, @RestartRequired, @LastActivatedAtUtc
                     )
                     ON CONFLICT(PluginId) DO UPDATE SET
                         Version = excluded.Version,
@@ -32,9 +34,13 @@ public sealed class HostInstalledPluginStateStore(
                         ValidationSummary = excluded.ValidationSummary,
                         RuntimePath = excluded.RuntimePath,
                         StatusSummary = excluded.StatusSummary,
+                        IsPendingUninstall = excluded.IsPendingUninstall,
+                        DataRetentionChoice = excluded.DataRetentionChoice,
+                        RestartRequired = excluded.RestartRequired,
+                        LastActivatedAtUtc = excluded.LastActivatedAtUtc,
                         UpdatedAtUtc = excluded.UpdatedAtUtc;
                     """,
-                    state);
+                    ToParameters(state));
             });
 
             return Result.Success();
@@ -53,7 +59,8 @@ public sealed class HostInstalledPluginStateStore(
             """
             SELECT
                 PluginId, Version, PackageFingerprint, DisplayName, Description, IsEnabled,
-                ValidationSummary, RuntimePath, StatusSummary, InstalledAtUtc, UpdatedAtUtc
+                ValidationSummary, RuntimePath, StatusSummary, InstalledAtUtc, UpdatedAtUtc,
+                IsPendingUninstall, DataRetentionChoice, RestartRequired, LastActivatedAtUtc
             FROM InstalledPluginState
             WHERE PluginId = @PluginId;
             """,
@@ -69,7 +76,8 @@ public sealed class HostInstalledPluginStateStore(
             """
             SELECT
                 PluginId, Version, PackageFingerprint, DisplayName, Description, IsEnabled,
-                ValidationSummary, RuntimePath, StatusSummary, InstalledAtUtc, UpdatedAtUtc
+                ValidationSummary, RuntimePath, StatusSummary, InstalledAtUtc, UpdatedAtUtc,
+                IsPendingUninstall, DataRetentionChoice, RestartRequired, LastActivatedAtUtc
             FROM InstalledPluginState
             ORDER BY PluginId;
             """);
@@ -131,6 +139,10 @@ public sealed class HostInstalledPluginStateStore(
         public string StatusSummary { get; set; } = string.Empty;
         public string InstalledAtUtc { get; set; } = string.Empty;
         public string UpdatedAtUtc { get; set; } = string.Empty;
+        public long IsPendingUninstall { get; set; }
+        public string DataRetentionChoice { get; set; } = "keep";
+        public long RestartRequired { get; set; }
+        public string? LastActivatedAtUtc { get; set; }
 
         public InstalledPluginState ToState()
         {
@@ -145,7 +157,35 @@ public sealed class HostInstalledPluginStateStore(
                 RuntimePath,
                 StatusSummary,
                 DateTimeOffset.Parse(InstalledAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind),
-                DateTimeOffset.Parse(UpdatedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind));
+                DateTimeOffset.Parse(UpdatedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind),
+                IsPendingUninstall != 0,
+                DataRetentionChoice,
+                RestartRequired != 0,
+                string.IsNullOrWhiteSpace(LastActivatedAtUtc)
+                    ? null
+                    : DateTimeOffset.Parse(LastActivatedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind));
         }
+    }
+
+    private static object ToParameters(InstalledPluginState state)
+    {
+        return new
+        {
+            state.PluginId,
+            state.Version,
+            state.PackageFingerprint,
+            state.DisplayName,
+            state.Description,
+            IsEnabled = state.IsEnabled ? 1 : 0,
+            state.ValidationSummary,
+            state.RuntimePath,
+            state.StatusSummary,
+            InstalledAtUtc = state.InstalledAtUtc.ToString("O"),
+            UpdatedAtUtc = state.UpdatedAtUtc.ToString("O"),
+            IsPendingUninstall = state.IsPendingUninstall ? 1 : 0,
+            state.DataRetentionChoice,
+            RestartRequired = state.RestartRequired ? 1 : 0,
+            LastActivatedAtUtc = state.LastActivatedAtUtc?.ToString("O")
+        };
     }
 }

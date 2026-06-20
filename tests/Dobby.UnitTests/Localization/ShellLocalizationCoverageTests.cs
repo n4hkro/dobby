@@ -69,6 +69,35 @@ public sealed class ShellLocalizationCoverageTests
         }
     }
 
+    [Fact]
+    public void Plugins_manager_keys_are_registered_and_have_az_az_text()
+    {
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [HostResourceKeys.PluginsManagerHeading] = "Pluginlər",
+            [HostResourceKeys.PluginsManagerInstall] = "Plugin quraşdır",
+            [HostResourceKeys.PluginsManagerEnable] = "Aktiv et",
+            [HostResourceKeys.PluginsManagerDisable] = "Deaktiv et",
+            [HostResourceKeys.PluginsManagerUninstall] = "Sil",
+            [HostResourceKeys.PluginsManagerEmpty] = "Quraşdırılmış plugin yoxdur",
+            [HostResourceKeys.PluginsManagerRestartRequired] = "Yenidən başlatma tələb olunur",
+            [HostResourceKeys.PluginsManagerInstallBusy] = "Plugin quraşdırılır",
+            [HostResourceKeys.PluginsManagerOperationDenied] = "Bu plugin əməliyyatı üçün icazə yoxdur"
+        };
+        var resourceKeys = ResxKeys();
+        var fallbackCatalog = new HostStringCatalog();
+        var resourceCatalog = HostStringCatalog.CreateResourceBacked();
+        var azAz = CultureInfo.GetCultureInfo("az-AZ");
+
+        foreach (var (key, value) in expected)
+        {
+            HostResourceKeys.Sprint7VisibleKeys.ShouldContain(key);
+            resourceKeys.ShouldContain(key);
+            fallbackCatalog.GetString(key, azAz).ShouldBe(value);
+            resourceCatalog.GetString(key, azAz).ShouldBe(value);
+        }
+    }
+
     private static HashSet<string> ResxKeys()
     {
         var path = Path.Combine(RepoRoot().FullName, "src", "Dobby.Localization", "Resources", "Host.az-AZ.resx");

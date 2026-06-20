@@ -1,7 +1,24 @@
 # sign-plugin-package
 
-Path owner for the dev/QA sample package signing wrapper.
+Dev/QA sample package signing wrapper.
 
-The skeleton intentionally does not define public option names or accept fake
-signing key material. Use `Dobby.Admin.exe --cli sign-plugin-package` as the
-stable command-name boundary until the approved option table exists.
+The wrapper invokes:
+
+```powershell
+Dobby.Admin.exe --cli sign-plugin-package
+```
+
+Required options:
+
+- `--input-path`
+- `--signing-profile`
+- `--output-path`
+
+Optional options:
+
+- `--trust-profile`
+- `--report-path`
+- `--overwrite`
+
+The approved option and exit-code contract is documented in
+`docs/specs/admin-tool.md`.

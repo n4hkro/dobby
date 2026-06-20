@@ -22,5 +22,6 @@
     <EmbeddedResource Include="Persistence\Migrations\0002_postlogin_bootstrap.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0002_postlogin_bootstrap.sql" />
     <EmbeddedResource Include="Persistence\Migrations\0003_license_state.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0003_license_state.sql" />
     <EmbeddedResource Include="Persistence\Migrations\0004_license_lifecycle_inputs.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0004_license_lifecycle_inputs.sql" />
+    <EmbeddedResource Include="Persistence\Migrations\0005_plugin_lifecycle_state.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0005_plugin_lifecycle_state.sql" />
   </ItemGroup>
 </Project>

@@ -18,10 +18,10 @@ public sealed class HostInstalledPluginMetadataCache(
                     """
                     INSERT INTO InstalledPluginMetadataCache (
                         PluginId, DisplayName, Version, Description, PackageFingerprint, IsEnabled,
-                        StatusSummary, InstalledAtUtc, UpdatedAtUtc
+                        StatusSummary, InstalledAtUtc, UpdatedAtUtc, IsPendingUninstall, RestartRequired
                     ) VALUES (
                         @PluginId, @DisplayName, @Version, @Description, @PackageFingerprint, @IsEnabled,
-                        @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc
+                        @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc, @IsPendingUninstall, @RestartRequired
                     )
                     ON CONFLICT(PluginId) DO UPDATE SET
                         DisplayName = excluded.DisplayName,
@@ -30,9 +30,11 @@ public sealed class HostInstalledPluginMetadataCache(
                         PackageFingerprint = excluded.PackageFingerprint,
                         IsEnabled = excluded.IsEnabled,
                         StatusSummary = excluded.StatusSummary,
+                        IsPendingUninstall = excluded.IsPendingUninstall,
+                        RestartRequired = excluded.RestartRequired,
                         UpdatedAtUtc = excluded.UpdatedAtUtc;
                     """,
-                    metadata);
+                    ToParameters(metadata));
             });
 
             return Result.Success();
@@ -51,7 +53,7 @@ public sealed class HostInstalledPluginMetadataCache(
             """
             SELECT
                 PluginId, DisplayName, Version, Description, PackageFingerprint, IsEnabled,
-                StatusSummary, InstalledAtUtc, UpdatedAtUtc
+                StatusSummary, InstalledAtUtc, UpdatedAtUtc, IsPendingUninstall, RestartRequired
             FROM InstalledPluginMetadataCache
             WHERE PluginId = @PluginId;
             """,
@@ -67,7 +69,7 @@ public sealed class HostInstalledPluginMetadataCache(
             """
             SELECT
                 PluginId, DisplayName, Version, Description, PackageFingerprint, IsEnabled,
-                StatusSummary, InstalledAtUtc, UpdatedAtUtc
+                StatusSummary, InstalledAtUtc, UpdatedAtUtc, IsPendingUninstall, RestartRequired
             FROM InstalledPluginMetadataCache
             ORDER BY PluginId;
             """);
@@ -88,13 +90,13 @@ public sealed class HostInstalledPluginMetadataCache(
                         """
                         INSERT INTO InstalledPluginMetadataCache (
                             PluginId, DisplayName, Version, Description, PackageFingerprint, IsEnabled,
-                            StatusSummary, InstalledAtUtc, UpdatedAtUtc
+                            StatusSummary, InstalledAtUtc, UpdatedAtUtc, IsPendingUninstall, RestartRequired
                         ) VALUES (
                             @PluginId, @DisplayName, @Version, @Description, @PackageFingerprint, @IsEnabled,
-                            @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc
+                            @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc, @IsPendingUninstall, @RestartRequired
                         );
                         """,
-                        new InstalledPluginMetadata(
+                        ToParameters(new InstalledPluginMetadata(
                             state.PluginId,
                             state.DisplayName,
                             state.Version,
@@ -103,7 +105,9 @@ public sealed class HostInstalledPluginMetadataCache(
                             state.IsEnabled,
                             state.StatusSummary,
                             state.InstalledAtUtc,
-                            state.UpdatedAtUtc));
+                            state.UpdatedAtUtc,
+                            state.IsPendingUninstall,
+                            state.RestartRequired)));
                 }
             });
 
@@ -141,6 +145,8 @@ public sealed class HostInstalledPluginMetadataCache(
         public string StatusSummary { get; set; } = string.Empty;
         public string InstalledAtUtc { get; set; } = string.Empty;
         public string UpdatedAtUtc { get; set; } = string.Empty;
+        public long IsPendingUninstall { get; set; }
+        public long RestartRequired { get; set; }
 
         public InstalledPluginMetadata ToMetadata()
         {
@@ -153,7 +159,27 @@ public sealed class HostInstalledPluginMetadataCache(
                 IsEnabled != 0,
                 StatusSummary,
                 DateTimeOffset.Parse(InstalledAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind),
-                DateTimeOffset.Parse(UpdatedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind));
+                DateTimeOffset.Parse(UpdatedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind),
+                IsPendingUninstall != 0,
+                RestartRequired != 0);
         }
+    }
+
+    private static object ToParameters(InstalledPluginMetadata metadata)
+    {
+        return new
+        {
+            metadata.PluginId,
+            metadata.DisplayName,
+            metadata.Version,
+            metadata.Description,
+            metadata.PackageFingerprint,
+            IsEnabled = metadata.IsEnabled ? 1 : 0,
+            metadata.StatusSummary,
+            InstalledAtUtc = metadata.InstalledAtUtc.ToString("O"),
+            UpdatedAtUtc = metadata.UpdatedAtUtc.ToString("O"),
+            IsPendingUninstall = metadata.IsPendingUninstall ? 1 : 0,
+            RestartRequired = metadata.RestartRequired ? 1 : 0
+        };
     }
 }

@@ -107,6 +107,38 @@ public sealed class PluginRuntimeAuditCoordinator(
         }
     }
 
+    public void AppendPluginEnabled(string actorId, string pluginId, CorrelationId correlationId)
+    {
+        AppendLifecycleEvent(AuditEventName.PluginEnable, actorId, pluginId, "Enabled", correlationId);
+    }
+
+    public void AppendPluginDisabled(string actorId, string pluginId, CorrelationId correlationId)
+    {
+        AppendLifecycleEvent(AuditEventName.PluginDisable, actorId, pluginId, "Disabled", correlationId);
+    }
+
+    public void AppendPluginUninstalled(
+        string actorId,
+        string pluginId,
+        string dataChoice,
+        bool restartRequired,
+        CorrelationId correlationId)
+    {
+        Append(
+            AuditEventName.PluginUninstall,
+            actorId,
+            PluginTarget(pluginId),
+            AuditResult.Success,
+            correlationId,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["pluginId"] = pluginId,
+                ["dataChoice"] = dataChoice,
+                ["restartRequired"] = restartRequired ? "true" : "false",
+                ["diagnosticMarker"] = $"{AuditEventName.PluginUninstall}:{(restartRequired ? "pending" : "removed")}"
+            });
+    }
+
     private void Append(
         string eventName,
         string actorId,
@@ -123,6 +155,27 @@ public sealed class PluginRuntimeAuditCoordinator(
             correlationId,
             timeProvider.GetUtcNow(),
             DiagnosticRedactor.RedactFields(details)));
+    }
+
+    private void AppendLifecycleEvent(
+        string eventName,
+        string actorId,
+        string pluginId,
+        string status,
+        CorrelationId correlationId)
+    {
+        Append(
+            eventName,
+            actorId,
+            PluginTarget(pluginId),
+            AuditResult.Success,
+            correlationId,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["pluginId"] = pluginId,
+                ["status"] = status,
+                ["diagnosticMarker"] = eventName
+            });
     }
 
     private static IReadOnlyDictionary<string, string> ReasonDetails(

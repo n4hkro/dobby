@@ -93,6 +93,33 @@
   <data name="Dobby.Shell.Diagnostics.Exported" xml:space="preserve">
     <value>Diaqnostika ixrac edildi</value>
   </data>
+  <data name="Dobby.Shell.Plugins.Manager.Heading" xml:space="preserve">
+    <value>Pluginlər</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Install" xml:space="preserve">
+    <value>Plugin quraşdır</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Enable" xml:space="preserve">
+    <value>Aktiv et</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Disable" xml:space="preserve">
+    <value>Deaktiv et</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Uninstall" xml:space="preserve">
+    <value>Sil</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Empty" xml:space="preserve">
+    <value>Quraşdırılmış plugin yoxdur</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.RestartRequired" xml:space="preserve">
+    <value>Yenidən başlatma tələb olunur</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.InstallBusy" xml:space="preserve">
+    <value>Plugin quraşdırılır</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.OperationDenied" xml:space="preserve">
+    <value>Bu plugin əməliyyatı üçün icazə yoxdur</value>
+  </data>
   <data name="Dobby.Shell.Plugins.License.Heading" xml:space="preserve">
     <value>Plugin lisenziyası</value>
   </data>

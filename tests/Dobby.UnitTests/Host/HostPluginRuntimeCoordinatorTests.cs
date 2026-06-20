@@ -87,6 +87,51 @@ public sealed class HostPluginRuntimeCoordinatorTests
     }
 
     [Fact]
+    public void Apply_post_login_migrations_deletes_pending_uninstall_runtime_before_cache_rebuild()
+    {
+        var migrator = Substitute.For<IHostPersistenceMigrator>();
+        migrator.ApplyPostLoginMigrations(Arg.Any<IReadOnlyDictionary<string, string>>())
+            .Returns(PersistenceResult.Success());
+        var pending = CreateInstalledState("pending-runtime", "pending-fingerprint") with
+        {
+            PluginId = "com.dobby.pending",
+            IsEnabled = false,
+            IsPendingUninstall = true,
+            DataRetentionChoice = "delete",
+            RestartRequired = true,
+            StatusSummary = "Pending uninstall"
+        };
+        var retained = CreateInstalledState("retained-runtime", "retained-fingerprint") with
+        {
+            PluginId = "com.dobby.retained"
+        };
+        var stateStore = Substitute.For<IInstalledPluginStateStore>();
+        stateStore.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>([pending, retained]));
+        stateStore.Remove(pending.PluginId).Returns(Result.Success());
+        var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+        metadataCache.Remove(pending.PluginId).Returns(Result.Success());
+        metadataCache.RebuildFrom(Arg.Any<IReadOnlyList<InstalledPluginState>>()).Returns(Result.Success());
+        var staging = Substitute.For<IPluginInstallStagingArea>();
+        staging.Recover().Returns(Result.Success(0));
+        staging.Cleanup(pending.RuntimePath).Returns(Result.Success());
+        staging.CleanupRuntimeOrphans(Arg.Any<IReadOnlyCollection<string>>()).Returns(Result.Success(0));
+        var coordinator = CreateCoordinator(
+            migrator: migrator,
+            stateStore: stateStore,
+            staging: staging,
+            metadataCache: metadataCache);
+
+        var result = coordinator.ApplyPostLoginMigrations();
+
+        result.IsSuccess.ShouldBeTrue();
+        staging.Received(1).Cleanup(pending.RuntimePath);
+        stateStore.Received(1).Remove(pending.PluginId);
+        metadataCache.Received(1).Remove(pending.PluginId);
+        metadataCache.Received(1).RebuildFrom(Arg.Is<IReadOnlyList<InstalledPluginState>>(states =>
+            states.Count == 1 && states[0].PluginId == retained.PluginId));
+    }
+
+    [Fact]
     public void Apply_post_login_migrations_does_not_recover_staging_when_migration_fails()
     {
         var migrator = Substitute.For<IHostPersistenceMigrator>();
@@ -173,6 +218,31 @@ public sealed class HostPluginRuntimeCoordinatorTests
                 Directory.Delete(runtimePath, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public void Activate_installed_plugins_ignores_pending_uninstall_state_without_reading_runtime()
+    {
+        var stateStore = Substitute.For<IInstalledPluginStateStore>();
+        stateStore.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>(
+        [
+            CreateInstalledState("missing-pending-runtime", "fingerprint") with
+            {
+                IsEnabled = false,
+                IsPendingUninstall = true,
+                RestartRequired = true,
+                StatusSummary = "Pending uninstall"
+            }
+        ]));
+        var registry = OperationTargetRegistry.CreateDefault();
+        var coordinator = CreateCoordinator(stateStore: stateStore, operationTargetRegistry: registry);
+
+        var result = coordinator.ActivateInstalledPlugins(new HostVersion(1, 0, 0), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Outcomes.ShouldBeEmpty();
+        result.Value.ActivatedPluginIds.ShouldBeEmpty();
+        result.Value.NavigationContributions.ShouldBeEmpty();
     }
 
     [Fact]

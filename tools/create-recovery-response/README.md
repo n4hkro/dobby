@@ -1,7 +1,23 @@
 # create-recovery-response
 
-Path owner for Owner recovery response generation.
+Owner recovery response generation wrapper.
 
-The skeleton intentionally does not define public option names or emit recovery
-artifacts. Use `Dobby.Admin.exe --cli create-recovery-response` as the stable
-command-name boundary until the approved option table exists.
+The wrapper invokes:
+
+```powershell
+Dobby.Admin.exe --cli create-recovery-response
+```
+
+Required options:
+
+- `--request-path`
+- `--signing-profile`
+- `--output-path`
+
+Optional options:
+
+- `--report-path`
+- `--overwrite`
+
+The approved option and exit-code contract is documented in
+`docs/specs/admin-tool.md`.

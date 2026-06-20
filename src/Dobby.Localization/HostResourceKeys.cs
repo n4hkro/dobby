@@ -74,6 +74,15 @@ public static class HostResourceKeys
     public const string ShellBackgroundOperation = "Dobby.Shell.BackgroundOperation";
     public const string ShellDiagnosticsExport = "Dobby.Shell.Diagnostics.Export";
     public const string ShellDiagnosticsExported = "Dobby.Shell.Diagnostics.Exported";
+    public const string PluginsManagerHeading = "Dobby.Shell.Plugins.Manager.Heading";
+    public const string PluginsManagerInstall = "Dobby.Shell.Plugins.Manager.Install";
+    public const string PluginsManagerEnable = "Dobby.Shell.Plugins.Manager.Enable";
+    public const string PluginsManagerDisable = "Dobby.Shell.Plugins.Manager.Disable";
+    public const string PluginsManagerUninstall = "Dobby.Shell.Plugins.Manager.Uninstall";
+    public const string PluginsManagerEmpty = "Dobby.Shell.Plugins.Manager.Empty";
+    public const string PluginsManagerRestartRequired = "Dobby.Shell.Plugins.Manager.RestartRequired";
+    public const string PluginsManagerInstallBusy = "Dobby.Shell.Plugins.Manager.InstallBusy";
+    public const string PluginsManagerOperationDenied = "Dobby.Shell.Plugins.Manager.OperationDenied";
     public const string LicenseHeading = "Dobby.Shell.Plugins.License.Heading";
     public const string LicenseStatusLabel = "Dobby.Shell.Plugins.License.Status";
     public const string LicenseListLabel = "Dobby.Shell.Plugins.License.List";
@@ -155,6 +164,15 @@ public static class HostResourceKeys
         ShellBackgroundOperation,
         ShellDiagnosticsExport,
         ShellDiagnosticsExported,
+        PluginsManagerHeading,
+        PluginsManagerInstall,
+        PluginsManagerEnable,
+        PluginsManagerDisable,
+        PluginsManagerUninstall,
+        PluginsManagerEmpty,
+        PluginsManagerRestartRequired,
+        PluginsManagerInstallBusy,
+        PluginsManagerOperationDenied,
         LicenseHeading,
         LicenseStatusLabel,
         LicenseListLabel,

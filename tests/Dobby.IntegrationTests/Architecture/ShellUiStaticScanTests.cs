@@ -69,6 +69,15 @@ public sealed class ShellUiStaticScanTests
             "ProfileMenuPanel",
             "SettingsCategoryList",
             "AboutFieldList",
+            "PluginsManagerPanel",
+            "PluginsManagerList",
+            "PluginsManagerEmptyText",
+            "PluginsManagerDetailText",
+            "PluginsManagerInstallButton",
+            "PluginsManagerEnableButton",
+            "PluginsManagerDisableButton",
+            "PluginsManagerUninstallButton",
+            "PluginsManagerFeedbackText",
             "LicensePanel",
             "LicenseStatusPanel",
             "LicenseStatusText",
@@ -92,6 +101,14 @@ public sealed class ShellUiStaticScanTests
         shell.ShouldContain("ClearSavedLogin_Click");
         shell.ShouldContain("Navigation_Click");
         shell.ShouldContain("WorkSessionStay_Click");
+        shell.ShouldContain("PluginsManagerInstall_Click");
+        shell.ShouldContain("PluginsManagerEnable_Click");
+        shell.ShouldContain("PluginsManagerDisable_Click");
+        shell.ShouldContain("PluginsManagerUninstall_Click");
+        shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerInstallIsEnabled}\"");
+        shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerEnableIsEnabled}\"");
+        shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerDisableIsEnabled}\"");
+        shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerUninstallIsEnabled}\"");
         shell.ShouldContain("IsEnabled=\"{Binding LicenseImportIsEnabled}\"");
         shell.ShouldContain("WorkSessionMinimize_Click");
         shell.ShouldContain("WorkSessionClose_Click");

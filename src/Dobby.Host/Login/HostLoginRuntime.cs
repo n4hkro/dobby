@@ -31,6 +31,7 @@ public sealed record HostLoginRuntime(
     AboutInfoProvider AboutInfoProvider,
     ShellDiagnosticsExportCoordinator DiagnosticsExportCoordinator,
     HostPluginPackageInstallCoordinator PluginPackageInstallCoordinator,
+    HostPluginLifecycleCoordinator PluginLifecycleCoordinator,
     LicenseImportCoordinator LicenseImportCoordinator,
     HostPluginRuntimeCoordinator PluginRuntimeCoordinator,
     CurrentCustomerDeploymentContextService CurrentCustomerDeploymentContextService,

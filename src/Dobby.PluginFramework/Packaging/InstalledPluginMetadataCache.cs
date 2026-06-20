@@ -11,7 +11,9 @@ public sealed record InstalledPluginMetadata(
     bool IsEnabled,
     string StatusSummary,
     DateTimeOffset InstalledAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    bool IsPendingUninstall = false,
+    bool RestartRequired = false);
 
 public interface IInstalledPluginMetadataCache
 {
