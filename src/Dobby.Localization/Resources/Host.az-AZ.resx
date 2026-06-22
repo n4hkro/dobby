@@ -117,6 +117,9 @@
   <data name="Dobby.Shell.Plugins.Manager.InstallBusy" xml:space="preserve">
     <value>Plugin quraşdırılır</value>
   </data>
+  <data name="Dobby.Shell.Plugins.Manager.UninstallBusy" xml:space="preserve">
+    <value>Plugin silinir</value>
+  </data>
   <data name="Dobby.Shell.Plugins.Manager.OperationDenied" xml:space="preserve">
     <value>Bu plugin əməliyyatı üçün icazə yoxdur</value>
   </data>

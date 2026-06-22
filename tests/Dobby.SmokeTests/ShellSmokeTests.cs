@@ -2,8 +2,22 @@ using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using Dobby.Audit;
 using Dobby.Admin.Commands;
+using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.PluginPages;
+using Dobby.Core;
+using Dobby.Core.Versioning;
+using Dobby.Host.Plugins;
+using Dobby.Infrastructure.Persistence;
+using Dobby.Infrastructure.ProtectedStorage;
 using Dobby.Localization;
+using Dobby.Messaging;
+using Dobby.Navigation;
+using Dobby.PluginFramework.Activation;
+using Dobby.PluginFramework.Packaging;
+using Dobby.Security.Authorization;
+using Dobby.Security.Trust;
 using Dobby.Shell;
 using Shouldly;
 
@@ -141,6 +155,134 @@ public sealed class ShellSmokeTests
         error.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task Sample_plugin_smoke_signs_installs_launches_and_exercises_main_actions()
+    {
+        var adminExe = FindBuiltAdminExe();
+        using var fixture = TempFixture.Create();
+        using var persistence = PluginSmokePersistenceFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var signedPackagePath = fixture.Path("sample.signed.dobbyplugin");
+        var keyPath = fixture.Path("dev-qa-private-key.pem");
+        File.WriteAllText(keyPath, key.ExportPkcs8PrivateKeyPem(), new UTF8Encoding(false));
+        var sign = RunAdminProcess(
+            adminExe,
+            [
+                "--cli",
+                "sign-plugin-package",
+                "--input-path",
+                FindSamplePackageCandidate(),
+                "--signing-profile",
+                "dev-qa",
+                "--output-path",
+                signedPackagePath
+            ],
+            startInfo => startInfo.Environment[DevQaSigningKeyPathVariable] = keyPath);
+        sign.ExitCode.ShouldBe(0, sign.Output + sign.Error);
+        File.Exists(signedPackagePath).ShouldBeTrue();
+
+        persistence.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All)
+            .IsSuccess.ShouldBeTrue();
+        var stateStore = new HostInstalledPluginStateStore(persistence.Executor, persistence.TransactionScope);
+        var metadataCache = new HostInstalledPluginMetadataCache(persistence.Executor, persistence.TransactionScope);
+        var staging = new PluginInstallStagingArea(persistence.Root, persistence.Executor);
+        var operationTargets = OperationTargetRegistry.CreateDefault();
+        var grants = new MutableGrantReader(new UserPermissionState("managed", IsOwner: false, IsActive: true));
+        grants.Grant("managed", new OperationKey(BuiltInOperationTargets.PluginManagementTargetId, OperationVerb.Import));
+        var authorization = new OperationAuthorizationPolicy(operationTargets, grants);
+        var audit = new PluginRuntimeAuditCoordinator(new InMemoryAuditTrail(), TimeProvider.System);
+        var trustVerifier = new DevQaSigningKeyTrustVerifier(key);
+        var installer = new HostPluginPackageInstallCoordinator(
+            stateStore,
+            metadataCache,
+            staging,
+            authorization,
+            audit,
+            trustVerifier);
+
+        var install = installer.InstallPackage(
+            "managed",
+            signedPackagePath,
+            new HostVersion(1, 0, 0),
+            CorrelationId.New());
+
+        install.IsSuccess.ShouldBeTrue(install.IsSuccess ? null : install.ErrorCode.ToString());
+        await using var lifetimes = new PluginLifetimeManager();
+        var extensionRegistry = new PluginExtensionPointRegistry();
+        var reporter = new RecordingBackgroundOperationReporter();
+        var activationCancellation = new HostPluginActivationCancellation();
+        var workSessions = new RecordingPluginWorkSessionService();
+        var pluginHostServices = new PluginHostServices(
+            new InMemoryEventBus(),
+            reporter,
+            activationCancellation,
+            operationAuthorizationPolicy: authorization,
+            pluginWorkSessions: workSessions);
+        var runtime = new HostPluginRuntimeCoordinator(
+            persistence.Migrator,
+            stateStore,
+            metadataCache,
+            staging,
+            new PluginDataRetentionStore(persistence.Root),
+            operationTargets,
+            extensionRegistry,
+            lifetimes,
+            activationCancellation,
+            new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionRegistry, lifetimes, pluginHostServices)),
+            new PluginCurrentProcessActivationTracker(),
+            trustVerifier,
+            audit,
+            reporter);
+
+        var activation = await runtime.BeginPostLoginActivation(new HostVersion(1, 0, 0), "managed");
+
+        activation.IsSuccess.ShouldBeTrue(activation.IsSuccess ? null : activation.ErrorCode.ToString());
+        activation.Value.Run.Outcomes.Single().Status.ShouldBe(
+            PluginActivationStatus.Active,
+            activation.Value.Run.Outcomes.Single().Reason);
+        activation.Value.Run.NavigationContributions.Select(item => item.RouteKey)
+            .ShouldBe(["plugin/com.dobby.sample/sample", "plugin/com.dobby.sample/greet"]);
+        var shell = ShellViewModel.CreateDefault(new HostStringCatalog());
+        shell.ApplyPluginNavigationContributions(
+            PluginNavigationContributionMapper.Map(activation.Value.Run.NavigationContributions));
+        var pageCoordinator = new PluginPageRouteCoordinator(extensionRegistry, shell, () => "managed");
+        var route = await pageCoordinator.ActivateRouteAsync("plugin/com.dobby.sample/greet", CancellationToken.None);
+        route.IsSuccess.ShouldBeTrue();
+        var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginActionPageModel>();
+
+        var greet = pageModel.Actions.Single(action => action.ActionId == "sample.greet");
+        var denied = await greet.ExecuteAsync(pageModel.Context, CancellationToken.None);
+        denied.IsSuccess.ShouldBeFalse();
+        denied.ErrorCode.ShouldBe(ErrorCode.Forbidden);
+
+        grants.Grant("managed", new OperationKey("com.dobby.sample.greet", OperationVerb.Execute));
+        var success = await greet.ExecuteAsync(pageModel.Context, CancellationToken.None);
+        success.IsSuccess.ShouldBeTrue();
+        success.Value.MessageKey.ShouldBe("sample.greet.success");
+
+        var invalid = await pageModel.Actions.Single(action => action.ActionId == "sample.invalid-input")
+            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        invalid.IsSuccess.ShouldBeFalse();
+        invalid.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+        var fault = await pageModel.Actions.Single(action => action.ActionId == "sample.fault")
+            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        fault.IsSuccess.ShouldBeFalse();
+        fault.ErrorCode.ShouldBe(ErrorCode.PluginInternalError);
+        var progress = await pageModel.Actions.Single(action => action.ActionId == "sample.progress")
+            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        progress.IsSuccess.ShouldBeTrue();
+        reporter.Snapshots.ShouldContain(snapshot =>
+            snapshot.OwnerKind == BackgroundOperationOwnerKind.Plugin &&
+            snapshot.OwnerId == "com.dobby.sample" &&
+            snapshot.Status == BackgroundOperationStatus.Completed);
+        var workSession = await pageModel.Actions.Single(action => action.ActionId == "sample.work-session")
+            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        workSession.IsSuccess.ShouldBeTrue();
+        workSessions.Events.ShouldContain("open:com.dobby.sample:plugin/com.dobby.sample/greet:sample.work-session");
+        workSessions.Events.ShouldContain("progress:50");
+        workSessions.Events.ShouldContain("result:sample.work-session.completed");
+    }
+
     private static string FindBuiltAdminExe()
     {
         var root = RepoRoot().FullName;
@@ -152,6 +294,19 @@ public sealed class ShellSmokeTests
 
         return candidates.FirstOrDefault(File.Exists)
             ?? throw new FileNotFoundException("Smoke requires a built Dobby.Admin.exe artifact.");
+    }
+
+    private static string FindSamplePackageCandidate()
+    {
+        var root = RepoRoot().FullName;
+        var candidates = new[]
+        {
+            System.IO.Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", "Release", "net10.0", "package"),
+            System.IO.Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", "Debug", "net10.0", "package")
+        };
+
+        return candidates.FirstOrDefault(Directory.Exists)
+            ?? throw new DirectoryNotFoundException("Smoke requires the built sample plugin package candidate.");
     }
 
     private static AdminProcessResult RunAdminProcess(
@@ -221,6 +376,193 @@ public sealed class ShellSmokeTests
         int ExitCode,
         string Output,
         string Error);
+
+    private sealed class DevQaSigningKeyTrustVerifier(ECDsa key) : IPluginTrustVerifier
+    {
+        public PluginTrustVerificationResult Verify(PluginTrustPayload payload)
+        {
+            if (!payload.VendorId.Equals("dobby.dev-qa", StringComparison.Ordinal))
+            {
+                return PluginTrustVerificationResult.Failure("trust-failed", "Sample smoke only trusts dev/QA artifacts.");
+            }
+
+            if (!payload.Algorithm.Equals("ECDSA-P256-SHA256", StringComparison.Ordinal) ||
+                payload.KeyVersion != 1 ||
+                !TryDecodeSignature(payload.SignatureValue, out var signature))
+            {
+                return PluginTrustVerificationResult.Failure("signature-failed", "Sample smoke signature is malformed.");
+            }
+
+            return key.VerifyData(
+                payload.CanonicalPayload,
+                signature,
+                HashAlgorithmName.SHA256,
+                DSASignatureFormat.Rfc3279DerSequence)
+                ? PluginTrustVerificationResult.Success()
+                : PluginTrustVerificationResult.Failure("signature-failed", "Sample smoke signature verification failed.");
+        }
+
+        private static bool TryDecodeSignature(string value, out byte[] signature)
+        {
+            try
+            {
+                var padded = value.Replace('-', '+').Replace('_', '/');
+                padded = (padded.Length % 4) switch
+                {
+                    2 => padded + "==",
+                    3 => padded + "=",
+                    0 => padded,
+                    _ => throw new FormatException("Invalid base64url length.")
+                };
+                signature = Convert.FromBase64String(padded);
+                return signature.Length > 0;
+            }
+            catch (FormatException)
+            {
+                signature = [];
+                return false;
+            }
+        }
+    }
+
+    private sealed class RecordingBackgroundOperationReporter : IBackgroundOperationReporter
+    {
+        private readonly List<BackgroundOperationSnapshot> snapshots = [];
+        private readonly IProgress<BackgroundOperationSnapshot> progress;
+
+        public RecordingBackgroundOperationReporter()
+        {
+            progress = new RecordingProgress(snapshots);
+        }
+
+        public IReadOnlyList<BackgroundOperationSnapshot> Snapshots => snapshots;
+
+        public IProgress<BackgroundOperationSnapshot> Progress => progress;
+
+        private sealed class RecordingProgress(List<BackgroundOperationSnapshot> snapshots)
+            : IProgress<BackgroundOperationSnapshot>
+        {
+            public void Report(BackgroundOperationSnapshot value)
+            {
+                snapshots.Add(value);
+            }
+        }
+    }
+
+    private sealed class RecordingPluginWorkSessionService : IPluginWorkSessionService
+    {
+        private Guid currentSessionId;
+
+        public List<string> Events { get; } = [];
+
+        public Result<PluginWorkSessionHandle> Open(string ownerId, string routeKey, string labelKey)
+        {
+            currentSessionId = Guid.CreateVersion7();
+            Events.Add($"open:{ownerId}:{routeKey}:{labelKey}");
+            return Result.Success(new PluginWorkSessionHandle(currentSessionId, ownerId, routeKey, labelKey));
+        }
+
+        public Result UpdateProgress(Guid sessionId, int percent)
+        {
+            sessionId.ShouldBe(currentSessionId);
+            Events.Add($"progress:{percent}");
+            return Result.Success();
+        }
+
+        public Result RecordResult(Guid sessionId, string resultKey)
+        {
+            sessionId.ShouldBe(currentSessionId);
+            Events.Add($"result:{resultKey}");
+            return Result.Success();
+        }
+
+        public Result RecordError(Guid sessionId, string errorSummaryKey)
+        {
+            sessionId.ShouldBe(currentSessionId);
+            Events.Add($"error:{errorSummaryKey}");
+            return Result.Success();
+        }
+
+        public Result Close(Guid sessionId)
+        {
+            sessionId.ShouldBe(currentSessionId);
+            Events.Add("close");
+            return Result.Success();
+        }
+    }
+
+    private sealed class MutableGrantReader(UserPermissionState state) : IPermissionGrantReader
+    {
+        private readonly HashSet<OperationKey> grants = [];
+
+        public void Grant(string userId, OperationKey key)
+        {
+            userId.ShouldBe(state.UserId);
+            grants.Add(key);
+        }
+
+        public Result<UserPermissionState> LoadUserState(string userId)
+        {
+            return userId.Equals(state.UserId, StringComparison.Ordinal)
+                ? Result.Success(state)
+                : Result.Failure<UserPermissionState>(ErrorCode.NotFound);
+        }
+
+        public Result<bool> HasGrant(string userId, OperationKey key)
+        {
+            return Result.Success(userId.Equals(state.UserId, StringComparison.Ordinal) && grants.Contains(key));
+        }
+    }
+
+    private sealed class PluginSmokePersistenceFixture : IDisposable
+    {
+        private PluginSmokePersistenceFixture(string root)
+        {
+            Root = root;
+            var options = new HostPersistenceOptions(root, "SQLite3MultipleCiphers", true, 5000);
+            Probe = ProtectedMaterialAvailabilityProbe.CreateForDataRoot(root);
+            Probe.IsAvailable().ShouldBeTrue();
+            Factory = new EncryptedSqliteConnectionFactory(options, Probe);
+            Migrator = new HostPersistenceMigrator(Factory, Probe);
+            Executor = new HostPersistenceCommandExecutor(Factory);
+            TransactionScope = new HostPersistenceTransactionScope(Factory);
+            Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        }
+
+        public string Root { get; }
+
+        public ProtectedMaterialAvailabilityProbe Probe { get; }
+
+        public EncryptedSqliteConnectionFactory Factory { get; }
+
+        public HostPersistenceMigrator Migrator { get; }
+
+        public HostPersistenceCommandExecutor Executor { get; }
+
+        public HostPersistenceTransactionScope TransactionScope { get; }
+
+        public static PluginSmokePersistenceFixture Create()
+        {
+            var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dobby-sample-plugin-smoke-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            return new PluginSmokePersistenceFixture(root);
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (Directory.Exists(Root))
+                {
+                    Directory.Delete(Root, recursive: true);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // Non-collectible plugin load contexts can keep the sample DLL locked on Windows.
+            }
+        }
+    }
 
     private sealed class TempFixture : IDisposable
     {

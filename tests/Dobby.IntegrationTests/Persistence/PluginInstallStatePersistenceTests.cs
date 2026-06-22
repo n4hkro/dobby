@@ -62,6 +62,46 @@ public sealed class PluginInstallStatePersistenceTests
     }
 
     [Fact]
+    public void Plugin_lifecycle_state_migration_applies_after_existing_post_login_migrations()
+    {
+        using var fixture = PluginPersistenceFixture.Create();
+        var priorMigrations = PostLoginPluginPersistenceMigrations.All
+            .Where(pair => !pair.Key.Equals(
+                PostLoginPluginPersistenceMigrations.PluginLifecycleStateMigrationId,
+                StringComparison.Ordinal))
+            .ToDictionary(StringComparer.Ordinal);
+        var lifecycleMigration = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [PostLoginPluginPersistenceMigrations.PluginLifecycleStateMigrationId] =
+                PostLoginPluginPersistenceMigrations.All[
+                    PostLoginPluginPersistenceMigrations.PluginLifecycleStateMigrationId]
+        };
+
+        fixture.Migrator.ApplyPostLoginMigrations(priorMigrations).IsSuccess.ShouldBeTrue();
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = @MigrationId;",
+            new { MigrationId = PostLoginPluginPersistenceMigrations.PluginLifecycleStateMigrationId })
+            .ShouldBe(0);
+
+        fixture.Migrator.ApplyPostLoginMigrations(lifecycleMigration).IsSuccess.ShouldBeTrue();
+
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = @MigrationId;",
+            new { MigrationId = PostLoginPluginPersistenceMigrations.PluginLifecycleStateMigrationId })
+            .ShouldBe(1);
+        var stateColumns = fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('InstalledPluginState');")
+            .ToHashSet(StringComparer.Ordinal);
+        stateColumns.ShouldContain("IsPendingUninstall");
+        stateColumns.ShouldContain("DataRetentionChoice");
+        stateColumns.ShouldContain("RestartRequired");
+        stateColumns.ShouldContain("LastActivatedAtUtc");
+        var cacheColumns = fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('InstalledPluginMetadataCache');")
+            .ToHashSet(StringComparer.Ordinal);
+        cacheColumns.ShouldContain("IsPendingUninstall");
+        cacheColumns.ShouldContain("RestartRequired");
+    }
+
+    [Fact]
     public void Installed_plugin_state_and_metadata_cache_expose_lifecycle_fields()
     {
         typeof(InstalledPluginState).GetProperty("IsPendingUninstall").ShouldNotBeNull();

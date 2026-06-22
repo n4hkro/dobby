@@ -165,6 +165,24 @@ public sealed class ShellUiStaticScanTests
     }
 
     [Fact]
+    public void Plugins_manager_long_running_install_and_uninstall_report_background_operations()
+    {
+        var root = RepoRoot();
+        var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var appCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
+
+        mainWindowCode.ShouldContain("IBackgroundOperationReporter? backgroundOperations");
+        appCode.ShouldContain("backgroundOperations: loginRuntime.BackgroundOperations");
+        mainWindowCode.ShouldContain("ReportPluginsManagerBackgroundOperation(");
+        mainWindowCode.ShouldContain("backgroundOperations?.Progress.Report(new BackgroundOperationSnapshot(");
+        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerInstallBusy");
+        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerUninstallBusy");
+        mainWindowCode.ShouldContain("BackgroundOperationStatus.Running");
+        mainWindowCode.ShouldContain("BackgroundOperationStatus.Completed");
+        mainWindowCode.ShouldContain("BackgroundOperationStatus.Failed");
+    }
+
+    [Fact]
     public void Theme_resources_include_accessibility_motion_and_focus_tokens()
     {
         var root = RepoRoot();

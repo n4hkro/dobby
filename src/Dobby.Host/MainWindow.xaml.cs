@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using Dobby.Configuration;
+using Dobby.Contracts.BackgroundOperations;
 using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.Diagnostics;
@@ -35,6 +36,7 @@ public partial class MainWindow : Window
     private readonly IPluginUninstallConfirmation pluginUninstallConfirmation;
     private readonly LicenseImportCoordinator? licenseImportCoordinator;
     private readonly ILicenseFilePicker? licenseFilePicker;
+    private readonly IBackgroundOperationReporter? backgroundOperations;
     private string? diagnosticsSourceDirectory;
     private string? diagnosticsOutputZipPath;
     private DispatcherTimer? sessionTimer;
@@ -91,7 +93,8 @@ public partial class MainWindow : Window
         IPluginPackageFilePicker? pluginPackageFilePicker = null,
         IPluginUninstallConfirmation? pluginUninstallConfirmation = null,
         LicenseImportCoordinator? licenseImportCoordinator = null,
-        ILicenseFilePicker? licenseFilePicker = null)
+        ILicenseFilePicker? licenseFilePicker = null,
+        IBackgroundOperationReporter? backgroundOperations = null)
         : this()
     {
         this.sessionRuntime = sessionRuntime;
@@ -118,6 +121,7 @@ public partial class MainWindow : Window
         UpdateWorkSessionWarningVisibility();
         this.licenseImportCoordinator = licenseImportCoordinator;
         this.licenseFilePicker = licenseFilePicker;
+        this.backgroundOperations = backgroundOperations;
         shellViewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(ShellViewModel.ActivePluginPageModel))
@@ -361,15 +365,31 @@ public partial class MainWindow : Window
         }
 
         shellViewModel.SetPluginsManagerBusy(true);
+        var operationId = Guid.CreateVersion7();
+        var correlationId = CorrelationId.New();
+        ReportPluginsManagerBackgroundOperation(
+            operationId,
+            correlationId,
+            ownerId: null,
+            HostResourceKeys.PluginsManagerInstallBusy,
+            BackgroundOperationStatus.Running,
+            failureReason: null);
         try
         {
             var result = await Task.Run(() => pluginPackageInstallCoordinator.InstallPackage(
                 session.UserId,
                 selectedPath,
                 new HostVersion(1, 0, 0),
-                CorrelationId.New()));
+                correlationId));
             if (!result.IsSuccess)
             {
+                ReportPluginsManagerBackgroundOperation(
+                    operationId,
+                    correlationId,
+                    ownerId: null,
+                    HostResourceKeys.PluginsManagerInstallBusy,
+                    BackgroundOperationStatus.Failed,
+                    result.ErrorCode);
                 shellViewModel.SetPluginsManagerFeedback(
                     result.ErrorCode == ErrorCode.Forbidden
                         ? HostResourceKeys.PluginsManagerOperationDenied
@@ -377,6 +397,13 @@ public partial class MainWindow : Window
                 return;
             }
 
+            ReportPluginsManagerBackgroundOperation(
+                operationId,
+                correlationId,
+                result.Value.PluginId,
+                HostResourceKeys.PluginsManagerInstallBusy,
+                BackgroundOperationStatus.Completed,
+                failureReason: null);
             RefreshPluginsManagerItems(result.Value.PluginId);
         }
         finally
@@ -461,11 +488,27 @@ public partial class MainWindow : Window
         var actor = session.UserId;
         var selectedPluginId = shellViewModel.PluginsManagerSelectedItem.PluginId;
         shellViewModel.SetPluginsManagerBusy(true);
+        var operationId = Guid.CreateVersion7();
+        var correlationId = CorrelationId.New();
+        ReportPluginsManagerBackgroundOperation(
+            operationId,
+            correlationId,
+            selectedPluginId,
+            HostResourceKeys.PluginsManagerUninstallBusy,
+            BackgroundOperationStatus.Running,
+            failureReason: null);
         try
         {
-            var result = await Task.Run(() => action(coordinator, actor, selectedPluginId, CorrelationId.New()));
+            var result = await Task.Run(() => action(coordinator, actor, selectedPluginId, correlationId));
             if (!result.IsSuccess)
             {
+                ReportPluginsManagerBackgroundOperation(
+                    operationId,
+                    correlationId,
+                    selectedPluginId,
+                    HostResourceKeys.PluginsManagerUninstallBusy,
+                    BackgroundOperationStatus.Failed,
+                    result.ErrorCode);
                 shellViewModel.SetPluginsManagerFeedback(
                     result.ErrorCode == ErrorCode.Forbidden
                         ? HostResourceKeys.PluginsManagerOperationDenied
@@ -473,6 +516,13 @@ public partial class MainWindow : Window
                 return;
             }
 
+            ReportPluginsManagerBackgroundOperation(
+                operationId,
+                correlationId,
+                selectedPluginId,
+                HostResourceKeys.PluginsManagerUninstallBusy,
+                BackgroundOperationStatus.Completed,
+                failureReason: null);
             RefreshPluginsManagerItems(selectedPluginId);
         }
         finally
@@ -518,6 +568,30 @@ public partial class MainWindow : Window
             plugin.StatusSummary,
             plugin.IsPendingUninstall,
             plugin.RestartRequired);
+    }
+
+    private void ReportPluginsManagerBackgroundOperation(
+        Guid operationId,
+        CorrelationId correlationId,
+        string? ownerId,
+        string displayNameKey,
+        BackgroundOperationStatus status,
+        ErrorCode? failureReason)
+    {
+        var progress = status == BackgroundOperationStatus.Completed
+            ? BackgroundOperationProgress.Determinate(100)
+            : BackgroundOperationProgress.Indeterminate();
+        backgroundOperations?.Progress.Report(new BackgroundOperationSnapshot(
+            operationId,
+            BackgroundOperationOwnerKind.Host,
+            ownerId,
+            displayNameKey,
+            ShortDetailKey: null,
+            status,
+            progress,
+            CanCancel: false,
+            correlationId.Value,
+            failureReason));
     }
 
     private void ThemeToggle_Click(object sender, RoutedEventArgs e)

@@ -108,7 +108,8 @@ public partial class App : System.Windows.Application
                 pluginLifecycleCoordinator: loginRuntime.PluginLifecycleCoordinator,
                 pluginPackageFilePicker: new WindowsPluginPackageFilePicker(),
                 licenseImportCoordinator: loginRuntime.LicenseImportCoordinator,
-                licenseFilePicker: new WindowsLicenseFilePicker());
+                licenseFilePicker: new WindowsLicenseFilePicker(),
+                backgroundOperations: loginRuntime.BackgroundOperations);
             window.ContentRendered += async (_, _) =>
             {
                 var activation = await loginRuntime.PluginRuntimeCoordinator.BeginPostLoginActivation(
