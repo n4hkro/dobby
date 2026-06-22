@@ -82,7 +82,9 @@ public sealed class ShellLocalizationCoverageTests
             [HostResourceKeys.PluginsManagerEmpty] = "Quraşdırılmış plugin yoxdur",
             [HostResourceKeys.PluginsManagerRestartRequired] = "Yenidən başlatma tələb olunur",
             [HostResourceKeys.PluginsManagerInstallBusy] = "Plugin quraşdırılır",
-            [HostResourceKeys.PluginsManagerOperationDenied] = "Bu plugin əməliyyatı üçün icazə yoxdur"
+            [HostResourceKeys.PluginsManagerOperationDenied] = "Bu plugin əməliyyatı üçün icazə yoxdur",
+            [HostResourceKeys.PluginsManagerUninstallConfirmationTitle] = "Plugini sil",
+            [HostResourceKeys.PluginsManagerUninstallConfirmationMessage] = "{0} pluginini silmək istəyirsiniz? Bəli plugin datasını silir, Xeyr plugin datasını saxlayır, Ləğv et əməliyyatı dayandırır."
         };
         var resourceKeys = ResxKeys();
         var fallbackCatalog = new HostStringCatalog();

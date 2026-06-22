@@ -34,30 +34,65 @@ public sealed class ShellSmokeTests
     public void Admin_cli_process_rejects_unapproved_option_without_stack_trace()
     {
         var adminExe = FindBuiltAdminExe();
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo(adminExe)
-        {
-            UseShellExecute = false,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            CreateNoWindow = true
-        };
-        process.StartInfo.ArgumentList.Add("--cli");
-        process.StartInfo.ArgumentList.Add("create-recovery-response");
-        process.StartInfo.ArgumentList.Add("--unapproved-option");
+        var result = RunAdminProcess(adminExe, ["--cli", "create-recovery-response", "--unapproved-option"]);
 
-        process.Start().ShouldBeTrue();
-        if (!process.WaitForExit(30000))
-        {
-            process.Kill(entireProcessTree: true);
-            throw new TimeoutException("Admin CLI smoke timed out.");
-        }
+        result.ExitCode.ShouldBe(64, result.Output + result.Error);
+        result.Error.ShouldContain("option contract is not approved");
+        result.Error.ShouldNotContain(" at ");
+    }
 
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
-        process.ExitCode.ShouldBe(64, output + error);
-        error.ShouldContain("option contract is not approved");
-        error.ShouldNotContain(" at ");
+    [Fact]
+    public void Admin_cli_process_returns_validation_conflict_without_secret_paths_or_stack_trace()
+    {
+        var adminExe = FindBuiltAdminExe();
+        using var fixture = TempFixture.Create();
+        var outputPath = fixture.Path("signed.dobbyplugin");
+        File.WriteAllText(outputPath, "already exists", new UTF8Encoding(false));
+
+        var result = RunAdminProcess(adminExe, [
+            "--cli",
+            "sign-plugin-package",
+            "--input-path",
+            fixture.Root,
+            "--signing-profile",
+            "dev-qa",
+            "--output-path",
+            outputPath
+        ]);
+
+        result.ExitCode.ShouldBe(65, result.Output + result.Error);
+        result.Error.ShouldContain("output-conflict");
+        result.Error.ShouldNotContain(fixture.Root);
+        result.Error.ShouldNotContain(" at ");
+    }
+
+    [Fact]
+    public void Admin_cli_process_returns_unavailable_signing_material_without_secret_paths_or_stack_trace()
+    {
+        var adminExe = FindBuiltAdminExe();
+        using var fixture = TempFixture.Create();
+        var requestPath = fixture.Path("request.dobbyrecoveryrequest");
+        var outputPath = fixture.Path("response.dobbyrecovery");
+        File.WriteAllText(requestPath, RecoveryRequestJson(), new UTF8Encoding(false));
+
+        var result = RunAdminProcess(
+            adminExe,
+            [
+                "--cli",
+                "create-recovery-response",
+                "--request-path",
+                requestPath,
+                "--signing-profile",
+                "dev-qa",
+                "--output-path",
+                outputPath
+            ],
+            startInfo => startInfo.Environment.Remove(DevQaSigningKeyPathVariable));
+
+        result.ExitCode.ShouldBe(66, result.Output + result.Error);
+        result.Error.ShouldContain("signing-material-unavailable");
+        result.Error.ShouldNotContain(fixture.Root);
+        result.Error.ShouldNotContain(" at ");
     }
 
     [Fact]
@@ -119,6 +154,38 @@ public sealed class ShellSmokeTests
             ?? throw new FileNotFoundException("Smoke requires a built Dobby.Admin.exe artifact.");
     }
 
+    private static AdminProcessResult RunAdminProcess(
+        string adminExe,
+        IReadOnlyList<string> arguments,
+        Action<ProcessStartInfo>? configure = null)
+    {
+        using var process = new Process();
+        process.StartInfo = new ProcessStartInfo(adminExe)
+        {
+            UseShellExecute = false,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            CreateNoWindow = true
+        };
+        foreach (var argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
+
+        configure?.Invoke(process.StartInfo);
+        process.Start().ShouldBeTrue();
+        if (!process.WaitForExit(30000))
+        {
+            process.Kill(entireProcessTree: true);
+            throw new TimeoutException("Admin CLI smoke timed out.");
+        }
+
+        return new AdminProcessResult(
+            process.ExitCode,
+            process.StandardOutput.ReadToEnd(),
+            process.StandardError.ReadToEnd());
+    }
+
     private static DirectoryInfo RepoRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);
@@ -149,6 +216,11 @@ public sealed class ShellSmokeTests
             }
             """;
     }
+
+    private sealed record AdminProcessResult(
+        int ExitCode,
+        string Output,
+        string Error);
 
     private sealed class TempFixture : IDisposable
     {

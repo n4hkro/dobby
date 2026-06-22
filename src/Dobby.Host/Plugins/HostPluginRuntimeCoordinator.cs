@@ -22,6 +22,7 @@ public sealed class HostPluginRuntimeCoordinator(
     IInstalledPluginStateStore stateStore,
     IInstalledPluginMetadataCache metadataCache,
     IPluginInstallStagingArea stagingArea,
+    IPluginDataRetentionStore dataRetentionStore,
     OperationTargetRegistry operationTargetRegistry,
     PluginExtensionPointRegistry extensionPointRegistry,
     PluginLifetimeManager lifetimeManager,
@@ -37,6 +38,8 @@ public sealed class HostPluginRuntimeCoordinator(
     private readonly object activationGate = new();
     private Task<Result<PluginActivationExecutionOutcome>>? activationTask;
     private bool disposing;
+    private readonly IPluginDataRetentionStore dataRetentionStore =
+        dataRetentionStore ?? throw new ArgumentNullException(nameof(dataRetentionStore));
 
     public IInstalledPluginStateStore StateStore { get; } = stateStore;
 
@@ -101,6 +104,17 @@ public sealed class HostPluginRuntimeCoordinator(
                 return PersistenceResult.Failure(ToPersistenceError(
                     pendingCleanup.ErrorCode,
                     "Pending uninstall plugin runtime cleanup failed during post-login recovery."));
+            }
+
+            if (state.DataRetentionChoice.Equals("delete", StringComparison.Ordinal))
+            {
+                var dataCleanup = dataRetentionStore.DeletePluginData(state.PluginId);
+                if (!dataCleanup.IsSuccess)
+                {
+                    return PersistenceResult.Failure(ToPersistenceError(
+                        dataCleanup.ErrorCode,
+                        "Pending uninstall plugin data cleanup failed during post-login recovery."));
+                }
             }
 
             var stateRemove = StateStore.Remove(state.PluginId);

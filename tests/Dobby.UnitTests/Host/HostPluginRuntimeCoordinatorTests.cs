@@ -29,6 +29,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
                 Substitute.For<IInstalledPluginStateStore>(),
                 Substitute.For<IInstalledPluginMetadataCache>(),
                 Substitute.For<IPluginInstallStagingArea>(),
+                Substitute.For<IPluginDataRetentionStore>(),
                 OperationTargetRegistry.CreateDefault(),
                 extensionPointRegistry,
                 lifetimeManager,
@@ -113,6 +114,52 @@ public sealed class HostPluginRuntimeCoordinatorTests
         metadataCache.Remove(pending.PluginId).Returns(Result.Success());
         metadataCache.RebuildFrom(Arg.Any<IReadOnlyList<InstalledPluginState>>()).Returns(Result.Success());
         var staging = Substitute.For<IPluginInstallStagingArea>();
+        var dataRetentionStore = Substitute.For<IPluginDataRetentionStore>();
+        staging.Recover().Returns(Result.Success(0));
+        staging.Cleanup(pending.RuntimePath).Returns(Result.Success());
+        staging.CleanupRuntimeOrphans(Arg.Any<IReadOnlyCollection<string>>()).Returns(Result.Success(0));
+        dataRetentionStore.DeletePluginData(pending.PluginId).Returns(Result.Success());
+        var coordinator = CreateCoordinator(
+            migrator: migrator,
+            stateStore: stateStore,
+            staging: staging,
+            metadataCache: metadataCache,
+            dataRetentionStore: dataRetentionStore);
+
+        var result = coordinator.ApplyPostLoginMigrations();
+
+        result.IsSuccess.ShouldBeTrue();
+        staging.Received(1).Cleanup(pending.RuntimePath);
+        dataRetentionStore.Received(1).DeletePluginData(pending.PluginId);
+        stateStore.Received(1).Remove(pending.PluginId);
+        metadataCache.Received(1).Remove(pending.PluginId);
+        metadataCache.Received(1).RebuildFrom(Arg.Is<IReadOnlyList<InstalledPluginState>>(states =>
+            states.Count == 1 && states[0].PluginId == retained.PluginId));
+    }
+
+    [Fact]
+    public void Apply_post_login_migrations_keeps_pending_uninstall_data_when_choice_is_keep()
+    {
+        var migrator = Substitute.For<IHostPersistenceMigrator>();
+        migrator.ApplyPostLoginMigrations(Arg.Any<IReadOnlyDictionary<string, string>>())
+            .Returns(PersistenceResult.Success());
+        var pending = CreateInstalledState("pending-runtime", "pending-fingerprint") with
+        {
+            PluginId = "com.dobby.pending",
+            IsEnabled = false,
+            IsPendingUninstall = true,
+            DataRetentionChoice = "keep",
+            RestartRequired = true,
+            StatusSummary = "Pending uninstall"
+        };
+        var stateStore = Substitute.For<IInstalledPluginStateStore>();
+        stateStore.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>([pending]));
+        stateStore.Remove(pending.PluginId).Returns(Result.Success());
+        var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+        metadataCache.Remove(pending.PluginId).Returns(Result.Success());
+        metadataCache.RebuildFrom(Arg.Any<IReadOnlyList<InstalledPluginState>>()).Returns(Result.Success());
+        var staging = Substitute.For<IPluginInstallStagingArea>();
+        var dataRetentionStore = Substitute.For<IPluginDataRetentionStore>();
         staging.Recover().Returns(Result.Success(0));
         staging.Cleanup(pending.RuntimePath).Returns(Result.Success());
         staging.CleanupRuntimeOrphans(Arg.Any<IReadOnlyCollection<string>>()).Returns(Result.Success(0));
@@ -120,16 +167,13 @@ public sealed class HostPluginRuntimeCoordinatorTests
             migrator: migrator,
             stateStore: stateStore,
             staging: staging,
-            metadataCache: metadataCache);
+            metadataCache: metadataCache,
+            dataRetentionStore: dataRetentionStore);
 
         var result = coordinator.ApplyPostLoginMigrations();
 
         result.IsSuccess.ShouldBeTrue();
-        staging.Received(1).Cleanup(pending.RuntimePath);
-        stateStore.Received(1).Remove(pending.PluginId);
-        metadataCache.Received(1).Remove(pending.PluginId);
-        metadataCache.Received(1).RebuildFrom(Arg.Is<IReadOnlyList<InstalledPluginState>>(states =>
-            states.Count == 1 && states[0].PluginId == retained.PluginId));
+        dataRetentionStore.DidNotReceive().DeletePluginData(Arg.Any<string>());
     }
 
     [Fact]
@@ -476,6 +520,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
         IInstalledPluginStateStore? stateStore = null,
         IInstalledPluginMetadataCache? metadataCache = null,
         IPluginInstallStagingArea? staging = null,
+        IPluginDataRetentionStore? dataRetentionStore = null,
         OperationTargetRegistry? operationTargetRegistry = null,
         HostPluginActivationCancellation? activationCancellation = null,
         IPluginTrustVerifier? trustVerifier = null,
@@ -493,6 +538,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
             stateStore,
             metadataCache,
             staging,
+            dataRetentionStore ?? Substitute.For<IPluginDataRetentionStore>(),
             operationTargetRegistry ?? OperationTargetRegistry.CreateDefault(),
             extensionPointRegistry,
             lifetimeManager,

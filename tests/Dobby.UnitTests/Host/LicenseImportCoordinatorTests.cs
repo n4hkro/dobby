@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using Dobby.Admin.Commands;
 using Dobby.Audit;
 using Dobby.Contracts.Policies;
 using Dobby.Core;
@@ -160,6 +163,80 @@ public sealed class LicenseImportCoordinatorTests
         }
     }
 
+    [Fact]
+    public void Import_file_accepts_admin_generated_license_with_package_fingerprint_binding()
+    {
+        using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
+        var root = Path.Combine(Path.GetTempPath(), "dobby-admin-license-import-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var packagePath = Path.Combine(root, "plugin.sample.dobbyplugin");
+            var bindingPath = Path.Combine(root, "device.json");
+            var licensePath = Path.Combine(root, "sample.dobbylicense");
+            File.WriteAllText(packagePath, "package-bytes", new UTF8Encoding(false));
+            File.WriteAllText(bindingPath, """{"deviceFingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}""", new UTF8Encoding(false));
+
+            var adminResult = AdminCommandHost.Run([
+                "--cli",
+                "create-plugin-license",
+                "--plugin-package-path",
+                packagePath,
+                "--signing-profile",
+                "production",
+                "--customer-id",
+                "default",
+                "--deployment-id",
+                "default",
+                "--device-binding-fixture-path",
+                bindingPath,
+                "--valid-from",
+                "2026-06-18T00:00:00Z",
+                "--valid-until",
+                "2026-07-18T00:00:00Z",
+                "--revision",
+                "8",
+                "--output-path",
+                licensePath
+            ], new InMemoryAdminSigningMaterialProvider("production", key));
+            adminResult.ExitCode.ShouldBe(0, adminResult.StandardError);
+            var packageFingerprint = Sha256File(packagePath);
+            var installedStore = new InMemoryInstalledPluginStateStore(new InstalledPluginState(
+                "plugin.sample",
+                "1.0.0",
+                packageFingerprint,
+                "Sample",
+                "Sample plugin",
+                IsEnabled: true,
+                ValidationSummary: "verified",
+                RuntimePath: "runtime",
+                StatusSummary: "Enabled",
+                InstalledAtUtc: DateTimeOffset.Parse("2026-06-18T00:00:00Z"),
+                UpdatedAtUtc: DateTimeOffset.Parse("2026-06-18T00:00:00Z")));
+            var licenseStateStore = new InMemoryLicenseStateStore();
+            var coordinator = CreateCoordinator(
+                publicKeyPem,
+                licenseStateStore,
+                new InMemoryAuditTrail(),
+                isOwner: true,
+                installedStore);
+
+            var result = coordinator.ImportFile("owner", licensePath, CorrelationId.New());
+
+            result.IsSuccess.ShouldBeTrue();
+            result.PluginId.ShouldBe("plugin.sample");
+            licenseStateStore.State.ShouldNotBeNull();
+            licenseStateStore.State.PackageFingerprint.ShouldBe(packageFingerprint);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static LicenseImportCoordinator CreateCoordinator(
         byte[] publicKeyPem,
         InMemoryLicenseStateStore licenseStateStore,
@@ -229,9 +306,27 @@ public sealed class LicenseImportCoordinatorTests
         }
     }
 
+    private sealed class InMemoryAdminSigningMaterialProvider(string profile, ECDsa key) : IAdminSigningMaterialProvider
+    {
+        public AdminSigningMaterialResult Resolve(string signingProfile)
+        {
+            return signingProfile.Equals(profile, StringComparison.Ordinal)
+                ? AdminSigningMaterialResult.Success(new AdminSigningMaterial(signingProfile, key))
+                : AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
+        }
+    }
+
+    private static string Sha256File(string path)
+    {
+        return Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+    }
+
     private sealed class InMemoryInstalledPluginStateStore : IInstalledPluginStateStore
     {
-        private readonly InstalledPluginState state = new(
+        private readonly InstalledPluginState state;
+
+        public InMemoryInstalledPluginStateStore()
+            : this(new InstalledPluginState(
             "plugin.sample",
             "1.0.0",
             new string('b', 64),
@@ -242,7 +337,14 @@ public sealed class LicenseImportCoordinatorTests
             RuntimePath: "runtime",
             StatusSummary: "Enabled",
             InstalledAtUtc: DateTimeOffset.Parse("2026-06-18T00:00:00Z"),
-            UpdatedAtUtc: DateTimeOffset.Parse("2026-06-18T00:00:00Z"));
+            UpdatedAtUtc: DateTimeOffset.Parse("2026-06-18T00:00:00Z")))
+        {
+        }
+
+        public InMemoryInstalledPluginStateStore(InstalledPluginState state)
+        {
+            this.state = state;
+        }
 
         public Result Upsert(InstalledPluginState state) => Result.Success();
 

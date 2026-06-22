@@ -81,6 +81,8 @@ public sealed class HostStringCatalog(
         [HostResourceKeys.PluginsManagerRestartRequired] = "Yenidən başlatma tələb olunur",
         [HostResourceKeys.PluginsManagerInstallBusy] = "Plugin quraşdırılır",
         [HostResourceKeys.PluginsManagerOperationDenied] = "Bu plugin əməliyyatı üçün icazə yoxdur",
+        [HostResourceKeys.PluginsManagerUninstallConfirmationTitle] = "Plugini sil",
+        [HostResourceKeys.PluginsManagerUninstallConfirmationMessage] = "{0} pluginini silmək istəyirsiniz? Bəli plugin datasını silir, Xeyr plugin datasını saxlayır, Ləğv et əməliyyatı dayandırır.",
         [HostResourceKeys.LicenseHeading] = "Plugin lisenziyası",
         [HostResourceKeys.LicenseStatusLabel] = "Status",
         [HostResourceKeys.LicenseListLabel] = "Lisenziyalar",

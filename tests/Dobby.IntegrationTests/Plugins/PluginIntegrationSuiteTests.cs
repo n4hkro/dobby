@@ -95,6 +95,7 @@ public sealed class PluginIntegrationSuiteTests
             stateStore,
             Substitute.For<IInstalledPluginMetadataCache>(),
             Substitute.For<IPluginInstallStagingArea>(),
+            Substitute.For<IPluginDataRetentionStore>(),
             operationTargets,
             extensionRegistry,
             lifetimes,

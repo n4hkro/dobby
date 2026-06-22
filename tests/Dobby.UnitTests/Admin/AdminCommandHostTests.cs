@@ -2,9 +2,14 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Dobby.Audit;
 using Dobby.Admin.Commands;
+using Dobby.Configuration;
 using Dobby.Core;
 using Dobby.Core.Versioning;
+using Dobby.Host.Login;
+using Dobby.Infrastructure.Persistence;
+using Dobby.Infrastructure.ProtectedStorage;
 using Dobby.Licensing;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authentication;
@@ -293,6 +298,47 @@ public sealed class AdminCommandHostTests
     }
 
     [Fact]
+    public void Create_recovery_response_verifies_through_host_import_coordinator_with_concrete_verifier()
+    {
+        using var fixture = TempFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var publicKeyPem = EncodePem(key.ExportSubjectPublicKeyInfo());
+        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T10:00:00Z"));
+        var requestPath = fixture.Path("request.dobbyrecoveryrequest");
+        var outputPath = fixture.Path("response.dobbyrecovery");
+        File.WriteAllText(requestPath, RecoveryRequestJson());
+        var result = AdminCommandHost.Run([
+            "--cli", "create-recovery-response",
+            "--request-path", requestPath,
+            "--signing-profile", "dev-qa",
+            "--output-path", outputPath
+        ], new InMemorySigningMaterialProvider("dev-qa", key), time);
+        result.ExitCode.ShouldBe(0, result.StandardError);
+        var publicKeyProvider = new PluginTrustPublicKeyProvider(
+            DobbyPluginTrustProfile.DevQa,
+            new Dictionary<string, byte[]>(StringComparer.Ordinal)
+            {
+                [PluginTrustPublicKeyProvider.DevQaResourceName] = publicKeyPem
+            });
+        var importer = new RecoveryResponseImporter(
+            new VendorRecoveryPublicKey(publicKeyProvider),
+            new StaticDeviceFingerprint(new DeviceFingerprint("machine", "cpu", "board", "disk", "mac")));
+        var coordinator = new RecoveryResponseImportCoordinator(
+            new NoopTransactionScope(),
+            new RecoveryVerificationExecutor(),
+            importer,
+            new NoopProtectedDataProtector(),
+            new KdfPolicyResolver(new AuthOptions { PasswordKdfMode = "Pbkdf2Sha256" }),
+            new NoopHostTransactionAuditTrail(),
+            time);
+
+        var challenge = coordinator.VerifyFile(outputPath);
+
+        challenge.IsSuccess.ShouldBeTrue(challenge.ErrorCode?.ToString());
+        challenge.Value.Payload.RequestId.ShouldBe("request-1");
+    }
+
+    [Fact]
     public void Create_plugin_license_writes_importable_license_with_injected_material()
     {
         using var fixture = TempFixture.Create();
@@ -446,6 +492,56 @@ public sealed class AdminCommandHostTests
     private sealed class StaticDeviceFingerprint(DeviceFingerprint fingerprint) : IDeviceFingerprintSource
     {
         public Result<DeviceFingerprint> Current() => Result.Success(fingerprint);
+    }
+
+    private sealed class RecoveryVerificationExecutor : IHostPersistenceCommandExecutor
+    {
+        public int Execute(string sql, object? parameters = null)
+        {
+            return 0;
+        }
+
+        public IReadOnlyList<T> Query<T>(string sql, object? parameters = null)
+        {
+            if (typeof(T) == typeof(string) && sql.Contains("FROM Users", StringComparison.Ordinal))
+            {
+                return (IReadOnlyList<T>)(object)new[] { "owner-id" };
+            }
+
+            return [];
+        }
+
+        public T QueryScalar<T>(string sql, object? parameters = null)
+        {
+            if (typeof(T) == typeof(int) && sql.Contains("ConsumedRecoveryNonces", StringComparison.Ordinal))
+            {
+                return (T)(object)0;
+            }
+
+            return default!;
+        }
+    }
+
+    private sealed class NoopTransactionScope : IHostPersistenceTransactionScope
+    {
+        public void ExecuteInTransaction(Action<IHostPersistenceCommandExecutor> action)
+        {
+            action(new RecoveryVerificationExecutor());
+        }
+    }
+
+    private sealed class NoopProtectedDataProtector : IProtectedDataProtector
+    {
+        public byte[] Protect(byte[] plaintext, byte[] entropy) => plaintext;
+
+        public byte[] Unprotect(byte[] protectedBlob, byte[] entropy) => protectedBlob;
+    }
+
+    private sealed class NoopHostTransactionAuditTrail : IHostTransactionAuditTrail
+    {
+        public void AppendInScope(IHostPersistenceCommandExecutor executor, AuditEvent auditEvent)
+        {
+        }
     }
 
     private sealed class SigningKeyEnvironmentScope : IDisposable

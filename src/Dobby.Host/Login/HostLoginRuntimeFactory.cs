@@ -167,6 +167,7 @@ public static class HostLoginRuntimeFactory
         var installedPluginStateStore = new HostInstalledPluginStateStore(executor, transactionScope);
         var installedPluginMetadataCache = new HostInstalledPluginMetadataCache(executor, transactionScope);
         var pluginInstallStagingArea = new PluginInstallStagingArea(options.Runtime.DataRoot, executor);
+        var pluginDataRetentionStore = new PluginDataRetentionStore(options.Runtime.DataRoot);
         var pluginRuntimeAuditCoordinator = new PluginRuntimeAuditCoordinator(auditTrail, timeProvider);
         var pluginRuntimeDiagnosticsCoordinator = new PluginRuntimeDiagnosticsCoordinator(_ => { });
         var pluginCurrentProcessActivationTracker = new PluginCurrentProcessActivationTracker();
@@ -210,6 +211,7 @@ public static class HostLoginRuntimeFactory
             installedPluginStateStore,
             installedPluginMetadataCache,
             pluginInstallStagingArea,
+            pluginDataRetentionStore,
             pluginCurrentProcessActivationTracker,
             operationAuthorizationPolicy,
             pluginRuntimeAuditCoordinator);
@@ -218,6 +220,7 @@ public static class HostLoginRuntimeFactory
             installedPluginStateStore,
             installedPluginMetadataCache,
             pluginInstallStagingArea,
+            pluginDataRetentionStore,
             operationTargetRegistry,
             pluginExtensionPointRegistry,
             pluginLifetimeManager,

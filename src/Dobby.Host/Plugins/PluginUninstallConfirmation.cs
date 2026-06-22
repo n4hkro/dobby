@@ -1,4 +1,5 @@
 using System.Windows;
+using Dobby.Localization;
 
 namespace Dobby.Host.Plugins;
 
@@ -25,16 +26,22 @@ public interface IPluginUninstallConfirmation
     PluginUninstallConfirmationResult Confirm(PluginUninstallConfirmationRequest request);
 }
 
-public sealed class WpfPluginUninstallConfirmation(Window owner) : IPluginUninstallConfirmation
+public sealed class WpfPluginUninstallConfirmation(
+    Window owner,
+    HostStringCatalog? strings = null) : IPluginUninstallConfirmation
 {
+    private readonly HostStringCatalog stringCatalog = strings ?? HostStringCatalog.CreateResourceBacked();
+
     public PluginUninstallConfirmationResult Confirm(PluginUninstallConfirmationRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var response = MessageBox.Show(
             owner,
-            $"Uninstall {request.DisplayName}? Choose Yes to delete plugin data, No to keep plugin data, or Cancel to abort.",
-            "Uninstall plugin",
+            string.Format(
+                stringCatalog.GetString(HostResourceKeys.PluginsManagerUninstallConfirmationMessage),
+                request.DisplayName),
+            stringCatalog.GetString(HostResourceKeys.PluginsManagerUninstallConfirmationTitle),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Warning,
             MessageBoxResult.Cancel);

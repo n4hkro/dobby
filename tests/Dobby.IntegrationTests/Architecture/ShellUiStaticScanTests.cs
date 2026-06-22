@@ -145,6 +145,7 @@ public sealed class ShellUiStaticScanTests
     {
         var root = RepoRoot();
         var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var confirmationCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Plugins", "PluginUninstallConfirmation.cs"));
 
         mainWindowCode.ShouldContain("IPluginUninstallConfirmation");
         mainWindowCode.ShouldContain("pluginUninstallConfirmation.Confirm(");
@@ -157,6 +158,10 @@ public sealed class ShellUiStaticScanTests
         mainWindowCode.ShouldNotContain("var wasActivatedInCurrentProcess = selectedPlugin.IsEnabled");
         mainWindowCode.ShouldNotContain("PluginUninstallDataChoice.KeepData,\r\n                wasActivatedInCurrentProcess: true");
         mainWindowCode.ShouldNotContain("PluginUninstallDataChoice.KeepData,\n                wasActivatedInCurrentProcess: true");
+        confirmationCode.ShouldContain("HostResourceKeys.PluginsManagerUninstallConfirmationMessage");
+        confirmationCode.ShouldContain("HostResourceKeys.PluginsManagerUninstallConfirmationTitle");
+        confirmationCode.ShouldNotContain("Choose Yes to delete plugin data");
+        confirmationCode.ShouldNotContain("\"Uninstall plugin\"");
     }
 
     [Fact]

@@ -208,6 +208,7 @@ public sealed class PluginInstallStatePersistenceTests
             stateStore,
             metadataCache,
             staging,
+            new PluginDataRetentionStore(fixture.Root),
             OperationTargetRegistry.CreateDefault(),
             extensionPointRegistry,
             lifetimeManager,

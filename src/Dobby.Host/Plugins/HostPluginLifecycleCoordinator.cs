@@ -15,10 +15,14 @@ public sealed class HostPluginLifecycleCoordinator(
     IInstalledPluginStateStore stateStore,
     IInstalledPluginMetadataCache metadataCache,
     IPluginInstallStagingArea stagingArea,
+    IPluginDataRetentionStore dataRetentionStore,
     IPluginCurrentProcessActivationTracker activationTracker,
     OperationAuthorizationPolicy authorizationPolicy,
     PluginRuntimeAuditCoordinator auditCoordinator)
 {
+    private readonly IPluginDataRetentionStore dataRetentionStore =
+        dataRetentionStore ?? throw new ArgumentNullException(nameof(dataRetentionStore));
+
     public Result<IReadOnlyList<InstalledPluginMetadata>> ListPlugins(string actorId, CorrelationId correlationId)
     {
         var authorized = Authorize(actorId, OperationVerb.View, correlationId);
@@ -62,6 +66,11 @@ public sealed class HostPluginLifecycleCoordinator(
             return Result.Failure(ErrorCode.NotFound);
         }
 
+        if (existing.Value.IsPendingUninstall)
+        {
+            return Result.Failure(ErrorCode.InvalidInput);
+        }
+
         var choice = ToWireValue(dataChoice);
         var wasActivatedInCurrentProcess = WasActivatedInCurrentProcess(pluginId);
         if (wasActivatedInCurrentProcess)
@@ -96,6 +105,15 @@ public sealed class HostPluginLifecycleCoordinator(
         if (!cleanup.IsSuccess)
         {
             return Result.Failure(cleanup.ErrorCode ?? ErrorCode.IoFailed);
+        }
+
+        if (dataChoice == PluginUninstallDataChoice.DeleteData)
+        {
+            var deleteData = dataRetentionStore.DeletePluginData(pluginId);
+            if (!deleteData.IsSuccess)
+            {
+                return Result.Failure(deleteData.ErrorCode ?? ErrorCode.IoFailed);
+            }
         }
 
         var removeState = stateStore.Remove(pluginId);
@@ -145,6 +163,11 @@ public sealed class HostPluginLifecycleCoordinator(
         if (existing.Value is null)
         {
             return Result.Failure(ErrorCode.NotFound);
+        }
+
+        if (existing.Value.IsPendingUninstall)
+        {
+            return Result.Failure(ErrorCode.InvalidInput);
         }
 
         var updateState = stateStore.SetEnabled(pluginId, isEnabled, statusSummary);

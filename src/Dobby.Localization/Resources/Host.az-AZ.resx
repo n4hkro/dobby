@@ -120,6 +120,12 @@
   <data name="Dobby.Shell.Plugins.Manager.OperationDenied" xml:space="preserve">
     <value>Bu plugin əməliyyatı üçün icazə yoxdur</value>
   </data>
+  <data name="Dobby.Shell.Plugins.Manager.UninstallConfirmation.Title" xml:space="preserve">
+    <value>Plugini sil</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.UninstallConfirmation.Message" xml:space="preserve">
+    <value>{0} pluginini silmək istəyirsiniz? Bəli plugin datasını silir, Xeyr plugin datasını saxlayır, Ləğv et əməliyyatı dayandırır.</value>
+  </data>
   <data name="Dobby.Shell.Plugins.License.Heading" xml:space="preserve">
     <value>Plugin lisenziyası</value>
   </data>

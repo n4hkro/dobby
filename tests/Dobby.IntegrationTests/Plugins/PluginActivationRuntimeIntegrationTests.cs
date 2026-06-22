@@ -147,6 +147,7 @@ public sealed class PluginActivationRuntimeIntegrationTests
             stateStore,
             metadataCache,
             stagingArea,
+            Substitute.For<IPluginDataRetentionStore>(),
             operationTargetRegistry ?? OperationTargetRegistry.CreateDefault(),
             extensionRegistry,
             lifetimes,

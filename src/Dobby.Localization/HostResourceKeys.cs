@@ -83,6 +83,8 @@ public static class HostResourceKeys
     public const string PluginsManagerRestartRequired = "Dobby.Shell.Plugins.Manager.RestartRequired";
     public const string PluginsManagerInstallBusy = "Dobby.Shell.Plugins.Manager.InstallBusy";
     public const string PluginsManagerOperationDenied = "Dobby.Shell.Plugins.Manager.OperationDenied";
+    public const string PluginsManagerUninstallConfirmationTitle = "Dobby.Shell.Plugins.Manager.UninstallConfirmation.Title";
+    public const string PluginsManagerUninstallConfirmationMessage = "Dobby.Shell.Plugins.Manager.UninstallConfirmation.Message";
     public const string LicenseHeading = "Dobby.Shell.Plugins.License.Heading";
     public const string LicenseStatusLabel = "Dobby.Shell.Plugins.License.Status";
     public const string LicenseListLabel = "Dobby.Shell.Plugins.License.List";
@@ -173,6 +175,8 @@ public static class HostResourceKeys
         PluginsManagerRestartRequired,
         PluginsManagerInstallBusy,
         PluginsManagerOperationDenied,
+        PluginsManagerUninstallConfirmationTitle,
+        PluginsManagerUninstallConfirmationMessage,
         LicenseHeading,
         LicenseStatusLabel,
         LicenseListLabel,
