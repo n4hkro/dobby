@@ -58,6 +58,30 @@ public sealed class PluginTrustResourcePackagingTests
             .Value.ShouldBe("Production");
     }
 
+    [Fact]
+    public void Admin_recovery_concrete_verifier_proof_uses_embedded_dev_qa_trust_anchor_without_injected_resource_map()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            RepoRoot().FullName,
+            "tests",
+            "Dobby.UnitTests",
+            "Admin",
+            "AdminCommandHostTests.cs"));
+        var start = source.IndexOf(
+            "Create_recovery_response_writes_host_compatible_envelope_through_concrete_verifier",
+            StringComparison.Ordinal);
+        start.ShouldBeGreaterThanOrEqualTo(0);
+        var end = source.IndexOf("Create_plugin_license_writes_importable_license", start, StringComparison.Ordinal);
+        end.ShouldBeGreaterThan(start);
+        var proof = source[start..end];
+
+        proof.ShouldContain("ApprovedDevQaBootstrapSigningKeyPath");
+        proof.ShouldContain("new PluginTrustPublicKeyProvider(DobbyPluginTrustProfile.DevQa)");
+        proof.ShouldNotContain("new Dictionary<string, byte[]>", Case.Sensitive);
+        proof.ShouldNotContain("new InMemorySigningMaterialProvider(\"dev-qa\", key)", Case.Sensitive);
+        proof.ShouldNotContain("new VendorRecoveryPublicKey(publicKeyProvider)", Case.Sensitive);
+    }
+
     private static void AssertResource(
         XDocument project,
         string expectedCondition,

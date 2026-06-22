@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -251,9 +252,13 @@ public sealed class AdminCommandHostTests
     [Fact]
     public void Create_recovery_response_writes_host_compatible_envelope_through_concrete_verifier()
     {
+        if (!IsDevQaTrustProfileBuild())
+        {
+            return;
+        }
+
         using var fixture = TempFixture.Create();
-        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var publicKeyPem = EncodePem(key.ExportSubjectPublicKeyInfo());
+        using var environment = SigningKeyEnvironmentScope.ForDevQaPath(ApprovedDevQaBootstrapSigningKeyPath());
         var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T10:00:00Z"));
         var requestPath = fixture.Path("request.dobbyrecoveryrequest");
         var outputPath = fixture.Path("response.dobbyrecovery");
@@ -266,7 +271,7 @@ public sealed class AdminCommandHostTests
             "--signing-profile", "dev-qa",
             "--output-path", outputPath,
             "--report-path", reportPath
-        ], new InMemorySigningMaterialProvider("dev-qa", key), time);
+        ], timeProvider: time);
 
         result.ExitCode.ShouldBe(0, result.StandardError);
         result.StandardOutput.ShouldContain("create-recovery-response");
@@ -282,14 +287,8 @@ public sealed class AdminCommandHostTests
         envelope.Signature.ShouldNotContain("-");
         envelope.Signature.ShouldNotContain("_");
 
-        var publicKeyProvider = new PluginTrustPublicKeyProvider(
-            DobbyPluginTrustProfile.DevQa,
-            new Dictionary<string, byte[]>(StringComparer.Ordinal)
-            {
-                [PluginTrustPublicKeyProvider.DevQaResourceName] = publicKeyPem
-            });
         var importer = new RecoveryResponseImporter(
-            new VendorRecoveryPublicKey(publicKeyProvider),
+            new VendorRecoveryPublicKey(new PluginTrustPublicKeyProvider(DobbyPluginTrustProfile.DevQa)),
             new StaticDeviceFingerprint(new DeviceFingerprint("machine", "cpu", "board", "disk", "mac")));
 
         var verify = importer.Verify(envelope, time.GetUtcNow());
@@ -300,9 +299,13 @@ public sealed class AdminCommandHostTests
     [Fact]
     public void Create_recovery_response_verifies_through_host_import_coordinator_with_concrete_verifier()
     {
+        if (!IsDevQaTrustProfileBuild())
+        {
+            return;
+        }
+
         using var fixture = TempFixture.Create();
-        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var publicKeyPem = EncodePem(key.ExportSubjectPublicKeyInfo());
+        using var environment = SigningKeyEnvironmentScope.ForDevQaPath(ApprovedDevQaBootstrapSigningKeyPath());
         var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T10:00:00Z"));
         var requestPath = fixture.Path("request.dobbyrecoveryrequest");
         var outputPath = fixture.Path("response.dobbyrecovery");
@@ -312,16 +315,10 @@ public sealed class AdminCommandHostTests
             "--request-path", requestPath,
             "--signing-profile", "dev-qa",
             "--output-path", outputPath
-        ], new InMemorySigningMaterialProvider("dev-qa", key), time);
+        ], timeProvider: time);
         result.ExitCode.ShouldBe(0, result.StandardError);
-        var publicKeyProvider = new PluginTrustPublicKeyProvider(
-            DobbyPluginTrustProfile.DevQa,
-            new Dictionary<string, byte[]>(StringComparer.Ordinal)
-            {
-                [PluginTrustPublicKeyProvider.DevQaResourceName] = publicKeyPem
-            });
         var importer = new RecoveryResponseImporter(
-            new VendorRecoveryPublicKey(publicKeyProvider),
+            new VendorRecoveryPublicKey(new PluginTrustPublicKeyProvider(DobbyPluginTrustProfile.DevQa)),
             new StaticDeviceFingerprint(new DeviceFingerprint("machine", "cpu", "board", "disk", "mac")));
         var coordinator = new RecoveryResponseImportCoordinator(
             new NoopTransactionScope(),
@@ -389,6 +386,31 @@ public sealed class AdminCommandHostTests
         yield return [new[] { "--cli", "create-recovery-response", "--request-path", "a", "--request-path", "b", "--signing-profile", "dev-qa", "--output-path", "out" }];
         yield return [new[] { "--cli", "create-recovery-response", "--plugin-package-path", "pkg", "--signing-profile", "dev-qa", "--output-path", "out" }];
         yield return [new[] { "--cli", "create-recovery-response", "--request-path", "a", "--signing-profile", "dev-qa", "--output-path", "out", "--overwrite", "true" }];
+    }
+
+    private static bool IsDevQaTrustProfileBuild()
+    {
+        var profile = typeof(PluginTrustPublicKeyProvider).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(attribute => attribute.Key == "DobbyPluginTrustProfile")
+            .Value;
+        return string.Equals(profile, "DevQa", StringComparison.Ordinal);
+    }
+
+    private static string ApprovedDevQaBootstrapSigningKeyPath()
+    {
+        var path = Environment.GetEnvironmentVariable(DevQaSigningKeyPathVariable);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".dobby-signing-keys",
+                "sprint8-bootstrap",
+                "dev-qa-bootstrap-private-key.pem");
+        }
+
+        File.Exists(path).ShouldBeTrue("Approved dev/QA bootstrap signing material is required for DevQa-profile recovery proof.");
+        return path;
     }
 
     private static string RecoveryRequestJson()
@@ -568,6 +590,15 @@ public sealed class AdminCommandHostTests
             var scope = Clear();
             var keyPath = fixture.Path("dev-qa-private-key.pem");
             File.WriteAllText(keyPath, key.ExportPkcs8PrivateKeyPem(), new UTF8Encoding(false));
+            Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, keyPath);
+            return scope;
+        }
+
+        public static SigningKeyEnvironmentScope ForDevQaPath(string keyPath)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(keyPath);
+
+            var scope = Clear();
             Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, keyPath);
             return scope;
         }

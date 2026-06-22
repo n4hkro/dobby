@@ -4,13 +4,22 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Dobby.Audit;
 using Dobby.Configuration;
+using Dobby.Contracts.Policies;
+using Dobby.Core;
 using Dobby.Contracts.Ordering;
 using Dobby.Host;
+using Dobby.Host.Plugins;
 using Dobby.Localization;
 using Dobby.Navigation;
+using Dobby.PluginFramework.Packaging;
+using Dobby.Security.Authentication;
+using Dobby.Security.Authorization;
 using Dobby.Shell;
 using Dobby.Shell.WorkSessions;
+using Microsoft.Extensions.Time.Testing;
+using NSubstitute;
 using Shouldly;
 
 namespace Dobby.IntegrationTests.Host;
@@ -206,6 +215,136 @@ public sealed class WorkSessionShellIntegrationTests
         registry.Get(session.SessionId)!.IsMinimized.ShouldBeTrue();
     }
 
+    [Fact]
+    public void Plugins_manager_disable_waits_for_active_plugin_work_session_resolution_before_mutating_state()
+    {
+        RunOnSta(() =>
+        {
+            const string pluginId = "com.dobby.sample";
+            var registry = new WorkSessionRegistry();
+            var closeCoordinator = new WorkSessionCloseCoordinator(registry);
+            var activeSession = registry.Open(pluginId, "plugin/com.dobby.sample/greet", "Sample action");
+            var shell = CreatePluginManagerShell(pluginId);
+            var stateStore = Substitute.For<IInstalledPluginStateStore>();
+            var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+            var state = CreatePluginState(pluginId, isEnabled: true);
+            stateStore.Get(pluginId).Returns(Result.Success<InstalledPluginState?>(state));
+            stateStore.SetEnabled(pluginId, false, "Disabled").Returns(Result.Success());
+            metadataCache.Upsert(Arg.Any<InstalledPluginMetadata>()).Returns(Result.Success());
+            metadataCache.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginMetadata>>(
+            [
+                CreatePluginMetadata(pluginId, isEnabled: false, "Disabled")
+            ]));
+            var lifecycle = CreateLifecycleCoordinator(stateStore, metadataCache);
+            MainWindow? window = null;
+
+            try
+            {
+                window = CreatePluginManagerWindow(shell, closeCoordinator, lifecycle);
+                window.Show();
+                Pump(window);
+
+                ClickNamed(window, "PluginsManagerDisableButton");
+
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+                stateStore.DidNotReceive().SetEnabled(pluginId, false, "Disabled");
+                registry.Get(activeSession.SessionId).ShouldNotBeNull();
+
+                ClickNamed(window, "WorkSessionStayButton");
+
+                stateStore.DidNotReceive().SetEnabled(pluginId, false, "Disabled");
+                registry.Get(activeSession.SessionId).ShouldNotBeNull();
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
+
+                ClickNamed(window, "PluginsManagerDisableButton");
+                ClickNamed(window, "WorkSessionCloseButton");
+
+                stateStore.Received(1).SetEnabled(pluginId, false, "Disabled");
+                registry.Get(activeSession.SessionId).ShouldBeNull();
+            }
+            finally
+            {
+                window?.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Plugins_manager_uninstall_waits_for_active_plugin_work_session_resolution_before_removing_state()
+    {
+        RunOnSta(() =>
+        {
+            const string pluginId = "com.dobby.sample";
+            var registry = new WorkSessionRegistry();
+            var closeCoordinator = new WorkSessionCloseCoordinator(registry);
+            var activeSession = registry.Open(pluginId, "plugin/com.dobby.sample/greet", "Sample action");
+            var shell = CreatePluginManagerShell(pluginId);
+            var stateStore = Substitute.For<IInstalledPluginStateStore>();
+            var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+            var staging = Substitute.For<IPluginInstallStagingArea>();
+            var dataRetention = Substitute.For<IPluginDataRetentionStore>();
+            var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
+            var confirmation = Substitute.For<IPluginUninstallConfirmation>();
+            var state = CreatePluginState(pluginId, isEnabled: true);
+            var removed = false;
+            stateStore.Get(pluginId).Returns(Result.Success<InstalledPluginState?>(state));
+            stateStore.Remove(pluginId).Returns(_ =>
+            {
+                removed = true;
+                return Result.Success();
+            });
+            metadataCache.Remove(pluginId).Returns(Result.Success());
+            metadataCache.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginMetadata>>([]));
+            staging.Cleanup(state.RuntimePath).Returns(Result.Success());
+            dataRetention.DeletePluginData(pluginId).Returns(Result.Success());
+            activationTracker.IsActivatedInCurrentProcess(pluginId).Returns(false);
+            confirmation.Confirm(Arg.Any<PluginUninstallConfirmationRequest>())
+                .Returns(PluginUninstallConfirmationResult.Confirm(PluginUninstallDataChoice.DeleteData));
+            var lifecycle = CreateLifecycleCoordinator(
+                stateStore,
+                metadataCache,
+                staging,
+                dataRetention,
+                activationTracker);
+            MainWindow? window = null;
+
+            try
+            {
+                window = CreatePluginManagerWindow(shell, closeCoordinator, lifecycle, confirmation);
+                window.Show();
+                Pump(window);
+
+                ClickNamed(window, "PluginsManagerUninstallButton");
+
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+                stateStore.DidNotReceive().Remove(pluginId);
+                registry.Get(activeSession.SessionId).ShouldNotBeNull();
+
+                ClickNamed(window, "WorkSessionStayButton");
+
+                stateStore.DidNotReceive().Remove(pluginId);
+                registry.Get(activeSession.SessionId).ShouldNotBeNull();
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
+
+                ClickNamed(window, "PluginsManagerUninstallButton");
+                ClickNamed(window, "WorkSessionCloseButton");
+                System.Threading.SpinWait.SpinUntil(() =>
+                {
+                    Pump(window);
+                    return removed;
+                }, TimeSpan.FromSeconds(5)).ShouldBeTrue();
+
+                stateStore.Received(1).Remove(pluginId);
+                dataRetention.Received(1).DeletePluginData(pluginId);
+                registry.Get(activeSession.SessionId).ShouldBeNull();
+            }
+            finally
+            {
+                window?.Close();
+            }
+        });
+    }
+
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()
     {
         var parent = NavigationContribution.Create(
@@ -230,6 +369,120 @@ public sealed class WorkSessionShellIntegrationTests
             child.Id);
 
         return [parent, child, leaf];
+    }
+
+    private static ShellViewModel CreatePluginManagerShell(string pluginId)
+    {
+        var shell = new ShellViewModel(
+            HostStringCatalog.CreateResourceBacked(),
+            SnapshotContributions());
+        shell.SetPluginsManagerSurface(
+            canView: true,
+            canImport: false,
+            canConfigure: true,
+            canDelete: true,
+            [
+                new ShellPluginManagerItem(
+                    pluginId,
+                    "Sample plugin",
+                    "1.0.0",
+                    "Sample plugin",
+                    IsEnabled: true,
+                    "Enabled",
+                    IsPendingUninstall: false,
+                    RestartRequired: false)
+            ]);
+        return shell;
+    }
+
+    private static MainWindow CreatePluginManagerWindow(
+        ShellViewModel shell,
+        WorkSessionCloseCoordinator closeCoordinator,
+        HostPluginLifecycleCoordinator lifecycle,
+        IPluginUninstallConfirmation? uninstallConfirmation = null)
+    {
+        var now = DateTimeOffset.Parse("2026-06-20T00:00:00Z");
+        var window = new MainWindow(
+            null!,
+            new SessionRecord("session-1", "owner", now, now, now.AddHours(8), null, 1),
+            null!,
+            shell,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            closeCoordinator,
+            pluginLifecycleCoordinator: lifecycle,
+            pluginUninstallConfirmation: uninstallConfirmation)
+        {
+            Left = -32000,
+            Top = -32000,
+            ShowInTaskbar = false,
+            WindowStyle = WindowStyle.None,
+            ResizeMode = ResizeMode.NoResize
+        };
+        AddThemeResources(window);
+        return window;
+    }
+
+    private static HostPluginLifecycleCoordinator CreateLifecycleCoordinator(
+        IInstalledPluginStateStore stateStore,
+        IInstalledPluginMetadataCache metadataCache,
+        IPluginInstallStagingArea? staging = null,
+        IPluginDataRetentionStore? dataRetentionStore = null,
+        IPluginCurrentProcessActivationTracker? activationTracker = null)
+    {
+        return new HostPluginLifecycleCoordinator(
+            stateStore,
+            metadataCache,
+            staging ?? Substitute.For<IPluginInstallStagingArea>(),
+            dataRetentionStore ?? Substitute.For<IPluginDataRetentionStore>(),
+            activationTracker ?? Substitute.For<IPluginCurrentProcessActivationTracker>(),
+            new OperationAuthorizationPolicy(
+                OperationTargetRegistry.CreateDefault(),
+                new StaticGrantReader(new UserPermissionState("owner", IsOwner: true, IsActive: true))),
+            new PluginRuntimeAuditCoordinator(
+                new InMemoryAuditTrail(),
+                new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T00:00:00Z"))));
+    }
+
+    private static InstalledPluginState CreatePluginState(string pluginId, bool isEnabled)
+    {
+        var now = DateTimeOffset.Parse("2026-06-20T00:00:00Z");
+        return new InstalledPluginState(
+            pluginId,
+            "1.0.0",
+            "fingerprint",
+            "Sample plugin",
+            "Sample plugin",
+            isEnabled,
+            "verified",
+            "runtime-path",
+            isEnabled ? "Enabled" : "Disabled",
+            now,
+            now);
+    }
+
+    private static InstalledPluginMetadata CreatePluginMetadata(
+        string pluginId,
+        bool isEnabled,
+        string statusSummary)
+    {
+        var now = DateTimeOffset.Parse("2026-06-20T00:00:00Z");
+        return new InstalledPluginMetadata(
+            pluginId,
+            "Sample plugin",
+            "1.0.0",
+            "Sample plugin",
+            "fingerprint",
+            isEnabled,
+            statusSummary,
+            now,
+            now,
+            IsPendingUninstall: false,
+            RestartRequired: false);
     }
 
     private static void AddThemeResources(Window window)
@@ -319,6 +572,21 @@ public sealed class WorkSessionShellIntegrationTests
         if (exception is not null)
         {
             ExceptionDispatchInfo.Capture(exception).Throw();
+        }
+    }
+
+    private sealed class StaticGrantReader(UserPermissionState state) : IPermissionGrantReader
+    {
+        public Result<UserPermissionState> LoadUserState(string userId)
+        {
+            return userId.Equals(state.UserId, StringComparison.Ordinal)
+                ? Result.Success(state)
+                : Result.Failure<UserPermissionState>(ErrorCode.NotFound);
+        }
+
+        public Result<bool> HasGrant(string userId, OperationKey key)
+        {
+            return Result.Success(false);
         }
     }
 }

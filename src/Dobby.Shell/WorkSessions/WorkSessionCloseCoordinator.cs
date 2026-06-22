@@ -6,7 +6,8 @@ public enum WorkSessionCloseReason
 {
     Navigation,
     Logout,
-    PluginDisable
+    PluginDisable,
+    PluginUninstall
 }
 
 public enum WorkSessionCloseChoice
@@ -20,7 +21,8 @@ public enum PendingWorkSessionAction
 {
     Navigation,
     Logout,
-    PluginDisable
+    PluginDisable,
+    PluginUninstall
 }
 
 public sealed record WorkSessionCloseRequest(
@@ -83,15 +85,18 @@ public sealed class WorkSessionCloseCoordinator(WorkSessionRegistry registry)
 
     public PendingWorkSessionCloseRequest? RequestPluginDisable(string pluginId)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+        return RequestPluginLifecycleAction(
+            pluginId,
+            WorkSessionCloseReason.PluginDisable,
+            PendingWorkSessionAction.PluginDisable);
+    }
 
-        var session = FirstActiveSession(pluginId);
-        return session is null
-            ? null
-            : new PendingWorkSessionCloseRequest(
-                RequestClose(session.SessionId, WorkSessionCloseReason.PluginDisable),
-                PendingWorkSessionAction.PluginDisable,
-                null);
+    public PendingWorkSessionCloseRequest? RequestPluginUninstall(string pluginId)
+    {
+        return RequestPluginLifecycleAction(
+            pluginId,
+            WorkSessionCloseReason.PluginUninstall,
+            PendingWorkSessionAction.PluginUninstall);
     }
 
     public Result ApplyChoice(WorkSessionCloseRequest request, WorkSessionCloseChoice choice)
@@ -139,5 +144,21 @@ public sealed class WorkSessionCloseCoordinator(WorkSessionRegistry registry)
                 (string.IsNullOrWhiteSpace(ownerOrRouteKey) ||
                     candidate.OwnerId.Equals(ownerOrRouteKey, StringComparison.Ordinal) ||
                     candidate.RouteKey.Equals(ownerOrRouteKey, StringComparison.Ordinal)));
+    }
+
+    private PendingWorkSessionCloseRequest? RequestPluginLifecycleAction(
+        string pluginId,
+        WorkSessionCloseReason reason,
+        PendingWorkSessionAction action)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+
+        var session = FirstActiveSession(pluginId);
+        return session is null
+            ? null
+            : new PendingWorkSessionCloseRequest(
+                RequestClose(session.SessionId, reason),
+                action,
+                null);
     }
 }
