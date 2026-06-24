@@ -28,6 +28,27 @@ public sealed class HostPluginLifecycleCoordinatorTests
     }
 
     [Fact]
+    public void Enable_plugin_returns_not_found_for_missing_plugin_without_state_cache_or_audit_mutation()
+    {
+        var audit = new InMemoryAuditTrail();
+        var stateStore = Substitute.For<IInstalledPluginStateStore>();
+        var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+        stateStore.Get("missing.plugin").Returns(Result.Success<InstalledPluginState?>(null));
+        var coordinator = CreateCoordinator(
+            stateStore: stateStore,
+            metadataCache: metadataCache,
+            auditTrail: audit);
+
+        var result = coordinator.EnablePlugin("owner", "missing.plugin", CorrelationId.New());
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorCode.ShouldBe(ErrorCode.NotFound);
+        stateStore.DidNotReceive().SetEnabled(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>());
+        metadataCache.DidNotReceive().Upsert(Arg.Any<InstalledPluginMetadata>());
+        audit.Snapshot().ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Disable_plugin_updates_state_cache_and_audits_existing_taxonomy()
     {
         var audit = new InMemoryAuditTrail();
@@ -53,6 +74,27 @@ public sealed class HostPluginLifecycleCoordinatorTests
         var auditEvent = audit.Snapshot().Single();
         auditEvent.EventName.ShouldBe(AuditEventName.PluginDisable);
         auditEvent.Target.ShouldBe($"plugin:{state.PluginId}");
+    }
+
+    [Fact]
+    public void Disable_plugin_returns_not_found_for_missing_plugin_without_state_cache_or_audit_mutation()
+    {
+        var audit = new InMemoryAuditTrail();
+        var stateStore = Substitute.For<IInstalledPluginStateStore>();
+        var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+        stateStore.Get("missing.plugin").Returns(Result.Success<InstalledPluginState?>(null));
+        var coordinator = CreateCoordinator(
+            stateStore: stateStore,
+            metadataCache: metadataCache,
+            auditTrail: audit);
+
+        var result = coordinator.DisablePlugin("owner", "missing.plugin", CorrelationId.New());
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorCode.ShouldBe(ErrorCode.NotFound);
+        stateStore.DidNotReceive().SetEnabled(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>());
+        metadataCache.DidNotReceive().Upsert(Arg.Any<InstalledPluginMetadata>());
+        audit.Snapshot().ShouldBeEmpty();
     }
 
     [Fact]
@@ -94,6 +136,40 @@ public sealed class HostPluginLifecycleCoordinatorTests
         auditEvent.EventName.ShouldBe(AuditEventName.PluginUninstall);
         auditEvent.Details!["dataChoice"].ShouldBe("delete");
         auditEvent.Details!["restartRequired"].ShouldBe("false");
+    }
+
+    [Fact]
+    public void Uninstall_plugin_returns_not_found_for_missing_plugin_without_runtime_state_cache_or_audit_mutation()
+    {
+        var audit = new InMemoryAuditTrail();
+        var stateStore = Substitute.For<IInstalledPluginStateStore>();
+        var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+        var staging = Substitute.For<IPluginInstallStagingArea>();
+        var dataRetentionStore = Substitute.For<IPluginDataRetentionStore>();
+        var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
+        stateStore.Get("missing.plugin").Returns(Result.Success<InstalledPluginState?>(null));
+        var coordinator = CreateCoordinator(
+            stateStore: stateStore,
+            metadataCache: metadataCache,
+            staging: staging,
+            dataRetentionStore: dataRetentionStore,
+            activationTracker: activationTracker,
+            auditTrail: audit);
+
+        var result = coordinator.UninstallPlugin(
+            "owner",
+            "missing.plugin",
+            PluginUninstallDataChoice.DeleteData,
+            CorrelationId.New());
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorCode.ShouldBe(ErrorCode.NotFound);
+        activationTracker.DidNotReceive().IsActivatedInCurrentProcess(Arg.Any<string>());
+        staging.DidNotReceive().Cleanup(Arg.Any<string>());
+        dataRetentionStore.DidNotReceive().DeletePluginData(Arg.Any<string>());
+        stateStore.DidNotReceive().Remove(Arg.Any<string>());
+        metadataCache.DidNotReceive().Remove(Arg.Any<string>());
+        audit.Snapshot().ShouldBeEmpty();
     }
 
     [Fact]

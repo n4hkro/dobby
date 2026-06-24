@@ -82,6 +82,8 @@ public sealed class ShellLocalizationCoverageTests
             [HostResourceKeys.PluginsManagerEmpty] = "Quraşdırılmış plugin yoxdur",
             [HostResourceKeys.PluginsManagerRestartRequired] = "Yenidən başlatma tələb olunur",
             [HostResourceKeys.PluginsManagerInstallBusy] = "Plugin quraşdırılır",
+            [HostResourceKeys.PluginsManagerEnableBusy] = "Plugin aktiv edilir",
+            [HostResourceKeys.PluginsManagerDisableBusy] = "Plugin deaktiv edilir",
             [HostResourceKeys.PluginsManagerUninstallBusy] = "Plugin silinir",
             [HostResourceKeys.PluginsManagerOperationDenied] = "Bu plugin əməliyyatı üçün icazə yoxdur",
             [HostResourceKeys.PluginsManagerUninstallConfirmationTitle] = "Plugini sil",

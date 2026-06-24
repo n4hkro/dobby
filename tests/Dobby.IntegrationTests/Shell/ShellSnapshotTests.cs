@@ -17,6 +17,7 @@ using Shouldly;
 
 namespace Dobby.IntegrationTests.Shell;
 
+[Collection(WpfIntegrationTestCollection.Name)]
 public sealed class ShellSnapshotTests
 {
     [Theory]

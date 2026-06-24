@@ -124,7 +124,8 @@ public sealed class SampleHomePage(
         PluginPageActionContext context,
         CancellationToken cancellationToken)
     {
-        return ValueTask.FromResult(Result.Failure<PluginPageActionResult>(ErrorCode.PluginInternalError));
+        cancellationToken.ThrowIfCancellationRequested();
+        throw new InvalidOperationException("sample.fault.unhandled");
     }
 
     private ValueTask<Result<PluginPageActionResult>> ExecuteProgressAsync(

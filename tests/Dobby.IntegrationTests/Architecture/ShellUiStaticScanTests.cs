@@ -165,7 +165,7 @@ public sealed class ShellUiStaticScanTests
     }
 
     [Fact]
-    public void Plugins_manager_long_running_install_and_uninstall_report_background_operations()
+    public void Plugins_manager_long_running_lifecycle_actions_report_background_operations()
     {
         var root = RepoRoot();
         var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
@@ -176,7 +176,13 @@ public sealed class ShellUiStaticScanTests
         mainWindowCode.ShouldContain("ReportPluginsManagerBackgroundOperation(");
         mainWindowCode.ShouldContain("backgroundOperations?.Progress.Report(new BackgroundOperationSnapshot(");
         mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerInstallBusy");
+        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerEnableBusy");
+        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerDisableBusy");
         mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerUninstallBusy");
+        mainWindowCode.ShouldContain("private async void PluginsManagerEnable_Click");
+        mainWindowCode.ShouldContain("private async void PluginsManagerDisable_Click");
+        mainWindowCode.ShouldNotContain("private void RunSelectedPluginLifecycleAction(");
+        mainWindowCode.ShouldNotContain("private void RunPluginLifecycleAction(");
         mainWindowCode.ShouldContain("BackgroundOperationStatus.Running");
         mainWindowCode.ShouldContain("BackgroundOperationStatus.Completed");
         mainWindowCode.ShouldContain("BackgroundOperationStatus.Failed");

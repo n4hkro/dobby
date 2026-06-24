@@ -425,13 +425,15 @@ public partial class MainWindow : Window
         }
     }
 
-    private void PluginsManagerEnable_Click(object sender, RoutedEventArgs e)
+    private async void PluginsManagerEnable_Click(object sender, RoutedEventArgs e)
     {
-        RunSelectedPluginLifecycleAction((coordinator, actor, pluginId, correlationId) =>
-            coordinator.EnablePlugin(actor, pluginId, correlationId));
+        await RunSelectedPluginLifecycleActionAsync(
+            (coordinator, actor, pluginId, correlationId) =>
+                coordinator.EnablePlugin(actor, pluginId, correlationId),
+            HostResourceKeys.PluginsManagerEnableBusy);
     }
 
-    private void PluginsManagerDisable_Click(object sender, RoutedEventArgs e)
+    private async void PluginsManagerDisable_Click(object sender, RoutedEventArgs e)
     {
         if (TryQueueSelectedPluginLifecycleWorkSessionClose(
             PendingPluginLifecycleOperation.Disable,
@@ -440,8 +442,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        RunSelectedPluginLifecycleAction((coordinator, actor, pluginId, correlationId) =>
-            coordinator.DisablePlugin(actor, pluginId, correlationId));
+        await RunSelectedPluginLifecycleActionAsync(
+            (coordinator, actor, pluginId, correlationId) =>
+                coordinator.DisablePlugin(actor, pluginId, correlationId),
+            HostResourceKeys.PluginsManagerDisableBusy);
     }
 
     private async void PluginsManagerUninstall_Click(object sender, RoutedEventArgs e)
@@ -476,47 +480,13 @@ public partial class MainWindow : Window
                 actor,
                 pluginId,
                 confirmation.DataChoice,
-                correlationId));
-    }
-
-    private void RunSelectedPluginLifecycleAction(
-        Func<HostPluginLifecycleCoordinator, string, string, CorrelationId, Result> action)
-    {
-        if (pluginLifecycleCoordinator is null || session is null || shellViewModel.PluginsManagerSelectedItem is null)
-        {
-            shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.PluginsManagerOperationDenied);
-            return;
-        }
-
-        var selectedPluginId = shellViewModel.PluginsManagerSelectedItem.PluginId;
-        RunPluginLifecycleAction(selectedPluginId, action);
-    }
-
-    private void RunPluginLifecycleAction(
-        string pluginId,
-        Func<HostPluginLifecycleCoordinator, string, string, CorrelationId, Result> action)
-    {
-        if (pluginLifecycleCoordinator is null || session is null)
-        {
-            shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.PluginsManagerOperationDenied);
-            return;
-        }
-
-        var result = action(pluginLifecycleCoordinator, session.UserId, pluginId, CorrelationId.New());
-        if (!result.IsSuccess)
-        {
-            shellViewModel.SetPluginsManagerFeedback(
-                result.ErrorCode == ErrorCode.Forbidden
-                    ? HostResourceKeys.PluginsManagerOperationDenied
-                    : HostResourceKeys.ShellFeedbackError);
-            return;
-        }
-
-        RefreshPluginsManagerItems(pluginId);
+                correlationId),
+            HostResourceKeys.PluginsManagerUninstallBusy);
     }
 
     private async Task RunSelectedPluginLifecycleActionAsync(
-        Func<HostPluginLifecycleCoordinator, string, string, CorrelationId, Result> action)
+        Func<HostPluginLifecycleCoordinator, string, string, CorrelationId, Result> action,
+        string displayNameKey)
     {
         if (pluginLifecycleCoordinator is null || session is null || shellViewModel.PluginsManagerSelectedItem is null)
         {
@@ -525,12 +495,13 @@ public partial class MainWindow : Window
         }
 
         var selectedPluginId = shellViewModel.PluginsManagerSelectedItem.PluginId;
-        await RunPluginLifecycleActionAsync(selectedPluginId, action);
+        await RunPluginLifecycleActionAsync(selectedPluginId, action, displayNameKey);
     }
 
     private async Task RunPluginLifecycleActionAsync(
         string pluginId,
-        Func<HostPluginLifecycleCoordinator, string, string, CorrelationId, Result> action)
+        Func<HostPluginLifecycleCoordinator, string, string, CorrelationId, Result> action,
+        string displayNameKey)
     {
         if (pluginLifecycleCoordinator is null || session is null)
         {
@@ -540,14 +511,14 @@ public partial class MainWindow : Window
 
         var coordinator = pluginLifecycleCoordinator;
         var actor = session.UserId;
-        shellViewModel.SetPluginsManagerBusy(true);
+        shellViewModel.SetPluginsManagerBusy(true, displayNameKey);
         var operationId = Guid.CreateVersion7();
         var correlationId = CorrelationId.New();
         ReportPluginsManagerBackgroundOperation(
             operationId,
             correlationId,
             pluginId,
-            HostResourceKeys.PluginsManagerUninstallBusy,
+            displayNameKey,
             BackgroundOperationStatus.Running,
             failureReason: null);
         try
@@ -559,7 +530,7 @@ public partial class MainWindow : Window
                     operationId,
                     correlationId,
                     pluginId,
-                    HostResourceKeys.PluginsManagerUninstallBusy,
+                    displayNameKey,
                     BackgroundOperationStatus.Failed,
                     result.ErrorCode);
                 shellViewModel.SetPluginsManagerFeedback(
@@ -573,14 +544,14 @@ public partial class MainWindow : Window
                 operationId,
                 correlationId,
                 pluginId,
-                HostResourceKeys.PluginsManagerUninstallBusy,
+                displayNameKey,
                 BackgroundOperationStatus.Completed,
                 failureReason: null);
             RefreshPluginsManagerItems(pluginId);
         }
         finally
         {
-            shellViewModel.SetPluginsManagerBusy(false);
+            shellViewModel.SetPluginsManagerBusy(false, displayNameKey);
         }
     }
 
@@ -686,14 +657,15 @@ public partial class MainWindow : Window
                     actor,
                     pluginId,
                     action.DataChoice,
-                    correlationId));
+                    correlationId),
+                HostResourceKeys.PluginsManagerUninstallBusy);
         }
 
-        RunPluginLifecycleAction(
+        return RunPluginLifecycleActionAsync(
             action.PluginId,
             (coordinator, actor, pluginId, correlationId) =>
-                coordinator.DisablePlugin(actor, pluginId, correlationId));
-        return Task.CompletedTask;
+                coordinator.DisablePlugin(actor, pluginId, correlationId),
+            HostResourceKeys.PluginsManagerDisableBusy);
     }
 
     private void ThemeToggle_Click(object sender, RoutedEventArgs e)

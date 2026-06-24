@@ -458,14 +458,14 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         NotifyPluginsManagerChanged();
     }
 
-    public void SetPluginsManagerBusy(bool isBusy)
+    public void SetPluginsManagerBusy(bool isBusy, string? feedbackKey = null)
     {
         pluginsManagerBusy = isBusy;
         if (isBusy)
         {
-            pluginsManagerFeedbackKey = HostResourceKeys.PluginsManagerInstallBusy;
+            pluginsManagerFeedbackKey = feedbackKey ?? HostResourceKeys.PluginsManagerInstallBusy;
         }
-        else if (pluginsManagerFeedbackKey == HostResourceKeys.PluginsManagerInstallBusy)
+        else if (IsPluginsManagerBusyFeedbackKey(pluginsManagerFeedbackKey))
         {
             pluginsManagerFeedbackKey = null;
         }
@@ -477,6 +477,14 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     {
         pluginsManagerFeedbackKey = feedbackKey;
         OnPropertyChanged(nameof(PluginsManagerFeedbackText));
+    }
+
+    private static bool IsPluginsManagerBusyFeedbackKey(string? feedbackKey)
+    {
+        return feedbackKey is HostResourceKeys.PluginsManagerInstallBusy
+            or HostResourceKeys.PluginsManagerEnableBusy
+            or HostResourceKeys.PluginsManagerDisableBusy
+            or HostResourceKeys.PluginsManagerUninstallBusy;
     }
 
     public void SetLicenseImportFeedback(string? feedbackKey)

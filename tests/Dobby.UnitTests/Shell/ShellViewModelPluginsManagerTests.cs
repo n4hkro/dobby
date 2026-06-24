@@ -84,6 +84,20 @@ public sealed class ShellViewModelPluginsManagerTests
     }
 
     [Fact]
+    public void Plugins_manager_busy_feedback_uses_supplied_lifecycle_key_and_clears_it()
+    {
+        var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());
+
+        shell.SetPluginsManagerBusy(true, HostResourceKeys.PluginsManagerEnableBusy);
+
+        shell.PluginsManagerFeedbackText.ShouldBe("Plugin aktiv edilir");
+
+        shell.SetPluginsManagerBusy(false, HostResourceKeys.PluginsManagerEnableBusy);
+
+        shell.PluginsManagerFeedbackText.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Plugins_manager_surface_collapses_without_view_or_import_permissions()
     {
         var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());

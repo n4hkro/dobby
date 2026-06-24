@@ -82,6 +82,8 @@ public static class HostResourceKeys
     public const string PluginsManagerEmpty = "Dobby.Shell.Plugins.Manager.Empty";
     public const string PluginsManagerRestartRequired = "Dobby.Shell.Plugins.Manager.RestartRequired";
     public const string PluginsManagerInstallBusy = "Dobby.Shell.Plugins.Manager.InstallBusy";
+    public const string PluginsManagerEnableBusy = "Dobby.Shell.Plugins.Manager.EnableBusy";
+    public const string PluginsManagerDisableBusy = "Dobby.Shell.Plugins.Manager.DisableBusy";
     public const string PluginsManagerUninstallBusy = "Dobby.Shell.Plugins.Manager.UninstallBusy";
     public const string PluginsManagerOperationDenied = "Dobby.Shell.Plugins.Manager.OperationDenied";
     public const string PluginsManagerUninstallConfirmationTitle = "Dobby.Shell.Plugins.Manager.UninstallConfirmation.Title";
@@ -175,6 +177,8 @@ public static class HostResourceKeys
         PluginsManagerEmpty,
         PluginsManagerRestartRequired,
         PluginsManagerInstallBusy,
+        PluginsManagerEnableBusy,
+        PluginsManagerDisableBusy,
         PluginsManagerUninstallBusy,
         PluginsManagerOperationDenied,
         PluginsManagerUninstallConfirmationTitle,

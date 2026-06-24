@@ -117,6 +117,12 @@
   <data name="Dobby.Shell.Plugins.Manager.InstallBusy" xml:space="preserve">
     <value>Plugin quraşdırılır</value>
   </data>
+  <data name="Dobby.Shell.Plugins.Manager.EnableBusy" xml:space="preserve">
+    <value>Plugin aktiv edilir</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.DisableBusy" xml:space="preserve">
+    <value>Plugin deaktiv edilir</value>
+  </data>
   <data name="Dobby.Shell.Plugins.Manager.UninstallBusy" xml:space="preserve">
     <value>Plugin silinir</value>
   </data>

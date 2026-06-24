@@ -264,10 +264,10 @@ public sealed class ShellSmokeTests
             .ExecuteAsync(pageModel.Context, CancellationToken.None);
         invalid.IsSuccess.ShouldBeFalse();
         invalid.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
-        var fault = await pageModel.Actions.Single(action => action.ActionId == "sample.fault")
-            .ExecuteAsync(pageModel.Context, CancellationToken.None);
-        fault.IsSuccess.ShouldBeFalse();
-        fault.ErrorCode.ShouldBe(ErrorCode.PluginInternalError);
+        var faultAction = pageModel.Actions.Single(action => action.ActionId == "sample.fault");
+        var fault = await Should.ThrowAsync<InvalidOperationException>(async () =>
+            await faultAction.ExecuteAsync(pageModel.Context, CancellationToken.None));
+        fault.Message.ShouldBe("sample.fault.unhandled");
         var progress = await pageModel.Actions.Single(action => action.ActionId == "sample.progress")
             .ExecuteAsync(pageModel.Context, CancellationToken.None);
         progress.IsSuccess.ShouldBeTrue();

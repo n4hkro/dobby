@@ -1,5 +1,7 @@
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using Dobby.Contracts.PluginPages;
+using Dobby.Core;
 using Dobby.Shell.PluginPages;
 using Shouldly;
 
@@ -67,6 +69,34 @@ public sealed class PluginPageRenderRegistryTests
             var panel = render.Value.ShouldBeOfType<StackPanel>();
             panel.Children.OfType<TextBlock>().First().Text.ShouldBe("sample.home.ready");
             panel.Children.OfType<Button>().Single().Content.ShouldBe("sample.greet.label");
+        });
+    }
+
+    [Fact]
+    public void Action_page_button_isolates_unhandled_action_faults_as_plugin_internal_error()
+    {
+        RunOnSta(() =>
+        {
+            var registry = PluginPageRenderRegistry.CreateDefault();
+            var model = new PluginActionPageModel(
+                "sample.home.ready",
+                new PluginPageActionContext("com.dobby.sample", "plugin/com.dobby.sample/greet", "managed", "correlation"),
+                [
+                    new PluginPageAction(
+                        "sample.fault",
+                        "sample.fault.label",
+                        (_, _) => throw new InvalidOperationException("sample.fault.unhandled"))
+                ]);
+
+            var render = registry.Render(model);
+
+            render.IsSuccess.ShouldBeTrue();
+            var panel = render.Value.ShouldBeOfType<StackPanel>();
+            var button = panel.Children.OfType<Button>().Single();
+            button.RaiseEvent(new System.Windows.RoutedEventArgs(ButtonBase.ClickEvent, button));
+
+            panel.Children.OfType<TextBlock>().Last().Text.ShouldBe(ErrorCode.PluginInternalError.ToString());
+            button.IsEnabled.ShouldBeTrue();
         });
     }
 

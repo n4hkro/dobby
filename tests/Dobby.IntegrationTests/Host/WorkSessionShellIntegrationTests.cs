@@ -1,4 +1,5 @@
 using System.Runtime.ExceptionServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -9,6 +10,7 @@ using Dobby.Configuration;
 using Dobby.Contracts.Policies;
 using Dobby.Core;
 using Dobby.Contracts.Ordering;
+using Dobby.IntegrationTests.Shell;
 using Dobby.Host;
 using Dobby.Host.Plugins;
 using Dobby.Localization;
@@ -24,6 +26,7 @@ using Shouldly;
 
 namespace Dobby.IntegrationTests.Host;
 
+[Collection(WpfIntegrationTestCollection.Name)]
 public sealed class WorkSessionShellIntegrationTests
 {
     [Fact]
@@ -228,8 +231,13 @@ public sealed class WorkSessionShellIntegrationTests
             var stateStore = Substitute.For<IInstalledPluginStateStore>();
             var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
             var state = CreatePluginState(pluginId, isEnabled: true);
+            var disabled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             stateStore.Get(pluginId).Returns(Result.Success<InstalledPluginState?>(state));
-            stateStore.SetEnabled(pluginId, false, "Disabled").Returns(Result.Success());
+            stateStore.SetEnabled(pluginId, false, "Disabled").Returns(_ =>
+            {
+                disabled.TrySetResult(true);
+                return Result.Success();
+            });
             metadataCache.Upsert(Arg.Any<InstalledPluginMetadata>()).Returns(Result.Success());
             metadataCache.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginMetadata>>(
             [
@@ -258,6 +266,7 @@ public sealed class WorkSessionShellIntegrationTests
 
                 ClickNamed(window, "PluginsManagerDisableButton");
                 ClickNamed(window, "WorkSessionCloseButton");
+                WaitForLifecycleAction(window, disabled.Task);
 
                 stateStore.Received(1).SetEnabled(pluginId, false, "Disabled");
                 registry.Get(activeSession.SessionId).ShouldBeNull();
@@ -286,11 +295,11 @@ public sealed class WorkSessionShellIntegrationTests
             var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
             var confirmation = Substitute.For<IPluginUninstallConfirmation>();
             var state = CreatePluginState(pluginId, isEnabled: true);
-            var removed = false;
+            var removed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             stateStore.Get(pluginId).Returns(Result.Success<InstalledPluginState?>(state));
             stateStore.Remove(pluginId).Returns(_ =>
             {
-                removed = true;
+                removed.TrySetResult(true);
                 return Result.Success();
             });
             metadataCache.Remove(pluginId).Returns(Result.Success());
@@ -328,11 +337,7 @@ public sealed class WorkSessionShellIntegrationTests
 
                 ClickNamed(window, "PluginsManagerUninstallButton");
                 ClickNamed(window, "WorkSessionCloseButton");
-                System.Threading.SpinWait.SpinUntil(() =>
-                {
-                    Pump(window);
-                    return removed;
-                }, TimeSpan.FromSeconds(5)).ShouldBeTrue();
+                WaitForLifecycleAction(window, removed.Task);
 
                 stateStore.Received(1).Remove(pluginId);
                 dataRetention.Received(1).DeletePluginData(pluginId);
@@ -548,6 +553,19 @@ public sealed class WorkSessionShellIntegrationTests
     {
         window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         window.UpdateLayout();
+    }
+
+    private static void WaitForLifecycleAction(Window window, Task completion)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+        while (!completion.IsCompleted && DateTimeOffset.UtcNow < deadline)
+        {
+            Pump(window);
+            Thread.Sleep(10);
+        }
+
+        completion.IsCompleted.ShouldBeTrue();
+        completion.GetAwaiter().GetResult();
     }
 
     private static void RunOnSta(Action action)
