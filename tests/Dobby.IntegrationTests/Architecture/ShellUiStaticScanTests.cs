@@ -189,6 +189,24 @@ public sealed class ShellUiStaticScanTests
     }
 
     [Fact]
+    public void License_import_long_running_action_reports_background_operations()
+    {
+        var root = RepoRoot();
+        var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var appCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
+
+        appCode.ShouldContain("backgroundOperations: loginRuntime.BackgroundOperations");
+        mainWindowCode.ShouldContain("LicenseImport_Click");
+        mainWindowCode.ShouldContain("ReportLicenseImportBackgroundOperation(");
+        mainWindowCode.ShouldContain("licenseImportCoordinator.ImportFileAsync");
+        mainWindowCode.ShouldContain("HostResourceKeys.LicenseImportAction");
+        mainWindowCode.ShouldContain("BackgroundOperationStatus.Running");
+        mainWindowCode.ShouldContain("BackgroundOperationStatus.Completed");
+        mainWindowCode.ShouldContain("BackgroundOperationStatus.Failed");
+        mainWindowCode.ShouldContain("backgroundOperations?.Progress.Report(new BackgroundOperationSnapshot(");
+    }
+
+    [Fact]
     public void Theme_resources_include_accessibility_motion_and_focus_tokens()
     {
         var root = RepoRoot();

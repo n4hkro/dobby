@@ -775,20 +775,37 @@ public partial class MainWindow : Window
         }
 
         shellViewModel.SetLicenseImportBusy(true);
+        var operationId = Guid.CreateVersion7();
+        var correlationId = CorrelationId.New();
+        ReportLicenseImportBackgroundOperation(
+            operationId,
+            correlationId,
+            BackgroundOperationStatus.Running,
+            failureReason: null);
         try
         {
             var result = await licenseImportCoordinator.ImportFileAsync(
                 session.UserId,
                 selectedPath,
-                CorrelationId.New());
+                correlationId);
             if (result.IsSuccess)
             {
+                ReportLicenseImportBackgroundOperation(
+                    operationId,
+                    correlationId,
+                    BackgroundOperationStatus.Completed,
+                    failureReason: null);
                 shellViewModel.SetLicenseRuntimeMode(
                     LicenseRuntimeModeMapper.Map(result.LifecycleState),
                     HostResourceKeys.LicenseImportSuccess);
                 return;
             }
 
+            ReportLicenseImportBackgroundOperation(
+                operationId,
+                correlationId,
+                BackgroundOperationStatus.Failed,
+                ToLicenseImportErrorCode(result));
             shellViewModel.SetLicenseImportFeedback(
                 result.ReasonCode == LicenseRejectReasons.PermissionDenied
                     ? HostResourceKeys.LicenseImportPermissionDenied
@@ -798,6 +815,35 @@ public partial class MainWindow : Window
         {
             shellViewModel.SetLicenseImportBusy(false);
         }
+    }
+
+    private void ReportLicenseImportBackgroundOperation(
+        Guid operationId,
+        CorrelationId correlationId,
+        BackgroundOperationStatus status,
+        ErrorCode? failureReason)
+    {
+        var progress = status == BackgroundOperationStatus.Completed
+            ? BackgroundOperationProgress.Determinate(100)
+            : BackgroundOperationProgress.Indeterminate();
+        backgroundOperations?.Progress.Report(new BackgroundOperationSnapshot(
+            operationId,
+            BackgroundOperationOwnerKind.Host,
+            OwnerId: null,
+            HostResourceKeys.LicenseImportAction,
+            ShortDetailKey: null,
+            status,
+            progress,
+            CanCancel: false,
+            correlationId.Value,
+            failureReason));
+    }
+
+    private static ErrorCode ToLicenseImportErrorCode(LicenseImportResult result)
+    {
+        return result.ReasonCode == LicenseRejectReasons.PermissionDenied
+            ? ErrorCode.Forbidden
+            : ErrorCode.ValidationFailed;
     }
 
     private void ApplyPersistedShellPreference()
