@@ -47,11 +47,11 @@ public sealed class ShellViewModelNavigationTests
             .ShouldContain(RouteRegistry.PluginsRouteKey);
         shell.TopNavigation.Select(item => item.RouteKey)
             .ShouldNotContain("plugin.sample.reports");
-        shell.ActiveRouteKey.ShouldBe("plugin.sample.analytics.daily");
-        shell.SidebarNavigation.Select(item => item.RouteKey)
-            .ShouldBe(["plugin.sample.analytics.daily"]);
-        shell.ThirdBarNavigation.Select(item => item.RouteKey)
-            .ShouldBe(["plugin.sample.analytics.daily.filters"]);
+        shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        shell.ActiveWorkspaceTab.Title.ShouldBe("Ana səhifə");
+        shell.SidebarNavigation.ShouldBeEmpty();
+        shell.ThirdBarNavigation.ShouldBeEmpty();
     }
 
     [Fact]
@@ -67,11 +67,11 @@ public sealed class ShellViewModelNavigationTests
 
         shell.ApplyPreference(preference);
 
-        shell.ActiveRouteKey.ShouldBe("plugin.sample.analytics.daily");
-        shell.SidebarNavigation.Select(item => item.RouteKey)
-            .ShouldBe(["plugin.sample.analytics.daily"]);
-        shell.ThirdBarNavigation.Select(item => item.RouteKey)
-            .ShouldBe(["plugin.sample.analytics.daily.filters"]);
+        shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        shell.ActiveWorkspaceTab.Title.ShouldBe("Ana səhifə");
+        shell.SidebarNavigation.ShouldBeEmpty();
+        shell.ThirdBarNavigation.ShouldBeEmpty();
     }
 
     [Fact]
