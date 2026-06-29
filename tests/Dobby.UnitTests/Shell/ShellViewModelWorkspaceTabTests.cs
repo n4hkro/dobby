@@ -100,17 +100,24 @@ public sealed class ShellViewModelWorkspaceTabTests
     {
         var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
         shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
-        var leftTabId = shell.ActiveWorkspaceTab.TabId;
+        var firstTabId = shell.ActiveWorkspaceTab.TabId;
         shell.OpenWorkspaceTab();
         shell.ActivateRoute(RouteRegistry.PluginsRouteKey).IsSuccess.ShouldBeTrue();
+        var middleTabId = shell.ActiveWorkspaceTab.TabId;
+        shell.OpenWorkspaceTab();
         var closingTabId = shell.ActiveWorkspaceTab.TabId;
 
         shell.CloseWorkspaceTab(closingTabId).IsSuccess.ShouldBeTrue();
 
-        shell.WorkspaceTabs.Count.ShouldBe(1);
-        shell.ActiveWorkspaceTab.TabId.ShouldBe(leftTabId);
-        shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
-        shell.ActiveRouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+        shell.WorkspaceTabs.Count.ShouldBe(2);
+        shell.ActiveWorkspaceTab.TabId.ShouldBe(middleTabId);
+        shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.PluginsRouteKey);
+        shell.ActiveWorkspaceTab.Title.ShouldBe("Pluginlər");
+        shell.ActiveRouteKey.ShouldBe(RouteRegistry.PluginsRouteKey);
+        var firstTab = shell.WorkspaceTabs.Single(tab => tab.TabId == firstTabId);
+        firstTab.RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+        firstTab.Title.ShouldBe("Tənzimləmələr");
+        firstTab.IsActive.ShouldBeFalse();
     }
 
     [Fact]
@@ -137,8 +144,8 @@ public sealed class ShellViewModelWorkspaceTabTests
         var activeBefore = shell.ActiveWorkspaceTab;
         var routeBefore = shell.ActiveRouteKey;
 
-        shell.ActivateWorkspaceTab(Guid.CreateVersion7()).IsSuccess.ShouldBeFalse();
-        shell.CloseWorkspaceTab(Guid.CreateVersion7()).IsSuccess.ShouldBeFalse();
+        shell.ActivateWorkspaceTab(Guid.Parse("11111111-1111-1111-1111-111111111111")).IsSuccess.ShouldBeFalse();
+        shell.CloseWorkspaceTab(Guid.Parse("22222222-2222-2222-2222-222222222222")).IsSuccess.ShouldBeFalse();
 
         shell.WorkspaceTabs.ShouldBe(before);
         shell.ActiveWorkspaceTab.ShouldBe(activeBefore);
@@ -149,12 +156,23 @@ public sealed class ShellViewModelWorkspaceTabTests
     public void Active_plugin_page_label_overrides_the_active_workspace_tab_title()
     {
         var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
+        var firstTabId = shell.ActiveWorkspaceTab.TabId;
+        shell.OpenWorkspaceTab();
 
         shell.SetActivePluginPage(new DummyPluginPageModel("Live customer case"));
 
         shell.ActiveWorkspaceTab.Title.ShouldBe("Live customer case");
+        var firstTab = shell.WorkspaceTabs.Single(tab => tab.TabId == firstTabId);
+        firstTab.Title.ShouldBe("Tənzimləmələr");
+        firstTab.IsActive.ShouldBeFalse();
+
         shell.SetActivePluginPage(null);
+
         shell.ActiveWorkspaceTab.Title.ShouldBe("Ana səhifə");
+        firstTab = shell.WorkspaceTabs.Single(tab => tab.TabId == firstTabId);
+        firstTab.Title.ShouldBe("Tənzimləmələr");
+        firstTab.IsActive.ShouldBeFalse();
     }
 
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()
