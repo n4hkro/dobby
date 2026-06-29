@@ -172,223 +172,235 @@
                 Content="{Binding WorkSessionCloseLabel}" />
           </StackPanel>
         </StackPanel>
-        <TextBlock
-            Foreground="{DynamicResource Dobby.Brush.Text}"
-            Text="{Binding StatusText}" />
         <StackPanel
-            x:Name="PluginsManagerPanel"
-            Margin="{DynamicResource Dobby.Spacing.Small}"
-            Visibility="{Binding PluginsManagerPanelVisibility}">
+            x:Name="HomePanel"
+            Visibility="{Binding HomePanelVisibility}">
           <TextBlock
-              FontSize="{DynamicResource Dobby.FontSize.Title}"
               Foreground="{DynamicResource Dobby.Brush.Text}"
-              Text="{Binding PluginsManagerHeading}" />
-          <Button
-              x:Name="PluginsManagerInstallButton"
-              Margin="{DynamicResource Dobby.Spacing.Small}"
-              Click="PluginsManagerInstall_Click"
-              Content="{Binding PluginsManagerInstallLabel}"
-              IsEnabled="{Binding PluginsManagerInstallIsEnabled}"
-              Visibility="{Binding PluginsManagerInstallVisibility}" />
-          <TextBlock
-              x:Name="PluginsManagerEmptyText"
-              Margin="{DynamicResource Dobby.Spacing.Small}"
-              Foreground="{DynamicResource Dobby.Brush.Text}"
-              Text="{Binding PluginsManagerEmptyText}"
-              Visibility="{Binding PluginsManagerEmptyVisibility}" />
+              Text="{Binding StatusText}" />
           <ItemsControl
-              x:Name="PluginsManagerList"
+              x:Name="NotificationPresentationList"
               Margin="{DynamicResource Dobby.Spacing.Small}"
-              ItemsSource="{Binding PluginsManagerItems}"
-              Visibility="{Binding PluginsManagerListVisibility}">
+              ItemsSource="{Binding NotificationPresentation}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Button
+                <TextBlock
                     Margin="{DynamicResource Dobby.Spacing.Small}"
-                    Click="PluginsManagerSelect_Click"
-                    Content="{Binding DisplayName}"
-                    Tag="{Binding PluginId}" />
+                    Foreground="{DynamicResource Dobby.Brush.Text}"
+                    Text="{Binding Label}" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock
-              x:Name="PluginsManagerDetailText"
+          <ItemsControl
+              x:Name="FeedbackStatePresentationList"
               Margin="{DynamicResource Dobby.Spacing.Small}"
-              Foreground="{DynamicResource Dobby.Brush.Text}"
-              Text="{Binding PluginsManagerSelectedDetailText}"
-              TextWrapping="Wrap" />
-          <StackPanel Orientation="Horizontal">
-            <Button
-                x:Name="PluginsManagerEnableButton"
-                Margin="{DynamicResource Dobby.Spacing.Small}"
-                Click="PluginsManagerEnable_Click"
-                Content="{Binding PluginsManagerEnableLabel}"
-                IsEnabled="{Binding PluginsManagerEnableIsEnabled}" />
-            <Button
-                x:Name="PluginsManagerDisableButton"
-                Margin="{DynamicResource Dobby.Spacing.Small}"
-                Click="PluginsManagerDisable_Click"
-                Content="{Binding PluginsManagerDisableLabel}"
-                IsEnabled="{Binding PluginsManagerDisableIsEnabled}" />
-            <Button
-                x:Name="PluginsManagerUninstallButton"
-                Margin="{DynamicResource Dobby.Spacing.Small}"
-                Click="PluginsManagerUninstall_Click"
-                Content="{Binding PluginsManagerUninstallLabel}"
-                IsEnabled="{Binding PluginsManagerUninstallIsEnabled}" />
-          </StackPanel>
-          <TextBlock
-              x:Name="PluginsManagerFeedbackText"
-              Margin="{DynamicResource Dobby.Spacing.Small}"
-              Foreground="{DynamicResource Dobby.Brush.Text}"
-              Text="{Binding PluginsManagerFeedbackText}"
-              TextWrapping="Wrap" />
+              ItemsSource="{Binding FeedbackStatePresentation}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock
+                    Margin="{DynamicResource Dobby.Spacing.Small}"
+                    Foreground="{DynamicResource Dobby.Brush.Text}"
+                    Text="{Binding Label}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
         </StackPanel>
         <StackPanel
-            x:Name="LicensePanel"
-            Margin="{DynamicResource Dobby.Spacing.Small}"
-            Visibility="{Binding LicensePanelVisibility}">
-          <TextBlock
-              FontSize="{DynamicResource Dobby.FontSize.Title}"
-              Foreground="{DynamicResource Dobby.Brush.Text}"
-              Text="{Binding LicenseHeading}" />
+            x:Name="PluginsSurface"
+            Visibility="{Binding PluginsSurfaceVisibility}">
           <StackPanel
-              x:Name="LicenseStatusPanel"
-              Orientation="Horizontal"
-              Visibility="{Binding LicenseStatusVisibility}">
-            <TextBlock
-                Margin="{DynamicResource Dobby.Spacing.Small}"
-                Foreground="{DynamicResource Dobby.Brush.Text}"
-                Text="{Binding LicenseStatusLabel}" />
-            <TextBlock
-                x:Name="LicenseStatusText"
-                Margin="{DynamicResource Dobby.Spacing.Small}"
-                Foreground="{DynamicResource Dobby.Brush.Text}"
-                Text="{Binding LicenseRuntimeModeText}" />
-          </StackPanel>
-          <StackPanel
-              x:Name="LicenseListPanel"
-              Orientation="Horizontal"
-              Visibility="{Binding LicenseListVisibility}">
-            <TextBlock
-                Margin="{DynamicResource Dobby.Spacing.Small}"
-                Foreground="{DynamicResource Dobby.Brush.Text}"
-                Text="{Binding LicenseListLabel}" />
-            <TextBlock
-                x:Name="LicenseListText"
-                Margin="{DynamicResource Dobby.Spacing.Small}"
-                Foreground="{DynamicResource Dobby.Brush.Text}"
-                Text="{Binding LicenseListText}" />
-          </StackPanel>
-          <StackPanel
-              x:Name="LicenseDetailPanel"
-              Orientation="Horizontal"
-              Visibility="{Binding LicenseDetailVisibility}">
-            <TextBlock
-                Margin="{DynamicResource Dobby.Spacing.Small}"
-                Foreground="{DynamicResource Dobby.Brush.Text}"
-                Text="{Binding LicenseDetailLabel}" />
-            <TextBlock
-                x:Name="LicenseDetailText"
-                Margin="{DynamicResource Dobby.Spacing.Small}"
-                Foreground="{DynamicResource Dobby.Brush.Text}"
-                Text="{Binding LicenseDetailText}" />
-          </StackPanel>
-          <Button
-              x:Name="LicenseImportButton"
+              x:Name="PluginsManagerPanel"
               Margin="{DynamicResource Dobby.Spacing.Small}"
-              Click="LicenseImport_Click"
-              Content="{Binding LicenseImportLabel}"
-              IsEnabled="{Binding LicenseImportIsEnabled}"
-              Visibility="{Binding LicenseImportVisibility}" />
-          <TextBlock
-              x:Name="LicenseFeedbackText"
+              Visibility="{Binding PluginsManagerPanelVisibility}">
+            <TextBlock
+                FontSize="{DynamicResource Dobby.FontSize.Title}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding PluginsManagerHeading}" />
+            <Button
+                x:Name="PluginsManagerInstallButton"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Click="PluginsManagerInstall_Click"
+                Content="{Binding PluginsManagerInstallLabel}"
+                IsEnabled="{Binding PluginsManagerInstallIsEnabled}"
+                Visibility="{Binding PluginsManagerInstallVisibility}" />
+            <TextBlock
+                x:Name="PluginsManagerEmptyText"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding PluginsManagerEmptyText}"
+                Visibility="{Binding PluginsManagerEmptyVisibility}" />
+            <ItemsControl
+                x:Name="PluginsManagerList"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                ItemsSource="{Binding PluginsManagerItems}"
+                Visibility="{Binding PluginsManagerListVisibility}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button
+                      Margin="{DynamicResource Dobby.Spacing.Small}"
+                      Click="PluginsManagerSelect_Click"
+                      Content="{Binding DisplayName}"
+                      Tag="{Binding PluginId}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock
+                x:Name="PluginsManagerDetailText"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding PluginsManagerSelectedDetailText}"
+                TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal">
+              <Button
+                  x:Name="PluginsManagerEnableButton"
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Click="PluginsManagerEnable_Click"
+                  Content="{Binding PluginsManagerEnableLabel}"
+                  IsEnabled="{Binding PluginsManagerEnableIsEnabled}" />
+              <Button
+                  x:Name="PluginsManagerDisableButton"
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Click="PluginsManagerDisable_Click"
+                  Content="{Binding PluginsManagerDisableLabel}"
+                  IsEnabled="{Binding PluginsManagerDisableIsEnabled}" />
+              <Button
+                  x:Name="PluginsManagerUninstallButton"
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Click="PluginsManagerUninstall_Click"
+                  Content="{Binding PluginsManagerUninstallLabel}"
+                  IsEnabled="{Binding PluginsManagerUninstallIsEnabled}" />
+            </StackPanel>
+            <TextBlock
+                x:Name="PluginsManagerFeedbackText"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding PluginsManagerFeedbackText}"
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel
+              x:Name="LicensePanel"
               Margin="{DynamicResource Dobby.Spacing.Small}"
-              Foreground="{DynamicResource Dobby.Brush.Text}"
-              Text="{Binding LicenseFeedbackText}"
-              TextWrapping="Wrap" />
+              Visibility="{Binding LicensePanelVisibility}">
+            <TextBlock
+                FontSize="{DynamicResource Dobby.FontSize.Title}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding LicenseHeading}" />
+            <StackPanel
+                x:Name="LicenseStatusPanel"
+                Orientation="Horizontal"
+                Visibility="{Binding LicenseStatusVisibility}">
+              <TextBlock
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Foreground="{DynamicResource Dobby.Brush.Text}"
+                  Text="{Binding LicenseStatusLabel}" />
+              <TextBlock
+                  x:Name="LicenseStatusText"
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Foreground="{DynamicResource Dobby.Brush.Text}"
+                  Text="{Binding LicenseRuntimeModeText}" />
+            </StackPanel>
+            <StackPanel
+                x:Name="LicenseListPanel"
+                Orientation="Horizontal"
+                Visibility="{Binding LicenseListVisibility}">
+              <TextBlock
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Foreground="{DynamicResource Dobby.Brush.Text}"
+                  Text="{Binding LicenseListLabel}" />
+              <TextBlock
+                  x:Name="LicenseListText"
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Foreground="{DynamicResource Dobby.Brush.Text}"
+                  Text="{Binding LicenseListText}" />
+            </StackPanel>
+            <StackPanel
+                x:Name="LicenseDetailPanel"
+                Orientation="Horizontal"
+                Visibility="{Binding LicenseDetailVisibility}">
+              <TextBlock
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Foreground="{DynamicResource Dobby.Brush.Text}"
+                  Text="{Binding LicenseDetailLabel}" />
+              <TextBlock
+                  x:Name="LicenseDetailText"
+                  Margin="{DynamicResource Dobby.Spacing.Small}"
+                  Foreground="{DynamicResource Dobby.Brush.Text}"
+                  Text="{Binding LicenseDetailText}" />
+            </StackPanel>
+            <Button
+                x:Name="LicenseImportButton"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Click="LicenseImport_Click"
+                Content="{Binding LicenseImportLabel}"
+                IsEnabled="{Binding LicenseImportIsEnabled}"
+                Visibility="{Binding LicenseImportVisibility}" />
+            <TextBlock
+                x:Name="LicenseFeedbackText"
+                Margin="{DynamicResource Dobby.Spacing.Small}"
+                Foreground="{DynamicResource Dobby.Brush.Text}"
+                Text="{Binding LicenseFeedbackText}"
+                TextWrapping="Wrap" />
+          </StackPanel>
         </StackPanel>
         <ContentControl
             x:Name="PluginPageHost"
             Margin="{DynamicResource Dobby.Spacing.Small}" />
-        <ItemsControl
-            x:Name="NotificationPresentationList"
-            Margin="{DynamicResource Dobby.Spacing.Small}"
-            ItemsSource="{Binding NotificationPresentation}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <TextBlock
-                  Margin="{DynamicResource Dobby.Spacing.Small}"
-                  Foreground="{DynamicResource Dobby.Brush.Text}"
-                  Text="{Binding Label}" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <ItemsControl
-            x:Name="FeedbackStatePresentationList"
-            Margin="{DynamicResource Dobby.Spacing.Small}"
-            ItemsSource="{Binding FeedbackStatePresentation}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <TextBlock
-                  Margin="{DynamicResource Dobby.Spacing.Small}"
-                  Foreground="{DynamicResource Dobby.Brush.Text}"
-                  Text="{Binding Label}" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <TextBlock
-            Margin="{DynamicResource Dobby.Spacing.Small}"
-            FontSize="{DynamicResource Dobby.FontSize.Title}"
-            Foreground="{DynamicResource Dobby.Brush.Text}"
-            Text="{Binding SettingsHeading}" />
-        <ItemsControl
-            x:Name="SettingsCategoryList"
-            ItemsSource="{Binding SettingsCategories}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <TextBlock
-                  Margin="{DynamicResource Dobby.Spacing.Small}"
-                  Foreground="{DynamicResource Dobby.Brush.Text}"
-                  Text="{Binding Label}" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <TextBlock
-            Margin="{DynamicResource Dobby.Spacing.Small}"
-            FontSize="{DynamicResource Dobby.FontSize.Title}"
-            Foreground="{DynamicResource Dobby.Brush.Text}"
-            Text="{Binding AboutHeading}" />
-        <ItemsControl
-            x:Name="AboutFieldList"
-            ItemsSource="{Binding AboutFields}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <StackPanel Margin="{DynamicResource Dobby.Spacing.Small}">
+        <StackPanel
+            x:Name="SettingsSurface"
+            Visibility="{Binding SettingsSurfaceVisibility}">
+          <TextBlock
+              Margin="{DynamicResource Dobby.Spacing.Small}"
+              FontSize="{DynamicResource Dobby.FontSize.Title}"
+              Foreground="{DynamicResource Dobby.Brush.Text}"
+              Text="{Binding SettingsHeading}" />
+          <ItemsControl
+              x:Name="SettingsCategoryList"
+              ItemsSource="{Binding SettingsCategories}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
                 <TextBlock
+                    Margin="{DynamicResource Dobby.Spacing.Small}"
                     Foreground="{DynamicResource Dobby.Brush.Text}"
                     Text="{Binding Label}" />
-                <TextBlock
-                    Foreground="{DynamicResource Dobby.Brush.Text}"
-                    Text="{Binding Value}" />
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <Button
-            Margin="{DynamicResource Dobby.Spacing.Medium}"
-            Click="DiagnosticsExport_Click"
-            Content="{Binding DiagnosticsExportLabel}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock
+              Margin="{DynamicResource Dobby.Spacing.Small}"
+              FontSize="{DynamicResource Dobby.FontSize.Title}"
+              Foreground="{DynamicResource Dobby.Brush.Text}"
+              Text="{Binding AboutHeading}" />
+          <ItemsControl
+              x:Name="AboutFieldList"
+              ItemsSource="{Binding AboutFields}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="{DynamicResource Dobby.Spacing.Small}">
+                  <TextBlock
+                      Foreground="{DynamicResource Dobby.Brush.Text}"
+                      Text="{Binding Label}" />
+                  <TextBlock
+                      Foreground="{DynamicResource Dobby.Brush.Text}"
+                      Text="{Binding Value}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Button
+              Margin="{DynamicResource Dobby.Spacing.Medium}"
+              Click="DiagnosticsExport_Click"
+              Content="{Binding DiagnosticsExportLabel}" />
+        </StackPanel>
       </StackPanel>
     </Border>
 

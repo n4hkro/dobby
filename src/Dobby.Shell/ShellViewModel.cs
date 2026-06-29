@@ -81,6 +81,18 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string StatusText => strings.GetString(HostResourceKeys.ShellStatusReady);
 
+    public Visibility HomePanelVisibility => IsActiveBuiltInRoute(RouteRegistry.HomeRouteKey) && !HasActivePluginPage
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility PluginsSurfaceVisibility => IsActiveBuiltInRoute(RouteRegistry.PluginsRouteKey) && !HasActivePluginPage
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility SettingsSurfaceVisibility => IsActiveBuiltInRoute(RouteRegistry.SettingsRouteKey) && !HasActivePluginPage
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
     public string DiagnosticsExportLabel => strings.GetString(HostResourceKeys.ShellDiagnosticsExport);
 
     public string DiagnosticsExportedLabel => strings.GetString(HostResourceKeys.ShellDiagnosticsExported);
@@ -150,7 +162,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         ? PluginManagerDetailText(selected)
         : string.Empty;
 
-    public Visibility PluginsManagerPanelVisibility => canViewPluginsManager || canImportPluginsManager
+    public Visibility PluginsManagerPanelVisibility => PluginsSurfaceVisibility == Visibility.Visible &&
+        (canViewPluginsManager || canImportPluginsManager)
         ? Visibility.Visible
         : Visibility.Collapsed;
 
@@ -211,7 +224,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         ? string.Empty
         : strings.GetString(licenseFeedbackKey);
 
-    public Visibility LicensePanelVisibility => canViewLicenseStatus || canImportLicense
+    public Visibility LicensePanelVisibility => PluginsSurfaceVisibility == Visibility.Visible &&
+        (canViewLicenseStatus || canImportLicense)
         ? Visibility.Visible
         : Visibility.Collapsed;
 
@@ -389,6 +403,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         activePluginPageModel = model;
         OnPropertyChanged(nameof(ActivePluginPageModel));
         OnPropertyChanged(nameof(HasActivePluginPage));
+        NotifyRouteSurfaceChanged();
     }
 
     public void SetLicenseSurface(
@@ -589,11 +604,26 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SidebarNavigation));
         OnPropertyChanged(nameof(ThirdBarNavigation));
         OnPropertyChanged(nameof(ActiveRouteKey));
+        NotifyRouteSurfaceChanged();
     }
 
     private ShellNavigationItem BuildNavigationItem(NavigationNode node, int index)
     {
         return new ShellNavigationItem(node.RouteKey, strings.GetString(node.LabelKey), index);
+    }
+
+    private bool IsActiveBuiltInRoute(string routeKey)
+    {
+        return ActiveRouteKey.Equals(routeKey, StringComparison.Ordinal);
+    }
+
+    private void NotifyRouteSurfaceChanged()
+    {
+        OnPropertyChanged(nameof(HomePanelVisibility));
+        OnPropertyChanged(nameof(PluginsSurfaceVisibility));
+        OnPropertyChanged(nameof(SettingsSurfaceVisibility));
+        OnPropertyChanged(nameof(PluginsManagerPanelVisibility));
+        OnPropertyChanged(nameof(LicensePanelVisibility));
     }
 
     private static string NotificationLabelKey(ShellNotificationKind kind)

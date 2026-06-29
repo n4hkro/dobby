@@ -22,6 +22,9 @@ public sealed class LicenseImportShellSurfaceTests
             pluginId: "plugin.sample",
             pluginName: "Sample plugin");
 
+        shell.LicensePanelVisibility.ShouldBe(Visibility.Collapsed);
+        shell.ActivateRoute(Dobby.Navigation.RouteRegistry.PluginsRouteKey).IsSuccess.ShouldBeTrue();
+
         shell.LicensePanelVisibility.ShouldBe(Visibility.Visible);
         shell.LicenseStatusVisibility.ShouldBe(Visibility.Visible);
         shell.LicenseListVisibility.ShouldBe(Visibility.Visible);

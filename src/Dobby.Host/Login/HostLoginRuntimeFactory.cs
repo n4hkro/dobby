@@ -32,7 +32,9 @@ namespace Dobby.Host.Login;
 
 public static class HostLoginRuntimeFactory
 {
-    public static HostLoginRuntime Create(IPluginWorkSessionService? pluginWorkSessions = null)
+    public static HostLoginRuntime Create(
+        IPluginWorkSessionService? pluginWorkSessions = null,
+        bool applyPreLoginMigrations = true)
     {
         var configuration = HostConfigurationSources.Build(new HostConfigurationSourceOptions(
             Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
@@ -41,7 +43,13 @@ public static class HostLoginRuntimeFactory
             null));
         var options = HostConfigurationSources.BindDobbyOptions(configuration);
         ValidateOptions(options);
-        return Create(options, TimeProvider.System, null, null, pluginWorkSessions: pluginWorkSessions);
+        return Create(
+            options,
+            TimeProvider.System,
+            null,
+            null,
+            pluginWorkSessions: pluginWorkSessions,
+            applyPreLoginMigrations: applyPreLoginMigrations);
     }
 
     public static HostLoginRuntime Create(
@@ -50,7 +58,8 @@ public static class HostLoginRuntimeFactory
         IProtectedDataProtector? credentialProtector = null,
         IProtectedDataProtector? rememberMeProtector = null,
         IBackgroundOperationReporter? backgroundOperations = null,
-        IPluginWorkSessionService? pluginWorkSessions = null)
+        IPluginWorkSessionService? pluginWorkSessions = null,
+        bool applyPreLoginMigrations = true)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -71,10 +80,13 @@ public static class HostLoginRuntimeFactory
             options.Storage.BusyTimeoutMilliseconds);
         var factory = new EncryptedSqliteConnectionFactory(persistenceOptions, protectedMaterialProbe);
         var migrator = new HostPersistenceMigrator(factory, protectedMaterialProbe);
-        var migration = migrator.ApplyPreLoginMigrations();
-        if (!migration.IsSuccess)
+        if (applyPreLoginMigrations)
         {
-            throw new InvalidOperationException(migration.Error.Message);
+            var migration = migrator.ApplyPreLoginMigrations();
+            if (!migration.IsSuccess)
+            {
+                throw new InvalidOperationException(migration.Error.Message);
+            }
         }
 
         var executor = new HostPersistenceCommandExecutor(factory);
@@ -88,11 +100,11 @@ public static class HostLoginRuntimeFactory
         }
 
         var licenseStateStore = new HostLicenseStateStore(executor, transactionScope);
-        var currentLicenseDeviceFingerprint = CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId);
+        var currentLicenseDeviceFingerprint = new Lazy<string>(() => CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId));
         var licenseRuntimeModeProvider = new LicenseRuntimeModeProvider(
             licenseStateStore,
             currentContextService,
-            () => currentLicenseDeviceFingerprint);
+            () => currentLicenseDeviceFingerprint.Value);
         var credentialScopeProtector = credentialProtector ?? new DpapiLocalMachineProtector();
         var rememberScopeProtector = rememberMeProtector ?? new DpapiCurrentUserProtector();
         var kdfPolicyResolver = new KdfPolicyResolver(options.Auth);
@@ -180,7 +192,7 @@ public static class HostLoginRuntimeFactory
             licenseImportService,
             installedPluginStateStore,
             operationAuthorizationPolicy,
-            () => currentLicenseDeviceFingerprint,
+            () => currentLicenseDeviceFingerprint.Value,
             auditTrail,
             timeProvider);
         var postLoginSessionRuntime = new PostLoginSessionRuntime(

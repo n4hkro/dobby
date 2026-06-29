@@ -6,6 +6,7 @@ using Dobby.Shell;
 using Dobby.Shell.Layout;
 using Dobby.Shell.WorkSessions;
 using Shouldly;
+using System.Windows;
 
 namespace Dobby.UnitTests.Shell;
 
@@ -149,6 +150,47 @@ public sealed class ShellViewModelNavigationTests
         shell.ActivePluginPageModel.ShouldNotBeNull();
         propertyChanges.ShouldContain(nameof(ShellViewModel.ActivePluginPageModel));
         propertyChanges.ShouldContain(nameof(ShellViewModel.HasActivePluginPage));
+    }
+
+    [Fact]
+    public void Built_in_route_surfaces_are_visible_only_for_the_active_route()
+    {
+        var shell = ShellViewModel.CreateDefault(new HostStringCatalog());
+        shell.SetPluginsManagerSurface(
+            canView: true,
+            canImport: true,
+            canConfigure: true,
+            canDelete: true,
+            plugins: []);
+        shell.SetLicenseSurface(
+            canViewStatus: true,
+            canImport: true,
+            Dobby.Contracts.Licensing.PluginRuntimeMode.FullAccess);
+        shell.SetSettingsAndAbout(
+            [new ShellSettingsCategoryItem("appearance", "Gorunus", IsAvailable: true)],
+            [new ShellAboutField("version", "Versiya", "1.0.0")]);
+
+        shell.HomePanelVisibility.ShouldBe(Visibility.Visible);
+        shell.PluginsSurfaceVisibility.ShouldBe(Visibility.Collapsed);
+        shell.SettingsSurfaceVisibility.ShouldBe(Visibility.Collapsed);
+        shell.PluginsManagerPanelVisibility.ShouldBe(Visibility.Collapsed);
+        shell.LicensePanelVisibility.ShouldBe(Visibility.Collapsed);
+
+        shell.ActivateRoute(RouteRegistry.PluginsRouteKey).IsSuccess.ShouldBeTrue();
+
+        shell.HomePanelVisibility.ShouldBe(Visibility.Collapsed);
+        shell.PluginsSurfaceVisibility.ShouldBe(Visibility.Visible);
+        shell.SettingsSurfaceVisibility.ShouldBe(Visibility.Collapsed);
+        shell.PluginsManagerPanelVisibility.ShouldBe(Visibility.Visible);
+        shell.LicensePanelVisibility.ShouldBe(Visibility.Visible);
+
+        shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
+
+        shell.HomePanelVisibility.ShouldBe(Visibility.Collapsed);
+        shell.PluginsSurfaceVisibility.ShouldBe(Visibility.Collapsed);
+        shell.SettingsSurfaceVisibility.ShouldBe(Visibility.Visible);
+        shell.PluginsManagerPanelVisibility.ShouldBe(Visibility.Collapsed);
+        shell.LicensePanelVisibility.ShouldBe(Visibility.Collapsed);
     }
 
     [Fact]

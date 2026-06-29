@@ -13,6 +13,7 @@ using Dobby.Licensing;
 using Dobby.Shell.PluginPages;
 using Dobby.Security.Authentication;
 using Dobby.Shell;
+using Dobby.Shell.Layout;
 using Dobby.Shell.WorkSessions;
 
 namespace Dobby.Host;
@@ -29,6 +30,7 @@ public partial class MainWindow : Window
     private ShellDiagnosticsExportCoordinator? diagnosticsExportCoordinator;
     private readonly PluginPageRenderRegistry pluginPageRenderRegistry;
     private readonly WorkSessionCloseCoordinator? workSessionCloseCoordinator;
+    private readonly ShellLayoutPreference? initialPreference;
     private readonly PluginPageRouteCoordinator? pluginPageRouteCoordinator;
     private readonly HostPluginPackageInstallCoordinator? pluginPackageInstallCoordinator;
     private readonly HostPluginLifecycleCoordinator? pluginLifecycleCoordinator;
@@ -95,7 +97,8 @@ public partial class MainWindow : Window
         IPluginUninstallConfirmation? pluginUninstallConfirmation = null,
         LicenseImportCoordinator? licenseImportCoordinator = null,
         ILicenseFilePicker? licenseFilePicker = null,
-        IBackgroundOperationReporter? backgroundOperations = null)
+        IBackgroundOperationReporter? backgroundOperations = null,
+        ShellLayoutPreference? initialPreference = null)
         : this()
     {
         this.sessionRuntime = sessionRuntime;
@@ -107,6 +110,7 @@ public partial class MainWindow : Window
         this.themeCoordinator = themeCoordinator;
         this.diagnosticsExportCoordinator = diagnosticsExportCoordinator;
         this.workSessionCloseCoordinator = workSessionCloseCoordinator;
+        this.initialPreference = initialPreference;
         this.diagnosticsSourceDirectory = diagnosticsSourceDirectory;
         this.diagnosticsOutputZipPath = diagnosticsOutputZipPath;
         this.pluginPageRouteCoordinator = pluginPageRouteCoordinator;
@@ -132,7 +136,7 @@ public partial class MainWindow : Window
         };
         Loaded += (_, _) =>
         {
-            ApplyPersistedShellPreference();
+            ApplyInitialShellPreference();
             StartSessionCheckpointTimer();
         };
         Closed += (_, _) =>
@@ -174,7 +178,9 @@ public partial class MainWindow : Window
         };
         sessionTimer.Tick += (_, _) => CheckpointSession();
         sessionTimer.Start();
-        CheckpointSession();
+        Dispatcher.BeginInvoke(
+            (Action)(() => CheckpointSession()),
+            DispatcherPriority.ContextIdle);
     }
 
     private void RecordSessionActivity()
@@ -846,6 +852,17 @@ public partial class MainWindow : Window
             : ErrorCode.ValidationFailed;
     }
 
+    private void ApplyInitialShellPreference()
+    {
+        if (initialPreference is not null)
+        {
+            ApplyShellPreference(initialPreference);
+            return;
+        }
+
+        ApplyPersistedShellPreference();
+    }
+
     private void ApplyPersistedShellPreference()
     {
         var load = preferenceSource?.Load();
@@ -854,7 +871,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        var runtimePreference = ShellPreferenceMapper.ToRuntimePreference(load.Value.ShellView);
+        ApplyShellPreference(ShellPreferenceMapper.ToRuntimePreference(load.Value.ShellView));
+    }
+
+    private void ApplyShellPreference(ShellLayoutPreference runtimePreference)
+    {
         shellViewModel.ApplyPreference(runtimePreference);
         Width = runtimePreference.WindowPlacement.Width;
         Height = runtimePreference.WindowPlacement.Height;

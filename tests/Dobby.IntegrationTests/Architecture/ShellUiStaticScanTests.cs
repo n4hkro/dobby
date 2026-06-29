@@ -56,6 +56,9 @@ public sealed class ShellUiStaticScanTests
             "ThirdBar",
             "ThirdBarNavigationList",
             "MainContent",
+            "HomePanel",
+            "PluginsSurface",
+            "SettingsSurface",
             "BottomStatus",
             "MinimizedWorkStrip",
             "PluginPageHost",
@@ -113,6 +116,9 @@ public sealed class ShellUiStaticScanTests
         shell.ShouldContain("WorkSessionMinimize_Click");
         shell.ShouldContain("WorkSessionClose_Click");
         shell.ShouldContain("Tag=\"{Binding RouteKey}\"");
+        shell.ShouldContain("Visibility=\"{Binding HomePanelVisibility}\"");
+        shell.ShouldContain("Visibility=\"{Binding PluginsSurfaceVisibility}\"");
+        shell.ShouldContain("Visibility=\"{Binding SettingsSurfaceVisibility}\"");
     }
 
     [Fact]

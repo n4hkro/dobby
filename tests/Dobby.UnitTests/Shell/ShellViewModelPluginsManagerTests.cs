@@ -30,6 +30,9 @@ public sealed class ShellViewModelPluginsManagerTests
             ]);
         shell.SelectPlugin("com.dobby.sample");
 
+        shell.PluginsManagerPanelVisibility.ShouldBe(Visibility.Collapsed);
+        shell.ActivateRoute(Dobby.Navigation.RouteRegistry.PluginsRouteKey).IsSuccess.ShouldBeTrue();
+
         shell.PluginsManagerPanelVisibility.ShouldBe(Visibility.Visible);
         shell.PluginsManagerListVisibility.ShouldBe(Visibility.Visible);
         shell.PluginsManagerEmptyVisibility.ShouldBe(Visibility.Collapsed);

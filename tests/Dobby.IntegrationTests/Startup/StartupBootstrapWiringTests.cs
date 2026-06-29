@@ -40,6 +40,58 @@ public sealed class StartupBootstrapWiringTests
     }
 
     [Fact]
+    public void App_defers_duplicate_login_runtime_migration_and_plugin_migration_until_after_first_paint()
+    {
+        var root = RepoRoot();
+        var appSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
+
+        appSource.ShouldContain("applyPreLoginMigrations: false");
+        appSource.ShouldContain("window.ContentRendered += async");
+        appSource.ShouldContain("var pluginMigration = loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations();");
+
+        var contentRendered = appSource.IndexOf("window.ContentRendered += async", StringComparison.Ordinal);
+        var pluginMigration = appSource.IndexOf(
+            "var pluginMigration = loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations();",
+            StringComparison.Ordinal);
+        var showDialog = appSource.IndexOf("window.ShowDialog();", StringComparison.Ordinal);
+
+        contentRendered.ShouldBeGreaterThanOrEqualTo(0);
+        pluginMigration.ShouldBeGreaterThan(contentRendered);
+        showDialog.ShouldBeGreaterThan(pluginMigration);
+    }
+
+    [Fact]
+    public void Host_login_runtime_factory_defers_license_device_fingerprint_until_license_use()
+    {
+        var root = RepoRoot();
+        var factorySource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Login", "HostLoginRuntimeFactory.cs"));
+
+        factorySource.ShouldContain("new Lazy<string>(() => CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId))");
+        factorySource.ShouldContain("() => currentLicenseDeviceFingerprint.Value");
+        factorySource.ShouldNotContain("var currentLicenseDeviceFingerprint = CreateCurrentLicenseDeviceFingerprint");
+    }
+
+    [Fact]
+    public void App_defers_settings_about_and_initial_checkpoint_until_after_shell_first_paint()
+    {
+        var root = RepoRoot();
+        var appSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
+        var mainWindowSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+
+        var contentRendered = appSource.IndexOf("window.ContentRendered += async", StringComparison.Ordinal);
+        var configureSettings = appSource.IndexOf(
+            "ConfigureSettingsAndAbout(shellViewModel, strings, loginRuntime, authenticatedSession?.UserId);",
+            StringComparison.Ordinal);
+        var showDialog = appSource.IndexOf("window.ShowDialog();", StringComparison.Ordinal);
+
+        contentRendered.ShouldBeGreaterThanOrEqualTo(0);
+        configureSettings.ShouldBeGreaterThan(contentRendered);
+        configureSettings.ShouldBeLessThan(showDialog);
+        mainWindowSource.ShouldContain("Dispatcher.BeginInvoke");
+        mainWindowSource.ShouldContain("(Action)(() => CheckpointSession())");
+    }
+
+    [Fact]
     public void Host_bootstrap_acquires_single_instance_before_login_visible_and_exits_on_second_instance()
     {
         using var temp = new TemporaryDirectory();

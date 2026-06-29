@@ -19,6 +19,9 @@ public sealed class ShellViewModelLicenseSurfaceTests
             PluginRuntimeMode.ReadOnlyExpired,
             feedbackKey: HostResourceKeys.LicenseImportRejected);
 
+        shell.LicensePanelVisibility.ShouldBe(Visibility.Collapsed);
+        shell.ActivateRoute(Dobby.Navigation.RouteRegistry.PluginsRouteKey).IsSuccess.ShouldBeTrue();
+
         shell.LicensePanelVisibility.ShouldBe(Visibility.Visible);
         shell.LicenseStatusVisibility.ShouldBe(Visibility.Visible);
         shell.LicenseImportVisibility.ShouldBe(Visibility.Collapsed);

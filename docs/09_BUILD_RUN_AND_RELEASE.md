@@ -156,6 +156,17 @@ dotnet test .\Dobby.sln -c Release --no-build
 dotnet publish .\src\Dobby.Host\Dobby.Host.csproj -c Release
 ```
 
+Portable support/dev folder command:
+
+```powershell
+.\tools\publish-portable\publish-portable.ps1
+```
+
+The portable command writes an ordinary self-contained folder to
+`artifacts/publish/portable/Dobby.Host/` for offline/manual testing. It does not
+produce an archive and does not replace MSIX as the primary customer deployment
+format.
+
 If a command path changes during implementation, this document is updated in the same change that changes the project path.
 
 ## 5. CI Sequence

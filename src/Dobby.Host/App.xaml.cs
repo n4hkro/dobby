@@ -51,7 +51,8 @@ public partial class App : System.Windows.Application
         {
             var workSessionRegistry = new WorkSessionRegistry();
             await using var loginRuntime = HostLoginRuntimeFactory.Create(
-                pluginWorkSessions: new ShellPluginWorkSessionService(workSessionRegistry));
+                pluginWorkSessions: new ShellPluginWorkSessionService(workSessionRegistry),
+                applyPreLoginMigrations: false);
             var loginWindow = new LoginWindow(loginRuntime.LoginWorkflow, loginRuntime.LoginViewModel, loginRuntime.RecoveryViewModel);
             MainWindow = loginWindow;
             if (loginWindow.ShowDialog() != true)
@@ -61,11 +62,6 @@ public partial class App : System.Windows.Application
             }
 
             var authenticatedSession = loginWindow.AuthenticatedSession;
-            var pluginMigration = loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations();
-            if (!pluginMigration.IsSuccess)
-            {
-                throw new InvalidOperationException(pluginMigration.Error.Message);
-            }
             var scopedPreferenceSource = authenticatedSession is null
                 ? loginRuntime.SettingsPreferenceSource
                 : loginRuntime.SettingsPreferenceSourceFactory(authenticatedSession.UserId);
@@ -76,14 +72,14 @@ public partial class App : System.Windows.Application
             var currentTheme = themeCoordinator.CurrentTheme;
             shellViewModel.SetTheme(currentTheme);
             var preferences = scopedPreferenceSource.Load();
+            ShellLayoutPreference? initialShellPreference = null;
             if (preferences.IsSuccess)
             {
-                shellViewModel.ApplyPreference(ShellPreferenceMapper.ToRuntimePreference(preferences.Value.ShellView));
+                initialShellPreference = ShellPreferenceMapper.ToRuntimePreference(preferences.Value.ShellView);
+                shellViewModel.ApplyPreference(initialShellPreference);
             }
 
             var workSessionCloseCoordinator = new WorkSessionCloseCoordinator(workSessionRegistry);
-            ConfigureSettingsAndAbout(shellViewModel, strings, loginRuntime, authenticatedSession?.UserId);
-            ConfigurePluginsManagerSurface(shellViewModel, loginRuntime, authenticatedSession?.UserId);
             WireBackgroundOperations(shellViewModel, loginRuntime.BackgroundOperations);
             ShellThemeCoordinator.ApplyTheme(this, currentTheme);
             var pluginPageRouteCoordinator = new PluginPageRouteCoordinator(
@@ -109,9 +105,22 @@ public partial class App : System.Windows.Application
                 pluginPackageFilePicker: new WindowsPluginPackageFilePicker(),
                 licenseImportCoordinator: loginRuntime.LicenseImportCoordinator,
                 licenseFilePicker: new WindowsLicenseFilePicker(),
-                backgroundOperations: loginRuntime.BackgroundOperations);
+                backgroundOperations: loginRuntime.BackgroundOperations,
+                initialPreference: initialShellPreference);
             window.ContentRendered += async (_, _) =>
             {
+                ConfigureSettingsAndAbout(shellViewModel, strings, loginRuntime, authenticatedSession?.UserId);
+
+                var pluginMigration = loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations();
+                if (!pluginMigration.IsSuccess)
+                {
+                    shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.ShellFeedbackError);
+                    return;
+                }
+
+                ConfigurePluginsManagerSurface(shellViewModel, loginRuntime, authenticatedSession?.UserId);
+                ConfigureLicenseSurface(shellViewModel, loginRuntime, authenticatedSession?.UserId ?? "unknown");
+
                 var activation = await loginRuntime.PluginRuntimeCoordinator.BeginPostLoginActivation(
                     new AssemblyHostVersionProvider(typeof(App).Assembly).Current,
                     authenticatedSession?.UserId ?? "unknown");
@@ -157,7 +166,6 @@ public partial class App : System.Windows.Application
         var isOwner = permissionState is { IsSuccess: true } && permissionState.Value.IsOwner;
         var about = loginRuntime.AboutInfoProvider.GetInfo(isOwner: isOwner, ownerIdentity: actor);
         shellViewModel.SetSettingsAndAbout(categories, BuildAboutFields(strings, about));
-        ConfigureLicenseSurface(shellViewModel, loginRuntime, actor);
     }
 
     private static void ConfigureLicenseSurface(
