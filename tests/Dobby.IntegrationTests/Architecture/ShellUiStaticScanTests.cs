@@ -50,6 +50,16 @@ public sealed class ShellUiStaticScanTests
         var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
         var requiredNames = new[]
         {
+            "WindowTitleBar",
+            "WorkspaceTabStrip",
+            "WorkspaceNewTabButton",
+            "WindowMinimizeButton",
+            "WindowMaximizeRestoreButton",
+            "WindowCloseButton",
+            "ShellSidebar",
+            "ShellBrandMark",
+            "CenteredTopToolbar",
+            "ShellContentHost",
             "TopToolbar",
             "Sidebar",
             "SidebarNavigationList",
@@ -108,6 +118,15 @@ public sealed class ShellUiStaticScanTests
         shell.ShouldContain("PluginsManagerEnable_Click");
         shell.ShouldContain("PluginsManagerDisable_Click");
         shell.ShouldContain("PluginsManagerUninstall_Click");
+        shell.ShouldContain("WorkspaceNewTab_Click");
+        shell.ShouldContain("WorkspaceTab_Click");
+        shell.ShouldContain("WorkspaceTabClose_Click");
+        shell.ShouldContain("WindowMinimize_Click");
+        shell.ShouldContain("WindowMaximizeRestore_Click");
+        shell.ShouldContain("WindowClose_Click");
+        shell.ShouldContain("ItemsSource=\"{Binding WorkspaceTabs}\"");
+        shell.ShouldContain("AutomationProperties.Name=\"{Binding WorkspaceNewTabLabel}\"");
+        shell.ShouldContain("x:Name=\"CenteredTopToolbar\"");
         shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerInstallIsEnabled}\"");
         shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerEnableIsEnabled}\"");
         shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerDisableIsEnabled}\"");
@@ -119,6 +138,17 @@ public sealed class ShellUiStaticScanTests
         shell.ShouldContain("Visibility=\"{Binding HomePanelVisibility}\"");
         shell.ShouldContain("Visibility=\"{Binding PluginsSurfaceVisibility}\"");
         shell.ShouldContain("Visibility=\"{Binding SettingsSurfaceVisibility}\"");
+    }
+
+    [Fact]
+    public void Host_shell_sidebar_and_top_toolbar_share_continuous_background()
+    {
+        var root = RepoRoot();
+        var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
+
+        NamedElement(shell, "ShellSidebar").ShouldNotContain("Background=");
+        NamedElement(shell, "TopToolbar").ShouldNotContain("Background=");
+        NamedElement(shell, "CenteredTopToolbar").ShouldNotContain("Background=");
     }
 
     [Fact]
@@ -274,6 +304,18 @@ public sealed class ShellUiStaticScanTests
         var lighter = Math.Max(RelativeLuminance(first), RelativeLuminance(second));
         var darker = Math.Min(RelativeLuminance(first), RelativeLuminance(second));
         return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static string NamedElement(string xaml, string name)
+    {
+        var nameIndex = xaml.IndexOf($"x:Name=\"{name}\"", StringComparison.Ordinal);
+        nameIndex.ShouldBeGreaterThanOrEqualTo(0, $"Expected x:Name=\"{name}\" in MainWindow.xaml.");
+        var start = xaml.LastIndexOf('<', nameIndex);
+        start.ShouldBeGreaterThanOrEqualTo(0);
+        var nextName = xaml.IndexOf("x:Name=\"", nameIndex + name.Length + 8, StringComparison.Ordinal);
+        return nextName < 0
+            ? xaml[start..]
+            : xaml[start..nextName];
     }
 
     private static double RelativeLuminance(Color color)

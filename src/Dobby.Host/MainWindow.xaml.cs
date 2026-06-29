@@ -304,6 +304,72 @@ public partial class MainWindow : Window
         PersistShellPreference();
     }
 
+    private void WorkspaceNewTab_Click(object sender, RoutedEventArgs e)
+    {
+        shellViewModel.OpenWorkspaceTab();
+        UpdatePluginPageHost();
+        PersistShellPreference();
+    }
+
+    private void WorkspaceTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: Guid tabId })
+        {
+            return;
+        }
+
+        var result = shellViewModel.ActivateWorkspaceTab(tabId);
+        if (!result.IsSuccess)
+        {
+            ShowAccountStatus(result.ErrorCode?.ToString() ?? ErrorCode.NotFound.ToString());
+            return;
+        }
+
+        UpdatePluginPageHost();
+        PersistShellPreference();
+    }
+
+    private void WorkspaceTabClose_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: Guid tabId })
+        {
+            return;
+        }
+
+        var result = shellViewModel.CloseWorkspaceTab(tabId);
+        if (!result.IsSuccess)
+        {
+            ShowAccountStatus(result.ErrorCode?.ToString() ?? ErrorCode.NotFound.ToString());
+            return;
+        }
+
+        UpdatePluginPageHost();
+        PersistShellPreference();
+    }
+
+    private void WindowMinimize_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void WindowMaximizeRestore_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+    }
+
+    private void WindowTitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            WindowMaximizeRestore_Click(sender, e);
+            return;
+        }
+
+        DragMove();
+    }
+
     private void WindowClose_Click(object sender, RoutedEventArgs e)
     {
         if (shellWindowCloseConfirmation.ConfirmClose())
