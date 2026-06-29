@@ -210,6 +210,51 @@ public sealed class ShellKeyboardSmokeTests
         });
     }
 
+    [Fact]
+    public void Rendered_shell_window_close_button_requests_confirmation_and_respects_cancel()
+    {
+        RunOnSta(() =>
+        {
+            var confirmation = new RecordingShellWindowCloseConfirmation(result: false);
+            var window = new MainWindow(
+                null!,
+                null,
+                null!,
+                ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked()),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                shellWindowCloseConfirmation: confirmation)
+            {
+                Left = -32000,
+                Top = -32000,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize
+            };
+
+            try
+            {
+                AddThemeResources(window);
+                window.Show();
+                Pump(window);
+
+                FindNamed<Button>(window, "WindowCloseButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Pump(window);
+
+                confirmation.CallCount.ShouldBe(1);
+                window.IsVisible.ShouldBeTrue();
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()
     {
         var parent = NavigationContribution.Create(
@@ -325,6 +370,17 @@ public sealed class ShellKeyboardSmokeTests
         public Result Save(SettingsPreferences preferences)
         {
             return Result.Success();
+        }
+    }
+
+    private sealed class RecordingShellWindowCloseConfirmation(bool result) : IShellWindowCloseConfirmation
+    {
+        public int CallCount { get; private set; }
+
+        public bool ConfirmClose()
+        {
+            CallCount++;
+            return result;
         }
     }
 }

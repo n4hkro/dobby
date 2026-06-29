@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private readonly HostPluginLifecycleCoordinator? pluginLifecycleCoordinator;
     private readonly IPluginPackageFilePicker? pluginPackageFilePicker;
     private readonly IPluginUninstallConfirmation pluginUninstallConfirmation;
+    private readonly IShellWindowCloseConfirmation shellWindowCloseConfirmation;
     private readonly LicenseImportCoordinator? licenseImportCoordinator;
     private readonly ILicenseFilePicker? licenseFilePicker;
     private readonly IBackgroundOperationReporter? backgroundOperations;
@@ -52,6 +53,7 @@ public partial class MainWindow : Window
     {
         pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault();
         pluginUninstallConfirmation = new WpfPluginUninstallConfirmation(this);
+        shellWindowCloseConfirmation = new WpfShellWindowCloseConfirmation(this);
         InitializeComponent();
         shellViewModel = ShellViewModel.CreateDefault(Dobby.Localization.HostStringCatalog.CreateResourceBacked());
         DataContext = shellViewModel;
@@ -95,6 +97,7 @@ public partial class MainWindow : Window
         HostPluginLifecycleCoordinator? pluginLifecycleCoordinator = null,
         IPluginPackageFilePicker? pluginPackageFilePicker = null,
         IPluginUninstallConfirmation? pluginUninstallConfirmation = null,
+        IShellWindowCloseConfirmation? shellWindowCloseConfirmation = null,
         LicenseImportCoordinator? licenseImportCoordinator = null,
         ILicenseFilePicker? licenseFilePicker = null,
         IBackgroundOperationReporter? backgroundOperations = null,
@@ -118,6 +121,7 @@ public partial class MainWindow : Window
         this.pluginLifecycleCoordinator = pluginLifecycleCoordinator;
         this.pluginPackageFilePicker = pluginPackageFilePicker;
         this.pluginUninstallConfirmation = pluginUninstallConfirmation ?? new WpfPluginUninstallConfirmation(this);
+        this.shellWindowCloseConfirmation = shellWindowCloseConfirmation ?? new WpfShellWindowCloseConfirmation(this);
         if (pluginPageRenderRegistry is not null)
         {
             this.pluginPageRenderRegistry = pluginPageRenderRegistry;
@@ -298,6 +302,14 @@ public partial class MainWindow : Window
         }
 
         PersistShellPreference();
+    }
+
+    private void WindowClose_Click(object sender, RoutedEventArgs e)
+    {
+        if (shellWindowCloseConfirmation.ConfirmClose())
+        {
+            Close();
+        }
     }
 
     private void WorkSessionStay_Click(object sender, RoutedEventArgs e)
