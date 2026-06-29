@@ -78,6 +78,30 @@
   <data name="Dobby.Shell.ThirdBar" xml:space="preserve">
     <value>Üçüncü panel</value>
   </data>
+  <data name="Dobby.Shell.Workspace.NewTab" xml:space="preserve">
+    <value>Yeni Home tab</value>
+  </data>
+  <data name="Dobby.Shell.Workspace.CloseTab" xml:space="preserve">
+    <value>Tabı bağla</value>
+  </data>
+  <data name="Dobby.Shell.Window.Minimize" xml:space="preserve">
+    <value>Pəncərəni yığ</value>
+  </data>
+  <data name="Dobby.Shell.Window.Maximize" xml:space="preserve">
+    <value>Pəncərəni böyüt</value>
+  </data>
+  <data name="Dobby.Shell.Window.Restore" xml:space="preserve">
+    <value>Pəncərəni bərpa et</value>
+  </data>
+  <data name="Dobby.Shell.Window.Close" xml:space="preserve">
+    <value>Tətbiqi bağla</value>
+  </data>
+  <data name="Dobby.Shell.Window.CloseConfirmation.Title" xml:space="preserve">
+    <value>Tətbiqi bağla</value>
+  </data>
+  <data name="Dobby.Shell.Window.CloseConfirmation.Message" xml:space="preserve">
+    <value>Dobby tətbiqini bağlamaq istəyirsiniz?</value>
+  </data>
   <data name="Dobby.Shell.Settings.Heading" xml:space="preserve">
     <value>Tənzimləmələr</value>
   </data>

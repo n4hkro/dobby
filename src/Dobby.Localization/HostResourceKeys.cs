@@ -69,6 +69,14 @@ public static class HostResourceKeys
     public const string ShellWorkSessionClose = "Dobby.Shell.WorkSession.Close";
     public const string ShellMinimizedWorkStrip = "Dobby.Shell.MinimizedWorkStrip";
     public const string ShellThirdBar = "Dobby.Shell.ThirdBar";
+    public const string ShellWorkspaceNewTab = "Dobby.Shell.Workspace.NewTab";
+    public const string ShellWorkspaceCloseTab = "Dobby.Shell.Workspace.CloseTab";
+    public const string ShellWindowMinimize = "Dobby.Shell.Window.Minimize";
+    public const string ShellWindowMaximize = "Dobby.Shell.Window.Maximize";
+    public const string ShellWindowRestore = "Dobby.Shell.Window.Restore";
+    public const string ShellWindowClose = "Dobby.Shell.Window.Close";
+    public const string ShellWindowCloseConfirmationTitle = "Dobby.Shell.Window.CloseConfirmation.Title";
+    public const string ShellWindowCloseConfirmationMessage = "Dobby.Shell.Window.CloseConfirmation.Message";
     public const string ShellSettingsHeading = "Dobby.Shell.Settings.Heading";
     public const string ShellAboutHeading = "Dobby.Shell.About.Heading";
     public const string ShellBackgroundOperation = "Dobby.Shell.BackgroundOperation";
@@ -164,6 +172,14 @@ public static class HostResourceKeys
         ShellWorkSessionClose,
         ShellMinimizedWorkStrip,
         ShellThirdBar,
+        ShellWorkspaceNewTab,
+        ShellWorkspaceCloseTab,
+        ShellWindowMinimize,
+        ShellWindowMaximize,
+        ShellWindowRestore,
+        ShellWindowClose,
+        ShellWindowCloseConfirmationTitle,
+        ShellWindowCloseConfirmationMessage,
         ShellSettingsHeading,
         ShellAboutHeading,
         ShellBackgroundOperation,

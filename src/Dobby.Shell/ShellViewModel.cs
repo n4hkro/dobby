@@ -89,6 +89,18 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public ShellWorkspaceTab ActiveWorkspaceTab => workspaceTabs.First(tab => tab.IsActive);
 
+    public string WorkspaceNewTabLabel => strings.GetString(HostResourceKeys.ShellWorkspaceNewTab);
+
+    public string WorkspaceCloseTabLabel => strings.GetString(HostResourceKeys.ShellWorkspaceCloseTab);
+
+    public string WindowMinimizeLabel => strings.GetString(HostResourceKeys.ShellWindowMinimize);
+
+    public string WindowMaximizeLabel => strings.GetString(HostResourceKeys.ShellWindowMaximize);
+
+    public string WindowRestoreLabel => strings.GetString(HostResourceKeys.ShellWindowRestore);
+
+    public string WindowCloseLabel => strings.GetString(HostResourceKeys.ShellWindowClose);
+
     public string WorkspaceNewTabGlyph => "+";
 
     public string WorkspaceTabCloseGlyph => "x";
