@@ -5,6 +5,7 @@ using Dobby.Contracts.PluginPages;
 using Dobby.Localization;
 using Dobby.Navigation;
 using Dobby.Shell.Layout;
+using Dobby.Shell.WorkspaceTabs;
 using Dobby.Shell.WorkSessions;
 using System.Windows;
 using System.ComponentModel;
@@ -34,6 +35,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private IReadOnlyList<ShellPluginManagerItem> pluginsManagerItems = [];
     private string? selectedPluginManagerPluginId;
     private string? pluginsManagerFeedbackKey;
+    private readonly List<ShellWorkspaceTab> workspaceTabs = [];
 
     public ShellViewModel(HostStringCatalog strings)
         : this(strings, Array.Empty<NavigationContribution>())
@@ -50,7 +52,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         usesStaticNavigation = false;
         navigation = NavigationComposer.Compose(this.contributions);
         Layout = ShellLayoutState.CreateDefault(navigation);
-        RebuildNavigationLevels(RouteRegistry.HomeRouteKey);
+        ResetWorkspaceTabsToHome();
+        RebuildNavigationLevels(RouteRegistry.HomeRouteKey, updateActiveWorkspaceTab: false);
     }
 
     public ShellViewModel(HostStringCatalog strings, NavigationComposition navigation)
@@ -63,7 +66,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         usesStaticNavigation = true;
         this.navigation = navigation;
         Layout = ShellLayoutState.CreateDefault(navigation);
-        RebuildNavigationLevels(RouteRegistry.HomeRouteKey);
+        ResetWorkspaceTabsToHome();
+        RebuildNavigationLevels(RouteRegistry.HomeRouteKey, updateActiveWorkspaceTab: false);
     }
 
     public static ShellViewModel CreateDefault(HostStringCatalog strings)
@@ -78,6 +82,22 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public IReadOnlyList<ShellNavigationItem> ThirdBarNavigation { get; private set; } = [];
 
     public string BrandName => strings.GetString(HostResourceKeys.ShellBrand);
+
+    public string BrandMark => "D";
+
+    public IReadOnlyList<ShellWorkspaceTab> WorkspaceTabs => workspaceTabs;
+
+    public ShellWorkspaceTab ActiveWorkspaceTab => workspaceTabs.First(tab => tab.IsActive);
+
+    public string WorkspaceNewTabGlyph => "+";
+
+    public string WorkspaceTabCloseGlyph => "x";
+
+    public string WindowMinimizeGlyph => "-";
+
+    public string WindowMaximizeGlyph => "[]";
+
+    public string WindowCloseGlyph => "x";
 
     public string StatusText => strings.GetString(HostResourceKeys.ShellStatusReady);
 
@@ -283,6 +303,65 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    public ShellWorkspaceTab OpenWorkspaceTab()
+    {
+        DeactivateAllWorkspaceTabs();
+        var tab = CreateWorkspaceTab(RouteRegistry.HomeRouteKey, isActive: true);
+        workspaceTabs.Add(tab);
+        RebuildNavigationLevels(tab.RouteKey, updateActiveWorkspaceTab: false);
+        NotifyWorkspaceTabsChanged();
+        return tab;
+    }
+
+    public Result ActivateWorkspaceTab(Guid tabId)
+    {
+        var tabIndex = IndexOfWorkspaceTab(tabId);
+        if (tabIndex < 0)
+        {
+            return Result.Failure(ErrorCode.NotFound);
+        }
+
+        for (var index = 0; index < workspaceTabs.Count; index++)
+        {
+            workspaceTabs[index] = workspaceTabs[index] with
+            {
+                IsActive = workspaceTabs[index].TabId == tabId
+            };
+        }
+
+        RebuildNavigationLevels(workspaceTabs[tabIndex].RouteKey, updateActiveWorkspaceTab: false);
+        NotifyWorkspaceTabsChanged();
+        return Result.Success();
+    }
+
+    public Result CloseWorkspaceTab(Guid tabId)
+    {
+        var tabIndex = IndexOfWorkspaceTab(tabId);
+        if (tabIndex < 0)
+        {
+            return Result.Failure(ErrorCode.NotFound);
+        }
+
+        if (workspaceTabs.Count == 1)
+        {
+            ResetWorkspaceTabsToHome();
+            RebuildNavigationLevels(RouteRegistry.HomeRouteKey, updateActiveWorkspaceTab: false);
+            NotifyWorkspaceTabsChanged();
+            return Result.Success();
+        }
+
+        var nextActiveIndex = tabIndex == 0 ? 0 : tabIndex - 1;
+        workspaceTabs.RemoveAt(tabIndex);
+        for (var index = 0; index < workspaceTabs.Count; index++)
+        {
+            workspaceTabs[index] = workspaceTabs[index] with { IsActive = index == nextActiveIndex };
+        }
+
+        RebuildNavigationLevels(workspaceTabs[nextActiveIndex].RouteKey, updateActiveWorkspaceTab: false);
+        NotifyWorkspaceTabsChanged();
+        return Result.Success();
+    }
+
     public Result ActivateRoute(string? routeKey)
     {
         RebuildNavigationLevels(routeKey);
@@ -362,8 +441,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             BackgroundOperationIsIndeterminate = Layout.BackgroundOperationIsIndeterminate,
             Theme = Layout.Theme
         };
-        RebuildNavigationLevels(preference.LastActiveModuleRouteKey ?? RouteRegistry.HomeRouteKey);
+        ResetWorkspaceTabsToHome();
+        RebuildNavigationLevels(RouteRegistry.HomeRouteKey, updateActiveWorkspaceTab: false);
         OnLayoutChanged();
+        NotifyWorkspaceTabsChanged();
     }
 
     public ShellLayoutPreference ExportPreference(
@@ -401,6 +482,15 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public void SetActivePluginPage(IPluginPageModel? model)
     {
         activePluginPageModel = model;
+        if (model is null)
+        {
+            UpdateActiveWorkspaceRoute(ActiveRouteKey);
+        }
+        else
+        {
+            UpdateActiveWorkspaceTitle(ResolvePluginPageTitle(model));
+        }
+
         OnPropertyChanged(nameof(ActivePluginPageModel));
         OnPropertyChanged(nameof(HasActivePluginPage));
         NotifyRouteSurfaceChanged();
@@ -583,7 +673,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(PluginsManagerFeedbackText));
     }
 
-    private void RebuildNavigationLevels(string? routeKey)
+    private void RebuildNavigationLevels(string? routeKey, bool updateActiveWorkspaceTab = true)
     {
         var path = navigation.ResolvePathOrHome(routeKey);
         var top = path[0];
@@ -599,6 +689,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             .Select(BuildNavigationItem)
             .ToArray();
         ActiveRouteKey = path[^1].RouteKey;
+        if (updateActiveWorkspaceTab)
+        {
+            UpdateActiveWorkspaceRoute(ActiveRouteKey);
+        }
 
         OnPropertyChanged(nameof(TopNavigation));
         OnPropertyChanged(nameof(SidebarNavigation));
@@ -624,6 +718,94 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SettingsSurfaceVisibility));
         OnPropertyChanged(nameof(PluginsManagerPanelVisibility));
         OnPropertyChanged(nameof(LicensePanelVisibility));
+    }
+
+    private void ResetWorkspaceTabsToHome()
+    {
+        workspaceTabs.Clear();
+        workspaceTabs.Add(CreateWorkspaceTab(RouteRegistry.HomeRouteKey, isActive: true));
+    }
+
+    private ShellWorkspaceTab CreateWorkspaceTab(string routeKey, bool isActive)
+    {
+        return new ShellWorkspaceTab(
+            Guid.CreateVersion7(),
+            ResolveWorkspaceTitle(routeKey),
+            routeKey,
+            isActive,
+            CanClose: true);
+    }
+
+    private string ResolveWorkspaceTitle(string routeKey)
+    {
+        var path = navigation.ResolvePathOrHome(routeKey);
+        return strings.GetString(path[^1].LabelKey);
+    }
+
+    private string ResolvePluginPageTitle(IPluginPageModel model)
+    {
+        var label = model.GetType().GetProperty("Label")?.GetValue(model) as string;
+        return string.IsNullOrWhiteSpace(label)
+            ? ResolveWorkspaceTitle(ActiveRouteKey)
+            : label;
+    }
+
+    private int IndexOfWorkspaceTab(Guid tabId)
+    {
+        for (var index = 0; index < workspaceTabs.Count; index++)
+        {
+            if (workspaceTabs[index].TabId == tabId)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private void DeactivateAllWorkspaceTabs()
+    {
+        for (var index = 0; index < workspaceTabs.Count; index++)
+        {
+            workspaceTabs[index] = workspaceTabs[index] with { IsActive = false };
+        }
+    }
+
+    private void UpdateActiveWorkspaceRoute(string routeKey)
+    {
+        var activeIndex = workspaceTabs.FindIndex(tab => tab.IsActive);
+        if (activeIndex < 0)
+        {
+            return;
+        }
+
+        workspaceTabs[activeIndex] = workspaceTabs[activeIndex] with
+        {
+            RouteKey = routeKey,
+            Title = ResolveWorkspaceTitle(routeKey)
+        };
+        NotifyWorkspaceTabsChanged();
+    }
+
+    private void UpdateActiveWorkspaceTitle(string title)
+    {
+        var activeIndex = workspaceTabs.FindIndex(tab => tab.IsActive);
+        if (activeIndex < 0)
+        {
+            return;
+        }
+
+        workspaceTabs[activeIndex] = workspaceTabs[activeIndex] with
+        {
+            Title = title
+        };
+        NotifyWorkspaceTabsChanged();
+    }
+
+    private void NotifyWorkspaceTabsChanged()
+    {
+        OnPropertyChanged(nameof(WorkspaceTabs));
+        OnPropertyChanged(nameof(ActiveWorkspaceTab));
     }
 
     private static string NotificationLabelKey(ShellNotificationKind kind)
