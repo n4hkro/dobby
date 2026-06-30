@@ -52,23 +52,22 @@ The Dobby brand lives below the workstation chrome in the shell header, aligned 
 
 The left sidebar is an icon rail. It should feel like part of the same continuous shell background, not a separate block panel. The active sidebar item may use a dark circular/pill highlight. Expanded sidebar label support can remain available for the existing collapsed/expanded model, but the polished default should resemble the reference's slim icon rail.
 
-## Pipeline Subnav Cutout
+## Pipeline Subnav Placement
 
 The secondary module controls, such as `Pipelines`, `Davam edir`, `Tamamlandı`, and `Vaxtı keçib`, sit in the third visual zone of the main work panel.
 
-This zone must match the reference behavior:
+This zone uses only the design that was approved in the visual companion:
 
-- the main work panel is visually complete on the left and right;
-- the top center of the work panel is cut away around the secondary controls;
-- the cutout exposes the same general app/shell background behind it;
+- the controls sit over the app's general shell background;
 - there is no extra island container behind the controls;
-- the cutout itself must not use a separate background color, border, or shadow;
-- the controls sit directly on the exposed app background like buttons;
+- there is no additional background color behind the controls;
+- there is no additional shadow behind the controls;
+- the controls appear directly on the app background like buttons;
 - the active control is a black pill;
 - inactive controls are light pills with minimal treatment;
-- the final cutout shape should be reference-like and smooth, not a rectangular notch.
+- the work panel remains visually complete on the left and right.
 
-If the exact S-like cutout shape cannot be achieved cleanly in WPF in the first pass, prefer a simpler clean cutout over a distorted decorative shape. Do not ship a visibly broken or awkward S-curve approximation.
+Do not add a separate island background, border, or shadow behind this control group.
 
 ## Content Surface
 
@@ -121,8 +120,7 @@ Add tests and guardrails at the level appropriate to the risk:
 - The shell uses the CRM reference's light, soft, compact visual language.
 - Logo and navigation symbols are proper icons, not placeholder characters.
 - The main panel contains a polished dashboard/pipeline presentation instead of an empty white content area.
-- The secondary subnav sits in a cutout area of the work panel with no extra island background or shadow.
-- The cutout exposes the app's general background.
+- The secondary subnav sits directly on the app's general background with no extra island background or shadow.
 - The active secondary subnav item is a black pill; inactive items are light pills.
 - Existing workstation behavior remains unchanged and covered by existing tests.
 - No visible UI regresses to raw WPF default button styling in the main shell.
