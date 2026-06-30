@@ -175,6 +175,26 @@ public sealed class ShellViewModelWorkspaceTabTests
         firstTab.IsActive.ShouldBeFalse();
     }
 
+    [Fact]
+    public void Cancelled_pending_work_session_navigation_leaves_workspace_tabs_unchanged()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
+        var registry = new Dobby.Shell.WorkSessions.WorkSessionRegistry();
+        var coordinator = new Dobby.Shell.WorkSessions.WorkSessionCloseCoordinator(registry);
+        registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+        var pending = coordinator.RequestNavigation(RouteRegistry.PluginsRouteKey);
+        pending.ShouldNotBeNull();
+        var before = shell.WorkspaceTabs.ToArray();
+
+        shell.SetPendingWorkSessionCloseRequest(pending);
+        shell.ResolvePendingWorkSessionClose(Dobby.Shell.WorkSessions.WorkSessionCloseChoice.Cancel, coordinator).IsSuccess.ShouldBeTrue();
+
+        shell.WorkspaceTabs.ShouldBe(before);
+        shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+        shell.ActiveRouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+    }
+
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()
     {
         var parent = NavigationContribution.Create(
