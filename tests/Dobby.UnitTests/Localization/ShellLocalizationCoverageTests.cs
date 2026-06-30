@@ -103,6 +103,36 @@ public sealed class ShellLocalizationCoverageTests
         }
     }
 
+    [Fact]
+    public void Dashboard_shell_keys_are_registered_and_have_az_az_text()
+    {
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [HostResourceKeys.ShellDashboardCasesOverview] = "Cases Overview",
+            [HostResourceKeys.ShellDashboardPipelines] = "Pipelines",
+            [HostResourceKeys.ShellDashboardInProgress] = "Davam edir",
+            [HostResourceKeys.ShellDashboardCompleted] = "Tamamlandı",
+            [HostResourceKeys.ShellDashboardExpired] = "Vaxtı keçib",
+            [HostResourceKeys.ShellDashboardNewCases] = "Yeni işlər",
+            [HostResourceKeys.ShellDashboardPendingInfo] = "Məlumat gözləyir",
+            [HostResourceKeys.ShellDashboardClosed] = "Bağlı",
+            [HostResourceKeys.ShellDashboardTopDrivers] = "Top iş səbəbləri",
+            [HostResourceKeys.ShellDashboardCaseMetrics] = "İş metrikaları"
+        };
+        var resourceKeys = ResxKeys();
+        var fallbackCatalog = new HostStringCatalog();
+        var resourceCatalog = HostStringCatalog.CreateResourceBacked();
+        var azAz = CultureInfo.GetCultureInfo("az-AZ");
+
+        foreach (var (key, value) in expected)
+        {
+            HostResourceKeys.Sprint7VisibleKeys.ShouldContain(key);
+            resourceKeys.ShouldContain(key);
+            fallbackCatalog.GetString(key, azAz).ShouldBe(value);
+            resourceCatalog.GetString(key, azAz).ShouldBe(value);
+        }
+    }
+
     private static HashSet<string> ResxKeys()
     {
         var path = Path.Combine(RepoRoot().FullName, "src", "Dobby.Localization", "Resources", "Host.az-AZ.resx");

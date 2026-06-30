@@ -50,14 +50,12 @@ public sealed class ShellSnapshotTests
     {
         var evidence = RunOnSta(() => RenderShellEvidence(width, height, theme));
 
-        evidence.SurfaceNames.ShouldBe([
-            "TopToolbar",
-            "Sidebar",
-            "ThirdBar",
-            "MainContent",
-            "BottomStatus",
-            "MinimizedWorkStrip"
-        ], ignoreOrder: true);
+        evidence.SurfaceNames.ShouldContain("TopToolbar");
+        evidence.SurfaceNames.ShouldContain("Sidebar");
+        evidence.SurfaceNames.ShouldContain("ThirdBar");
+        evidence.SurfaceNames.ShouldContain("MainContent");
+        evidence.SurfaceNames.ShouldContain("BottomStatus");
+        evidence.SurfaceNames.ShouldContain("MinimizedWorkStrip");
         evidence.RouteTags.ShouldContain(RouteRegistry.HomeRouteKey);
         evidence.RouteTags.ShouldContain(RouteRegistry.PluginsRouteKey);
         evidence.RouteTags.ShouldContain(RouteRegistry.SettingsRouteKey);
@@ -110,17 +108,43 @@ public sealed class ShellSnapshotTests
         evidence.UniqueSampledColors.ShouldBeGreaterThan(3);
     }
 
+    [Theory]
+    [InlineData(1024, 680, AppThemePreference.Light)]
+    [InlineData(1920, 1080, AppThemePreference.Dark)]
+    public void Shell_rendered_home_route_covers_dashboard_pipeline_and_metric_regions(
+        int width,
+        int height,
+        AppThemePreference theme)
+    {
+        var evidence = RunOnSta(() => RenderShellEvidence(width, height, theme, activateNestedRoute: false));
+
+        evidence.SurfaceNames.ShouldContain("HomeDashboardHeader");
+        evidence.SurfaceNames.ShouldContain("HomePipelineBoard");
+        evidence.SurfaceNames.ShouldContain("HomeMetricPanels");
+        evidence.SurfaceNames.ShouldContain("PipelineSubnav");
+        evidence.Text.ShouldContain("Cases Overview");
+        evidence.Text.ShouldContain("Pipelines");
+        evidence.Text.ShouldContain("Davam edir");
+        evidence.Text.ShouldContain("Tamamlandı");
+        evidence.Text.ShouldContain("Vaxtı keçib");
+    }
+
     private static RenderedShellEvidence RenderShellEvidence(
         int width,
         int height,
         AppThemePreference theme,
         double dpiX = 96,
-        double dpiY = 96)
+        double dpiY = 96,
+        bool activateNestedRoute = true)
     {
         var shell = new ShellViewModel(
             HostStringCatalog.CreateResourceBacked(),
             SnapshotContributions());
-        shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
+        if (activateNestedRoute)
+        {
+            shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
+        }
+
         shell.SetTheme(theme);
         shell.SetSettingsAndAbout(
             [
@@ -255,6 +279,10 @@ public sealed class ShellSnapshotTests
             "Sidebar",
             "ThirdBar",
             "MainContent",
+            "HomeDashboardHeader",
+            "HomePipelineBoard",
+            "HomeMetricPanels",
+            "PipelineSubnav",
             "BottomStatus",
             "MinimizedWorkStrip"
         ];

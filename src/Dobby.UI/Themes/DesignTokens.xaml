@@ -3,9 +3,17 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
   <CornerRadius x:Key="Dobby.Radius.Small">6</CornerRadius>
+  <CornerRadius x:Key="Dobby.Radius.Medium">12</CornerRadius>
+  <CornerRadius x:Key="Dobby.Radius.Large">18</CornerRadius>
+  <Thickness x:Key="Dobby.Spacing.Tiny">3</Thickness>
   <Thickness x:Key="Dobby.Spacing.Small">6</Thickness>
   <Thickness x:Key="Dobby.Spacing.Medium">12</Thickness>
+  <Thickness x:Key="Dobby.Spacing.Large">18</Thickness>
+  <sys:Double x:Key="Dobby.FontSize.Small">11</sys:Double>
+  <sys:Double x:Key="Dobby.FontSize.Body">13</sys:Double>
   <sys:Double x:Key="Dobby.FontSize.Title">24</sys:Double>
+  <sys:Double x:Key="Dobby.Icon.Size">16</sys:Double>
+  <sys:Double x:Key="Dobby.Shell.ChromeHeight">44</sys:Double>
   <Thickness x:Key="Dobby.Focus.Thickness">2</Thickness>
   <Duration x:Key="Dobby.Motion.Fast">0:0:0.12</Duration>
   <Duration x:Key="Dobby.Motion.Reduced">0:0:0</Duration>

@@ -8,6 +8,7 @@ using Dobby.Shell;
 using Dobby.Shell.Layout;
 using System.Runtime.ExceptionServices;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -72,7 +73,7 @@ public sealed class ShellKeyboardSmokeTests
                 Pump(window);
 
                 var profileButton = FindNamed<Button>(window, "ProfileMenuButton");
-                profileButton.Content.ShouldBe("Profil və hesab məlumatı");
+                AutomationProperties.GetName(profileButton).ShouldBe("Profil və hesab məlumatı");
                 profileButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Pump(window);
 

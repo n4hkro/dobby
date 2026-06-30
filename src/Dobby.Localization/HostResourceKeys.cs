@@ -80,6 +80,16 @@ public static class HostResourceKeys
     public const string ShellSettingsHeading = "Dobby.Shell.Settings.Heading";
     public const string ShellAboutHeading = "Dobby.Shell.About.Heading";
     public const string ShellBackgroundOperation = "Dobby.Shell.BackgroundOperation";
+    public const string ShellDashboardCasesOverview = "Dobby.Shell.Dashboard.CasesOverview";
+    public const string ShellDashboardPipelines = "Dobby.Shell.Dashboard.Pipelines";
+    public const string ShellDashboardInProgress = "Dobby.Shell.Dashboard.InProgress";
+    public const string ShellDashboardCompleted = "Dobby.Shell.Dashboard.Completed";
+    public const string ShellDashboardExpired = "Dobby.Shell.Dashboard.Expired";
+    public const string ShellDashboardNewCases = "Dobby.Shell.Dashboard.NewCases";
+    public const string ShellDashboardPendingInfo = "Dobby.Shell.Dashboard.PendingInfo";
+    public const string ShellDashboardClosed = "Dobby.Shell.Dashboard.Closed";
+    public const string ShellDashboardTopDrivers = "Dobby.Shell.Dashboard.TopDrivers";
+    public const string ShellDashboardCaseMetrics = "Dobby.Shell.Dashboard.CaseMetrics";
     public const string ShellDiagnosticsExport = "Dobby.Shell.Diagnostics.Export";
     public const string ShellDiagnosticsExported = "Dobby.Shell.Diagnostics.Exported";
     public const string PluginsManagerHeading = "Dobby.Shell.Plugins.Manager.Heading";
@@ -183,6 +193,16 @@ public static class HostResourceKeys
         ShellSettingsHeading,
         ShellAboutHeading,
         ShellBackgroundOperation,
+        ShellDashboardCasesOverview,
+        ShellDashboardPipelines,
+        ShellDashboardInProgress,
+        ShellDashboardCompleted,
+        ShellDashboardExpired,
+        ShellDashboardNewCases,
+        ShellDashboardPendingInfo,
+        ShellDashboardClosed,
+        ShellDashboardTopDrivers,
+        ShellDashboardCaseMetrics,
         ShellDiagnosticsExport,
         ShellDiagnosticsExported,
         PluginsManagerHeading,

@@ -6,4 +6,18 @@
   <SolidColorBrush x:Key="Dobby.Brush.Accent" Color="#2F6F73" />
   <SolidColorBrush x:Key="Dobby.Brush.Text" Color="#1C2424" />
   <SolidColorBrush x:Key="Dobby.Brush.Focus" Color="#8A6500" />
+  <SolidColorBrush x:Key="Dobby.Brush.ShellChrome" Color="#EFEFEB" />
+  <SolidColorBrush x:Key="Dobby.Brush.Panel" Color="#FDFDFB" />
+  <SolidColorBrush x:Key="Dobby.Brush.PanelTranslucent" Color="#EFFFFFFF" />
+  <SolidColorBrush x:Key="Dobby.Brush.Card" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="Dobby.Brush.CardSoft" Color="#F5F6F2" />
+  <SolidColorBrush x:Key="Dobby.Brush.Border" Color="#DADDD4" />
+  <SolidColorBrush x:Key="Dobby.Brush.MutedText" Color="#6A726B" />
+  <SolidColorBrush x:Key="Dobby.Brush.Control" Color="#F2F3EF" />
+  <SolidColorBrush x:Key="Dobby.Brush.ControlHover" Color="#E9ECE6" />
+  <SolidColorBrush x:Key="Dobby.Brush.ControlActive" Color="#050706" />
+  <SolidColorBrush x:Key="Dobby.Brush.ControlActiveText" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="Dobby.Brush.ChartBlue" Color="#7CA1C4" />
+  <SolidColorBrush x:Key="Dobby.Brush.ChartRose" Color="#D96B72" />
+  <SolidColorBrush x:Key="Dobby.Brush.ChartGold" Color="#D8B45C" />
 </ResourceDictionary>

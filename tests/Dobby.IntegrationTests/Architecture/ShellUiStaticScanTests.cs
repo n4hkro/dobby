@@ -141,6 +141,54 @@ public sealed class ShellUiStaticScanTests
     }
 
     [Fact]
+    public void Host_shell_polish_declares_approved_regions_and_uses_vector_icons()
+    {
+        var root = RepoRoot();
+        var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
+        var requiredPolishedNames = new[]
+        {
+            "ShellChrome",
+            "ShellHeader",
+            "HomeDashboardHeader",
+            "HomePipelineFilters",
+            "HomePipelineBoard",
+            "HomeMetricPanels",
+            "PipelineSubnav"
+        };
+
+        foreach (var name in requiredPolishedNames)
+        {
+            shell.ShouldContain($"x:Name=\"{name}\"");
+        }
+
+        shell.ShouldContain("<Path");
+        shell.ShouldNotContain("WorkspaceNewTabGlyph");
+        shell.ShouldNotContain("WorkspaceTabCloseGlyph");
+        shell.ShouldNotContain("WindowMinimizeGlyph");
+        shell.ShouldNotContain("WindowMaximizeGlyph");
+        shell.ShouldNotContain("WindowCloseGlyph");
+    }
+
+    [Fact]
+    public void Host_shell_pipeline_subnav_sits_directly_on_shell_background_without_island_treatment()
+    {
+        var root = RepoRoot();
+        var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
+
+        var pipelineSubnav = NamedElement(shell, "PipelineSubnav");
+        pipelineSubnav.ShouldNotContain("Background=");
+        pipelineSubnav.ShouldNotContain("BorderBrush=");
+        pipelineSubnav.ShouldNotContain("Effect=");
+        pipelineSubnav.ShouldNotContain("DropShadowEffect");
+
+        var thirdBar = NamedElement(shell, "ThirdBar");
+        thirdBar.ShouldNotContain("Background=");
+        thirdBar.ShouldNotContain("BorderBrush=");
+        thirdBar.ShouldNotContain("Effect=");
+        thirdBar.ShouldNotContain("DropShadowEffect");
+    }
+
+    [Fact]
     public void Host_shell_sidebar_and_top_toolbar_share_continuous_background()
     {
         var root = RepoRoot();

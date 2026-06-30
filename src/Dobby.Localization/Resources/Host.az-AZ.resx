@@ -111,6 +111,36 @@
   <data name="Dobby.Shell.BackgroundOperation" xml:space="preserve">
     <value>Fon əməliyyatı</value>
   </data>
+  <data name="Dobby.Shell.Dashboard.CasesOverview" xml:space="preserve">
+    <value>Cases Overview</value>
+  </data>
+  <data name="Dobby.Shell.Dashboard.Pipelines" xml:space="preserve">
+    <value>Pipelines</value>
+  </data>
+  <data name="Dobby.Shell.Dashboard.InProgress" xml:space="preserve">
+    <value>Davam edir</value>
+  </data>
+  <data name="Dobby.Shell.Dashboard.Completed" xml:space="preserve">
+    <value>Tamamlandı</value>
+  </data>
+  <data name="Dobby.Shell.Dashboard.Expired" xml:space="preserve">
+    <value>Vaxtı keçib</value>
+  </data>
+  <data name="Dobby.Shell.Dashboard.NewCases" xml:space="preserve">
+    <value>Yeni işlər</value>
+  </data>
+  <data name="Dobby.Shell.Dashboard.PendingInfo" xml:space="preserve">
+    <value>Məlumat gözləyir</value>
+  </data>
+  <data name="Dobby.Shell.Dashboard.Closed" xml:space="preserve">
+    <value>Bağlı</value>
+  </data>
+  <data name="Dobby.Shell.Dashboard.TopDrivers" xml:space="preserve">
+    <value>Top iş səbəbləri</value>
+  </data>
+  <data name="Dobby.Shell.Dashboard.CaseMetrics" xml:space="preserve">
+    <value>İş metrikaları</value>
+  </data>
   <data name="Dobby.Shell.Diagnostics.Export" xml:space="preserve">
     <value>İxrac et</value>
   </data>

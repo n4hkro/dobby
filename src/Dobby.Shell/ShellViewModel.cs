@@ -101,16 +101,6 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string WindowCloseLabel => strings.GetString(HostResourceKeys.ShellWindowClose);
 
-    public string WorkspaceNewTabGlyph => "+";
-
-    public string WorkspaceTabCloseGlyph => "x";
-
-    public string WindowMinimizeGlyph => "-";
-
-    public string WindowMaximizeGlyph => "[]";
-
-    public string WindowCloseGlyph => "x";
-
     public string StatusText => strings.GetString(HostResourceKeys.ShellStatusReady);
 
     public Visibility HomePanelVisibility => IsActiveBuiltInRoute(RouteRegistry.HomeRouteKey) && !HasActivePluginPage
@@ -312,6 +302,56 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public int BackgroundOperationPercent => Layout.BackgroundOperationPercent ?? 0;
 
     public bool BackgroundOperationIsIndeterminate => Layout.BackgroundOperationIsIndeterminate;
+
+    public string DashboardCasesOverviewHeading => strings.GetString(HostResourceKeys.ShellDashboardCasesOverview);
+
+    public IReadOnlyList<ShellDashboardFilterItem> DashboardPipelineFilters =>
+    [
+        new("pipelines", strings.GetString(HostResourceKeys.ShellDashboardPipelines), IsActive: true),
+        new("in-progress", strings.GetString(HostResourceKeys.ShellDashboardInProgress), IsActive: false),
+        new("completed", strings.GetString(HostResourceKeys.ShellDashboardCompleted), IsActive: false),
+        new("expired", strings.GetString(HostResourceKeys.ShellDashboardExpired), IsActive: false)
+    ];
+
+    public IReadOnlyList<ShellDashboardColumn> DashboardPipelineColumns =>
+    [
+        new(
+            "new-cases",
+            strings.GetString(HostResourceKeys.ShellDashboardNewCases),
+            [
+                new ShellDashboardCard("Retro of issues", "Current wait: 19 minutes", "RI", "4"),
+                new ShellDashboardCard("Conversion issues", "Approximate wait: 15 minutes", "CI", "2"),
+                new ShellDashboardCard("Identify issue resolution", "Expected wait: 25 minutes", "IR", "3")
+            ]),
+        new(
+            "in-progress",
+            strings.GetString(HostResourceKeys.ShellDashboardInProgress),
+            [
+                new ShellDashboardCard("Tech Visionaries", "Wait time: 21 minutes", "TV", "1"),
+                new ShellDashboardCard("Innovative Solutions", "Estimated wait: 28 minutes", "IS", "5"),
+                new ShellDashboardCard("Future Tech Alliance", "Expected wait: 33 minutes", "FA", "2")
+            ]),
+        new(
+            "pending-info",
+            strings.GetString(HostResourceKeys.ShellDashboardPendingInfo),
+            [
+                new ShellDashboardCard("Retro of issues", "Progress wait: 40 minutes", "RI", "1"),
+                new ShellDashboardCard("Identify Dependencies", "Expected wait: 12 minutes", "ID", "3"),
+                new ShellDashboardCard("Digital Pioneers", "Expected wait: 8 minutes", "DP", "2")
+            ]),
+        new(
+            "closed",
+            strings.GetString(HostResourceKeys.ShellDashboardClosed),
+            [
+                new ShellDashboardCard("Retro of issues", "Current wait: 25 minutes", "RI", "0")
+            ])
+    ];
+
+    public IReadOnlyList<ShellDashboardMetric> DashboardMetrics =>
+    [
+        new(strings.GetString(HostResourceKeys.ShellDashboardTopDrivers), "54%", "Billing inquiry", 54),
+        new(strings.GetString(HostResourceKeys.ShellDashboardCaseMetrics), "925", "Resolution score", 76)
+    ];
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -691,14 +731,16 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         var top = path[0];
         var sidebar = path.Count > 1 ? path[1] : null;
 
+        var activeRouteKeys = path.Select(node => node.RouteKey).ToHashSet(StringComparer.Ordinal);
+
         TopNavigation = navigation.TopToolbar
-            .Select(BuildNavigationItem)
+            .Select((node, index) => BuildNavigationItem(node, index, activeRouteKeys))
             .ToArray();
         SidebarNavigation = top.Children
-            .Select(BuildNavigationItem)
+            .Select((node, index) => BuildNavigationItem(node, index, activeRouteKeys))
             .ToArray();
         ThirdBarNavigation = (sidebar?.Children ?? [])
-            .Select(BuildNavigationItem)
+            .Select((node, index) => BuildNavigationItem(node, index, activeRouteKeys))
             .ToArray();
         ActiveRouteKey = path[^1].RouteKey;
         if (updateActiveWorkspaceTab)
@@ -713,9 +755,42 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         NotifyRouteSurfaceChanged();
     }
 
-    private ShellNavigationItem BuildNavigationItem(NavigationNode node, int index)
+    private ShellNavigationItem BuildNavigationItem(
+        NavigationNode node,
+        int index,
+        IReadOnlySet<string> activeRouteKeys)
     {
-        return new ShellNavigationItem(node.RouteKey, strings.GetString(node.LabelKey), index);
+        return new ShellNavigationItem(
+            node.RouteKey,
+            strings.GetString(node.LabelKey),
+            index,
+            NavigationIconPathData(node.RouteKey, index),
+            activeRouteKeys.Contains(node.RouteKey));
+    }
+
+    private static string NavigationIconPathData(string routeKey, int index)
+    {
+        if (routeKey.Equals(RouteRegistry.HomeRouteKey, StringComparison.Ordinal))
+        {
+            return "M3,10 L10,4 L17,10 V18 H12 V13 H8 V18 H3 Z";
+        }
+
+        if (routeKey.Equals(RouteRegistry.PluginsRouteKey, StringComparison.Ordinal))
+        {
+            return "M6,3 H14 V8 H19 V16 H14 V21 H6 V16 H1 V8 H6 Z";
+        }
+
+        if (routeKey.Equals(RouteRegistry.SettingsRouteKey, StringComparison.Ordinal))
+        {
+            return "M10,2 L12,2 L13,5 L16,6 L18,4 L20,6 L18,8 L19,11 L22,12 L22,14 L19,15 L18,18 L20,20 L18,22 L16,20 L13,21 L12,24 L10,24 L9,21 L6,20 L4,22 L2,20 L4,18 L3,15 L0,14 L0,12 L3,11 L4,8 L2,6 L4,4 L6,6 L9,5 Z M11,9 A4,4 0 1 0 11,17 A4,4 0 1 0 11,9";
+        }
+
+        return (index % 3) switch
+        {
+            0 => "M4,4 H18 V8 H4 Z M4,11 H18 V15 H4 Z M4,18 H18 V22 H4 Z",
+            1 => "M12,3 L20,8 V18 L12,23 L4,18 V8 Z",
+            _ => "M4,5 H20 V9 H4 Z M4,13 H20 V17 H4 Z"
+        };
     }
 
     private bool IsActiveBuiltInRoute(string routeKey)
@@ -893,9 +968,33 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     }
 }
 
-public sealed record ShellNavigationItem(string RouteKey, string Label, int Order);
+public sealed record ShellNavigationItem(
+    string RouteKey,
+    string Label,
+    int Order,
+    string IconPathData,
+    bool IsActive);
 
 public sealed record ShellPresentationItem(string Key, string Label);
+
+public sealed record ShellDashboardFilterItem(string Key, string Label, bool IsActive);
+
+public sealed record ShellDashboardColumn(
+    string Key,
+    string Title,
+    IReadOnlyList<ShellDashboardCard> Cards);
+
+public sealed record ShellDashboardCard(
+    string Title,
+    string Detail,
+    string Initials,
+    string Status);
+
+public sealed record ShellDashboardMetric(
+    string Title,
+    string Value,
+    string Caption,
+    int Percent);
 
 public sealed record ShellPluginManagerItem(
     string PluginId,
