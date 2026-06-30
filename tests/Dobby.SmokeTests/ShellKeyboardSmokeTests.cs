@@ -255,6 +255,99 @@ public sealed class ShellKeyboardSmokeTests
         });
     }
 
+    [Fact]
+    public void Rendered_shell_new_tab_opens_home_and_navigation_updates_active_tab()
+    {
+        RunOnSta(() =>
+        {
+            var window = new MainWindow
+            {
+                Left = -32000,
+                Top = -32000,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize
+            };
+            var shell = (ShellViewModel)window.DataContext;
+
+            try
+            {
+                AddThemeResources(window);
+                window.Show();
+                Pump(window);
+
+                FindNamed<ItemsControl>(window, "WorkspaceTabStrip").Items.Count.ShouldBe(1);
+                shell.ActiveWorkspaceTab.Title.ShouldBe("Ana səhifə");
+
+                FindNamed<Button>(window, "WorkspaceNewTabButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Pump(window);
+
+                FindNamed<ItemsControl>(window, "WorkspaceTabStrip").Items.Count.ShouldBe(2);
+                shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+                shell.ActiveWorkspaceTab.Title.ShouldBe("Ana səhifə");
+
+                ClickRoute(window, RouteRegistry.SettingsRouteKey);
+                Pump(window);
+
+                shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+                shell.ActiveWorkspaceTab.Title.ShouldBe("Tənzimləmələr");
+                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Visible);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Rendered_shell_closing_active_tab_activates_left_tab()
+    {
+        RunOnSta(() =>
+        {
+            var window = new MainWindow
+            {
+                Left = -32000,
+                Top = -32000,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize
+            };
+            var shell = (ShellViewModel)window.DataContext;
+
+            try
+            {
+                AddThemeResources(window);
+                window.Show();
+                Pump(window);
+
+                ClickRoute(window, RouteRegistry.SettingsRouteKey);
+                Pump(window);
+                var leftTabId = shell.ActiveWorkspaceTab.TabId;
+
+                FindNamed<Button>(window, "WorkspaceNewTabButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Pump(window);
+                ClickRoute(window, RouteRegistry.PluginsRouteKey);
+                Pump(window);
+
+                var closeButton = WorkspaceTabCloseButtons(window)
+                    .SingleOrDefault(button => ButtonTagId(button) == shell.ActiveWorkspaceTab.TabId);
+                closeButton.ShouldNotBeNull(DumpWorkspaceButtons(window));
+                closeButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Pump(window);
+
+                shell.WorkspaceTabs.Count.ShouldBe(1);
+                shell.ActiveWorkspaceTab.TabId.ShouldBe(leftTabId);
+                shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Visible);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()
     {
         var parent = NavigationContribution.Create(
@@ -305,6 +398,48 @@ public sealed class ShellKeyboardSmokeTests
         var button = FindVisuals<Button>((DependencyObject)window.Content)
             .First(button => string.Equals(button.Tag as string, routeKey, StringComparison.Ordinal));
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+    }
+
+    private static IReadOnlyList<Button> WorkspaceTabButtons(Window window)
+    {
+        return FindVisuals<Button>((DependencyObject)window.Content)
+            .Where(button => button.Tag is Guid && button.Content is string text && text.Length > 1)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<Button> WorkspaceTabCloseButtons(Window window)
+    {
+        var shell = (ShellViewModel)window.DataContext;
+        var tabTitles = shell.WorkspaceTabs.ToDictionary(tab => tab.TabId, tab => tab.Title);
+        return FindVisuals<Button>((DependencyObject)window.Content)
+            .Where(button => ButtonTagId(button) is Guid tabId &&
+                (!tabTitles.TryGetValue(tabId, out var title) ||
+                    !string.Equals(button.Content as string, title, StringComparison.Ordinal)))
+            .ToArray();
+    }
+
+    private static Guid? ButtonTagId(Button button)
+    {
+        return button.Tag switch
+        {
+            Guid id => id,
+            string text when Guid.TryParse(text, out var id) => id,
+            _ => null
+        };
+    }
+
+    private static string DumpWorkspaceButtons(Window window)
+    {
+        var shell = (ShellViewModel)window.DataContext;
+        var tabs = string.Join(
+            Environment.NewLine,
+            shell.WorkspaceTabs.Select(tab => $"tab id={tab.TabId} title={tab.Title} active={tab.IsActive} route={tab.RouteKey}"));
+        var buttons = string.Join(
+            Environment.NewLine,
+            FindVisuals<Button>((DependencyObject)window.Content)
+                .Where(button => button.Tag is not null)
+                .Select(button => $"button tag={button.Tag} tagType={button.Tag.GetType().FullName} content={button.Content}"));
+        return $"{tabs}{Environment.NewLine}{buttons}";
     }
 
     private static IReadOnlyList<T> FindVisuals<T>(DependencyObject root)

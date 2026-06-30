@@ -68,9 +68,9 @@
                   Grid.Column="1"
                   MinWidth="28"
                   Click="WorkspaceTabClose_Click"
-                  Content="{Binding DataContext.WorkspaceTabCloseGlyph, RelativeSource={RelativeSource AncestorType=Window}}"
+                  Content="{Binding DataContext.WorkspaceTabCloseGlyph, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                   Tag="{Binding TabId}"
-                  AutomationProperties.Name="{Binding DataContext.WorkspaceCloseTabLabel, RelativeSource={RelativeSource AncestorType=Window}}"
+                  AutomationProperties.Name="{Binding DataContext.WorkspaceCloseTabLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                   shellChrome:WindowChrome.IsHitTestVisibleInChrome="True" />
             </Grid>
           </DataTemplate>
@@ -278,7 +278,7 @@
                         <Style TargetType="TextBlock">
                           <Setter Property="Visibility" Value="Visible" />
                           <Style.Triggers>
-                            <DataTrigger Binding="{Binding DataContext.Layout.Preference.SidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                            <DataTrigger Binding="{Binding DataContext.Layout.Preference.SidebarCollapsed, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" Value="True">
                               <Setter Property="Visibility" Value="Collapsed" />
                             </DataTrigger>
                           </Style.Triggers>

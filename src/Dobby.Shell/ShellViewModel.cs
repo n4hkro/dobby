@@ -85,7 +85,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string BrandMark => "D";
 
-    public IReadOnlyList<ShellWorkspaceTab> WorkspaceTabs => workspaceTabs;
+    public IReadOnlyList<ShellWorkspaceTab> WorkspaceTabs => workspaceTabs.ToArray();
 
     public ShellWorkspaceTab ActiveWorkspaceTab => workspaceTabs.First(tab => tab.IsActive);
 
