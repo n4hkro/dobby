@@ -260,6 +260,95 @@ public sealed class HostPersistenceTests
     }
 
     [Fact]
+    public void Transaction_scope_enlists_calls_made_through_existing_executor_instance()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        var migration = fixture.Migrator.ApplyPreLoginMigrations();
+        migration.IsSuccess.ShouldBeTrue(migration.IsSuccess ? null : migration.Error.Message);
+
+        var scope = new HostPersistenceTransactionScope(fixture.Factory);
+
+        Should.Throw<InvalidOperationException>(() =>
+            scope.ExecuteInTransaction(_ =>
+            {
+                fixture.Executor.Execute(
+                    "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('tx.ambient', 'created', 'string', 'None', 'test', @UpdatedAtUtc);",
+                    new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+
+                throw new InvalidOperationException("simulate crash before commit");
+            }));
+
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostConfiguration WHERE ConfigKey = 'tx.ambient';")
+            .ShouldBe(0);
+    }
+
+    [Fact]
+    public void Nested_transaction_scope_joins_outer_transaction()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        var migration = fixture.Migrator.ApplyPreLoginMigrations();
+        migration.IsSuccess.ShouldBeTrue(migration.IsSuccess ? null : migration.Error.Message);
+
+        var scope = new HostPersistenceTransactionScope(fixture.Factory);
+
+        Should.Throw<InvalidOperationException>(() =>
+            scope.ExecuteInTransaction(_ =>
+            {
+                fixture.Executor.Execute(
+                    "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('tx.outer', 'created', 'string', 'None', 'test', @UpdatedAtUtc);",
+                    new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+
+                scope.ExecuteInTransaction(_ =>
+                {
+                    fixture.Executor.Execute(
+                        "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('tx.inner', 'created', 'string', 'None', 'test', @UpdatedAtUtc);",
+                        new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+                });
+
+                throw new InvalidOperationException("simulate crash before commit");
+            }));
+
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostConfiguration WHERE ConfigKey IN ('tx.outer', 'tx.inner');")
+            .ShouldBe(0);
+    }
+
+    [Fact]
+    public void Nested_transaction_scope_rolls_back_inner_savepoint_when_inner_scope_fails()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        var migration = fixture.Migrator.ApplyPreLoginMigrations();
+        migration.IsSuccess.ShouldBeTrue(migration.IsSuccess ? null : migration.Error.Message);
+
+        var scope = new HostPersistenceTransactionScope(fixture.Factory);
+
+        scope.ExecuteInTransaction(_ =>
+        {
+            fixture.Executor.Execute(
+                "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('tx.savepoint.outer', 'created', 'string', 'None', 'test', @UpdatedAtUtc);",
+                new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+
+            Should.Throw<InvalidOperationException>(() =>
+                scope.ExecuteInTransaction(_ =>
+                {
+                    fixture.Executor.Execute(
+                        "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('tx.savepoint.inner', 'created', 'string', 'None', 'test', @UpdatedAtUtc);",
+                        new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+
+                    throw new InvalidOperationException("inner scope failed");
+                }));
+        });
+
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostConfiguration WHERE ConfigKey = 'tx.savepoint.outer';")
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostConfiguration WHERE ConfigKey = 'tx.savepoint.inner';")
+            .ShouldBe(0);
+    }
+
+    [Fact]
     public void Post_login_migrations_are_distinct_from_pre_login_bootstrap()
     {
         using var fixture = HostPersistenceFixture.Create();

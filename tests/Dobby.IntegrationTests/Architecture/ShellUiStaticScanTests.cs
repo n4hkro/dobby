@@ -53,6 +53,7 @@ public sealed class ShellUiStaticScanTests
             "WindowTitleBar",
             "WorkspaceTabStrip",
             "WorkspaceNewTabButton",
+            "WindowCaptionButtons",
             "WindowMinimizeButton",
             "WindowMaximizeRestoreButton",
             "WindowCloseButton",
@@ -101,8 +102,7 @@ public sealed class ShellUiStaticScanTests
             "LicenseImportButton",
             "LicenseFeedbackText",
             "BackgroundStatusText",
-            "LogoutButton",
-            "ClearSavedLoginButton"
+            "LogoutButton"
         };
 
         foreach (var name in requiredNames)
@@ -111,7 +111,8 @@ public sealed class ShellUiStaticScanTests
         }
 
         shell.ShouldContain("Logout_Click");
-        shell.ShouldContain("ClearSavedLogin_Click");
+        shell.ShouldNotContain(string.Concat("Clear", "Saved", "Login", "Button"));
+        shell.ShouldNotContain(string.Concat("Clear", "Saved", "Login", "_Click"));
         shell.ShouldContain("Navigation_Click");
         shell.ShouldContain("WorkSessionStay_Click");
         shell.ShouldContain("PluginsManagerInstall_Click");
@@ -121,9 +122,14 @@ public sealed class ShellUiStaticScanTests
         shell.ShouldContain("WorkspaceNewTab_Click");
         shell.ShouldContain("WorkspaceTab_Click");
         shell.ShouldContain("WorkspaceTabClose_Click");
+        shell.ShouldContain("UseAeroCaptionButtons=\"False\"");
         shell.ShouldContain("WindowMinimize_Click");
         shell.ShouldContain("WindowMaximizeRestore_Click");
         shell.ShouldContain("WindowClose_Click");
+        shell.ShouldContain("x:Name=\"WindowCaptionButtons\"");
+        shell.ShouldContain("x:Name=\"WindowMinimizeButton\"");
+        shell.ShouldContain("x:Name=\"WindowMaximizeRestoreButton\"");
+        shell.ShouldContain("x:Name=\"WindowCloseButton\"");
         shell.ShouldContain("ItemsSource=\"{Binding WorkspaceTabs}\"");
         shell.ShouldContain("AutomationProperties.Name=\"{Binding WorkspaceNewTabLabel}\"");
         shell.ShouldContain("x:Name=\"CenteredTopToolbar\"");
@@ -170,6 +176,63 @@ public sealed class ShellUiStaticScanTests
     }
 
     [Fact]
+    public void Host_shell_uses_visible_windows_style_caption_buttons_and_chrome_sized_tabs()
+    {
+        var root = RepoRoot();
+        var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
+        var designTokens = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.UI", "Themes", "DesignTokens.xaml"));
+
+        shell.ShouldContain("UseAeroCaptionButtons=\"False\"");
+        shell.ShouldContain("GlassFrameThickness=\"0\"");
+        shell.ShouldContain("CaptionHeight=\"{DynamicResource Dobby.Shell.ChromeHeight}\"");
+        shell.ShouldContain("<ColumnDefinition Width=\"*\" MinWidth=\"0\" />");
+        shell.ShouldContain("Width=\"{DynamicResource Dobby.Shell.CaptionButtonReserveGridLength}\"");
+        shell.ShouldContain("Grid.Column=\"3\"");
+        shell.ShouldContain("Style=\"{StaticResource WindowChromeButtonStyle}\"");
+        shell.ShouldContain("Style=\"{StaticResource WindowCloseButtonStyle}\"");
+        shell.ShouldContain("WorkspaceTabStripMaxWidthConverter");
+        shell.ShouldContain("WorkspaceTabWidthConverter");
+        shell.ShouldContain("ClipToBounds=\"True\"");
+        shell.ShouldContain("MaxWidth=\"{DynamicResource Dobby.Shell.TabWidth}\"");
+        shell.ShouldContain("Height=\"{DynamicResource Dobby.Shell.TabHeight}\"");
+        designTokens.ShouldContain("<sys:Double x:Key=\"Dobby.Shell.TabWidth\">240</sys:Double>");
+        designTokens.ShouldContain("<sys:Double x:Key=\"Dobby.Shell.TabHeight\">42</sys:Double>");
+        designTokens.ShouldContain("<GridLength x:Key=\"Dobby.Shell.CaptionButtonReserveGridLength\">144</GridLength>");
+        designTokens.ShouldContain("<sys:Double x:Key=\"Dobby.Shell.CaptionButtonWidth\">46</sys:Double>");
+        designTokens.ShouldContain("<sys:Double x:Key=\"Dobby.Shell.CaptionButtonHeight\">32</sys:Double>");
+    }
+
+    [Fact]
+    public void Host_shell_starts_maximized_and_custom_chrome_uses_monitor_work_area()
+    {
+        var root = RepoRoot();
+        var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var presenterCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "PostLoginShellPresenter.cs"));
+
+        mainWindowCode.ShouldContain("WmGetMinMaxInfo = 0x0024");
+        mainWindowCode.ShouldContain("MonitorDefaultToNearest = 0x00000002");
+        mainWindowCode.ShouldContain("MonitorFromWindow(");
+        mainWindowCode.ShouldContain("GetMonitorInfo(");
+        mainWindowCode.ShouldContain("ApplyMaximizedWorkArea(hwnd, lParam)");
+        mainWindowCode.ShouldContain("ptMaxPosition");
+        mainWindowCode.ShouldContain("ptMaxSize");
+        mainWindowCode.ShouldContain("Marshal.StructureToPtr");
+        mainWindowCode.ShouldContain("public void MaximizeForShellStartup()");
+        mainWindowCode.ShouldContain("forceShellStartupMaximized");
+        mainWindowCode.ShouldContain("private void SetShellMaximized()");
+        mainWindowCode.ShouldContain("private void SetShellNormal()");
+        mainWindowCode.ShouldContain("if (forceShellStartupMaximized)");
+        presenterCode.ShouldContain("window.MaximizeForShellStartup();");
+
+        var attachRuntime = presenterCode.IndexOf("window.AttachRuntime(", StringComparison.Ordinal);
+        var maximize = presenterCode.IndexOf("window.MaximizeForShellStartup();", StringComparison.Ordinal);
+        var showDialog = presenterCode.IndexOf("window.ShowDialog();", StringComparison.Ordinal);
+        attachRuntime.ShouldBeGreaterThanOrEqualTo(0);
+        maximize.ShouldBeGreaterThan(attachRuntime);
+        showDialog.ShouldBeGreaterThan(maximize);
+    }
+
+    [Fact]
     public void Host_shell_pipeline_subnav_sits_directly_on_shell_background_without_island_treatment()
     {
         var root = RepoRoot();
@@ -205,10 +268,12 @@ public sealed class ShellUiStaticScanTests
         var root = RepoRoot();
         var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
         var workSessionCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Shell", "WorkSessions", "WorkSessionCloseCoordinator.cs"));
-        var appCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
+        var presenterCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "PostLoginShellPresenter.cs"));
 
         mainWindowCode.ShouldContain("StartupMilestoneNames.ShellFirstPaint");
         mainWindowCode.ShouldContain("ContentRendered");
+        mainWindowCode.ShouldContain("HwndSource");
+        mainWindowCode.ShouldContain("ScClose");
         mainWindowCode.ShouldContain("WorkSessionCloseCoordinator");
         mainWindowCode.ShouldContain("PluginPageRenderRegistry");
         mainWindowCode.ShouldContain("UpdatePluginPageHost");
@@ -216,12 +281,12 @@ public sealed class ShellUiStaticScanTests
         mainWindowCode.ShouldContain("HandleLock()");
         workSessionCode.ShouldContain("WorkSessionCloseReason.Logout");
         workSessionCode.ShouldContain("WorkSessionCloseReason.PluginDisable");
-        appCode.ShouldContain("ShellLocalizationDiagnosticsRecorder");
-        appCode.ShouldContain("ShellBackgroundOperationCoordinator");
-        appCode.ShouldContain("BeginPostLoginActivation");
-        appCode.ShouldContain("WpfUiDispatcher");
-        appCode.ShouldNotContain("GetInfo(isOwner: true");
-        appCode.ShouldContain("UserPermissionStateReader");
+        presenterCode.ShouldContain("ShellLocalizationDiagnosticsRecorder");
+        presenterCode.ShouldContain("ShellBackgroundOperationCoordinator");
+        presenterCode.ShouldContain("BeginPostLoginActivation");
+        presenterCode.ShouldContain("WpfUiDispatcher");
+        presenterCode.ShouldNotContain("GetInfo(isOwner: true");
+        presenterCode.ShouldContain("UserPermissionStateReader");
     }
 
     [Fact]
@@ -253,10 +318,11 @@ public sealed class ShellUiStaticScanTests
     {
         var root = RepoRoot();
         var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
-        var appCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
+        var presenterCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "PostLoginShellPresenter.cs"));
 
         mainWindowCode.ShouldContain("IBackgroundOperationReporter? backgroundOperations");
-        appCode.ShouldContain("backgroundOperations: loginRuntime.BackgroundOperations");
+        presenterCode.ShouldContain("window.AttachRuntime(");
+        mainWindowCode.ShouldContain("backgroundOperations = loginRuntime.BackgroundOperations");
         mainWindowCode.ShouldContain("ReportPluginsManagerBackgroundOperation(");
         mainWindowCode.ShouldContain("backgroundOperations?.Progress.Report(new BackgroundOperationSnapshot(");
         mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerInstallBusy");
@@ -277,9 +343,10 @@ public sealed class ShellUiStaticScanTests
     {
         var root = RepoRoot();
         var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
-        var appCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
+        var presenterCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "PostLoginShellPresenter.cs"));
 
-        appCode.ShouldContain("backgroundOperations: loginRuntime.BackgroundOperations");
+        presenterCode.ShouldContain("window.AttachRuntime(");
+        mainWindowCode.ShouldContain("backgroundOperations = loginRuntime.BackgroundOperations");
         mainWindowCode.ShouldContain("LicenseImport_Click");
         mainWindowCode.ShouldContain("ReportLicenseImportBackgroundOperation(");
         mainWindowCode.ShouldContain("licenseImportCoordinator.ImportFileAsync");

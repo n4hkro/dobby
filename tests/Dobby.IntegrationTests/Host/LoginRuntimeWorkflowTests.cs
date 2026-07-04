@@ -31,6 +31,11 @@ public sealed class LoginRuntimeWorkflowTests
         result.Session.UserId.ShouldNotBeNullOrWhiteSpace();
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions WHERE UserId = @UserId AND InvalidatedAtUtc IS NULL;", new { result.Session.UserId }).ShouldBe(1);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RememberMeSlot WHERE UserId = @UserId;", new { result.Session.UserId }).ShouldBe(1);
+        fixture.LoadSavedLogin().ShouldBe(new RememberMeSavedLogin(
+            result.Session.UserId,
+            "owner",
+            "first owner password",
+            HasMaskedPasswordPrefill: true));
         fixture.Executor.QueryScalar<string>("SELECT DisplayName FROM Users WHERE UserId = @UserId;", new { result.Session.UserId }).ShouldBe("Əli Məmmədov");
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.login' AND ActorId = @UserId AND Result = 'success';", new { result.Session.UserId }).ShouldBe(1);
     }
@@ -54,6 +59,44 @@ public sealed class LoginRuntimeWorkflowTests
         result.Session.ShouldBeNull();
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions;").ShouldBe(0);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.login.failed' AND Result = 'failed';").ShouldBe(1);
+    }
+
+    [Fact]
+    public void Submit_existing_login_runs_inside_transaction_scope()
+    {
+        using var fixture = LoginRuntimeFixture.Create();
+        fixture.BootstrapOwner("owner", "correct password");
+        var transactionScope = new RecordingTransactionScope(fixture.Executor);
+        var workflow = fixture.CreateWorkflow(transactionScope);
+
+        var result = workflow.Submit(new LoginSubmission(
+            "owner",
+            "correct password",
+            DisplayName: null,
+            RememberMe: true,
+            CorrelationId.New()));
+
+        result.IsAuthenticated.ShouldBeTrue();
+        transactionScope.ExecutionCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Submit_first_owner_login_runs_inside_transaction_scope_without_nested_transaction_failure()
+    {
+        using var fixture = LoginRuntimeFixture.Create();
+        var transactionScope = new HostPersistenceTransactionScope(fixture.Factory);
+        var workflow = fixture.CreateWorkflow(transactionScope);
+
+        var result = workflow.Submit(new LoginSubmission(
+            " Owner ",
+            "first owner password",
+            "Əli Məmmədov",
+            RememberMe: true,
+            CorrelationId.New()));
+
+        result.IsAuthenticated.ShouldBeTrue();
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Users WHERE IsOwner = 1 AND UsernameNormalized = 'owner';").ShouldBe(1);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions WHERE UserId = @UserId AND InvalidatedAtUtc IS NULL;", new { result.Session!.UserId }).ShouldBe(1);
     }
 
     [Fact]
@@ -106,7 +149,7 @@ public sealed class LoginRuntimeWorkflowTests
 
         public LoginThrottleService Throttle { get; }
 
-        public LoginRuntimeWorkflow CreateWorkflow()
+        public LoginRuntimeWorkflow CreateWorkflow(IHostPersistenceTransactionScope? transactionScope = null)
         {
             var credentialStore = new CredentialStore(Executor, credentialProtector, kdfPolicyResolver);
             var loginService = new LoginService(Executor, credentialStore, CreateOwnerBootstrapCoordinator(), Throttle);
@@ -118,7 +161,12 @@ public sealed class LoginRuntimeWorkflowTests
                 new SessionOptions { AbsoluteTimeoutMinutes = 480, IdleTimeoutMinutes = 30 });
             var rememberMeSlot = new RememberMeSlotService(Executor, rememberMeProtector);
             var audit = new LoginAuditCoordinator(new DurableAuditTrail(Executor), Time);
-            return new LoginRuntimeWorkflow(loginService, sessionService, rememberMeSlot, audit);
+            return new LoginRuntimeWorkflow(loginService, sessionService, rememberMeSlot, audit, transactionScope);
+        }
+
+        public RememberMeSavedLogin? LoadSavedLogin()
+        {
+            return new RememberMeSlotService(Executor, rememberMeProtector).LoadSavedLogin().Value;
         }
 
         public void BootstrapOwner(string username, string password)
@@ -178,6 +226,19 @@ public sealed class LoginRuntimeWorkflowTests
         {
             protectedBlob.Take(ProtectedPrefix.Length).SequenceEqual(ProtectedPrefix).ShouldBeTrue();
             return protectedBlob.Skip(ProtectedPrefix.Length).Select(value => (byte)(value ^ 0x5A)).ToArray();
+        }
+    }
+
+    private sealed class RecordingTransactionScope(IHostPersistenceCommandExecutor executor) : IHostPersistenceTransactionScope
+    {
+        public int ExecutionCount { get; private set; }
+
+        public void ExecuteInTransaction(Action<IHostPersistenceCommandExecutor> action)
+        {
+            ArgumentNullException.ThrowIfNull(action);
+
+            ExecutionCount++;
+            action(executor);
         }
     }
 }

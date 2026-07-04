@@ -243,9 +243,6 @@
   <data name="Dobby.Shell.Profile.Logout" xml:space="preserve">
     <value>Çıxış</value>
   </data>
-  <data name="Dobby.Shell.Profile.ClearSavedLogin" xml:space="preserve">
-    <value>Yadda saxlanmış girişi sil</value>
-  </data>
   <data name="Dobby.Shell.Feedback.Loading" xml:space="preserve">
     <value>Yüklənir</value>
   </data>

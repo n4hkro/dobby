@@ -27,6 +27,7 @@ public sealed class SelfServicePasswordChangeTests
         fixture.Executor.QueryScalar<int>("SELECT SessionVersion FROM Sessions WHERE SessionId = 'session-1';").ShouldBe(2);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions WHERE SessionId = 'session-1' AND InvalidatedAtUtc IS NULL;").ShouldBe(1);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RememberMeSlot WHERE UserId = @UserId;", new { UserId = userId }).ShouldBe(1);
+        fixture.RememberMe.LoadSavedLogin().Value!.Password.ShouldBe("new password");
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.password.change' AND Result = 'success';").ShouldBe(1);
     }
 

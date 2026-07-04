@@ -145,8 +145,6 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string LogoutLabel => strings.GetString(HostResourceKeys.ShellProfileLogout);
 
-    public string ClearSavedLoginLabel => strings.GetString(HostResourceKeys.ShellProfileClearSavedLogin);
-
     public string SettingsHeading => strings.GetString(HostResourceKeys.ShellSettingsHeading);
 
     public string AboutHeading => strings.GetString(HostResourceKeys.ShellAboutHeading);

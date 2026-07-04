@@ -342,7 +342,7 @@ Implement host authorization, user management, and the documented Settings/About
   - Concrete tasks: block managed-user changes to Owner, self-grant, granting permissions the actor lacks, unknown targets, and unsupported verbs.
   - Expected result: permission escalation paths fail closed and are audited.
 - **Settings and Account**
-  - Concrete tasks: implement Settings navigation visibility, Appearance theme selection, Account password/saved-login controls, Security/Session auto-lock controls, User Management visibility, and About read-only fields.
+  - Concrete tasks: implement Settings navigation visibility, Appearance theme selection, Account password controls, Security/Session auto-lock controls, User Management visibility, and About read-only fields.
   - Expected result: authenticated settings match documented surfaces.
 
 ### Dependencies

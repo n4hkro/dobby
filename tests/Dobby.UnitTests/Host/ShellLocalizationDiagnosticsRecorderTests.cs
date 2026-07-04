@@ -37,9 +37,9 @@ public sealed class ShellLocalizationDiagnosticsRecorderTests
     }
 
     [Fact]
-    public void App_startup_composes_resource_catalog_with_localization_diagnostics_recorder()
+    public void Post_login_shell_composes_resource_catalog_with_localization_diagnostics_recorder()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "App.xaml.cs"));
+        var source = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "PostLoginShellPresenter.cs"));
 
         source.ShouldContain("ShellLocalizationDiagnosticsRecorder");
         source.ShouldContain("HostStringCatalog.CreateResourceBacked(localizationDiagnostics.RecordMissingKey)");

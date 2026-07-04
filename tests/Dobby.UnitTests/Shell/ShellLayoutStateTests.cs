@@ -31,8 +31,7 @@ public sealed class ShellLayoutStateTests
             "profile-account-info",
             "change-password",
             "manual-lock",
-            "logout",
-            "clear-saved-login"
+            "logout"
         ]);
         state.NotificationKinds.ShouldBe([
             ShellNotificationKind.Toast,

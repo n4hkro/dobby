@@ -46,6 +46,18 @@ public sealed class SessionLifecycleService(
         return Result.Success(session);
     }
 
+    public Result ActivateExisting(SessionRecord session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        if (activeSessionAccessor.Current?.SessionId == session.SessionId)
+        {
+            return Result.Success();
+        }
+
+        return activeSessionAccessor.SetActive(session);
+    }
+
     public Result Lock()
     {
         if (activeSessionAccessor.Current is null)

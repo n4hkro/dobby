@@ -20,15 +20,16 @@ public sealed class RememberMeSlotTests
         var service = new RememberMeSlotService(fixture.Executor, protector, [1, 2, 3]);
         var serviceWithDifferentApplicationEntropy = new RememberMeSlotService(fixture.Executor, protector, [9, 8, 7]);
 
-        service.ApplySuccessfulLogin("user-1", "owner", rememberMe: true).IsSuccess.ShouldBeTrue();
-        service.ApplySuccessfulLogin("user-2", "other", rememberMe: true).IsSuccess.ShouldBeTrue();
-        serviceWithDifferentApplicationEntropy.ApplySuccessfulLogin("user-2", "other", rememberMe: true).IsSuccess.ShouldBeTrue();
+        service.ApplySuccessfulLogin("user-1", "owner", "first password", rememberMe: true).IsSuccess.ShouldBeTrue();
+        service.ApplySuccessfulLogin("user-2", "other", "second password", rememberMe: true).IsSuccess.ShouldBeTrue();
+        serviceWithDifferentApplicationEntropy.ApplySuccessfulLogin("user-2", "other", "third password", rememberMe: true).IsSuccess.ShouldBeTrue();
 
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RememberMeSlot;").ShouldBe(1);
         var slot = service.LoadSavedLogin().Value;
         slot.ShouldNotBeNull();
         slot.UserId.ShouldBe("user-2");
         slot.MaskedUsername.ShouldBe("other");
+        slot.Password.ShouldBe("third password");
         slot.HasMaskedPasswordPrefill.ShouldBeTrue();
         protector.ProtectCalls.ShouldBe(3);
         protector.ProtectEntropies[0].ShouldNotBe(protector.ProtectEntropies[1]);
@@ -41,13 +42,56 @@ public sealed class RememberMeSlotTests
         using var fixture = RememberMeFixture.Create();
         fixture.InsertUser("user-1", "owner");
         var service = new RememberMeSlotService(fixture.Executor, new RecordingProtector());
-        service.ApplySuccessfulLogin("user-1", "owner", rememberMe: true).IsSuccess.ShouldBeTrue();
+        service.ApplySuccessfulLogin("user-1", "owner", "saved password", rememberMe: true).IsSuccess.ShouldBeTrue();
 
-        service.ApplySuccessfulLogin("user-1", "owner", rememberMe: false).IsSuccess.ShouldBeTrue();
-        service.ForgetSavedLogin().IsSuccess.ShouldBeTrue();
+        service.ApplySuccessfulLogin("user-1", "owner", "ignored password", rememberMe: false).IsSuccess.ShouldBeTrue();
+        service.ClearSlot().IsSuccess.ShouldBeTrue();
 
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RememberMeSlot;").ShouldBe(0);
         service.LoadSavedLogin().Value.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Successful_login_updates_startup_snapshot_sink_and_remember_me_off_clears_it()
+    {
+        using var fixture = RememberMeFixture.Create();
+        fixture.InsertUser("user-1", "owner");
+        var sink = new RecordingStartupSnapshotSink();
+        var service = new RememberMeSlotService(fixture.Executor, new RecordingProtector(), startupSnapshotSink: sink);
+
+        service.ApplySuccessfulLogin("user-1", "owner", "saved password", rememberMe: true).IsSuccess.ShouldBeTrue();
+
+        sink.SavedLogin.ShouldBe(new RememberMeSavedLogin("user-1", "owner", "saved password", true));
+        sink.ClearCalls.ShouldBe(0);
+
+        service.ApplySuccessfulLogin("user-1", "owner", "ignored password", rememberMe: false).IsSuccess.ShouldBeTrue();
+
+        sink.SavedLogin.ShouldBeNull();
+        sink.ClearCalls.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Loading_saved_login_backfills_or_clears_startup_snapshot_sink()
+    {
+        using var fixture = RememberMeFixture.Create();
+        fixture.InsertUser("user-1", "owner");
+        var sink = new RecordingStartupSnapshotSink();
+        var service = new RememberMeSlotService(fixture.Executor, new RecordingProtector(), startupSnapshotSink: sink);
+        service.ApplySuccessfulLogin("user-1", "owner", "saved password", rememberMe: true).IsSuccess.ShouldBeTrue();
+        sink.Reset();
+
+        service.LoadSavedLogin().Value.ShouldBe(new RememberMeSavedLogin("user-1", "owner", "saved password", true));
+
+        sink.SavedLogin.ShouldBe(new RememberMeSavedLogin("user-1", "owner", "saved password", true));
+        sink.ClearCalls.ShouldBe(0);
+
+        service.ClearSlot().IsSuccess.ShouldBeTrue();
+        sink.Reset();
+
+        service.LoadSavedLogin().Value.ShouldBeNull();
+
+        sink.SavedLogin.ShouldBeNull();
+        sink.ClearCalls.ShouldBe(1);
     }
 
     [Fact]
@@ -71,7 +115,7 @@ public sealed class RememberMeSlotTests
         using var fixture = RememberMeFixture.Create();
         fixture.InsertUser("user-1", "owner");
         var service = new RememberMeSlotService(fixture.Executor, new RecordingProtector());
-        service.ApplySuccessfulLogin("user-1", "owner", rememberMe: true).IsSuccess.ShouldBeTrue();
+        service.ApplySuccessfulLogin("user-1", "owner", "saved password", rememberMe: true).IsSuccess.ShouldBeTrue();
         var originalBlob = fixture.Executor.Query<byte[]>(
             "SELECT ProtectedRememberMeBlob FROM RememberMeSlot WHERE UserId = @UserId;",
             new { UserId = "user-1" }).Single();
@@ -92,7 +136,7 @@ public sealed class RememberMeSlotTests
         sessionService.Logout("user-logout").IsSuccess.ShouldBeTrue();
 
         SavedSlotBlob(fixture, "user-1").ShouldBe(originalBlob);
-        service.LoadSavedLogin().Value.ShouldBe(new RememberMeSavedLogin("user-1", "owner", true));
+        service.LoadSavedLogin().Value.ShouldBe(new RememberMeSavedLogin("user-1", "owner", "saved password", true));
     }
 
     private static byte[] SavedSlotBlob(RememberMeFixture fixture, string userId)
@@ -169,5 +213,29 @@ public sealed class RememberMeSlotTests
         public byte[] Protect(byte[] plaintext, byte[] entropy) => plaintext;
 
         public byte[] Unprotect(byte[] protectedBlob, byte[] entropy) => throw new InvalidOperationException("unwrap failure");
+    }
+
+    private sealed class RecordingStartupSnapshotSink : IRememberMeStartupSnapshotSink
+    {
+        public RememberMeSavedLogin? SavedLogin { get; private set; }
+
+        public int ClearCalls { get; private set; }
+
+        public void Save(RememberMeSavedLogin savedLogin)
+        {
+            SavedLogin = savedLogin;
+        }
+
+        public void Clear()
+        {
+            SavedLogin = null;
+            ClearCalls++;
+        }
+
+        public void Reset()
+        {
+            SavedLogin = null;
+            ClearCalls = 0;
+        }
     }
 }

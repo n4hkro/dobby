@@ -13,7 +13,14 @@
   <sys:Double x:Key="Dobby.FontSize.Body">13</sys:Double>
   <sys:Double x:Key="Dobby.FontSize.Title">24</sys:Double>
   <sys:Double x:Key="Dobby.Icon.Size">16</sys:Double>
-  <sys:Double x:Key="Dobby.Shell.ChromeHeight">44</sys:Double>
+  <sys:Double x:Key="Dobby.Shell.ChromeHeight">48</sys:Double>
+  <sys:Double x:Key="Dobby.Shell.TabWidth">240</sys:Double>
+  <sys:Double x:Key="Dobby.Shell.TabHeight">42</sys:Double>
+  <sys:Double x:Key="Dobby.Shell.CaptionButtonReserveWidth">144</sys:Double>
+  <GridLength x:Key="Dobby.Shell.CaptionButtonReserveGridLength">144</GridLength>
+  <sys:Double x:Key="Dobby.Shell.CaptionButtonWidth">46</sys:Double>
+  <sys:Double x:Key="Dobby.Shell.CaptionButtonHeight">32</sys:Double>
+  <Thickness x:Key="Dobby.Shell.NativeCaptionFrameThickness">0,48,0,0</Thickness>
   <Thickness x:Key="Dobby.Focus.Thickness">2</Thickness>
   <Duration x:Key="Dobby.Motion.Fast">0:0:0.12</Duration>
   <Duration x:Key="Dobby.Motion.Reduced">0:0:0</Duration>

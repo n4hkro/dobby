@@ -123,9 +123,7 @@ Minimum inventory:
 - password change
 - manual lock
 - logout
-- saved login-i unutmaq
-
-Saved login-i unutmaq üçün login ekranındakı yol mütləq qalır; profile menu yalnız ikinci yoldur. Profile menu item-ları permission və session state qaydalarına uyğun göstərilir.
+Profile menu item-ları permission və session state qaydalarına uyğun göstərilir.
 
 ## 5. Notification Surface
 

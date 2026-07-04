@@ -12,6 +12,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shell;
 using System.Windows.Threading;
 using Shouldly;
 
@@ -43,8 +44,7 @@ public sealed class ShellKeyboardSmokeTests
             "profile-account-info",
             "change-password",
             "manual-lock",
-            "logout",
-            "clear-saved-login"
+            "logout"
         ]);
         shell.FocusTraversal.Select(item => item.Name).ShouldContain("TopToolbar.Home");
         shell.FocusTraversal.Select(item => item.Name).ShouldContain("ProfileMenu.Logout");
@@ -81,7 +81,6 @@ public sealed class ShellKeyboardSmokeTests
                 profileMenu.Visibility.ShouldBe(Visibility.Visible);
                 FindNamed<Button>(window, "LogoutButton").IsVisible.ShouldBeTrue();
                 FindNamed<Button>(window, "ManualLockButton").IsVisible.ShouldBeTrue();
-                FindNamed<Button>(window, "ClearSavedLoginButton").IsVisible.ShouldBeTrue();
 
                 FindNamed<ItemsControl>(window, "NotificationPresentationList").Items.Count.ShouldBe(3);
                 FindNamed<ItemsControl>(window, "FeedbackStatePresentationList").Items.Count.ShouldBe(5);
@@ -251,6 +250,205 @@ public sealed class ShellKeyboardSmokeTests
             }
             finally
             {
+                if (window.IsVisible)
+                {
+                    window.Close();
+                }
+            }
+        });
+    }
+
+    [Fact]
+    public void Rendered_shell_navigation_does_not_synchronously_read_or_save_preferences_on_click()
+    {
+        RunOnSta(() =>
+        {
+            var source = new GuardedPreferenceSource();
+            var window = new MainWindow(
+                null!,
+                null,
+                null!,
+                ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked()),
+                null,
+                source,
+                null,
+                null,
+                null,
+                null,
+                initialPreference: ShellLayoutPreference.Default)
+            {
+                Left = -32000,
+                Top = -32000,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize
+            };
+
+            try
+            {
+                AddThemeResources(window);
+                window.Show();
+                Pump(window);
+
+                source.AllowPreferenceAccess = false;
+                ClickRoute(window, RouteRegistry.SettingsRouteKey);
+                Pump(window);
+                source.AllowPreferenceAccess = true;
+
+                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Visible);
+                source.SynchronousBlockedAccessCount.ShouldBe(0);
+            }
+            finally
+            {
+                source.AllowPreferenceAccess = true;
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Rendered_shell_uses_chrome_sized_workspace_tabs_and_visible_caption_buttons()
+    {
+        RunOnSta(() =>
+        {
+            var window = new MainWindow
+            {
+                Left = -32000,
+                Top = -32000,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize
+            };
+
+            try
+            {
+                AddThemeResources(window);
+                window.Show();
+                Pump(window);
+
+                var chrome = WindowChrome.GetWindowChrome(window);
+                chrome.ShouldNotBeNull();
+                chrome.UseAeroCaptionButtons.ShouldBeFalse();
+                chrome.CaptionHeight.ShouldBe(48);
+                chrome.GlassFrameThickness.ShouldBe(new Thickness(0));
+
+                var tabFrame = FindVisuals<Border>((DependencyObject)window.Content)
+                    .First(border => border.Name.Equals("WorkspaceTabFrame", StringComparison.Ordinal));
+                tabFrame.ActualWidth.ShouldBe(240);
+                tabFrame.ActualHeight.ShouldBe(42);
+
+                foreach (var buttonName in new[] { "WindowMinimizeButton", "WindowMaximizeRestoreButton", "WindowCloseButton" })
+                {
+                    var button = FindNamed<Button>(window, buttonName);
+                    button.IsVisible.ShouldBeTrue();
+                    button.ActualWidth.ShouldBe(46);
+                    button.ActualHeight.ShouldBe(32);
+                }
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Rendered_shell_shrinks_workspace_tabs_before_caption_buttons_can_overflow()
+    {
+        RunOnSta(() =>
+        {
+            var window = new MainWindow
+            {
+                Left = -32000,
+                Top = -32000,
+                Width = 1024,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize
+            };
+
+            try
+            {
+                AddThemeResources(window);
+                window.Show();
+                Pump(window);
+
+                var newTabButton = FindNamed<Button>(window, "WorkspaceNewTabButton");
+                for (var index = 0; index < 9; index++)
+                {
+                    newTabButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Pump(window);
+                }
+
+                var tabFrames = FindVisuals<Border>((DependencyObject)window.Content)
+                    .Where(border => border.Name.Equals("WorkspaceTabFrame", StringComparison.Ordinal))
+                    .ToArray();
+                tabFrames.Length.ShouldBe(10);
+                tabFrames.ShouldAllBe(frame => frame.ActualWidth < 240);
+
+                var titleBar = FindNamed<Grid>(window, "WindowTitleBar");
+                var captionButtons = FindNamed<StackPanel>(window, "WindowCaptionButtons");
+                var captionBounds = captionButtons
+                    .TransformToAncestor(titleBar)
+                    .TransformBounds(new Rect(0, 0, captionButtons.ActualWidth, captionButtons.ActualHeight));
+                captionBounds.Right.ShouldBeLessThanOrEqualTo(titleBar.ActualWidth + 0.5);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Rendered_shell_keeps_caption_buttons_visible_when_window_is_narrow()
+    {
+        RunOnSta(() =>
+        {
+            var window = new MainWindow
+            {
+                Left = -32000,
+                Top = -32000,
+                Width = 420,
+                MinWidth = 360,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize
+            };
+
+            try
+            {
+                AddThemeResources(window);
+                window.Show();
+                Pump(window);
+
+                var newTabButton = FindNamed<Button>(window, "WorkspaceNewTabButton");
+                for (var index = 0; index < 8; index++)
+                {
+                    newTabButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Pump(window);
+                }
+
+                var titleBar = FindNamed<Grid>(window, "WindowTitleBar");
+                var captionButtons = FindNamed<StackPanel>(window, "WindowCaptionButtons");
+                var captionBounds = captionButtons
+                    .TransformToAncestor(titleBar)
+                    .TransformBounds(new Rect(0, 0, captionButtons.ActualWidth, captionButtons.ActualHeight));
+
+                captionButtons.IsVisible.ShouldBeTrue();
+                captionButtons.ActualWidth.ShouldBe(138);
+                captionBounds.Left.ShouldBeGreaterThanOrEqualTo(0);
+                captionBounds.Right.ShouldBeLessThanOrEqualTo(titleBar.ActualWidth + 0.5);
+
+                foreach (var buttonName in new[] { "WindowMinimizeButton", "WindowMaximizeRestoreButton", "WindowCloseButton" })
+                {
+                    var button = FindNamed<Button>(window, buttonName);
+                    button.IsVisible.ShouldBeTrue();
+                    button.ActualWidth.ShouldBe(46);
+                }
+            }
+            finally
+            {
                 window.Close();
             }
         });
@@ -410,12 +608,12 @@ public sealed class ShellKeyboardSmokeTests
 
     private static IReadOnlyList<Button> WorkspaceTabCloseButtons(Window window)
     {
-        var shell = (ShellViewModel)window.DataContext;
-        var tabTitles = shell.WorkspaceTabs.ToDictionary(tab => tab.TabId, tab => tab.Title);
         return FindVisuals<Button>((DependencyObject)window.Content)
-            .Where(button => ButtonTagId(button) is Guid tabId &&
-                (!tabTitles.TryGetValue(tabId, out var title) ||
-                    !string.Equals(button.Content as string, title, StringComparison.Ordinal)))
+            .Where(button => ButtonTagId(button).HasValue &&
+                string.Equals(
+                    AutomationProperties.GetName(button),
+                    ((ShellViewModel)window.DataContext).WorkspaceCloseTabLabel,
+                    StringComparison.Ordinal))
             .ToArray();
     }
 
@@ -505,6 +703,45 @@ public sealed class ShellKeyboardSmokeTests
 
         public Result Save(SettingsPreferences preferences)
         {
+            return Result.Success();
+        }
+    }
+
+    private sealed class GuardedPreferenceSource : ISettingsPreferenceSource
+    {
+        private readonly int ownerThreadId = Environment.CurrentManagedThreadId;
+
+        public bool AllowPreferenceAccess { get; set; } = true;
+
+        public int SynchronousBlockedAccessCount { get; private set; }
+
+        public Result<SettingsPreferences> Load()
+        {
+            if (!AllowPreferenceAccess)
+            {
+                if (Environment.CurrentManagedThreadId == ownerThreadId)
+                {
+                    SynchronousBlockedAccessCount++;
+                }
+
+                throw new InvalidOperationException("Navigation click must not synchronously load preferences.");
+            }
+
+            return Result.Success(SettingsPreferences.Default);
+        }
+
+        public Result Save(SettingsPreferences preferences)
+        {
+            if (!AllowPreferenceAccess)
+            {
+                if (Environment.CurrentManagedThreadId == ownerThreadId)
+                {
+                    SynchronousBlockedAccessCount++;
+                }
+
+                throw new InvalidOperationException("Navigation click must not synchronously save preferences.");
+            }
+
             return Result.Success();
         }
     }

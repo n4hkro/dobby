@@ -9,6 +9,11 @@ public sealed class AppearanceSettingsModel(ISettingsPreferenceSource preference
 
     public Result SetTheme(AppThemePreference theme)
     {
+        if (preferenceSource is IThemePreferenceSource themePreferenceSource)
+        {
+            return themePreferenceSource.SaveThemePreference(theme);
+        }
+
         var preferences = preferenceSource.Load();
         if (!preferences.IsSuccess)
         {

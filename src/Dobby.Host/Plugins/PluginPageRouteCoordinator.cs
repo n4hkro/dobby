@@ -24,6 +24,13 @@ public sealed class PluginPageRouteCoordinator(
         }
 
         var activeRouteKey = shellViewModel.ActiveRouteKey;
+        if (IsBuiltInRoute(activeRouteKey))
+        {
+            await ClearActivePageAsync(cancellationToken).ConfigureAwait(false);
+            shellViewModel.SetActivePluginPage(null);
+            return Result.Success();
+        }
+
         var registration = extensionPointRegistry
             .GetRegistrationsSnapshot<IPluginPage>()
             .Select(item => new PluginPageRouteRegistration(
@@ -81,6 +88,14 @@ public sealed class PluginPageRouteCoordinator(
         await activePage.Page.DeactivateAsync(activePage.Context, cancellationToken).ConfigureAwait(false);
         await activePage.Page.UnloadAsync(activePage.Context, cancellationToken).ConfigureAwait(false);
         activePage = null;
+    }
+
+    private static bool IsBuiltInRoute(string routeKey)
+    {
+        return routeKey is
+            RouteRegistry.HomeRouteKey or
+            RouteRegistry.PluginsRouteKey or
+            RouteRegistry.SettingsRouteKey;
     }
 
     private sealed record ActivePluginPage(

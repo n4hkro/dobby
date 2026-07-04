@@ -22,7 +22,10 @@
           Foreground="{DynamicResource Dobby.Brush.Text}"
           Tag="{x:Static loc:HostResourceKeys.LoginUsername}"
           Text="Username" />
-      <TextBox x:Name="UsernameBox" Margin="0,4,0,12" />
+      <TextBox
+          x:Name="UsernameBox"
+          Margin="0,4,0,12"
+          TextChanged="UsernameBox_TextChanged" />
       <TextBlock
           x:Name="DisplayNameLabel"
           Foreground="{DynamicResource Dobby.Brush.Text}"
@@ -46,13 +49,6 @@
           Margin="0,0,0,12"
           Content="Remember me"
           Tag="{x:Static loc:HostResourceKeys.LoginRememberMe}" />
-      <Button
-          x:Name="ForgetSavedLoginButton"
-          Margin="0,0,0,12"
-          Click="ForgetSavedLogin_Click"
-          Content="Forget saved login"
-          Tag="{x:Static loc:HostResourceKeys.LoginForgetSavedLogin}"
-          Visibility="Collapsed" />
       <TextBlock
           x:Name="ThrottleCountdownText"
           Margin="0,0,0,8"

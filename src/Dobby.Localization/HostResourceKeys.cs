@@ -21,7 +21,6 @@ public static class HostResourceKeys
     public const string LoginRememberMe = "Dobby.Host.Login.RememberMe";
     public const string LoginSubmit = "Dobby.Host.Login.Submit";
     public const string LoginThrottleCountdown = "Dobby.Host.Login.ThrottleCountdown";
-    public const string LoginForgetSavedLogin = "Dobby.Host.Login.ForgetSavedLogin";
     public const string LoginRecoveryExport = "Dobby.Host.Login.RecoveryExport";
     public const string LoginRecoveryImport = "Dobby.Host.Login.RecoveryImport";
     public const string LoginInvalidCredentials = "Dobby.Host.Login.InvalidCredentials";
@@ -136,7 +135,6 @@ public static class HostResourceKeys
     }
     public const string ShellProfileManualLock = "Dobby.Shell.Profile.ManualLock";
     public const string ShellProfileLogout = "Dobby.Shell.Profile.Logout";
-    public const string ShellProfileClearSavedLogin = "Dobby.Shell.Profile.ClearSavedLogin";
     public const string ShellFeedbackLoading = "Dobby.Shell.Feedback.Loading";
     public const string ShellFeedbackEmpty = "Dobby.Shell.Feedback.Empty";
     public const string ShellFeedbackSuccess = "Dobby.Shell.Feedback.Success";
@@ -237,7 +235,6 @@ public static class HostResourceKeys
         ShellProfileChangePassword,
         ShellProfileManualLock,
         ShellProfileLogout,
-        ShellProfileClearSavedLogin,
         ShellFeedbackLoading,
         ShellFeedbackEmpty,
         ShellFeedbackSuccess,

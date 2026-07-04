@@ -9,14 +9,30 @@ public sealed class LoginWindowRuntimeWiringTests
     public void App_creates_login_runtime_and_passes_workflow_to_login_window()
     {
         var app = ReadSource("src", "Dobby.Host", "App.xaml.cs");
+        var preparer = ReadSource("src", "Dobby.Host", "Login", "LoginRuntimePreparer.cs");
+        var presenter = ReadSource("src", "Dobby.Host", "PostLoginShellPresenter.cs");
+        var mainWindow = ReadSource("src", "Dobby.Host", "MainWindow.xaml.cs");
 
-        app.ShouldContain("HostLoginRuntimeFactory.Create(");
-        app.ShouldContain("new ShellPluginWorkSessionService(workSessionRegistry)");
-        app.ShouldContain("new LoginWindow(loginRuntime.LoginWorkflow, loginRuntime.LoginViewModel, loginRuntime.RecoveryViewModel)");
-        app.ShouldContain("new MainWindow(");
-        app.ShouldContain("loginRuntime.PostLoginSessionRuntime");
+        app.ShouldContain("new LoginWindow(startupSnapshot)");
+        app.ShouldContain("loginWindow.ContentRendered +=");
+        app.ShouldContain("LoginRuntimePreparer.InitializeLoginEntryRuntimeAsync(loginWindow)");
+        app.ShouldContain("loginWindow.AttachDeferredWorkflow(");
+        preparer.ShouldContain("PreparedLoginEntryRuntime");
+        preparer.ShouldContain("PreLoginRuntime");
+        preparer.ShouldContain("HostLoginRuntimeFactory.CreatePreLogin(");
+        preparer.ShouldContain("HostLoginRuntimeFactory.Create(");
+        preparer.ShouldContain("new ShellPluginWorkSessionService(workSessionRegistry)");
+        preparer.ShouldContain("loginWindow.AttachRuntime(preLoginRuntime)");
+        presenter.ShouldContain("new MainWindow(shellViewModel, preparedLoginRuntime.WorkSessionCloseCoordinator)");
+        presenter.ShouldContain("window.AttachRuntime(");
         app.ShouldContain("loginWindow.AuthenticatedSession");
-        app.ShouldContain("loginRuntime.SelfServicePasswordChangeCoordinator");
+        mainWindow.ShouldContain("loginRuntime.PostLoginSessionRuntime");
+        mainWindow.ShouldContain("loginRuntime.SelfServicePasswordChangeCoordinator");
+
+        var showDialog = app.IndexOf("loginWindow.ShowDialog()", StringComparison.Ordinal);
+        var presenterCall = app.IndexOf("PostLoginShellPresenter.ShowAsync(", StringComparison.Ordinal);
+        showDialog.ShouldBeGreaterThanOrEqualTo(0);
+        presenterCall.ShouldBeGreaterThan(showDialog);
     }
 
     [Fact]
@@ -24,10 +40,12 @@ public sealed class LoginWindowRuntimeWiringTests
     {
         var app = ReadSource("src", "Dobby.Host", "App.xaml.cs");
         var mainWindow = ReadSource("src", "Dobby.Host", "MainWindow.xaml.cs");
+        var presenter = ReadSource("src", "Dobby.Host", "PostLoginShellPresenter.cs");
 
         app.ShouldContain("while (true)");
-        app.ShouldContain("window.ShowDialog()");
-        app.ShouldContain("window.ReturnToLoginRequested");
+        app.ShouldContain("returnToLogin");
+        presenter.ShouldContain("window.ShowDialog()");
+        presenter.ShouldContain("window.ReturnToLoginRequested");
         mainWindow.ShouldContain("public bool ReturnToLoginRequested");
         mainWindow.ShouldContain("ReturnToLoginRequested = true");
         mainWindow.ShouldNotContain("result.ErrorCode != ErrorCode.Cancelled");
@@ -37,11 +55,16 @@ public sealed class LoginWindowRuntimeWiringTests
     public void App_and_host_login_runtime_use_explicit_async_cleanup()
     {
         var app = ReadSource("src", "Dobby.Host", "App.xaml.cs");
+        var preparer = ReadSource("src", "Dobby.Host", "Login", "LoginRuntimePreparer.cs");
+        var presenter = ReadSource("src", "Dobby.Host", "PostLoginShellPresenter.cs");
         var runtime = ReadSource("src", "Dobby.Host", "Login", "HostLoginRuntime.cs");
 
         app.ShouldContain("protected override async void OnStartup");
-        app.ShouldContain("await RunLoginLoopAsync()");
-        app.ShouldContain("await using var loginRuntime = HostLoginRuntimeFactory.Create(");
+        app.ShouldContain("await RunLoginLoopAsync(firstLoginStartupTiming)");
+        app.ShouldContain("LoginRuntimePreparer.DisposeWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask)");
+        preparer.ShouldContain("await preparedRuntime.DisposeAsync()");
+        preparer.ShouldContain("_ = DisposeWhenReadyAsync(preparedRuntimeTask)");
+        presenter.ShouldContain("await using var preparedRuntimeLease = preparedLoginRuntime.ConfigureAwait(false)");
         runtime.ShouldContain("IAsyncDisposable");
         runtime.ShouldContain("PostLoginSessionRuntime.Dispose();");
         runtime.ShouldContain("await PluginRuntimeCoordinator.DisposeAsync()");
@@ -50,14 +73,30 @@ public sealed class LoginWindowRuntimeWiringTests
     }
 
     [Fact]
-    public void Main_window_records_host_input_as_session_activity()
+    public void Main_window_records_host_input_as_session_activity_without_blocking_input()
     {
         var mainWindow = ReadSource("src", "Dobby.Host", "MainWindow.xaml.cs");
 
         mainWindow.ShouldContain("PreviewKeyDown");
         mainWindow.ShouldContain("PreviewMouseDown");
         mainWindow.ShouldContain("RecordSessionActivity");
-        mainWindow.ShouldContain("sessionRuntime.RecordActivity()");
+        mainWindow.ShouldContain("QueueSessionActivityRecord(");
+        mainWindow.ShouldContain("Task.Run(() => RecordSessionActivityCore(runtime))");
+        mainWindow.ShouldContain("private static Result RecordSessionActivityCore(PostLoginSessionRuntime runtime)");
+        mainWindow.ShouldContain("Result.Failure(ErrorCode.DatabaseUnavailable)");
+        mainWindow.ShouldNotContain("private void RecordSessionActivity()\r\n    {\r\n        if (sessionRuntime is null || session is null)\r\n        {\r\n            return;\r\n        }\r\n\r\n        sessionRuntime.RecordActivity();\r\n    }");
+    }
+
+    [Fact]
+    public void Main_window_custom_constructor_uses_supplied_shell_view_model_without_throwaway_default_model()
+    {
+        var mainWindow = ReadSource("src", "Dobby.Host", "MainWindow.xaml.cs");
+
+        CountOccurrences(mainWindow, "ShellViewModel.CreateDefault").ShouldBe(1);
+        mainWindow.ShouldContain(": this(CreateDefaultShellViewModel())");
+        mainWindow.ShouldContain("private static ShellViewModel CreateDefaultShellViewModel()");
+        mainWindow.ShouldContain(": this(shellViewModel)");
+        mainWindow.ShouldNotContain(": this()\r\n    {\r\n        SetShellViewModel(shellViewModel);");
     }
 
     [Fact]
@@ -67,7 +106,7 @@ public sealed class LoginWindowRuntimeWiringTests
         var xaml = ReadSource("src", "Dobby.Host", "MainWindow.xaml");
         var codeBehind = ReadSource("src", "Dobby.Host", "MainWindow.xaml.cs");
 
-        app.ShouldContain("loginRuntime.SelfServicePasswordChangeCoordinator");
+        codeBehind.ShouldContain("loginRuntime.SelfServicePasswordChangeCoordinator");
         xaml.ShouldContain("NewPasswordBox");
         xaml.ShouldContain("PasswordChangeRememberMeCheckBox");
         xaml.ShouldContain("ChangePasswordButton");
@@ -95,10 +134,61 @@ public sealed class LoginWindowRuntimeWiringTests
     {
         var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
 
-        codeBehind.ShouldContain("loginWorkflow.Submit");
-        codeBehind.IndexOf("loginWorkflow.Submit", StringComparison.Ordinal)
+        codeBehind.ShouldContain("workflow.Submit");
+        codeBehind.IndexOf("workflow.Submit", StringComparison.Ordinal)
             .ShouldBeLessThan(codeBehind.IndexOf("DialogResult = true", StringComparison.Ordinal));
         codeBehind.ShouldNotContain("private void Continue_Click(object sender, RoutedEventArgs e)\r\n    {\r\n        DialogResult = true;\r\n    }");
+    }
+
+    [Fact]
+    public void Login_window_runs_authentication_work_off_the_ui_click_handler()
+    {
+        var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
+
+        codeBehind.ShouldContain("private async void Continue_Click");
+        codeBehind.ShouldContain("await Task.Run(() => workflow.Submit(");
+        codeBehind.ShouldContain("LoginButton.IsEnabled = false");
+        codeBehind.ShouldContain("LoginButton.IsEnabled = loginWorkflow is not null && viewModel.IsLoginEnabled");
+    }
+
+    [Fact]
+    public void Login_window_can_render_before_runtime_is_attached()
+    {
+        var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
+        var xaml = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml");
+
+        codeBehind.ShouldContain("public void AttachDeferredWorkflow(ILoginRuntimeWorkflow runtimeWorkflow)");
+        codeBehind.ShouldContain("public void AttachRuntime(HostPreLoginRuntime runtime)");
+        codeBehind.ShouldContain("LoginButton.IsEnabled = loginWorkflow is not null && viewModel.IsLoginEnabled");
+        codeBehind.ShouldContain("RecoveryButton.IsEnabled = loginWorkflow is not null");
+        codeBehind.ShouldContain("ApplyInitialState();");
+        xaml.ShouldContain("TextChanged=\"UsernameBox_TextChanged\"");
+        codeBehind.ShouldContain("userEditedLoginFields");
+        codeBehind.ShouldContain("ApplyInitialState(preserveLoginFields: userEditedLoginFields)");
+    }
+
+    [Fact]
+    public void Login_window_first_paint_path_avoids_unused_binding_and_instance_reflection_work()
+    {
+        var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
+
+        codeBehind.ShouldNotContain("DataContext = viewModel");
+        codeBehind.ShouldNotContain("PasswordBox.GetType()");
+        codeBehind.ShouldContain("viewModel.InitialPasswordDisplayValue");
+        codeBehind.ShouldContain("viewModel.SubmittedPassword(PasswordBox.Password)");
+        codeBehind.ShouldNotContain("ApplyInitialPassword(viewModel.Password)");
+        codeBehind.ShouldContain("static readonly PropertyInfo PasswordBoxPasswordProperty");
+    }
+
+    [Fact]
+    public void Login_window_snapshot_constructor_defers_recovery_runtime_until_full_runtime_attach()
+    {
+        var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
+
+        codeBehind.ShouldContain(": this(null, startupSnapshot.CreateLoginViewModel(), recoveryViewModel: null)");
+        codeBehind.ShouldContain("private RecoveryViewModel? recoveryViewModel;");
+        codeBehind.ShouldContain("if (loginWorkflow is null || recoveryViewModel is null)");
+        codeBehind.ShouldNotContain("CreateDefaultRecoveryViewModel()");
     }
 
     [Fact]
@@ -116,15 +206,17 @@ public sealed class LoginWindowRuntimeWiringTests
     }
 
     [Fact]
-    public void Login_window_wires_password_edit_and_explicit_forget_saved_login_actions()
+    public void Login_window_wires_password_edit_without_explicit_forget_saved_login_action()
     {
         var xaml = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml");
         var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
 
         xaml.ShouldContain("PasswordChanged=\"PasswordBox_PasswordChanged\"");
-        xaml.ShouldContain("ForgetSavedLoginButton");
+        xaml.ShouldNotContain(string.Concat("Forget", "Saved", "Login", "Button"));
+        xaml.ShouldNotContain(string.Concat("Login", "Forget", "Saved", "Login"));
+        codeBehind.ShouldContain("RememberMeCheckBox.IsChecked = viewModel.RememberMeSelected");
         codeBehind.ShouldContain("viewModel.EditPassword(PasswordBox.Password)");
-        codeBehind.ShouldContain("viewModel.ForgetSavedLogin()");
+        codeBehind.ShouldNotContain(string.Concat("Forget", "Saved", "Login"));
     }
 
     [Fact]
@@ -241,6 +333,19 @@ public sealed class LoginWindowRuntimeWiringTests
     private static string ReadSource(params string[] relativePath)
     {
         return File.ReadAllText(Path.Combine(RepoRoot().FullName, Path.Combine(relativePath)));
+    }
+
+    private static int CountOccurrences(string source, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 
     private static DirectoryInfo RepoRoot()

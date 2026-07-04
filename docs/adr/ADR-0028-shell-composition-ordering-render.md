@@ -44,8 +44,7 @@ Notification taxonomy shell render tərəfindən vahid saxlanır:
 - modal — user təsdiqi tələb edən və ya riskli əməliyyatı dayandıran hal.
 
 Profile menu inventory shell səviyyəsində minimum bu entry-ləri daşıyır:
-profile/account info, password change, manual lock, logout və saved login-i
-unutmaq. Login ekranındakı saved-login clear yolu ayrıca qalır.
+profile/account info, password change, manual lock və logout.
 
 Bu davranış integration və snapshot test-lərlə yoxlanılır. Testlərin məqsədi
 yalnız "nə isə render oldu" yox, eyni input üçün order-in stabil qalmasını da

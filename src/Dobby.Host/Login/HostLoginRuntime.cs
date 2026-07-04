@@ -12,6 +12,11 @@ using Dobby.Security.CurrentContext;
 
 namespace Dobby.Host.Login;
 
+public sealed record HostPreLoginRuntime(
+    ILoginRuntimeWorkflow LoginWorkflow,
+    LoginViewModel LoginViewModel,
+    RecoveryViewModel RecoveryViewModel);
+
 public sealed record HostLoginRuntime(
     ILoginRuntimeWorkflow LoginWorkflow,
     LoginViewModel LoginViewModel,

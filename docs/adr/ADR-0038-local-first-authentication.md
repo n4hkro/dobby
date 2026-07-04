@@ -42,7 +42,7 @@ Bağlayıcı qaydalar:
   field-inə edit etməyə başlayan kimi hazır password cari formdan tam
   təmizlənir və bundan sonra yalnız əl ilə yazılan password reveal edilə bilər
 - Field-level clear yalnız cari form state-ini təmizləyir; persistent clear
-  yalnız explicit `Saved login-i unut` action-ı ilə edilir. Logout və auto-lock
+  yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə edilir. Logout və auto-lock
   remember-me credential-i silmir
 - Phase 1-də remember-me modeli single saved credential slot daşıyır.
 - Hər uğurlu login həmin saved credential slot-unu replace edir: remember-me aktivdirsə
@@ -83,7 +83,7 @@ Bağlayıcı qaydalar:
 - Throttle aktivdirsə login button disabled olur və UI qalan saniyəni göstərir
 - Session semantics ADR-0031 ilə tənzimlənir: invalid/expired session user-i
   login flow-a qaytarır
-- Login ekranında görünən recovery/about/forget-saved-login kimi public
+- Login ekranında görünən recovery/about kimi public
   funksiyalar login olmadan əlçatandır; login ekranında görünməyən shell,
   settings, plugins, plugin runtime və əsas app funksiyaları yalnız
   authenticated session-dan sonra açılır

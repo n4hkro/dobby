@@ -34,6 +34,34 @@ public sealed class SessionLifecycleServiceTests
     }
 
     [Fact]
+    public void Activate_existing_session_sets_active_context_without_creating_duplicate_store_record()
+    {
+        var store = Substitute.For<ISessionStore>();
+        var accessor = new ActiveSessionAccessor();
+        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-18T00:00:00Z"));
+        var service = new SessionLifecycleService(
+            store,
+            accessor,
+            Substitute.For<IUserCredentialVerifier>(),
+            time,
+            new SessionOptions { AbsoluteTimeoutMinutes = 480, IdleTimeoutMinutes = 30 });
+        var session = new SessionRecord(
+            "session-1",
+            "user-1",
+            time.GetUtcNow(),
+            time.GetUtcNow(),
+            time.GetUtcNow().AddHours(8),
+            null,
+            1);
+
+        service.ActivateExisting(session).IsSuccess.ShouldBeTrue();
+        service.ActivateExisting(session).IsSuccess.ShouldBeTrue();
+
+        accessor.Current.ShouldBe(session);
+        store.DidNotReceiveWithAnyArgs().Create(default!);
+    }
+
+    [Fact]
     public void Idle_elapsed_auto_locks_when_enabled_without_invalidating_session()
     {
         var store = Substitute.For<ISessionStore>();

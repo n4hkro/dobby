@@ -91,8 +91,7 @@ public sealed record ShellLayoutState(
                 new ShellProfileMenuItem("profile-account-info", "Dobby.Shell.Profile.AccountInfo"),
                 new ShellProfileMenuItem("change-password", "Dobby.Shell.Profile.ChangePassword"),
                 new ShellProfileMenuItem("manual-lock", "Dobby.Shell.Profile.ManualLock"),
-                new ShellProfileMenuItem("logout", "Dobby.Shell.Profile.Logout"),
-                new ShellProfileMenuItem("clear-saved-login", "Dobby.Shell.Profile.ClearSavedLogin")
+                new ShellProfileMenuItem("logout", "Dobby.Shell.Profile.Logout")
             ],
             NotificationKinds:
             [
@@ -118,8 +117,7 @@ public sealed record ShellLayoutState(
                 new ShellFocusTarget("ProfileMenu.AccountInfo", "Dobby.Shell.Profile.AccountInfo"),
                 new ShellFocusTarget("ProfileMenu.ChangePassword", "Dobby.Shell.Profile.ChangePassword"),
                 new ShellFocusTarget("ProfileMenu.ManualLock", "Dobby.Shell.Profile.ManualLock"),
-                new ShellFocusTarget("ProfileMenu.Logout", "Dobby.Shell.Profile.Logout"),
-                new ShellFocusTarget("ProfileMenu.ClearSavedLogin", "Dobby.Shell.Profile.ClearSavedLogin")
+                new ShellFocusTarget("ProfileMenu.Logout", "Dobby.Shell.Profile.Logout")
             ],
             SettingsCategories: [],
             AboutFields: [],

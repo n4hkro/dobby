@@ -1,4 +1,5 @@
 using Dobby.Core;
+using Dobby.Infrastructure.Persistence;
 using Dobby.Security.Authentication;
 
 namespace Dobby.Host.Login;
@@ -44,12 +45,29 @@ public sealed class LoginRuntimeWorkflow(
     LoginService loginService,
     SessionLifecycleService sessionLifecycleService,
     RememberMeSlotService rememberMeSlotService,
-    LoginAuditCoordinator auditCoordinator) : ILoginRuntimeWorkflow
+    LoginAuditCoordinator auditCoordinator,
+    IHostPersistenceTransactionScope? transactionScope = null) : ILoginRuntimeWorkflow
 {
     public LoginRuntimeWorkflowResult Submit(LoginSubmission submission)
     {
         ArgumentNullException.ThrowIfNull(submission);
 
+        if (transactionScope is null)
+        {
+            return SubmitCore(submission);
+        }
+
+        LoginRuntimeWorkflowResult? result = null;
+        transactionScope.ExecuteInTransaction(_ =>
+        {
+            result = SubmitCore(submission);
+        });
+
+        return result ?? LoginRuntimeWorkflowResult.InfrastructureFailure(ErrorCode.DatabaseUnavailable);
+    }
+
+    private LoginRuntimeWorkflowResult SubmitCore(LoginSubmission submission)
+    {
         var attempt = loginService.Login(
             submission.Username,
             submission.Password,
@@ -77,6 +95,7 @@ public sealed class LoginRuntimeWorkflow(
         var remember = rememberMeSlotService.ApplySuccessfulLogin(
             attempt.UserId!,
             normalized.Value,
+            submission.Password,
             submission.RememberMe);
         if (!remember.IsSuccess)
         {

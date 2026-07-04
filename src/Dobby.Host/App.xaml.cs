@@ -1,26 +1,15 @@
 using System.Windows;
+using System.Windows.Threading;
 using Dobby.Application;
-using Dobby.Contracts.Licensing;
-using Dobby.Contracts.Policies;
-using Dobby.Diagnostics;
 using Dobby.Host.Login;
-using Dobby.Host.Plugins;
-using Dobby.Host.Settings;
 using Dobby.Host.Startup;
-using Dobby.Localization;
-using Dobby.Navigation;
-using Dobby.PluginFramework.Activation;
-using Dobby.Security.Authorization;
-using Dobby.Shell;
-using Dobby.Shell.Layout;
-using Dobby.Shell.UiDispatch;
-using Dobby.Shell.WorkSessions;
 
 namespace Dobby.Host;
 
 public partial class App : System.Windows.Application
 {
     private SingleInstanceCoordinator? singleInstanceCoordinator;
+    private IDisposable? singleInstanceActivationListener;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -32,293 +21,142 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        var firstLoginStartupTiming = LoginStartupTimingTrace.Start();
         singleInstanceCoordinator = new SingleInstanceCoordinator();
-        var bootstrap = HostBootstrapper.Bootstrap(new HostBootstrapOptions(
+        var bootstrap = HostBootstrapper.BootstrapLoginWindow(new HostLoginWindowBootstrapOptions(
             SingleInstanceCoordinatorFactory: () => singleInstanceCoordinator));
-        if (!bootstrap.Milestones.Any(milestone => milestone.Name == StartupMilestoneNames.LoginVisible))
+        firstLoginStartupTiming.MarkBootstrapCompleted();
+        if (!bootstrap.Milestones.Any(milestone => milestone.Name == Dobby.Diagnostics.StartupMilestoneNames.LoginVisible))
         {
             Shutdown();
             return;
         }
 
+        singleInstanceActivationListener = singleInstanceCoordinator.StartActivationListener(ActivateCurrentWindow);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
-        await RunLoginLoopAsync();
+        await RunLoginLoopAsync(firstLoginStartupTiming);
     }
 
-    private async Task RunLoginLoopAsync()
+    private void ActivateCurrentWindow()
+    {
+        if (Dispatcher.HasShutdownStarted)
+        {
+            return;
+        }
+
+        try
+        {
+            Dispatcher.BeginInvoke((Action)(() =>
+            {
+                var window = MainWindow;
+                if (window is null)
+                {
+                    return;
+                }
+
+                WindowActivationHelper.Activate(window);
+            }));
+        }
+        catch (InvalidOperationException) when (Dispatcher.HasShutdownStarted)
+        {
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private async Task RunLoginLoopAsync(LoginStartupTimingTrace? firstLoginStartupTiming)
     {
         while (true)
         {
-            var workSessionRegistry = new WorkSessionRegistry();
-            await using var loginRuntime = HostLoginRuntimeFactory.Create(
-                pluginWorkSessions: new ShellPluginWorkSessionService(workSessionRegistry),
-                applyPreLoginMigrations: false);
-            var loginWindow = new LoginWindow(loginRuntime.LoginWorkflow, loginRuntime.LoginViewModel, loginRuntime.RecoveryViewModel);
+            var startupTiming = firstLoginStartupTiming ?? LoginStartupTimingTrace.Start();
+            firstLoginStartupTiming = null;
+            var startupSnapshot = LoginStartupSnapshotLoader.Load();
+            startupTiming.MarkSnapshotLoaded();
+            ShellThemeCoordinator.ApplyTheme(this, startupSnapshot.Theme);
+            startupTiming.MarkThemeApplied();
+            var loginWindow = new LoginWindow(startupSnapshot);
+            startupTiming.MarkLoginWindowConstructed();
+            Task<PreparedLoginEntryRuntime?>? preparedLoginEntryRuntimeTask = null;
+            Task<PreparedLoginEntryRuntime?> EnsureLoginEntryRuntimeAsync()
+            {
+                return preparedLoginEntryRuntimeTask ??= LoginRuntimePreparer.InitializeLoginEntryRuntimeAsync(loginWindow);
+            }
+
+            loginWindow.AttachDeferredWorkflow(new DeferredLoginRuntimeWorkflow(EnsureLoginEntryRuntimeAsync));
+            startupTiming.MarkLoginReady();
+            loginWindow.ContentRendered += (_, _) =>
+            {
+                startupTiming.MarkLoginContentRendered();
+                _ = loginWindow.Dispatcher.BeginInvoke(
+                    (Action)(() =>
+                    {
+                        _ = startupTiming.FlushAfterFirstPaintAsync();
+                        _ = EnsureLoginEntryRuntimeAsync();
+                    }),
+                    DispatcherPriority.ContextIdle);
+            };
             MainWindow = loginWindow;
             if (loginWindow.ShowDialog() != true)
             {
-                Shutdown();
+                LoginRuntimePreparer.DisposeWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask);
+                ShutdownHostProcess();
+                return;
+            }
+
+            var postLoginTiming = loginWindow.PostLoginTiming;
+            var preparedLoginEntryRuntime = await EnsureLoginEntryRuntimeAsync();
+            if (preparedLoginEntryRuntime is null)
+            {
+                ShutdownHostProcess();
+                return;
+            }
+
+            var preparedLoginRuntime = await preparedLoginEntryRuntime.ShellRuntimeTask;
+            postLoginTiming?.MarkRuntimeReady();
+            if (preparedLoginRuntime is null)
+            {
+                ShutdownHostProcess();
                 return;
             }
 
             var authenticatedSession = loginWindow.AuthenticatedSession;
-            var scopedPreferenceSource = authenticatedSession is null
-                ? loginRuntime.SettingsPreferenceSource
-                : loginRuntime.SettingsPreferenceSourceFactory(authenticatedSession.UserId);
-            var localizationDiagnostics = new ShellLocalizationDiagnosticsRecorder();
-            var strings = HostStringCatalog.CreateResourceBacked(localizationDiagnostics.RecordMissingKey);
-            var shellViewModel = ShellViewModel.CreateDefault(strings);
-            var themeCoordinator = new ShellThemeCoordinator(scopedPreferenceSource);
-            var currentTheme = themeCoordinator.CurrentTheme;
-            shellViewModel.SetTheme(currentTheme);
-            var preferences = scopedPreferenceSource.Load();
-            ShellLayoutPreference? initialShellPreference = null;
-            if (preferences.IsSuccess)
+            if (authenticatedSession is not null)
             {
-                initialShellPreference = ShellPreferenceMapper.ToRuntimePreference(preferences.Value.ShellView);
-                shellViewModel.ApplyPreference(initialShellPreference);
-            }
-
-            var workSessionCloseCoordinator = new WorkSessionCloseCoordinator(workSessionRegistry);
-            WireBackgroundOperations(shellViewModel, loginRuntime.BackgroundOperations);
-            ShellThemeCoordinator.ApplyTheme(this, currentTheme);
-            var pluginPageRouteCoordinator = new PluginPageRouteCoordinator(
-                loginRuntime.PluginRuntimeCoordinator.ExtensionPointRegistry,
-                shellViewModel,
-                () => authenticatedSession?.UserId);
-
-            var window = new MainWindow(
-                loginRuntime.PostLoginSessionRuntime,
-                authenticatedSession,
-                loginRuntime.SelfServicePasswordChangeCoordinator,
-                shellViewModel,
-                loginRuntime.AccountSettingsModel,
-                scopedPreferenceSource,
-                themeCoordinator,
-                loginRuntime.DiagnosticsExportCoordinator,
-                loginRuntime.DiagnosticsSourceDirectory,
-                loginRuntime.DiagnosticsOutputZipPath,
-                workSessionCloseCoordinator,
-                pluginPageRouteCoordinator: pluginPageRouteCoordinator,
-                pluginPackageInstallCoordinator: loginRuntime.PluginPackageInstallCoordinator,
-                pluginLifecycleCoordinator: loginRuntime.PluginLifecycleCoordinator,
-                pluginPackageFilePicker: new WindowsPluginPackageFilePicker(),
-                licenseImportCoordinator: loginRuntime.LicenseImportCoordinator,
-                licenseFilePicker: new WindowsLicenseFilePicker(),
-                backgroundOperations: loginRuntime.BackgroundOperations,
-                initialPreference: initialShellPreference);
-            window.ContentRendered += async (_, _) =>
-            {
-                ConfigureSettingsAndAbout(shellViewModel, strings, loginRuntime, authenticatedSession?.UserId);
-
-                var pluginMigration = loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations();
-                if (!pluginMigration.IsSuccess)
+                var sessionActivation = preparedLoginRuntime.LoginRuntime.SessionLifecycleService.ActivateExisting(authenticatedSession);
+                if (!sessionActivation.IsSuccess)
                 {
-                    shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.ShellFeedbackError);
+                    await preparedLoginRuntime.DisposeAsync();
+                    ShutdownHostProcess();
                     return;
                 }
+            }
 
-                ConfigurePluginsManagerSurface(shellViewModel, loginRuntime, authenticatedSession?.UserId);
-                ConfigureLicenseSurface(shellViewModel, loginRuntime, authenticatedSession?.UserId ?? "unknown");
-
-                var activation = await loginRuntime.PluginRuntimeCoordinator.BeginPostLoginActivation(
-                    new AssemblyHostVersionProvider(typeof(App).Assembly).Current,
-                    authenticatedSession?.UserId ?? "unknown");
-                if (activation.IsSuccess && activation.Value.Completion == PluginActivationCompletion.Completed)
-                {
-                    shellViewModel.ApplyPluginNavigationContributions(
-                        PluginNavigationContributionMapper.Map(activation.Value.Run.NavigationContributions));
-                }
-            };
-            MainWindow = window;
-            window.ShowDialog();
-            if (!window.ReturnToLoginRequested)
+            var returnToLogin = await PostLoginShellPresenter.ShowAsync(
+                this,
+                preparedLoginRuntime,
+                authenticatedSession,
+                startupSnapshot.Theme,
+                postLoginTiming);
+            if (!returnToLogin)
             {
-                Shutdown();
+                ShutdownHostProcess();
                 return;
             }
         }
     }
 
+    private void ShutdownHostProcess()
+    {
+        ProcessExitEscalation.Begin();
+        Shutdown();
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
+        singleInstanceActivationListener?.Dispose();
+        singleInstanceActivationListener = null;
         singleInstanceCoordinator?.Dispose();
         base.OnExit(e);
-    }
-
-    private static void ConfigureSettingsAndAbout(
-        ShellViewModel shellViewModel,
-        HostStringCatalog strings,
-        HostLoginRuntime loginRuntime,
-        string? userId)
-    {
-        var actor = string.IsNullOrWhiteSpace(userId) ? "unknown" : userId;
-        var categories = loginRuntime.SettingsNavigationModel
-            .Build(actor!, Dobby.Core.CorrelationId.New())
-            .Select(category => new ShellSettingsCategoryItem(
-                category.Key,
-                strings.GetString(category.LabelKey),
-                category.IsAvailable))
-            .ToArray();
-        var permissionState = string.IsNullOrWhiteSpace(userId)
-            ? null
-            : loginRuntime.UserPermissionStateReader(userId);
-        var isOwner = permissionState is { IsSuccess: true } && permissionState.Value.IsOwner;
-        var about = loginRuntime.AboutInfoProvider.GetInfo(isOwner: isOwner, ownerIdentity: actor);
-        shellViewModel.SetSettingsAndAbout(categories, BuildAboutFields(strings, about));
-    }
-
-    private static void ConfigureLicenseSurface(
-        ShellViewModel shellViewModel,
-        HostLoginRuntime loginRuntime,
-        string actor)
-    {
-        var correlationId = Dobby.Core.CorrelationId.New();
-        var canView = IsAllowed(loginRuntime.OperationAuthorizationPolicy, actor, OperationVerb.View, correlationId);
-        var canImport = IsAllowed(loginRuntime.OperationAuthorizationPolicy, actor, OperationVerb.Import, correlationId);
-        var licenseSurface = CurrentPluginLicenseSurface(loginRuntime);
-        shellViewModel.SetLicenseSurface(
-            canView,
-            canImport,
-            licenseSurface.Mode,
-            pluginId: licenseSurface.PluginId,
-            pluginName: licenseSurface.PluginName);
-    }
-
-    private static void ConfigurePluginsManagerSurface(
-        ShellViewModel shellViewModel,
-        HostLoginRuntime loginRuntime,
-        string? userId)
-    {
-        var actor = string.IsNullOrWhiteSpace(userId) ? "unknown" : userId;
-        var correlationId = Dobby.Core.CorrelationId.New();
-        var canView = IsAllowed(
-            loginRuntime.OperationAuthorizationPolicy,
-            actor,
-            BuiltInOperationTargets.PluginManagementTargetId,
-            OperationVerb.View,
-            correlationId);
-        var canImport = IsAllowed(
-            loginRuntime.OperationAuthorizationPolicy,
-            actor,
-            BuiltInOperationTargets.PluginManagementTargetId,
-            OperationVerb.Import,
-            correlationId);
-        var canConfigure = IsAllowed(
-            loginRuntime.OperationAuthorizationPolicy,
-            actor,
-            BuiltInOperationTargets.PluginManagementTargetId,
-            OperationVerb.Configure,
-            correlationId);
-        var canDelete = IsAllowed(
-            loginRuntime.OperationAuthorizationPolicy,
-            actor,
-            BuiltInOperationTargets.PluginManagementTargetId,
-            OperationVerb.Delete,
-            correlationId);
-        var snapshot = loginRuntime.PluginRuntimeCoordinator.MetadataCache.Snapshot();
-        shellViewModel.SetPluginsManagerSurface(
-            canView,
-            canImport,
-            canConfigure,
-            canDelete,
-            snapshot is { IsSuccess: true }
-                ? snapshot.Value.Select(plugin => new ShellPluginManagerItem(
-                    plugin.PluginId,
-                    plugin.DisplayName,
-                    plugin.Version,
-                    plugin.Description,
-                    plugin.IsEnabled,
-                    plugin.StatusSummary,
-                    plugin.IsPendingUninstall,
-                    plugin.RestartRequired)).ToArray()
-                : []);
-    }
-
-    private static bool IsAllowed(
-        OperationAuthorizationPolicy authorizationPolicy,
-        string actor,
-        OperationVerb verb,
-        Dobby.Core.CorrelationId correlationId)
-    {
-        return IsAllowed(
-            authorizationPolicy,
-            actor,
-            BuiltInOperationTargets.PluginLicenseTargetId,
-            verb,
-            correlationId);
-    }
-
-    private static bool IsAllowed(
-        OperationAuthorizationPolicy authorizationPolicy,
-        string actor,
-        string targetId,
-        OperationVerb verb,
-        Dobby.Core.CorrelationId correlationId)
-    {
-        var decision = authorizationPolicy.Evaluate(
-            new OperationPermissionCapability(
-                new OperationKey(targetId, verb).ToString()),
-            new PolicyContext(actor, null, correlationId));
-        return decision is { IsSuccess: true, Value.Allowed: true };
-    }
-
-    private static PluginRuntimeMode CurrentPluginRuntimeMode(HostLoginRuntime loginRuntime)
-    {
-        return CurrentPluginLicenseSurface(loginRuntime).Mode;
-    }
-
-    private static LicenseSurfaceSnapshot CurrentPluginLicenseSurface(HostLoginRuntime loginRuntime)
-    {
-        var snapshot = loginRuntime.PluginRuntimeCoordinator.StateStore.Snapshot();
-        var installed = snapshot is { IsSuccess: true } ? snapshot.Value.FirstOrDefault() : null;
-        if (installed is null)
-        {
-            return new LicenseSurfaceSnapshot(PluginRuntimeMode.Denied, null, null);
-        }
-
-        var mode = loginRuntime.LicenseRuntimeModeProvider.GetCurrentMode(installed.PluginId, installed.PackageFingerprint);
-        return new LicenseSurfaceSnapshot(
-            mode is { IsSuccess: true } ? mode.Value : PluginRuntimeMode.Denied,
-            installed.PluginId,
-            installed.DisplayName);
-    }
-
-    private sealed record LicenseSurfaceSnapshot(
-        PluginRuntimeMode Mode,
-        string? PluginId,
-        string? PluginName);
-
-    private static IReadOnlyList<ShellAboutField> BuildAboutFields(HostStringCatalog strings, AboutInfo about)
-    {
-        var pluginText = about.Plugins.Count == 0
-            ? strings.GetString(HostResourceKeys.AboutPluginsEmpty)
-            : string.Join(", ", about.Plugins.Select(plugin => $"{plugin.PluginId} {plugin.Version} {plugin.Status}"));
-        var ownerText = about.OwnerIdentityText.Equals(HostResourceKeys.AboutOwnerStatusRegistered, StringComparison.Ordinal)
-            ? strings.GetString(HostResourceKeys.AboutOwnerStatusRegistered)
-            : about.OwnerIdentityText;
-
-        return
-        [
-            new ShellAboutField("app-version", strings.GetString(HostResourceKeys.AboutAppVersion), about.AppVersion),
-            new ShellAboutField("build-number", strings.GetString(HostResourceKeys.AboutBuildNumber), about.BuildNumber),
-            new ShellAboutField("build-date", strings.GetString(HostResourceKeys.AboutBuildDate), about.BuildDate),
-            new ShellAboutField("host-edition", strings.GetString(HostResourceKeys.AboutHostEdition), about.HostEdition),
-            new ShellAboutField("host-channel", strings.GetString(HostResourceKeys.AboutHostChannel), about.HostChannel),
-            new ShellAboutField("device-code", strings.GetString(HostResourceKeys.AboutDeviceCode), about.DeviceCode),
-            new ShellAboutField("plugins", strings.GetString(HostResourceKeys.AboutPlugins), pluginText),
-            new ShellAboutField("support-contact", strings.GetString(HostResourceKeys.AboutSupportContact), about.SupportContact),
-            new ShellAboutField("legal-line", strings.GetString(HostResourceKeys.AboutLegalLine), about.LegalLine),
-            new ShellAboutField("owner-identity", strings.GetString(HostResourceKeys.AboutOwnerIdentity), ownerText)
-        ];
-    }
-
-    private void WireBackgroundOperations(ShellViewModel shellViewModel, Dobby.Contracts.BackgroundOperations.IBackgroundOperationReporter reporter)
-    {
-        var coordinator = new ShellBackgroundOperationCoordinator(
-            shellViewModel,
-            reporter,
-            new WpfUiDispatcher(Dispatcher));
-        coordinator.Attach();
     }
 }

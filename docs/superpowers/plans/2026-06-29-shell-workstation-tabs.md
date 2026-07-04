@@ -1032,7 +1032,7 @@ In `ShellUiStaticScanTests.Host_shell_xaml_declares_required_rendered_regions_an
             "ShellContentHost",
 ```
 
-After the existing `shell.ShouldContain("ClearSavedLogin_Click");`, add:
+After the existing shell event-handler assertions, add:
 
 ```csharp
         shell.ShouldContain("WorkspaceNewTab_Click");

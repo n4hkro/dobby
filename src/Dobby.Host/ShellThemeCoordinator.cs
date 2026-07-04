@@ -13,6 +13,11 @@ public sealed class ShellThemeCoordinator(ISettingsPreferenceSource preferenceSo
 
     public Result SetTheme(AppThemePreference theme)
     {
+        if (preferenceSource is IThemePreferenceSource themePreferenceSource)
+        {
+            return themePreferenceSource.SaveThemePreference(theme);
+        }
+
         var preferences = preferenceSource.Load();
         if (!preferences.IsSuccess)
         {
@@ -29,20 +34,47 @@ public sealed class ShellThemeCoordinator(ISettingsPreferenceSource preferenceSo
     {
         ArgumentNullException.ThrowIfNull(application);
 
+        ApplyTheme(application.Resources, theme);
+        ApplyAccessibilityPreferences(application);
+    }
+
+    public static void ApplyTheme(ResourceDictionary resources, AppThemePreference theme)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+
         var source = theme == AppThemePreference.Dark
             ? new Uri("pack://application:,,,/Dobby.UI;component/Themes/DarkTheme.xaml", UriKind.Absolute)
             : new Uri("pack://application:,,,/Dobby.UI;component/Themes/LightTheme.xaml", UriKind.Absolute);
-        var dictionaries = application.Resources.MergedDictionaries;
+        var dictionaries = resources.MergedDictionaries;
         var existing = dictionaries.FirstOrDefault(dictionary =>
-            dictionary.Source?.OriginalString.Contains("/Dobby.UI;component/Themes/LightTheme.xaml", StringComparison.OrdinalIgnoreCase) == true ||
-            dictionary.Source?.OriginalString.Contains("/Dobby.UI;component/Themes/DarkTheme.xaml", StringComparison.OrdinalIgnoreCase) == true);
+            dictionary.Source is not null &&
+            IsAnyThemeSource(dictionary.Source.OriginalString));
+        if (existing?.Source is not null &&
+            IsThemeSource(existing.Source.OriginalString, theme))
+        {
+            return;
+        }
+
         if (existing is not null)
         {
             dictionaries.Remove(existing);
         }
 
-        dictionaries.Add(new System.Windows.ResourceDictionary { Source = source });
-        ApplyAccessibilityPreferences(application);
+        dictionaries.Add(new ResourceDictionary { Source = source });
+    }
+
+    private static bool IsThemeSource(string source, AppThemePreference theme)
+    {
+        var expectedFileName = theme == AppThemePreference.Dark
+            ? "DarkTheme.xaml"
+            : "LightTheme.xaml";
+        return source.Contains(expectedFileName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAnyThemeSource(string source)
+    {
+        return IsThemeSource(source, AppThemePreference.Light) ||
+            IsThemeSource(source, AppThemePreference.Dark);
     }
 
     public static void ApplyAccessibilityPreferences(WpfApplication application)

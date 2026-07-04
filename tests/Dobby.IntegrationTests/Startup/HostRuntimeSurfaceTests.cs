@@ -22,16 +22,19 @@ public sealed class HostRuntimeSurfaceTests
     public void App_startup_uses_login_first_flow_before_post_login_main_window()
     {
         var app = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "App.xaml.cs"));
+        var presenter = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "PostLoginShellPresenter.cs"));
 
         var singleInstanceIndex = app.IndexOf("new SingleInstanceCoordinator", StringComparison.Ordinal);
         var bootstrapIndex = app.IndexOf("HostBootstrapper.Bootstrap", StringComparison.Ordinal);
         var loginWindowIndex = app.IndexOf("new LoginWindow", StringComparison.Ordinal);
-        var mainWindowIndex = app.IndexOf("new MainWindow", StringComparison.Ordinal);
+        var presenterIndex = app.IndexOf("PostLoginShellPresenter.ShowAsync", StringComparison.Ordinal);
+        var mainWindowIndex = presenter.IndexOf("new MainWindow", StringComparison.Ordinal);
 
         singleInstanceIndex.ShouldBeGreaterThanOrEqualTo(0);
         bootstrapIndex.ShouldBeGreaterThan(singleInstanceIndex);
         loginWindowIndex.ShouldBeGreaterThan(bootstrapIndex);
-        mainWindowIndex.ShouldBeGreaterThan(loginWindowIndex);
+        presenterIndex.ShouldBeGreaterThan(loginWindowIndex);
+        mainWindowIndex.ShouldBeGreaterThanOrEqualTo(0);
     }
 
     private static DirectoryInfo RepoRoot()

@@ -27,17 +27,27 @@ public sealed class PostLoginSessionRuntime(
     IPostLoginPluginActivationCancellation? pluginActivationCancellation = null,
     IPostLoginLicenseImportCancellation? licenseImportCancellation = null) : IDisposable
 {
+    private readonly object sessionGate = new();
+
     public Result RecordActivity()
     {
-        return sessionLifecycleService.RecordActivity();
+        lock (sessionGate)
+        {
+            return sessionLifecycleService.RecordActivity();
+        }
     }
 
     public Result LockNow(SessionRecord session, CorrelationId correlationId)
     {
         ArgumentNullException.ThrowIfNull(session);
 
-        var lockResult = sessionLifecycleService.Lock();
-        auditCoordinator.AppendLock(session.UserId, lockResult, correlationId);
+        Result lockResult;
+        lock (sessionGate)
+        {
+            lockResult = sessionLifecycleService.Lock();
+            auditCoordinator.AppendLock(session.UserId, lockResult, correlationId);
+        }
+
         if (!lockResult.IsSuccess)
         {
             return lockResult;
@@ -53,8 +63,13 @@ public sealed class PostLoginSessionRuntime(
     {
         ArgumentNullException.ThrowIfNull(session);
 
-        var result = sessionLifecycleService.Logout("user.logout");
-        auditCoordinator.AppendLogout(session.UserId, result, correlationId);
+        Result result;
+        lock (sessionGate)
+        {
+            result = sessionLifecycleService.Logout("user.logout");
+            auditCoordinator.AppendLogout(session.UserId, result, correlationId);
+        }
+
         if (result.IsSuccess)
         {
             CancelInFlightPostLoginWork();
@@ -67,8 +82,12 @@ public sealed class PostLoginSessionRuntime(
     {
         ArgumentNullException.ThrowIfNull(session);
 
-        var checkpoint = sessionLifecycleService.Checkpoint();
-        auditCoordinator.AppendCheckpoint(session.UserId, checkpoint, correlationId);
+        SessionCheckpoint checkpoint;
+        lock (sessionGate)
+        {
+            checkpoint = sessionLifecycleService.Checkpoint();
+            auditCoordinator.AppendCheckpoint(session.UserId, checkpoint, correlationId);
+        }
 
         if (checkpoint.Kind == SessionCheckpointKind.Locked && checkpoint.JustTransitioned)
         {

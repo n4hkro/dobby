@@ -54,7 +54,7 @@ Logout cleanup minimumu:
 - active work session varsa user-ə warning göstərilir;
 - user təsdiqləyəndən sonra active work session-lar controlled close/cancel edilir.
 
-Logout remember-me persistent slot-unu silmir. Saved credential yalnız explicit `Saved login-i unut` action-ı ilə persistent clear edilir.
+Logout remember-me persistent slot-unu silmir. Saved credential yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə persistent olaraq boşaldılır.
 
 ## Remember-Me Qarşılıqlı Təsiri
 
@@ -64,7 +64,7 @@ Remember-me qaydası `ADR-0038`-ə tabedir:
 - saved username + masked password login formunda hazır görünə bilər;
 - stored password üçün reveal yoxdur;
 - password field edit ediləndə field-level clear baş verir;
-- persistent clear yalnız `Saved login-i unut` action-ıdır;
+- persistent slot yalnız uğurlu login zamanı remember-me OFF seçildikdə boşaldılır;
 - hər uğurlu login saved slot-u replace edir: remember-me aktivdirsə yeni user/credential, passivdirsə boş dəyər.
 
 Logout və auto-lock persistent clear etmir.

@@ -53,8 +53,8 @@ ekranına qaytarır. Cleanup minimumu:
 - active work session varsa user-ə warning göstərilir və təsdiqdən sonra həmin
   session-lar controlled close/cancel edilir.
 
-Logout və auto-lock remember-me persistent slot-unu silmir. Saved login yalnız
-explicit `Saved login-i unut` action-ı ilə persistent clear edilir (`ADR-0038`).
+Logout və auto-lock remember-me persistent slot-unu silmir. Saved credential yalnız
+növbəti uğurlu login zamanı remember-me OFF seçildikdə persistent olaraq boşaldılır (`ADR-0038`).
 
 Manual lock və auto-lock eyni lock screen-i istifadə edir. Lock screen current
 session context-i saxlayır, amma interaction-u password unlock və ya logout ilə

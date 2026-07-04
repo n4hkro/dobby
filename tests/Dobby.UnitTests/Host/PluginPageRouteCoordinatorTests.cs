@@ -72,11 +72,40 @@ public sealed class PluginPageRouteCoordinatorTests
         page.LoadCount.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task ActivateRouteAsync_for_builtin_route_does_not_scan_plugin_page_descriptors()
+    {
+        var registry = new PluginExtensionPointRegistry();
+        await using var lifetimes = new PluginLifetimeManager();
+        var bridge = new PluginServiceRegistrationBridge(registry, lifetimes);
+        bridge.Register("com.dobby.guard", new DescriptorGuardPluginModule()).IsSuccess.ShouldBeTrue();
+        var shell = ShellViewModel.CreateDefault(new HostStringCatalog());
+        var coordinator = new PluginPageRouteCoordinator(registry, shell);
+
+        var result = await coordinator.ActivateRouteAsync(RouteRegistry.SettingsRouteKey, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        shell.ActiveRouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+        shell.HasActivePluginPage.ShouldBeFalse();
+    }
+
     private sealed class TestPluginModule : IPluginModule
     {
         public void RegisterServices(IPluginServiceCollection services)
         {
             services.AddExtensionPoint<IPluginPage, RecordingPage>();
+        }
+
+        public void OnActivated(IPluginActivationContext context)
+        {
+        }
+    }
+
+    private sealed class DescriptorGuardPluginModule : IPluginModule
+    {
+        public void RegisterServices(IPluginServiceCollection services)
+        {
+            services.AddExtensionPoint<IPluginPage, DescriptorGuardPage>();
         }
 
         public void OnActivated(IPluginActivationContext context)
@@ -122,6 +151,32 @@ public sealed class PluginPageRouteCoordinatorTests
         {
             return ValueTask.FromResult(Result.Success());
         }
+    }
+
+    private sealed class DescriptorGuardPage : IPluginPage
+    {
+        public PluginPageDescriptor Descriptor =>
+            throw new InvalidOperationException("Built-in routes must not scan plugin page descriptors.");
+
+        public ValueTask<Result<IPluginPageModel>> LoadAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Built-in routes must not load plugin pages.");
+
+        public ValueTask<Result> ActivateAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Built-in routes must not activate plugin pages.");
+
+        public ValueTask<Result> DeactivateAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
+
+        public ValueTask<Result> UnloadAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
     }
 
     private sealed record RecordingPageModel(string MessageKey) : IPluginPageModel;

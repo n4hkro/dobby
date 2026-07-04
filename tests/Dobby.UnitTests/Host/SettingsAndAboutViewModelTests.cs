@@ -38,10 +38,9 @@ public sealed class SettingsAndAboutViewModelTests
     }
 
     [Fact]
-    public void Account_model_exposes_password_and_saved_login_shortcuts_without_lock_or_logout_duplicates()
+    public void Account_model_exposes_password_shortcut_without_lock_or_logout_duplicates()
     {
         var passwordChangeCalls = 0;
-        var clearer = new RecordingSavedLoginClearer();
         var correlationId = CorrelationId.New();
         var account = new AccountSettingsModel(
             (userId, sessionId, newPassword, rememberMe, actualCorrelationId) =>
@@ -53,21 +52,19 @@ public sealed class SettingsAndAboutViewModelTests
                 actualCorrelationId.ShouldBe(correlationId);
                 passwordChangeCalls++;
                 return Result.Success();
-            },
-            clearer);
+            });
 
         account.HasPasswordChangeShortcut.ShouldBeTrue();
-        account.HasForgetSavedLoginShortcut.ShouldBeTrue();
         account.HasManualLockShortcut.ShouldBeFalse();
         account.HasLogoutShortcut.ShouldBeFalse();
 
         account.ChangePassword("user-1", "session-1", "new password", rememberMe: true, correlationId)
             .IsSuccess.ShouldBeTrue();
-        account.ForgetSavedLogin().IsSuccess.ShouldBeTrue();
         passwordChangeCalls.ShouldBe(1);
-        clearer.ForgetCalls.ShouldBe(1);
+        var source = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "Settings", "AccountSettingsModel.cs"));
+        source.ShouldNotContain(string.Concat("Forget", "Saved", "Login"));
+        source.ShouldNotContain(string.Concat("Saved", "Login", "Clearer"));
     }
-
     [Fact]
     public void Security_session_model_defaults_passive_and_accepts_minute_input()
     {
@@ -137,14 +134,14 @@ public sealed class SettingsAndAboutViewModelTests
         }
     }
 
-    private sealed class RecordingSavedLoginClearer : ISavedLoginClearer
+    private static DirectoryInfo RepoRoot()
     {
-        public int ForgetCalls { get; private set; }
-
-        public Result ForgetSavedLogin()
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null && !File.Exists(Path.Combine(current.FullName, "Dobby.sln")))
         {
-            ForgetCalls++;
-            return Result.Success();
+            current = current.Parent;
         }
+
+        return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
     }
 }

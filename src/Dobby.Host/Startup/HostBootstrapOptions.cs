@@ -10,3 +10,6 @@ public sealed record HostBootstrapOptions(
     Func<Dobby.Configuration.DobbyOptions, bool>? PreLoginPersistenceOpen = null,
     Func<ISingleInstanceCoordinator>? SingleInstanceCoordinatorFactory = null,
     PreLoginInstrumentation? PreLoginInstrumentation = null);
+
+public sealed record HostLoginWindowBootstrapOptions(
+    Func<ISingleInstanceCoordinator>? SingleInstanceCoordinatorFactory = null);

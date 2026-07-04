@@ -15,6 +15,34 @@ namespace Dobby.Host.Startup;
 
 public static class HostBootstrapper
 {
+    public static HostBootstrapResult BootstrapLoginWindow(HostLoginWindowBootstrapOptions? options = null)
+    {
+        options ??= new HostLoginWindowBootstrapOptions();
+
+        var correlationId = CorrelationId.New();
+        var milestones = new List<StartupMilestone>
+        {
+            new(StartupMilestoneNames.HostBuilt, DateTimeOffset.UtcNow, correlationId.ToString())
+        };
+
+        var singleInstanceCoordinator = options.SingleInstanceCoordinatorFactory?.Invoke();
+        if (singleInstanceCoordinator is not null)
+        {
+            var singleInstance = singleInstanceCoordinator.Acquire();
+            if (!singleInstance.IsFirstInstance)
+            {
+                singleInstanceCoordinator.HandOffToFirstInstance();
+                return new HostBootstrapResult(milestones);
+            }
+        }
+
+        milestones.Add(new StartupMilestone(
+            StartupMilestoneNames.LoginVisible,
+            DateTimeOffset.UtcNow,
+            correlationId.ToString()));
+        return new HostBootstrapResult(milestones);
+    }
+
     public static StartupPlan DescribeStartupPlan()
     {
         return new StartupPlan(

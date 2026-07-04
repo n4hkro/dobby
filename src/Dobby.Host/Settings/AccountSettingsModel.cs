@@ -4,12 +4,9 @@ using Dobby.Host.Login;
 namespace Dobby.Host.Settings;
 
 public sealed class AccountSettingsModel(
-    Func<string, string, string, bool, CorrelationId, Result> passwordChangeShortcut,
-    ISavedLoginClearer savedLoginClearer)
+    Func<string, string, string, bool, CorrelationId, Result> passwordChangeShortcut)
 {
     public bool HasPasswordChangeShortcut => true;
-
-    public bool HasForgetSavedLoginShortcut => true;
 
     public bool HasManualLockShortcut => false;
 
@@ -25,8 +22,4 @@ public sealed class AccountSettingsModel(
         return passwordChangeShortcut(userId, sessionId, newPassword, rememberMe, correlationId);
     }
 
-    public Result ForgetSavedLogin()
-    {
-        return savedLoginClearer.ForgetSavedLogin();
-    }
 }

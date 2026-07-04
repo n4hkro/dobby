@@ -1,9 +1,11 @@
 using Dapper;
+using System.Threading;
 
 namespace Dobby.Infrastructure.Persistence;
 
 public sealed class HostPersistenceCommandExecutor : IHostPersistenceCommandExecutor
 {
+    private static readonly AsyncLocal<HostPersistenceConnection?> CurrentAmbientConnection = new();
     private readonly IHostPersistenceConnectionFactory? factory;
     private readonly HostPersistenceConnection? ambientConnection;
 
@@ -42,6 +44,12 @@ public sealed class HostPersistenceCommandExecutor : IHostPersistenceCommandExec
             return action(ambientConnection);
         }
 
+        var currentAmbientConnection = CurrentAmbientConnection.Value;
+        if (currentAmbientConnection is not null)
+        {
+            return action(currentAmbientConnection);
+        }
+
         var open = factory!.Open();
         if (!open.IsSuccess)
         {
@@ -50,5 +58,35 @@ public sealed class HostPersistenceCommandExecutor : IHostPersistenceCommandExec
 
         using var connection = open.Value;
         return action(connection);
+    }
+
+    internal static HostPersistenceConnection? GetCurrentAmbientConnection()
+    {
+        return CurrentAmbientConnection.Value;
+    }
+
+    internal static IDisposable PushAmbientConnection(HostPersistenceConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        var previousConnection = CurrentAmbientConnection.Value;
+        CurrentAmbientConnection.Value = connection;
+        return new AmbientConnectionLease(previousConnection);
+    }
+
+    private sealed class AmbientConnectionLease(HostPersistenceConnection? previousConnection) : IDisposable
+    {
+        private bool disposed;
+
+        public void Dispose()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            CurrentAmbientConnection.Value = previousConnection;
+            disposed = true;
+        }
     }
 }

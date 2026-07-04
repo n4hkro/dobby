@@ -15,7 +15,7 @@ Minimum P1 Settings tree:
 | Category | P1 status | Canonical content |
 |---|---|---|
 | Appearance | P1-core | Theme detailed setting; TopToolbar quick switch eyni preference-i dəyişir. |
-| Account | P1-core | Password change shortcut, saved login-i unut shortcut. Manual lock/logout burada duplicate edilmir. |
+| Account | P1-core | Password change shortcut. Manual lock/logout burada duplicate edilmir. |
 | Security / Session | P1-core | Auto-lock toggle və minute input. |
 | User Management | P1-core | Permission-gated entry to User Management. |
 | About | P1-core | Host/support məlumatları. License import/status yeri deyil. |
@@ -28,7 +28,7 @@ Backup/Restore P2 behavior is owned by `docs/specs/backup-restore-migration.md`;
 | Category | Apply model | Notes |
 |---|---|---|
 | Appearance | Immediate apply | Theme və visual preference dəyişiklikləri eyni theme preference-i yeniləyir. |
-| Account | Action-based | Password change və saved-login actions ayrıca command-dır. |
+| Account | Action-based | Password change ayrıca command-dır. |
 | Security / Session | Immediate or command-specific | Auto-lock/session preference dəyişiklikləri explicit control state-inə bağlıdır. |
 | User Management | Action-based | CRUD və grant/revoke əməliyyatları explicit command və audit tələb edir. |
 | About | Read-only | Support metadata və copy actions xaricində mutable setting yoxdur. |
@@ -48,7 +48,7 @@ TopToolbar theme switch quick action-dır. `Settings > Appearance` eyni theme pr
 
 ## Account
 
-`Settings > Account` password change və saved login-i unut action-larına shortcut verə bilər. Bu action-ların canonical behavior-u `docs/specs/session-lifecycle.md` və `ADR-0038` ilə idarə olunur.
+`Settings > Account` password change action-ına shortcut verə bilər. Bu action-ın canonical behavior-u `docs/specs/session-lifecycle.md` və `ADR-0038` ilə idarə olunur.
 
 Manual lock və logout Profile menu-da qalır; Settings onları duplicate etmir.
 

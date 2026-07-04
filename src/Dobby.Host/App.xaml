@@ -6,7 +6,6 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="/Dobby.UI;component/Themes/DesignTokens.xaml" />
-        <ResourceDictionary Source="/Dobby.UI;component/Themes/LightTheme.xaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>

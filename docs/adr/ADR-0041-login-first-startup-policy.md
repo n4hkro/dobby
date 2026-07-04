@@ -22,12 +22,10 @@ Phase 1 login-first startup policy:
 Login ekranı render olunana qədər yalnız aşağıdakı işlər icazəlidir:
 
 - host composition root: DI container qurulması və `IHost` build
-- minimum config load: `appsettings.json`, `Dobby.Configuration / Application Configuration Management` baseline
+- startup theme snapshot load: son theme üçün kiçik `startup-theme.json` oxunuşu
+- startup remember-me snapshot load: `DPAPI CurrentUser` ilə qorunan kiçik `startup-remember-me.json` oxunuşu
 - minimal theme/localization load: login ekranını render etmək üçün lazım olan theme token-ləri və `Dobby.Localization` default culture string-ləri
-- diagnostics sink-i initialize: Serilog console/file sink-ləri (structured logging başlasın)
-- auth/session storage open: credential store-a minimal read access və remember-me metadata lookup
 - shell window construction: login page-in minimum WPF window və theme render
-- audit storage open: append-only audit store-un connection open
 
 Bu siyahı qapalıdır (closed set). Yeni pre-login workload yalnız bu ADR-in amendment-i ilə əlavə oluna bilər.
 
@@ -41,6 +39,10 @@ Login ekranı render olunana qədər aşağıdakı işlər qadağandır:
 - plugin signature verification (heavy crypto işi)
 - online check (hər cür network request, DNS lookup, HTTP ping)
 - update check (host və ya plugin update polling)
+- configuration graph load
+- credential store, session store və audit storage open
+- protected material probe/load
+- SQLite connection open
 - database migration (schema upgrade, data transformation)
 - import/export pipeline start
 - license verification (plugin entitlement resolution)
@@ -74,17 +76,18 @@ acquired before login UI first paint, a second instance does not open a second
 writable host persistence session, and the existing instance receives focus or
 activation handoff.
 
-Pre-login storage bootstrap remains limited to the closed login-visible table set
-documented in `docs/specs/storage-and-data-protection.md` (`Pre-login bootstrap
-closed table set`). This cross-reference does not add a full migration path
-to startup; full migrations remain outside the login-first first-paint path.
+The login-window first-paint path does not open host persistence. Remember-me
+prefill uses only the `startup-remember-me.json` snapshot, which is refreshed
+from the canonical DB slot after the login window has rendered and the full
+login runtime is prepared. Full migrations remain outside the login-first
+first-paint path.
 
 ### 7. Bootstrap Sequence and DI Rationale
 
 The login-first closed allowed/forbidden lists remain canonical. This section
-adds service-start ordering only; it does not remove or narrow allowed work such
-as diagnostics sink initialization, auth/session storage open, shell window
-construction, or audit storage open.
+adds service-start ordering only; it does not permit diagnostics sink
+initialization, auth/session storage open, credential store open, or audit
+storage open before login first paint.
 
 Root DI may build the host and inert service graph before login. User-scoped
 storage, migrations, plugin discovery, plugin activation, and user-scoped

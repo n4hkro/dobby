@@ -40,7 +40,7 @@ public sealed class SelfServicePasswordChangeCoordinator(
         }
 
         var username = executor.Query<string>("SELECT UsernameNormalized FROM Users WHERE UserId = @UserId;", new { UserId = userId }).Single();
-        var remember = rememberMeSlotService.ApplySuccessfulLogin(userId, username, rememberMe);
+        var remember = rememberMeSlotService.ApplySuccessfulLogin(userId, username, newPassword, rememberMe);
         if (!remember.IsSuccess)
         {
             return Result.Failure(remember.ErrorCode!.Value);

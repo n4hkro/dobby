@@ -8,7 +8,7 @@ namespace Dobby.Host.Settings;
 
 public sealed class HostConfigurationSettingsPreferenceSource(
     IHostPersistenceCommandExecutor executor,
-    SettingsPreferenceScope? scope = null) : ISettingsPreferenceSource
+    SettingsPreferenceScope? scope = null) : ISettingsPreferenceSource, IThemePreferenceSource
 {
     private const string Source = "settings";
     private const string ThemeKey = "settings.appearance.theme";
@@ -75,6 +75,12 @@ public sealed class HostConfigurationSettingsPreferenceSource(
             SaveShellView(preferences.ShellView);
         }
 
+        return Result.Success();
+    }
+
+    public Result SaveThemePreference(AppThemePreference theme)
+    {
+        Upsert(ScopedKey(ThemeKey), theme.ToString(), "string");
         return Result.Success();
     }
 

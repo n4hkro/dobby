@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Windows;
 using System.Windows.Threading;
 using Dobby.Core;
@@ -8,28 +9,36 @@ namespace Dobby.Host.Login;
 
 public partial class LoginWindow : Window
 {
-    private readonly ILoginRuntimeWorkflow? loginWorkflow;
-    private readonly LoginViewModel viewModel;
-    private readonly RecoveryViewModel recoveryViewModel;
+    private static readonly PropertyInfo PasswordBoxPasswordProperty =
+        typeof(System.Windows.Controls.PasswordBox).GetProperty(nameof(System.Windows.Controls.PasswordBox.Password))
+        ?? throw new MissingMemberException(
+            nameof(System.Windows.Controls.PasswordBox),
+            nameof(System.Windows.Controls.PasswordBox.Password));
+
+    private ILoginRuntimeWorkflow? loginWorkflow;
+    private LoginViewModel viewModel;
+    private RecoveryViewModel? recoveryViewModel;
     private readonly HostStringCatalog strings = new();
     private DispatcherTimer? throttleTimer;
     private bool applyingInitialState;
+    private bool userEditedLoginFields;
 
     public LoginWindow()
-        : this(null, new LoginViewModel(null), new RecoveryViewModel(
-            new WindowsRecoveryFilePicker(),
-            new WindowsRecoveryExportFolderOpener(),
-            new WindowsRecoveryExportPathClipboard()))
+        : this(LoginStartupSnapshot.Default)
     {
     }
 
-    public LoginWindow(ILoginRuntimeWorkflow? loginWorkflow, LoginViewModel viewModel, RecoveryViewModel recoveryViewModel)
+    public LoginWindow(LoginStartupSnapshot startupSnapshot)
+        : this(null, startupSnapshot.CreateLoginViewModel(), recoveryViewModel: null)
+    {
+    }
+
+    public LoginWindow(ILoginRuntimeWorkflow? loginWorkflow, LoginViewModel viewModel, RecoveryViewModel? recoveryViewModel)
     {
         this.loginWorkflow = loginWorkflow;
         this.viewModel = viewModel;
         this.recoveryViewModel = recoveryViewModel;
         InitializeComponent();
-        DataContext = viewModel;
         ApplyLocalizedText();
         ApplyInitialState();
         Closed += (_, _) => StopThrottleTimer();
@@ -37,22 +46,87 @@ public partial class LoginWindow : Window
 
     public SessionRecord? AuthenticatedSession { get; private set; }
 
-    private void Continue_Click(object sender, RoutedEventArgs e)
+    internal PostLoginTimingTrace? PostLoginTiming { get; private set; }
+
+    public void AttachDeferredWorkflow(ILoginRuntimeWorkflow runtimeWorkflow)
     {
-        if (loginWorkflow is null)
+        ArgumentNullException.ThrowIfNull(runtimeWorkflow);
+
+        loginWorkflow = runtimeWorkflow;
+        ErrorText.Visibility = Visibility.Collapsed;
+        ErrorText.Text = string.Empty;
+        ApplyThrottleState();
+    }
+
+    public void AttachRuntime(HostPreLoginRuntime runtime)
+    {
+        ArgumentNullException.ThrowIfNull(runtime);
+
+        AttachRuntime(runtime.LoginWorkflow, runtime.LoginViewModel, runtime.RecoveryViewModel);
+    }
+
+    public void AttachRuntime(HostLoginRuntime runtime)
+    {
+        ArgumentNullException.ThrowIfNull(runtime);
+
+        AttachRuntime(runtime.LoginWorkflow, runtime.LoginViewModel, runtime.RecoveryViewModel);
+    }
+
+    private void AttachRuntime(
+        ILoginRuntimeWorkflow runtimeWorkflow,
+        LoginViewModel runtimeViewModel,
+        RecoveryViewModel runtimeRecoveryViewModel)
+    {
+        loginWorkflow = runtimeWorkflow;
+        viewModel = runtimeViewModel;
+        recoveryViewModel = runtimeRecoveryViewModel;
+        ErrorText.Visibility = Visibility.Collapsed;
+        ErrorText.Text = string.Empty;
+        ApplyInitialState(preserveLoginFields: userEditedLoginFields);
+    }
+
+    public void ShowRuntimeInitializationFailure()
+    {
+        ShowError(strings.GetString(HostResourceKeys.LoginGenericFailure));
+        ApplyThrottleState();
+    }
+
+    private async void Continue_Click(object sender, RoutedEventArgs e)
+    {
+        var workflow = loginWorkflow;
+        if (workflow is null)
         {
             ShowError("Login runtime is unavailable.");
             return;
         }
 
-        var result = loginWorkflow.Submit(new LoginSubmission(
+        var postLoginTiming = PostLoginTimingTrace.Start();
+        PostLoginTiming = postLoginTiming;
+        var submission = new LoginSubmission(
             UsernameBox.Text,
-            PasswordBox.Password,
+            viewModel.SubmittedPassword(PasswordBox.Password),
             SubmittedDisplayName(),
             RememberMeCheckBox.IsChecked == true,
-            CorrelationId.New()));
-        viewModel.RefreshThrottleState();
-        ApplyThrottleState();
+            CorrelationId.New());
+        LoginButton.IsEnabled = false;
+        RecoveryButton.IsEnabled = false;
+
+        LoginRuntimeWorkflowResult result;
+        try
+        {
+            result = await Task.Run(() => workflow.Submit(submission));
+            postLoginTiming.MarkLoginSubmitCompleted();
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            ShowRuntimeInitializationFailure();
+            return;
+        }
+        finally
+        {
+            viewModel.RefreshThrottleState();
+            ApplyThrottleState();
+        }
 
         if (!result.IsAuthenticated)
         {
@@ -66,6 +140,12 @@ public partial class LoginWindow : Window
 
     private void Recovery_Click(object sender, RoutedEventArgs e)
     {
+        if (loginWorkflow is null || recoveryViewModel is null)
+        {
+            ShowRuntimeInitializationFailure();
+            return;
+        }
+
         var recoveryWindow = new Window
         {
             Title = strings.GetString(HostResourceKeys.RecoveryResetTitle),
@@ -78,7 +158,7 @@ public partial class LoginWindow : Window
         recoveryWindow.ShowDialog();
     }
 
-    private void ApplyInitialState()
+    private void ApplyInitialState(bool preserveLoginFields = false)
     {
         applyingInitialState = true;
         var displayNameVisibility = viewModel.ShouldShowDisplayNameInput
@@ -91,16 +171,36 @@ public partial class LoginWindow : Window
             DisplayNameBox.Text = string.Empty;
         }
 
-        UsernameBox.Text = viewModel.Username ?? string.Empty;
-        if (viewModel.Password is not null)
+        if (!preserveLoginFields)
         {
-            PasswordBox.GetType().GetProperty(nameof(System.Windows.Controls.PasswordBox.Password))?.SetValue(PasswordBox, viewModel.Password);
+            UsernameBox.Text = viewModel.Username ?? string.Empty;
+            RememberMeCheckBox.IsChecked = viewModel.RememberMeSelected;
+            if (viewModel.InitialPasswordDisplayValue is not null)
+            {
+                ApplyInitialPassword(viewModel.InitialPasswordDisplayValue);
+            }
+        }
+        else
+        {
+            viewModel.EditPassword(PasswordBox.Password);
         }
 
         applyingInitialState = false;
-        ForgetSavedLoginButton.Visibility = viewModel.IsPasswordPrefilled ? Visibility.Visible : Visibility.Collapsed;
         viewModel.RefreshThrottleState();
         ApplyThrottleState();
+    }
+
+    private void ApplyInitialPassword(string value)
+    {
+        PasswordBoxPasswordProperty.SetValue(PasswordBox, value);
+    }
+
+    private void UsernameBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (!applyingInitialState)
+        {
+            userEditedLoginFields = true;
+        }
     }
 
     private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
@@ -110,27 +210,14 @@ public partial class LoginWindow : Window
             return;
         }
 
+        userEditedLoginFields = true;
         viewModel.EditPassword(PasswordBox.Password);
-        ForgetSavedLoginButton.Visibility = viewModel.IsPasswordPrefilled ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void ForgetSavedLogin_Click(object sender, RoutedEventArgs e)
-    {
-        var result = viewModel.ForgetSavedLogin();
-        if (!result.IsSuccess)
-        {
-            ShowError(result.ErrorCode?.ToString() ?? ErrorCode.UnsupportedOperation.ToString());
-            return;
-        }
-
-        UsernameBox.Text = string.Empty;
-        PasswordBox.Clear();
-        ForgetSavedLoginButton.Visibility = Visibility.Collapsed;
     }
 
     private void ApplyThrottleState()
     {
-        LoginButton.IsEnabled = viewModel.IsLoginEnabled;
+        LoginButton.IsEnabled = loginWorkflow is not null && viewModel.IsLoginEnabled;
+        RecoveryButton.IsEnabled = loginWorkflow is not null;
         if (viewModel.ThrottleCountdownText is null)
         {
             StopThrottleTimer();
@@ -176,7 +263,6 @@ public partial class LoginWindow : Window
         DisplayNameLabel.Text = strings.GetString(HostResourceKeys.LoginDisplayName);
         PasswordLabel.Text = strings.GetString(HostResourceKeys.LoginPassword);
         RememberMeCheckBox.Content = strings.GetString(HostResourceKeys.LoginRememberMe);
-        ForgetSavedLoginButton.Content = strings.GetString(HostResourceKeys.LoginForgetSavedLogin);
         LoginButton.Content = strings.GetString(HostResourceKeys.LoginSubmit);
         RecoveryButton.Content = strings.GetString(HostResourceKeys.LoginRecoveryImport);
     }
