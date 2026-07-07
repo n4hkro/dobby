@@ -178,11 +178,12 @@ public sealed class StartupBootstrapWiringTests
     }
 
     [Fact]
-    public void App_defers_login_runtime_warmup_until_after_login_first_paint_flush_is_queued()
+    public void App_starts_login_runtime_warmup_immediately_after_login_first_paint_is_recorded()
     {
         var root = RepoRoot();
         var appSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
 
+        var showDialog = appSource.IndexOf("loginWindow.ShowDialog()", StringComparison.Ordinal);
         var contentRendered = appSource.IndexOf("loginWindow.ContentRendered += (_, _) =>", StringComparison.Ordinal);
         var flush = appSource.IndexOf("startupTiming.FlushAfterFirstPaintAsync()", contentRendered, StringComparison.Ordinal);
         var warmup = appSource.IndexOf("_ = EnsureLoginEntryRuntimeAsync();", contentRendered, StringComparison.Ordinal);
@@ -190,6 +191,10 @@ public sealed class StartupBootstrapWiringTests
         contentRendered.ShouldBeGreaterThanOrEqualTo(0);
         flush.ShouldBeGreaterThan(contentRendered);
         warmup.ShouldBeGreaterThan(flush);
+        showDialog.ShouldBeGreaterThan(contentRendered);
+        warmup.ShouldBeLessThan(showDialog);
+        appSource.ShouldNotContain("var loginEntryRuntimeWarmupTask = EnsureLoginEntryRuntimeAsync();");
+        appSource.ShouldNotContain("DispatcherPriority.ContextIdle");
     }
 
     [Fact]
@@ -257,7 +262,7 @@ public sealed class StartupBootstrapWiringTests
         appSource.ShouldContain("startupTiming.MarkLoginWindowConstructed()");
         appSource.ShouldContain("startupTiming.MarkLoginContentRendered()");
         appSource.ShouldContain("startupTiming.FlushAfterFirstPaintAsync()");
-        appSource.ShouldContain("DispatcherPriority.ContextIdle");
+        appSource.ShouldContain("_ = EnsureLoginEntryRuntimeAsync();");
         traceSource.ShouldContain("Stopwatch.GetTimestamp()");
         traceSource.ShouldContain("Stopwatch.GetElapsedTime(");
         traceSource.ShouldContain("login-startup-timing.log");

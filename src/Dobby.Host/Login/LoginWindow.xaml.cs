@@ -20,6 +20,7 @@ public partial class LoginWindow : Window
     private RecoveryViewModel? recoveryViewModel;
     private readonly HostStringCatalog strings = new();
     private DispatcherTimer? throttleTimer;
+    private DispatcherTimer? credentialWarmupTimer;
     private bool applyingInitialState;
     private bool userEditedLoginFields;
 
@@ -41,7 +42,11 @@ public partial class LoginWindow : Window
         InitializeComponent();
         ApplyLocalizedText();
         ApplyInitialState();
-        Closed += (_, _) => StopThrottleTimer();
+        Closed += (_, _) =>
+        {
+            StopThrottleTimer();
+            StopCredentialWarmupTimer();
+        };
     }
 
     public SessionRecord? AuthenticatedSession { get; private set; }
@@ -77,12 +82,28 @@ public partial class LoginWindow : Window
         LoginViewModel runtimeViewModel,
         RecoveryViewModel runtimeRecoveryViewModel)
     {
+        var shouldKeepRenderedLoginFields = ShouldKeepRenderedLoginFields(runtimeViewModel);
         loginWorkflow = runtimeWorkflow;
         viewModel = runtimeViewModel;
         recoveryViewModel = runtimeRecoveryViewModel;
         ErrorText.Visibility = Visibility.Collapsed;
         ErrorText.Text = string.Empty;
-        ApplyInitialState(preserveLoginFields: userEditedLoginFields);
+        if (userEditedLoginFields)
+        {
+            ApplyInitialState(preserveLoginFields: true);
+            QueueCredentialWarmup();
+            return;
+        }
+
+        if (shouldKeepRenderedLoginFields)
+        {
+            ApplyRuntimeStateWithoutLoginFieldReset();
+            QueueCredentialWarmup();
+            return;
+        }
+
+        ApplyInitialState();
+        QueueCredentialWarmup();
     }
 
     public void ShowRuntimeInitializationFailure()
@@ -195,11 +216,25 @@ public partial class LoginWindow : Window
         PasswordBoxPasswordProperty.SetValue(PasswordBox, value);
     }
 
+    private bool ShouldKeepRenderedLoginFields(LoginViewModel runtimeViewModel)
+    {
+        return viewModel.IsPasswordPrefilled &&
+            runtimeViewModel.IsPasswordPrefilled &&
+            StringComparer.Ordinal.Equals(viewModel.Username, runtimeViewModel.Username);
+    }
+
+    private void ApplyRuntimeStateWithoutLoginFieldReset()
+    {
+        viewModel.RefreshThrottleState();
+        ApplyThrottleState();
+    }
+
     private void UsernameBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
         if (!applyingInitialState)
         {
             userEditedLoginFields = true;
+            ScheduleCredentialWarmup();
         }
     }
 
@@ -212,6 +247,61 @@ public partial class LoginWindow : Window
 
         userEditedLoginFields = true;
         viewModel.EditPassword(PasswordBox.Password);
+        ScheduleCredentialWarmup();
+    }
+
+    private void ScheduleCredentialWarmup()
+    {
+        if (loginWorkflow is not ILoginCredentialWarmupWorkflow)
+        {
+            return;
+        }
+
+        credentialWarmupTimer ??= CreateCredentialWarmupTimer();
+        credentialWarmupTimer.Stop();
+        credentialWarmupTimer.Start();
+    }
+
+    private DispatcherTimer CreateCredentialWarmupTimer()
+    {
+        var timer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(300)
+        };
+        timer.Tick += (_, _) =>
+        {
+            StopCredentialWarmupTimer();
+            QueueCredentialWarmup();
+        };
+        return timer;
+    }
+
+    private void QueueCredentialWarmup()
+    {
+        if (loginWorkflow is not ILoginCredentialWarmupWorkflow warmupWorkflow)
+        {
+            return;
+        }
+
+        var username = UsernameBox.Text;
+        var credential = viewModel.IsPasswordPrefilled
+            ? viewModel.Password
+            : PasswordBox.Password;
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(credential))
+        {
+            return;
+        }
+
+        warmupWorkflow.WarmCredentials(new LoginCredentialWarmup(
+            username,
+            credential,
+            CorrelationId.New()));
+    }
+
+    private void StopCredentialWarmupTimer()
+    {
+        credentialWarmupTimer?.Stop();
+        credentialWarmupTimer = null;
     }
 
     private void ApplyThrottleState()

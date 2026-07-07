@@ -30,7 +30,7 @@ Shell render canonical səthləri:
   switch və profile button göstərir.
 - Sidebar geniş rejimdə icon/logo + ad, yığcam rejimdə yalnız icon/logo göstərir;
   yığcam rejim hover zamanı ad tooltip/popover göstərə bilər, avtomatik expand etmir.
-- Third Bar Main Content Area-nın yuxarı-mərkəz hissəsində island/kəsik vizualı
+- Third Bar Main Content Area-nın yuxarı-mərkəz hissəsində yumşaq panel kəsiyi slotu
   kimi render olunur.
 - Bottom status/progress sətri host-controlled status və background progress üçün
   ayrılır.

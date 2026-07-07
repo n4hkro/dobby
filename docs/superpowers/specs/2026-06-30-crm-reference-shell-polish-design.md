@@ -56,18 +56,15 @@ The left sidebar is an icon rail. It should feel like part of the same continuou
 
 The secondary module controls, such as `Pipelines`, `Davam edir`, `Tamamlandı`, and `Vaxtı keçib`, sit in the third visual zone of the main work panel.
 
-This zone uses only the design that was approved in the visual companion:
+This zone uses the approved `dobby-reference-shell-v5-reference-notch.html` visual companion:
 
-- the controls sit over the app's general shell background;
-- there is no extra island container behind the controls;
-- there is no additional background color behind the controls;
-- there is no additional shadow behind the controls;
-- the controls appear directly on the app background like buttons;
+- the controls sit inside the main work panel's upper-center soft cutout slot;
+- the main panel remains one continuous rounded surface; the cutout is created by a rounded background-colored mask, not by separate left/right chunks;
+- the controls overlap the work panel edge while the panel chrome remains visually continuous around the cutout;
 - the active control is a black pill;
-- inactive controls are light pills with minimal treatment;
-- the work panel remains visually complete on the left and right.
+- inactive controls are light pills with minimal treatment.
 
-Do not add a separate island background, border, or shadow behind this control group.
+Do not replace the approved soft panel cutout placement with a floating island, a hard rectangular split, or a plain loose row of controls on the shell background.
 
 ## Content Surface
 
@@ -120,7 +117,7 @@ Add tests and guardrails at the level appropriate to the risk:
 - The shell uses the CRM reference's light, soft, compact visual language.
 - Logo and navigation symbols are proper icons, not placeholder characters.
 - The main panel contains a polished dashboard/pipeline presentation instead of an empty white content area.
-- The secondary subnav sits directly on the app's general background with no extra island background or shadow.
+- The secondary subnav sits in the approved upper-center soft cutout slot of the main work panel, with the panel rendered as one continuous rounded surface.
 - The active secondary subnav item is a black pill; inactive items are light pills.
 - Existing workstation behavior remains unchanged and covered by existing tests.
 - No visible UI regresses to raw WPF default button styling in the main shell.

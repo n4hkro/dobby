@@ -152,6 +152,23 @@ public sealed class LoginWindowRuntimeWiringTests
     }
 
     [Fact]
+    public void Login_window_warms_available_credentials_before_submit()
+    {
+        var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
+        var workflow = ReadSource("src", "Dobby.Host", "Login", "LoginRuntimeWorkflow.cs");
+
+        codeBehind.ShouldContain("QueueCredentialWarmup();");
+        codeBehind.ShouldContain("ScheduleCredentialWarmup();");
+        codeBehind.ShouldContain("ILoginCredentialWarmupWorkflow warmupWorkflow");
+        codeBehind.ShouldContain("warmupWorkflow.WarmCredentials(new LoginCredentialWarmup(");
+        codeBehind.ShouldContain("viewModel.Password");
+        workflow.ShouldContain("public interface ILoginCredentialWarmupWorkflow");
+        workflow.ShouldContain("WarmCredentials(LoginCredentialWarmup warmup)");
+        workflow.ShouldContain("TryUseWarmedCredential(submission");
+        workflow.ShouldContain("LoginWithValidatedCredential(");
+    }
+
+    [Fact]
     public void Login_window_can_render_before_runtime_is_attached()
     {
         var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
@@ -164,7 +181,8 @@ public sealed class LoginWindowRuntimeWiringTests
         codeBehind.ShouldContain("ApplyInitialState();");
         xaml.ShouldContain("TextChanged=\"UsernameBox_TextChanged\"");
         codeBehind.ShouldContain("userEditedLoginFields");
-        codeBehind.ShouldContain("ApplyInitialState(preserveLoginFields: userEditedLoginFields)");
+        codeBehind.ShouldContain("ApplyInitialState(preserveLoginFields: true)");
+        codeBehind.ShouldContain("ShouldKeepRenderedLoginFields(runtimeViewModel)");
     }
 
     [Fact]
@@ -178,6 +196,19 @@ public sealed class LoginWindowRuntimeWiringTests
         codeBehind.ShouldContain("viewModel.SubmittedPassword(PasswordBox.Password)");
         codeBehind.ShouldNotContain("ApplyInitialPassword(viewModel.Password)");
         codeBehind.ShouldContain("static readonly PropertyInfo PasswordBoxPasswordProperty");
+    }
+
+    [Fact]
+    public void Login_window_keeps_matching_startup_prefill_rendered_when_runtime_attaches()
+    {
+        var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
+
+        codeBehind.ShouldContain("ShouldKeepRenderedLoginFields(runtimeViewModel)");
+        codeBehind.ShouldContain("ApplyRuntimeStateWithoutLoginFieldReset()");
+        codeBehind.ShouldContain("StringComparer.Ordinal.Equals(viewModel.Username, runtimeViewModel.Username)");
+        codeBehind.ShouldContain("viewModel.IsPasswordPrefilled");
+        codeBehind.ShouldContain("runtimeViewModel.IsPasswordPrefilled");
+        codeBehind.ShouldContain("if (shouldKeepRenderedLoginFields)");
     }
 
     [Fact]

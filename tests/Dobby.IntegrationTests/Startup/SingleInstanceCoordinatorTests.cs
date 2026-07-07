@@ -5,6 +5,7 @@ using System.Runtime.ExceptionServices;
 
 namespace Dobby.IntegrationTests.Startup;
 
+[Collection(SingleInstanceCoordinatorCollection.Name)]
 public sealed class SingleInstanceCoordinatorTests
 {
     [Fact]
@@ -72,7 +73,6 @@ public sealed class SingleInstanceCoordinatorTests
         var mutexName = "Local\\Dobby.Tests." + suffix;
         var activationEventName = "Local\\Dobby.Tests.Activate." + suffix;
         var first = new SingleInstanceCoordinator(mutexName, activationEventName);
-        using var next = new SingleInstanceCoordinator(mutexName, activationEventName);
         SingleInstanceAcquireResult? result = null;
         Exception? exception = null;
         var firstDisposed = false;
@@ -81,6 +81,7 @@ public sealed class SingleInstanceCoordinatorTests
         {
             try
             {
+                using var next = new SingleInstanceCoordinator(mutexName, activationEventName);
                 acquireStarted.Set();
                 result = next.Acquire();
             }

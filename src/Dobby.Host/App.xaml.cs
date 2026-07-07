@@ -88,13 +88,8 @@ public partial class App : System.Windows.Application
             loginWindow.ContentRendered += (_, _) =>
             {
                 startupTiming.MarkLoginContentRendered();
-                _ = loginWindow.Dispatcher.BeginInvoke(
-                    (Action)(() =>
-                    {
-                        _ = startupTiming.FlushAfterFirstPaintAsync();
-                        _ = EnsureLoginEntryRuntimeAsync();
-                    }),
-                    DispatcherPriority.ContextIdle);
+                _ = startupTiming.FlushAfterFirstPaintAsync();
+                _ = EnsureLoginEntryRuntimeAsync();
             };
             MainWindow = loginWindow;
             if (loginWindow.ShowDialog() != true)

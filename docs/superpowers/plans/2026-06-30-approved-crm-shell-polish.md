@@ -20,7 +20,7 @@ Approved constraints:
 - Logo and navigation controls use vector icons, not placeholder text glyphs.
 - The shell uses one soft light CRM-style background.
 - The Home route renders a dashboard/pipeline surface, not an empty white panel.
-- Secondary controls such as `Pipelines`, `Davam edir`, `Tamamlandı`, and `Vaxtı keçib` sit directly on the app background with no island background, no extra shadow, and no extra container color.
+- Secondary controls such as `Pipelines`, `Davam edir`, `Tamamlandı`, and `Vaxtı keçib` sit in the approved upper-center soft cutout slot of the main work panel, with the panel rendered as one continuous rounded surface.
 - Existing workstation behavior and work-session warning behavior remain unchanged.
 
 ## File Structure
@@ -28,7 +28,7 @@ Approved constraints:
 Modify:
 
 - `tests/Dobby.IntegrationTests/Architecture/ShellUiStaticScanTests.cs`
-  - Add static guardrails for vector icon usage, polished shell regions, and the no-island secondary subnav rule.
+  - Add static guardrails for vector icon usage, polished shell regions, and the approved soft panel cutout secondary subnav rule.
 - `tests/Dobby.IntegrationTests/Shell/ShellSnapshotTests.cs`
   - Extend rendered WPF checks to require dashboard header, pipeline board, metric panels, and content cards.
 - `tests/Dobby.UnitTests/Localization/ShellLocalizationCoverageTests.cs`
@@ -95,7 +95,7 @@ shell.ShouldNotContain("WindowCloseGlyph");
 shell.ShouldContain("<Path");
 ```
 
-Add assertions that `PipelineSubnav` and `ThirdBar` have no `Background=`, `Effect=`, or `DropShadowEffect` in their named element scopes.
+Add assertions that `PipelineSubnav` and `ThirdBar` are hosted in the approved upper-center soft panel cutout slot and are not rendered as a floating island, hard rectangular split, or plain loose row detached from the main work panel.
 
 - [ ] **Step 2: Extend rendered snapshot coverage**
 
@@ -263,7 +263,7 @@ Render `ShellHeader`, centered top navigation pills, right-side icon actions, an
 
 - [ ] **Step 4: Move secondary navigation into the central third zone**
 
-Render `ThirdBarNavigationList` inside `PipelineSubnav`, directly on the shell background. Do not add a `Border`, background brush, `Effect`, or shadow to the subnav itself.
+Render `ThirdBarNavigationList` inside `PipelineSubnav`, placed in the approved upper-center soft cutout slot of the main work panel.
 
 - [ ] **Step 5: Replace HomePanel content with dashboard layout**
 
@@ -339,7 +339,7 @@ Expected manual checks:
 - Chrome-like workstation tabs render at the top.
 - Icons are vector shapes, not placeholder text.
 - The shell background is continuous and soft/light.
-- `Pipelines`, `Davam edir`, `Tamamlandı`, and `Vaxtı keçib` sit directly on the app background with no island background or shadow.
+- `Pipelines`, `Davam edir`, `Tamamlandı`, and `Vaxtı keçib` sit in the approved upper-center soft cutout slot.
 - Home dashboard has pipeline cards and metric panels.
 - Existing workstation tab behavior still works.
 
@@ -348,7 +348,7 @@ Expected manual checks:
 ## Self-Review Notes
 
 - The plan implements the approved spec only; it does not add another design direction.
-- Static tests cover icon placeholder regression and no-island subnav regression.
+- Static tests cover icon placeholder regression and panel cutout subnav regression.
 - Rendered WPF tests cover the main dashboard regions.
 - Localization tests cover visible new labels.
 - Work-session and workstation behavior stays under existing tests.

@@ -119,6 +119,51 @@ public sealed class LoginRuntimeWorkflowTests
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RememberMeSlot;").ShouldBe(0);
     }
 
+    [Fact]
+    public void Submit_reuses_completed_credential_warmup_without_repeating_password_verification()
+    {
+        using var fixture = LoginRuntimeFixture.Create();
+        fixture.InsertUser("user-1", "owner", isActive: true);
+        var verifier = new CountingCredentialVerifier(succeeds: true);
+        var workflow = fixture.CreateWorkflow(credentialVerifier: verifier);
+
+        workflow.WarmCredentials(new LoginCredentialWarmup(
+            "owner",
+            "correct password",
+            CorrelationId.New()));
+
+        System.Threading.SpinWait.SpinUntil(
+                () => verifier.VerifyCount == 1,
+                TimeSpan.FromSeconds(5))
+            .ShouldBeTrue();
+        WaitForCompletedCredentialWarmup(workflow);
+
+        var result = workflow.Submit(new LoginSubmission(
+            "owner",
+            "correct password",
+            DisplayName: null,
+            RememberMe: true,
+            CorrelationId.New()));
+
+        result.IsAuthenticated.ShouldBeTrue();
+        verifier.VerifyCount.ShouldBe(1);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions WHERE UserId = 'user-1' AND InvalidatedAtUtc IS NULL;").ShouldBe(1);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.login' AND ActorId = 'user-1' AND Result = 'success';").ShouldBe(1);
+    }
+
+    private static void WaitForCompletedCredentialWarmup(LoginRuntimeWorkflow workflow)
+    {
+        var warmedCredential = typeof(LoginRuntimeWorkflow).GetField(
+            "warmedCredential",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        warmedCredential.ShouldNotBeNull();
+
+        System.Threading.SpinWait.SpinUntil(
+                () => warmedCredential.GetValue(workflow) is not null,
+                TimeSpan.FromSeconds(5))
+            .ShouldBeTrue();
+    }
+
     private sealed class LoginRuntimeFixture : IDisposable
     {
         private readonly RecordingProtector credentialProtector = new();
@@ -149,14 +194,17 @@ public sealed class LoginRuntimeWorkflowTests
 
         public LoginThrottleService Throttle { get; }
 
-        public LoginRuntimeWorkflow CreateWorkflow(IHostPersistenceTransactionScope? transactionScope = null)
+        public LoginRuntimeWorkflow CreateWorkflow(
+            IHostPersistenceTransactionScope? transactionScope = null,
+            IUserCredentialVerifier? credentialVerifier = null)
         {
             var credentialStore = new CredentialStore(Executor, credentialProtector, kdfPolicyResolver);
-            var loginService = new LoginService(Executor, credentialStore, CreateOwnerBootstrapCoordinator(), Throttle);
+            var verifier = credentialVerifier ?? credentialStore;
+            var loginService = new LoginService(Executor, verifier, CreateOwnerBootstrapCoordinator(), Throttle);
             var sessionService = new SessionLifecycleService(
                 new SessionStore(Executor),
                 activeSessionAccessor,
-                credentialStore,
+                verifier,
                 Time,
                 new SessionOptions { AbsoluteTimeoutMinutes = 480, IdleTimeoutMinutes = 30 });
             var rememberMeSlot = new RememberMeSlotService(Executor, rememberMeProtector);
@@ -174,6 +222,20 @@ public sealed class LoginRuntimeWorkflowTests
             CreateOwnerBootstrapCoordinator()
                 .BootstrapFirstOwner(username, null, password, CorrelationId.New())
                 .IsSuccess.ShouldBeTrue();
+        }
+
+        public void InsertUser(string userId, string usernameNormalized, bool isActive)
+        {
+            var now = Time.GetUtcNow().ToString("O");
+            Executor.Execute(
+                "INSERT INTO Users(UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc) VALUES (@UserId, @UsernameNormalized, NULL, 1, @IsActive, @Now, @Now);",
+                new
+                {
+                    UserId = userId,
+                    UsernameNormalized = usernameNormalized,
+                    IsActive = isActive ? 1 : 0,
+                    Now = now
+                });
         }
 
         public void SetExistingActiveSession(string userId)
@@ -226,6 +288,19 @@ public sealed class LoginRuntimeWorkflowTests
         {
             protectedBlob.Take(ProtectedPrefix.Length).SequenceEqual(ProtectedPrefix).ShouldBeTrue();
             return protectedBlob.Skip(ProtectedPrefix.Length).Select(value => (byte)(value ^ 0x5A)).ToArray();
+        }
+    }
+
+    private sealed class CountingCredentialVerifier(bool succeeds) : IUserCredentialVerifier
+    {
+        private int verifyCount;
+
+        public int VerifyCount => Volatile.Read(ref verifyCount);
+
+        public Result<bool> VerifyPassword(string userId, string password)
+        {
+            Interlocked.Increment(ref verifyCount);
+            return Result.Success(succeeds);
         }
     }
 

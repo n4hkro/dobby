@@ -69,19 +69,18 @@ Bu sənəd Dobby host shell, Admin Tool və plugin-lərin işlətdiyi design-sys
 
 Dobby theme sistemi vahid UI design üzərində qurulur. Light, dark və gələcək theme variantları eyni layout, spacing scale, typography, border radius, icon size, motion token, navigation structure və screen composition istifadə edir; theme dəyişəndə yalnız semantic color/brush token-ləri dəyişir.
 
-Theme resource dictionary-ləri eyni token adlarını export etməlidir. Screen-lər theme-specific layout, theme-specific control variant və ya per-screen dark palette yaratmır. Light theme `ui_design_light_theme.jpg` visual direction-ının rəng ailəsini saxlayır; dark theme hazırkı canonical rəng seti kimi Solarized Dark palette-dən istifadə edir.
+Theme resource dictionary-ləri eyni token adlarını export etməlidir. Screen-lər theme-specific layout, theme-specific control variant və ya per-screen dark palette yaratmır. Light theme approved shell direction-ın rəng ailəsini saxlayır; dark theme hazırkı canonical rəng seti kimi Solarized Dark palette-dən istifadə edir.
 
-`ui_design_light_theme.jpg` Dobby-owned light theme visual reference-dir. Asset
-light-theme visual direction üçün support verir, amma measurements, layout
-constants, spacing scale, proportions, typography sizes, radius values, icon sizes
-və token values üçün təkbaşına normative authority deyil. Bu dəyərlər yalnız bu
-spec-də və ya digər text spec-lərdə textual token/constant kimi yazılanda canonical
-sayılır. Asset business-domain labels, customer data və third-party branding
-daşımır.
+Shell visual direction raster mockup faylı ilə canonical edilmir. Approved
+direction Chrome-like workstation tab row, centered TopToolbar, icon rail Sidebar,
+Main Content Area-nın yuxarı-mərkəzində yumşaq panel kəsiyi slotunda Third Bar və
+continuous light shell background modelidir. Measurements, layout constants,
+spacing scale, proportions, typography sizes, radius values, icon sizes və token
+values yalnız bu spec-də və ya digər text spec-lərdə textual token/constant kimi
+yazılanda canonical sayılır.
 
-Asset navigation ordering, entry labels, plugin visibility/default state,
-measurements və token dəyərləri üçün canonical deyil; bu qaydalar
-`docs/specs/shell-ui.md` Navigation mapping bölməsi,
+Navigation ordering, entry labels, plugin visibility/default state, measurements
+və token dəyərləri `docs/specs/shell-ui.md` Navigation mapping bölməsi,
 `docs/adr/ADR-0028-shell-composition-ordering-render.md`,
 `docs/adr/ADR-0049-hierarchical-navigation-contribution-model.md` və bu text
 token spec-i tərəfindən idarə olunur. Visual reference asset-ləri runtime behavior,

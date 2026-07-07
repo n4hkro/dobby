@@ -8,21 +8,21 @@ Bu spec `FR-005`, `FR-010`, `FR-013`, `FR-019`, `AC-003`, `AC-016`, `AC-017`, `A
 
 ## 1. Visual Reference
 
-Shell üçün bir canonical UI design direction var. `ui_design_light_theme.jpg` faylı
-light theme visual direction və composition intent üçün Dobby-owned visual
-reference-dir. O, measurements, layout constants, spacing scale, exact proportions,
-typography sizes, radius values, icon sizes və token values üçün təkbaşına
-normative authority deyil; bu dəyərlər yalnız textual token/constant kimi
-`docs/specs/design-system-assets.md` və ya bu spec-də yazılanda canonical sayılır.
-Asset yalnız host/platform labels daşımalıdır; business-domain content və
-third-party branding daşımır.
+Shell üçün canonical UI design direction bu spec, `ADR-0028`, `ADR-0049` və
+approved CRM/workstation tab design sənədlərindəki mətn qərarlarıdır. Raster
+mockup təkbaşına authority deyil və shell ölçüləri, layout constants, spacing
+scale, exact proportions, typography sizes, radius values, icon sizes və token
+values yalnız textual token/constant kimi `docs/specs/design-system-assets.md`
+və ya bu spec-də yazılanda canonical sayılır.
 
-Bu visual reference light-theme direction üçün support verir. O, labels, default
-runtime state, plugin visibility, navigation behavior, permission behavior,
-measurements, token values və release requirements üçün ADR/spec mətnini override
-etmir.
+Approved direction Chrome-like workstation tab row, centered TopToolbar, icon
+rail Sidebar, Main Content Area-nın yuxarı-mərkəzində yumşaq panel kəsiyi slotunda Third
+Bar və continuous light shell background modelidir. Labels, default runtime
+state, plugin visibility, navigation behavior, permission behavior,
+measurements, token values və release requirements üçün ADR/spec mətnləri
+üstündür.
 
-Theme variantları həmin eyni dizaynı istifadə edir və yalnız color/brush token-lərini dəyişir. Light theme visual reference-in rəng ailəsini saxlayır; dark theme `docs/specs/design-system-assets.md` içindəki Solarized Dark token mapping-i istifadə edir. Gələcək theme-lər də eyni token adlarını doldurmalı və layout/control variant yaratmamalıdır.
+Theme variantları həmin eyni dizaynı istifadə edir və yalnız color/brush token-lərini dəyişir. Light theme approved shell direction-ın rəng ailəsini saxlayır; dark theme `docs/specs/design-system-assets.md` içindəki Solarized Dark token mapping-i istifadə edir. Gələcək theme-lər də eyni token adlarını doldurmalı və layout/control variant yaratmamalıdır.
 
 ## 2. Shell Layout
 
@@ -54,7 +54,7 @@ Collapsed Sidebar parent icon-ları visible saxlayır; collapsed mode flyout aç
 Third Bar:
 
 - Main Content Area-nın yuxarı-mərkəz hissəsində yerləşir;
-- visual olaraq island/kəsik təsiri verməlidir;
+- visual olaraq Main Content paneli tək continuous rounded səth kimi qalmalı, item-lər rounded background mask ilə açılan yumşaq ortadakı kəsik slotda yerləşməlidir;
 - sağ və sol tərəflər bütöv main content səthi kimi davam edir;
 - selected Sidebar item-in daha dərin child navigation səviyyəsini göstərir.
 

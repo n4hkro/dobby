@@ -10,6 +10,7 @@ Apply this especially when implementing or reviewing product behavior:
 - Prefer deterministic tests and explicit synchronization over timing guesses.
 - Add or update meaningful tests for behavior changes and bug fixes.
 - Run the strongest relevant no-restore verification that local assets allow.
+- After development changes, refresh the portable test build so the user can try the latest state; prefer `.\tools\publish-portable\publish-portable.ps1 -NoRestore` when local restore assets allow it, and report the executable path.
 - Do not mark work complete while known defects, flaky verification, or unverified assumptions remain.
 - If more time or context is needed, state that clearly and continue methodically instead of narrowing scope for convenience.
 - For flaky WPF/STA/Dispatcher tests, first rule out test harness state leakage before blaming production logic: Window.Close/dispatcher cleanup, pending action reset, shared/static state, test ordering, and explicit completion signals must be checked.
