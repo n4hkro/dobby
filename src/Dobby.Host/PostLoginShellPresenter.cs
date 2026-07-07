@@ -45,15 +45,14 @@ internal static class PostLoginShellPresenter
         shellViewModel.SetTheme(currentTheme);
 
         WireBackgroundOperations(application, shellViewModel, loginRuntime.BackgroundOperations);
-        var window = new MainWindow(shellViewModel, preparedLoginRuntime.WorkSessionCloseCoordinator);
+        var window = new MainWindow(shellViewModel);
         postLoginTiming?.MarkShellWindowConstructed();
         window.AttachRuntime(
             loginRuntime,
             authenticatedSession,
             scopedPreferenceSource,
             themeCoordinator,
-            null,
-            preparedLoginRuntime.WorkSessionCloseCoordinator);
+            null);
         postLoginTiming?.MarkShellRuntimeAttached();
         window.ContentRendered += (_, _) =>
         {

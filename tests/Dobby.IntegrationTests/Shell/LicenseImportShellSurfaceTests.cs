@@ -51,20 +51,20 @@ public sealed class LicenseImportShellSurfaceTests
     }
 
     [Fact]
-    public void Host_shell_wires_license_import_action_on_plugins_surface_and_keeps_about_clean()
+    public void Host_shell_does_not_render_removed_license_import_action_on_plugins_surface_and_keeps_about_clean()
     {
         var root = RepoRoot();
         var xaml = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
         var windowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
         var aboutModel = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Settings", "AboutSettingsModel.cs"));
 
-        xaml.ShouldContain("x:Name=\"LicensePanel\"");
-        xaml.ShouldContain("x:Name=\"LicenseImportButton\"");
-        xaml.ShouldContain("Click=\"LicenseImport_Click\"");
-        xaml.ShouldContain("Visibility=\"{Binding LicenseImportVisibility}\"");
-        xaml.ShouldContain("IsEnabled=\"{Binding LicenseImportIsEnabled}\"");
-        windowCode.ShouldContain("licenseImportCoordinator.ImportFileAsync");
-        windowCode.ShouldContain("licenseFilePicker.PickLicenseFile");
+        xaml.ShouldNotContain("x:Name=\"LicensePanel\"");
+        xaml.ShouldNotContain("x:Name=\"LicenseImportButton\"");
+        xaml.ShouldNotContain("Click=\"LicenseImport_Click\"");
+        xaml.ShouldNotContain("Visibility=\"{Binding LicenseImportVisibility}\"");
+        xaml.ShouldNotContain("IsEnabled=\"{Binding LicenseImportIsEnabled}\"");
+        windowCode.ShouldNotContain("licenseImportCoordinator.ImportFileAsync");
+        windowCode.ShouldNotContain("licenseFilePicker.PickLicenseFile");
         aboutModel.ShouldContain("HasLicenseImportAction => false");
     }
 

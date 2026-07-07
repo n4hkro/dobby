@@ -58,7 +58,7 @@ public sealed class WorkSessionShellIntegrationTests
     }
 
     [Fact]
-    public void Route_button_click_shows_warning_and_stay_minimize_close_resolve_navigation()
+    public void Route_button_click_updates_navigation_without_removed_work_session_warning_surface()
     {
         RunOnSta(() =>
         {
@@ -72,18 +72,7 @@ public sealed class WorkSessionShellIntegrationTests
 
             try
             {
-                window = new MainWindow(
-                    null!,
-                    null,
-                    null!,
-                    shell,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    closeCoordinator)
+                window = new MainWindow(shell)
                 {
                     Left = -32000,
                     Top = -32000,
@@ -95,34 +84,15 @@ public sealed class WorkSessionShellIntegrationTests
                 window.Show();
                 Pump(window);
 
-                ClickRoute(window, "plugin.sample.analytics");
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
-                shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
-
-                FindNamed<Button>(window, "WorkSessionStayButton").Content.ShouldBe("Qal");
-                ClickNamed(window, "WorkSessionStayButton");
-                shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
-                shell.HasPendingWorkSessionCloseRequest.ShouldBeFalse();
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
+                FindNamedOrDefault<FrameworkElement>(window, "WorkSessionWarningPanel").ShouldBeNull();
+                FindNamedOrDefault<Button>(window, "WorkSessionStayButton").ShouldBeNull();
+                FindNamedOrDefault<Button>(window, "WorkSessionMinimizeButton").ShouldBeNull();
+                FindNamedOrDefault<Button>(window, "WorkSessionCloseButton").ShouldBeNull();
 
                 ClickRoute(window, "plugin.sample.analytics");
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
-                ClickNamed(window, "WorkSessionMinimizeButton");
                 shell.ActiveRouteKey.ShouldBe("plugin.sample.analytics");
-                registry.Get(session.SessionId)!.IsMinimized.ShouldBeTrue();
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
-
-                registry.Restore(session.SessionId);
-                shell.ActivateRoute(RouteRegistry.HomeRouteKey).IsSuccess.ShouldBeTrue();
-                Pump(window);
-
-                ClickRoute(window, "plugin.sample.analytics");
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
-                ClickNamed(window, "WorkSessionCloseButton");
-                shell.ActiveRouteKey.ShouldBe("plugin.sample.analytics");
-                registry.Get(session.SessionId).ShouldBeNull();
                 shell.HasPendingWorkSessionCloseRequest.ShouldBeFalse();
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
+                registry.Get(session.SessionId).ShouldNotBeNull();
             }
             finally
             {
@@ -132,7 +102,7 @@ public sealed class WorkSessionShellIntegrationTests
     }
 
     [Fact]
-    public void Logout_button_uses_work_session_warning_and_cancel_or_close_before_returning_to_login()
+    public void Removed_logout_surface_does_not_render_work_session_warning_or_close_sessions()
     {
         RunOnSta(() =>
         {
@@ -146,18 +116,7 @@ public sealed class WorkSessionShellIntegrationTests
 
             try
             {
-                window = new MainWindow(
-                    null!,
-                    null,
-                    null!,
-                    shell,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    closeCoordinator)
+                window = new MainWindow(shell)
                 {
                     Left = -32000,
                     Top = -32000,
@@ -169,22 +128,12 @@ public sealed class WorkSessionShellIntegrationTests
                 window.Show();
                 Pump(window);
 
-                ClickNamed(window, "LogoutButton");
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+                FindNamedOrDefault<Button>(window, "LogoutButton").ShouldBeNull();
+                FindNamedOrDefault<FrameworkElement>(window, "WorkSessionWarningPanel").ShouldBeNull();
+                FindNamedOrDefault<Button>(window, "WorkSessionStayButton").ShouldBeNull();
+                FindNamedOrDefault<Button>(window, "WorkSessionCloseButton").ShouldBeNull();
                 window.ReturnToLoginRequested.ShouldBeFalse();
                 registry.Get(session.SessionId).ShouldNotBeNull();
-
-                ClickNamed(window, "WorkSessionStayButton");
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
-                window.ReturnToLoginRequested.ShouldBeFalse();
-                registry.Get(session.SessionId).ShouldNotBeNull();
-
-                ClickNamed(window, "LogoutButton");
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
-                ClickNamed(window, "WorkSessionCloseButton");
-
-                window.ReturnToLoginRequested.ShouldBeTrue();
-                registry.Get(session.SessionId).ShouldBeNull();
             }
             finally
             {
@@ -219,7 +168,7 @@ public sealed class WorkSessionShellIntegrationTests
     }
 
     [Fact]
-    public void Plugins_manager_disable_waits_for_active_plugin_work_session_resolution_before_mutating_state()
+    public void Removed_plugins_manager_disable_surface_does_not_mutate_active_plugin_work_session()
     {
         RunOnSta(() =>
         {
@@ -252,24 +201,11 @@ public sealed class WorkSessionShellIntegrationTests
                 window.Show();
                 Pump(window);
 
-                ClickNamed(window, "PluginsManagerDisableButton");
-
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+                FindNamedOrDefault<Button>(window, "PluginsManagerDisableButton").ShouldBeNull();
+                FindNamedOrDefault<FrameworkElement>(window, "WorkSessionWarningPanel").ShouldBeNull();
                 stateStore.DidNotReceive().SetEnabled(pluginId, false, "Disabled");
                 registry.Get(activeSession.SessionId).ShouldNotBeNull();
-
-                ClickNamed(window, "WorkSessionStayButton");
-
-                stateStore.DidNotReceive().SetEnabled(pluginId, false, "Disabled");
-                registry.Get(activeSession.SessionId).ShouldNotBeNull();
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
-
-                ClickNamed(window, "PluginsManagerDisableButton");
-                ClickNamed(window, "WorkSessionCloseButton");
-                WaitForLifecycleAction(window, disabled.Task);
-
-                stateStore.Received(1).SetEnabled(pluginId, false, "Disabled");
-                registry.Get(activeSession.SessionId).ShouldBeNull();
+                disabled.Task.IsCompleted.ShouldBeFalse();
             }
             finally
             {
@@ -279,7 +215,7 @@ public sealed class WorkSessionShellIntegrationTests
     }
 
     [Fact]
-    public void Plugins_manager_uninstall_waits_for_active_plugin_work_session_resolution_before_removing_state()
+    public void Removed_plugins_manager_uninstall_surface_does_not_remove_active_plugin_work_session()
     {
         RunOnSta(() =>
         {
@@ -323,25 +259,12 @@ public sealed class WorkSessionShellIntegrationTests
                 window.Show();
                 Pump(window);
 
-                ClickNamed(window, "PluginsManagerUninstallButton");
-
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+                FindNamedOrDefault<Button>(window, "PluginsManagerUninstallButton").ShouldBeNull();
+                FindNamedOrDefault<FrameworkElement>(window, "WorkSessionWarningPanel").ShouldBeNull();
                 stateStore.DidNotReceive().Remove(pluginId);
                 registry.Get(activeSession.SessionId).ShouldNotBeNull();
-
-                ClickNamed(window, "WorkSessionStayButton");
-
-                stateStore.DidNotReceive().Remove(pluginId);
-                registry.Get(activeSession.SessionId).ShouldNotBeNull();
-                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
-
-                ClickNamed(window, "PluginsManagerUninstallButton");
-                ClickNamed(window, "WorkSessionCloseButton");
-                WaitForLifecycleAction(window, removed.Task);
-
-                stateStore.Received(1).Remove(pluginId);
-                dataRetention.Received(1).DeletePluginData(pluginId);
-                registry.Get(activeSession.SessionId).ShouldBeNull();
+                dataRetention.DidNotReceive().DeletePluginData(pluginId);
+                removed.Task.IsCompleted.ShouldBeFalse();
             }
             finally
             {
@@ -408,19 +331,11 @@ public sealed class WorkSessionShellIntegrationTests
     {
         var now = DateTimeOffset.Parse("2026-06-20T00:00:00Z");
         var window = new MainWindow(
-            null!,
-            new SessionRecord("session-1", "owner", now, now, now.AddHours(8), null, 1),
-            null!,
             shell,
             null,
             null,
-            null,
-            null,
-            null,
-            null,
-            closeCoordinator,
-            pluginLifecycleCoordinator: lifecycle,
-            pluginUninstallConfirmation: uninstallConfirmation)
+            initialPreference: null,
+            session: new SessionRecord("session-1", "owner", now, now, now.AddHours(8), null, 1))
         {
             Left = -32000,
             Top = -32000,
@@ -528,6 +443,13 @@ public sealed class WorkSessionShellIntegrationTests
     {
         return FindVisuals<T>((DependencyObject)window.Content)
             .Single(element => element.Name.Equals(name, StringComparison.Ordinal));
+    }
+
+    private static T? FindNamedOrDefault<T>(Window window, string name)
+        where T : FrameworkElement
+    {
+        return FindVisuals<T>((DependencyObject)window.Content)
+            .SingleOrDefault(element => element.Name.Equals(name, StringComparison.Ordinal));
     }
 
     private static IReadOnlyList<T> FindVisuals<T>(DependencyObject root)

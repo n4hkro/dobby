@@ -7,7 +7,7 @@ namespace Dobby.Host;
 public sealed class WorkspaceTabStripMaxWidthConverter : IMultiValueConverter
 {
     private const double FallbackNewTabButtonWidth = 42;
-    private const double FallbackCaptionButtonsWidth = 144;
+    private const double FallbackNativeCaptionReserveWidth = 144;
     private const double ChromeSpacingAllowance = 18;
 
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
@@ -27,7 +27,7 @@ public sealed class WorkspaceTabStripMaxWidthConverter : IMultiValueConverter
         var captionButtonsWidth = ReadPositiveDouble(values, 2);
         if (captionButtonsWidth <= 0)
         {
-            captionButtonsWidth = FallbackCaptionButtonsWidth;
+            captionButtonsWidth = FallbackNativeCaptionReserveWidth;
         }
 
         return Math.Max(
@@ -56,7 +56,7 @@ public sealed class WorkspaceTabWidthConverter : IMultiValueConverter
 {
     private const double MaxTabWidth = 240;
     private const double TabHorizontalMargin = 6;
-    private const double MinimumReadableTabWidth = 16;
+    private const double MinimumReadableTabWidth = 48;
 
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {

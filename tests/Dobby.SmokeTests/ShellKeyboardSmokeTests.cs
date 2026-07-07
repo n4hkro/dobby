@@ -77,13 +77,16 @@ public sealed class ShellKeyboardSmokeTests
                 profileButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Pump(window);
 
-                var profileMenu = FindNamed<FrameworkElement>(window, "ProfileMenuPanel");
-                profileMenu.Visibility.ShouldBe(Visibility.Visible);
-                FindNamed<Button>(window, "LogoutButton").IsVisible.ShouldBeTrue();
-                FindNamed<Button>(window, "ManualLockButton").IsVisible.ShouldBeTrue();
+                FindNamedOrDefault<FrameworkElement>(window, "ProfileMenuPanel").ShouldBeNull();
+                FindNamedOrDefault<Button>(window, "LogoutButton").ShouldBeNull();
+                FindNamedOrDefault<Button>(window, "ManualLockButton").ShouldBeNull();
+                FindNamedOrDefault<ItemsControl>(window, "NotificationPresentationList").ShouldBeNull();
+                FindNamedOrDefault<ItemsControl>(window, "FeedbackStatePresentationList").ShouldBeNull();
 
-                FindNamed<ItemsControl>(window, "NotificationPresentationList").Items.Count.ShouldBe(3);
-                FindNamed<ItemsControl>(window, "FeedbackStatePresentationList").Items.Count.ShouldBe(5);
+                var sidebar = FindNamed<FrameworkElement>(window, "ShellSidebar");
+                sidebar.IsVisible.ShouldBeTrue();
+                FindVisuals<Button>(sidebar).ShouldBeEmpty();
+                FindVisuals<ItemsControl>(sidebar).ShouldBeEmpty();
 
                 var buttons = FindVisuals<Button>((DependencyObject)window.Content)
                     .Where(button => button.IsVisible)
@@ -100,8 +103,6 @@ public sealed class ShellKeyboardSmokeTests
                 first.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)).ShouldBeTrue();
                 Keyboard.FocusedElement.ShouldNotBeNull();
 
-                FindNamed<Button>(window, "LogoutButton").Content.ShouldBe("Çıxış");
-                FindNamed<Button>(window, "ManualLockButton").Content.ShouldBe("Kilidlə");
             }
             finally
             {
@@ -111,7 +112,7 @@ public sealed class ShellKeyboardSmokeTests
     }
 
     [Fact]
-    public void Rendered_shell_navigation_buttons_switch_builtin_route_surfaces()
+    public void Rendered_shell_navigation_buttons_switch_builtin_routes_without_body_surfaces()
     {
         RunOnSta(() =>
         {
@@ -129,31 +130,30 @@ public sealed class ShellKeyboardSmokeTests
                 AddThemeResources(window);
                 window.Show();
                 Pump(window);
+                var shell = (ShellViewModel)window.DataContext;
 
-                FindNamed<FrameworkElement>(window, "HomePanel").Visibility.ShouldBe(Visibility.Visible);
-                FindNamed<FrameworkElement>(window, "PluginsSurface").Visibility.ShouldBe(Visibility.Collapsed);
-                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Collapsed);
+                FindNamedOrDefault<FrameworkElement>(window, "HomePanel").ShouldBeNull();
+                FindNamedOrDefault<FrameworkElement>(window, "PluginsSurface").ShouldBeNull();
+                FindNamedOrDefault<FrameworkElement>(window, "SettingsSurface").ShouldBeNull();
+                shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
 
                 ClickRoute(window, RouteRegistry.SettingsRouteKey);
                 Pump(window);
 
-                FindNamed<FrameworkElement>(window, "HomePanel").Visibility.ShouldBe(Visibility.Collapsed);
-                FindNamed<FrameworkElement>(window, "PluginsSurface").Visibility.ShouldBe(Visibility.Collapsed);
-                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Visible);
+                shell.ActiveRouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+                FindNamedOrDefault<FrameworkElement>(window, "SettingsSurface").ShouldBeNull();
 
                 ClickRoute(window, RouteRegistry.PluginsRouteKey);
                 Pump(window);
 
-                FindNamed<FrameworkElement>(window, "HomePanel").Visibility.ShouldBe(Visibility.Collapsed);
-                FindNamed<FrameworkElement>(window, "PluginsSurface").Visibility.ShouldBe(Visibility.Visible);
-                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Collapsed);
+                shell.ActiveRouteKey.ShouldBe(RouteRegistry.PluginsRouteKey);
+                FindNamedOrDefault<FrameworkElement>(window, "PluginsSurface").ShouldBeNull();
 
                 ClickRoute(window, RouteRegistry.HomeRouteKey);
                 Pump(window);
 
-                FindNamed<FrameworkElement>(window, "HomePanel").Visibility.ShouldBe(Visibility.Visible);
-                FindNamed<FrameworkElement>(window, "PluginsSurface").Visibility.ShouldBe(Visibility.Collapsed);
-                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Collapsed);
+                shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+                FindNamedOrDefault<FrameworkElement>(window, "HomePanel").ShouldBeNull();
             }
             finally
             {
@@ -174,15 +174,8 @@ public sealed class ShellKeyboardSmokeTests
                 WindowPlacement = new ShellWindowPlacement(1280, 720, 32, 48)
             };
             var window = new MainWindow(
-                null!,
-                null,
-                null!,
                 shell,
-                null,
                 source,
-                null,
-                null,
-                null,
                 null,
                 initialPreference: initialPreference)
             {
@@ -211,20 +204,13 @@ public sealed class ShellKeyboardSmokeTests
     }
 
     [Fact]
-    public void Rendered_shell_window_close_button_requests_confirmation_and_respects_cancel()
+    public void Rendered_shell_system_close_requests_confirmation_and_respects_cancel()
     {
         RunOnSta(() =>
         {
             var confirmation = new RecordingShellWindowCloseConfirmation(result: false);
             var window = new MainWindow(
-                null!,
-                null,
-                null!,
                 ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked()),
-                null,
-                null,
-                null,
-                null,
                 null,
                 null,
                 shellWindowCloseConfirmation: confirmation)
@@ -242,7 +228,7 @@ public sealed class ShellKeyboardSmokeTests
                 window.Show();
                 Pump(window);
 
-                FindNamed<Button>(window, "WindowCloseButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                SystemCommands.CloseWindow(window);
                 Pump(window);
 
                 confirmation.CallCount.ShouldBe(1);
@@ -265,15 +251,8 @@ public sealed class ShellKeyboardSmokeTests
         {
             var source = new GuardedPreferenceSource();
             var window = new MainWindow(
-                null!,
-                null,
-                null!,
                 ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked()),
-                null,
                 source,
-                null,
-                null,
-                null,
                 null,
                 initialPreference: ShellLayoutPreference.Default)
             {
@@ -295,7 +274,8 @@ public sealed class ShellKeyboardSmokeTests
                 Pump(window);
                 source.AllowPreferenceAccess = true;
 
-                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Visible);
+                ((ShellViewModel)window.DataContext).ActiveRouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+                FindNamedOrDefault<FrameworkElement>(window, "SettingsSurface").ShouldBeNull();
                 source.SynchronousBlockedAccessCount.ShouldBe(0);
             }
             finally
@@ -307,7 +287,7 @@ public sealed class ShellKeyboardSmokeTests
     }
 
     [Fact]
-    public void Rendered_shell_uses_chrome_sized_workspace_tabs_and_visible_caption_buttons()
+    public void Rendered_shell_uses_chrome_sized_workspace_tabs_with_visible_caption_buttons()
     {
         RunOnSta(() =>
         {
@@ -332,11 +312,27 @@ public sealed class ShellKeyboardSmokeTests
                 chrome.CaptionHeight.ShouldBe(48);
                 chrome.GlassFrameThickness.ShouldBe(new Thickness(0));
 
+                var titleBar = FindNamed<Grid>(window, "WindowTitleBar");
                 var tabFrame = FindVisuals<Border>((DependencyObject)window.Content)
                     .First(border => border.Name.Equals("WorkspaceTabFrame", StringComparison.Ordinal));
                 tabFrame.ActualWidth.ShouldBe(240);
                 tabFrame.ActualHeight.ShouldBe(42);
 
+                var newTabButton = FindNamed<Button>(window, "WorkspaceNewTabButton");
+                var tabBounds = BoundsRelativeTo(tabFrame, titleBar);
+                var newTabBounds = BoundsRelativeTo(newTabButton, titleBar);
+                newTabBounds.Left.ShouldBeGreaterThanOrEqualTo(tabBounds.Right);
+                (newTabBounds.Left - tabBounds.Right).ShouldBeLessThanOrEqualTo(12);
+
+                var tabTitle = FindVisuals<TextBlock>((DependencyObject)window.Content)
+                    .First(text => string.Equals(text.Text, "Ana səhifə", StringComparison.Ordinal));
+                var titleBounds = BoundsRelativeTo(tabTitle, titleBar);
+                (titleBounds.Left - tabBounds.Left).ShouldBeGreaterThanOrEqualTo(12);
+                (titleBounds.Left - tabBounds.Left).ShouldBeLessThanOrEqualTo(64);
+
+                var captionButtons = FindNamed<StackPanel>(window, "WindowCaptionButtons");
+                captionButtons.IsVisible.ShouldBeTrue();
+                captionButtons.ActualWidth.ShouldBe(138);
                 foreach (var buttonName in new[] { "WindowMinimizeButton", "WindowMaximizeRestoreButton", "WindowCloseButton" })
                 {
                     var button = FindNamed<Button>(window, buttonName);
@@ -353,7 +349,7 @@ public sealed class ShellKeyboardSmokeTests
     }
 
     [Fact]
-    public void Rendered_shell_shrinks_workspace_tabs_before_caption_buttons_can_overflow()
+    public void Rendered_shell_shrinks_workspace_tabs_before_caption_controls_can_overlap()
     {
         RunOnSta(() =>
         {
@@ -387,11 +383,16 @@ public sealed class ShellKeyboardSmokeTests
                 tabFrames.ShouldAllBe(frame => frame.ActualWidth < 240);
 
                 var titleBar = FindNamed<Grid>(window, "WindowTitleBar");
-                var captionButtons = FindNamed<StackPanel>(window, "WindowCaptionButtons");
-                var captionBounds = captionButtons
-                    .TransformToAncestor(titleBar)
-                    .TransformBounds(new Rect(0, 0, captionButtons.ActualWidth, captionButtons.ActualHeight));
-                captionBounds.Right.ShouldBeLessThanOrEqualTo(titleBar.ActualWidth + 0.5);
+                var newTabBounds = BoundsRelativeTo(newTabButton, titleBar);
+                var lastTabBounds = tabFrames
+                    .Select(frame => BoundsRelativeTo(frame, titleBar))
+                    .OrderBy(bounds => bounds.Left)
+                    .Last();
+
+                newTabButton.IsVisible.ShouldBeTrue();
+                newTabBounds.Right.ShouldBeLessThanOrEqualTo(titleBar.ActualWidth - 144 + 0.5);
+                newTabBounds.Left.ShouldBeGreaterThanOrEqualTo(lastTabBounds.Right);
+                (newTabBounds.Left - lastTabBounds.Right).ShouldBeLessThanOrEqualTo(12);
             }
             finally
             {
@@ -401,7 +402,7 @@ public sealed class ShellKeyboardSmokeTests
     }
 
     [Fact]
-    public void Rendered_shell_keeps_caption_buttons_visible_when_window_is_narrow()
+    public void Rendered_shell_keeps_new_tab_button_outside_caption_control_reserve_when_window_is_narrow()
     {
         RunOnSta(() =>
         {
@@ -430,22 +431,11 @@ public sealed class ShellKeyboardSmokeTests
                 }
 
                 var titleBar = FindNamed<Grid>(window, "WindowTitleBar");
-                var captionButtons = FindNamed<StackPanel>(window, "WindowCaptionButtons");
-                var captionBounds = captionButtons
-                    .TransformToAncestor(titleBar)
-                    .TransformBounds(new Rect(0, 0, captionButtons.ActualWidth, captionButtons.ActualHeight));
+                var newTabBounds = BoundsRelativeTo(newTabButton, titleBar);
 
-                captionButtons.IsVisible.ShouldBeTrue();
-                captionButtons.ActualWidth.ShouldBe(138);
-                captionBounds.Left.ShouldBeGreaterThanOrEqualTo(0);
-                captionBounds.Right.ShouldBeLessThanOrEqualTo(titleBar.ActualWidth + 0.5);
-
-                foreach (var buttonName in new[] { "WindowMinimizeButton", "WindowMaximizeRestoreButton", "WindowCloseButton" })
-                {
-                    var button = FindNamed<Button>(window, buttonName);
-                    button.IsVisible.ShouldBeTrue();
-                    button.ActualWidth.ShouldBe(46);
-                }
+                newTabButton.IsVisible.ShouldBeTrue();
+                newTabBounds.Left.ShouldBeGreaterThanOrEqualTo(0);
+                newTabBounds.Right.ShouldBeLessThanOrEqualTo(titleBar.ActualWidth - 144 + 0.5);
             }
             finally
             {
@@ -490,7 +480,7 @@ public sealed class ShellKeyboardSmokeTests
 
                 shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
                 shell.ActiveWorkspaceTab.Title.ShouldBe("Tənzimləmələr");
-                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Visible);
+                FindNamedOrDefault<FrameworkElement>(window, "SettingsSurface").ShouldBeNull();
             }
             finally
             {
@@ -538,7 +528,7 @@ public sealed class ShellKeyboardSmokeTests
                 shell.WorkspaceTabs.Count.ShouldBe(1);
                 shell.ActiveWorkspaceTab.TabId.ShouldBe(leftTabId);
                 shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
-                FindNamed<FrameworkElement>(window, "SettingsSurface").Visibility.ShouldBe(Visibility.Visible);
+                FindNamedOrDefault<FrameworkElement>(window, "SettingsSurface").ShouldBeNull();
             }
             finally
             {
@@ -590,6 +580,20 @@ public sealed class ShellKeyboardSmokeTests
     {
         return FindVisuals<T>((DependencyObject)window.Content)
             .Single(element => element.Name.Equals(name, StringComparison.Ordinal));
+    }
+
+    private static T? FindNamedOrDefault<T>(Window window, string name)
+        where T : FrameworkElement
+    {
+        return FindVisuals<T>((DependencyObject)window.Content)
+            .SingleOrDefault(element => element.Name.Equals(name, StringComparison.Ordinal));
+    }
+
+    private static Rect BoundsRelativeTo(FrameworkElement element, Visual root)
+    {
+        return element
+            .TransformToAncestor(root)
+            .TransformBounds(new Rect(0, 0, element.ActualWidth, element.ActualHeight));
     }
 
     private static void ClickRoute(Window window, string routeKey)

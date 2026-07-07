@@ -420,7 +420,7 @@ public sealed class StartupBootstrapWiringTests
         var attachBlock = mainWindowSource[attachStart..nextMethod];
         attachBlock.ShouldContain("initialPreference = runtimeInitialPreference;");
         attachBlock.ShouldContain("initialPreferenceExplicitlyProvided = true;");
-        attachBlock.ShouldContain("UpdateWorkSessionWarningVisibility();");
+        attachBlock.ShouldNotContain("UpdateWorkSessionWarningVisibility();");
         attachBlock.ShouldNotContain("ApplyInitialShellPreference();");
         attachBlock.ShouldNotContain("StartSessionCheckpointTimer();");
 

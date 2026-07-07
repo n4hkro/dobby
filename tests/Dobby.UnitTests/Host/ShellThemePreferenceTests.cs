@@ -43,7 +43,7 @@ public sealed class ShellThemePreferenceTests
         var mainWindowSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
         var methodStart = mainWindowSource.IndexOf("private void ThemeToggle_Click", StringComparison.Ordinal);
         methodStart.ShouldBeGreaterThanOrEqualTo(0);
-        var methodEnd = mainWindowSource.IndexOf("private void ProfileMenu_Click", methodStart, StringComparison.Ordinal);
+        var methodEnd = mainWindowSource.IndexOf("private void ApplyInitialShellPreference", methodStart, StringComparison.Ordinal);
         methodEnd.ShouldBeGreaterThan(methodStart);
         var method = mainWindowSource[methodStart..methodEnd];
 

@@ -23,11 +23,11 @@ public sealed class LoginWindowRuntimeWiringTests
         preparer.ShouldContain("HostLoginRuntimeFactory.Create(");
         preparer.ShouldContain("new ShellPluginWorkSessionService(workSessionRegistry)");
         preparer.ShouldContain("loginWindow.AttachRuntime(preLoginRuntime)");
-        presenter.ShouldContain("new MainWindow(shellViewModel, preparedLoginRuntime.WorkSessionCloseCoordinator)");
+        presenter.ShouldContain("new MainWindow(shellViewModel)");
         presenter.ShouldContain("window.AttachRuntime(");
         app.ShouldContain("loginWindow.AuthenticatedSession");
         mainWindow.ShouldContain("loginRuntime.PostLoginSessionRuntime");
-        mainWindow.ShouldContain("loginRuntime.SelfServicePasswordChangeCoordinator");
+        mainWindow.ShouldNotContain("loginRuntime.SelfServicePasswordChangeCoordinator");
 
         var showDialog = app.IndexOf("loginWindow.ShowDialog()", StringComparison.Ordinal);
         var presenterCall = app.IndexOf("PostLoginShellPresenter.ShowAsync(", StringComparison.Ordinal);
@@ -100,22 +100,22 @@ public sealed class LoginWindowRuntimeWiringTests
     }
 
     [Fact]
-    public void Main_window_exposes_account_password_change_and_manual_lock_surface()
+    public void Main_window_omits_removed_account_password_change_and_manual_lock_surface()
     {
         var app = ReadSource("src", "Dobby.Host", "App.xaml.cs");
         var xaml = ReadSource("src", "Dobby.Host", "MainWindow.xaml");
         var codeBehind = ReadSource("src", "Dobby.Host", "MainWindow.xaml.cs");
 
-        codeBehind.ShouldContain("loginRuntime.SelfServicePasswordChangeCoordinator");
-        xaml.ShouldContain("NewPasswordBox");
-        xaml.ShouldContain("PasswordChangeRememberMeCheckBox");
-        xaml.ShouldContain("ChangePasswordButton");
-        xaml.ShouldContain("ManualLockButton");
-        codeBehind.ShouldContain("SelfServicePasswordChangeCoordinator");
-        codeBehind.ShouldContain("ChangePassword_Click");
-        codeBehind.ShouldContain("passwordChangeCoordinator.ChangePassword");
-        codeBehind.ShouldContain("ManualLock_Click");
-        codeBehind.ShouldContain("sessionRuntime.LockNow");
+        codeBehind.ShouldNotContain("loginRuntime.SelfServicePasswordChangeCoordinator");
+        xaml.ShouldNotContain("NewPasswordBox");
+        xaml.ShouldNotContain("PasswordChangeRememberMeCheckBox");
+        xaml.ShouldNotContain("ChangePasswordButton");
+        xaml.ShouldNotContain("ManualLockButton");
+        codeBehind.ShouldNotContain("SelfServicePasswordChangeCoordinator");
+        codeBehind.ShouldNotContain("ChangePassword_Click");
+        codeBehind.ShouldNotContain("passwordChangeCoordinator.ChangePassword");
+        codeBehind.ShouldNotContain("ManualLock_Click");
+        codeBehind.ShouldNotContain("sessionRuntime.LockNow");
     }
 
     [Fact]
