@@ -8,14 +8,28 @@ namespace Dobby.IntegrationTests.Architecture;
 
 public sealed class PluginTrustResourcePackagingTests
 {
-    private const string ProductionPemSha256 = "00bedd1f30da9726b50e6aa6929d3df5e7d5e2dbaf05f6435503c01210f5ad1f";
+    private const string ApprovedProductionPemSha256 = "74ca9ee78d453e122d86047c90fd174e78fa1828647404e03122b6d7ab39201f";
+    private const string Sprint8BootstrapPemSha256 = "00bedd1f30da9726b50e6aa6929d3df5e7d5e2dbaf05f6435503c01210f5ad1f";
     private const string DevQaPemSha256 = "cb0d35dafea42031e18c778ff208d7b142b280d73ba68983d5f3afccb6a08afc";
+    private const string TestOnlyRecoveryPemSha256 = "1a30c878be9f0d69adcfbad0a7244e19738a3c81fb9ca7eb2581a8b1c2455a19";
 
     [Fact]
-    public void Canonical_public_pems_match_recorded_bootstrap_hashes()
+    public void Production_source_public_pem_parses_and_matches_approved_hash()
     {
-        PemSha256("vendor-master-public-key.pem").ShouldBe(ProductionPemSha256);
+        ParseAndHashPem("vendor-master-public-key.pem").ShouldBe(ApprovedProductionPemSha256);
+    }
+
+    [Fact]
+    public void Bootstrap_dev_qa_and_test_only_public_keys_remain_negative_controls_for_production_hash()
+    {
+        Sprint8BootstrapPemSha256.ShouldNotBe(ApprovedProductionPemSha256);
+
         PemSha256("dev-qa-public-key.pem").ShouldBe(DevQaPemSha256);
+        DevQaPemSha256.ShouldNotBe(ApprovedProductionPemSha256);
+
+        PemSha256(Path.Combine("Recovery", "Fixtures", "TEST-ONLY", "vendor-recovery-public-key.TEST-ONLY.txt"))
+            .ShouldBe(TestOnlyRecoveryPemSha256);
+        TestOnlyRecoveryPemSha256.ShouldNotBe(ApprovedProductionPemSha256);
     }
 
     [Fact]
@@ -103,14 +117,26 @@ public sealed class PluginTrustResourcePackagingTests
 
     private static string PemSha256(string fileName)
     {
-        var bytes = File.ReadAllBytes(Path.Combine(
-            RepoRoot().FullName,
-            "src",
-            "Dobby.Host",
-            "Trust",
-            fileName));
+        var bytes = File.ReadAllBytes(PemPath(fileName));
 
         return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+
+    private static string ParseAndHashPem(string fileName)
+    {
+        var pem = File.ReadAllText(PemPath(fileName));
+        using var ecdsa = ECDsa.Create();
+        ecdsa.ImportFromPem(pem);
+
+        return PemSha256(fileName);
+    }
+
+    private static string PemPath(string fileName)
+    {
+        var root = RepoRoot().FullName;
+        return fileName.Contains(Path.DirectorySeparatorChar) || fileName.Contains(Path.AltDirectorySeparatorChar)
+            ? Path.Combine(root, "tests", "Dobby.IntegrationTests", fileName)
+            : Path.Combine(root, "src", "Dobby.Host", "Trust", fileName);
     }
 
     private static DirectoryInfo RepoRoot()

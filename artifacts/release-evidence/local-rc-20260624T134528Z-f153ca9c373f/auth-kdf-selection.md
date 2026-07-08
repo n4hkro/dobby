@@ -1,6 +1,6 @@
 # Sprint 11 Auth KDF Selection
 
-Status: BLOCKED PENDING HUMAN DECISION for release-ready AC-051 closure because ADR-0042 baseline latency evidence is not approved or collected.
+Status: BLOCKED UNTIL EVIDENCE PASSES for release-ready AC-051 closure because HD-S11-002 is policy path accepted only and ADR-0042 baseline latency evidence is not collected.
 
 ## AC-051 Evidence
 
@@ -20,4 +20,6 @@ Status: BLOCKED PENDING HUMAN DECISION for release-ready AC-051 closure because 
 
 ## Boundary
 
-This file regenerates the skeleton-local KDF decision for Sprint 11 local evidence. It does not close AC-051 release readiness because HD-S11-002 remains blocked.
+This file regenerates the skeleton-local KDF decision for Sprint 11 local evidence. It does not close AC-051 release readiness because HD-S11-002 closure remains blocked until an ADR-0042-compliant baseline machine/profile is named and N=100 evidence is collected.
+
+Authority decisions approve the path; P1/release-ready is not closed until evidence passes.

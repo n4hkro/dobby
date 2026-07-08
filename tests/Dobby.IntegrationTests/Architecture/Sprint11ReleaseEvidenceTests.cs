@@ -5,6 +5,60 @@ namespace Dobby.IntegrationTests.Architecture;
 
 public sealed class Sprint11ReleaseEvidenceTests
 {
+    private const string ExpectedTask1PreRunSourceConfigState = """
+        ## main...origin/main
+         M SPRINT_11_EXECUTION_PLAN.md
+         M artifacts/release-evidence/local-rc-20260624T134528Z-f153ca9c373f/auth-kdf-selection.md
+         M artifacts/release-evidence/local-rc-20260624T134528Z-f153ca9c373f/installer-verification.md
+         M artifacts/release-evidence/local-rc-20260624T134528Z-f153ca9c373f/packaging-static-scan.md
+         M artifacts/release-evidence/local-rc-20260624T134528Z-f153ca9c373f/production-recovery-handover.md
+         M artifacts/release-evidence/local-rc-20260624T134528Z-f153ca9c373f/release-run-manifest.md
+         M artifacts/release-evidence/local-rc-20260624T134528Z-f153ca9c373f/release-smoke.md
+         M artifacts/release-evidence/local-rc-20260624T134528Z-f153ca9c373f/startup-performance.md
+         M artifacts/release-evidence/skeleton-local/decision-log.md
+         M src/Dobby.UI/ThemeTokens.cs
+         M tests/Dobby.IntegrationTests/Architecture/PortablePublishScriptTests.cs
+         M tests/Dobby.IntegrationTests/Architecture/ProductionReleasePackagingStaticScanTests.cs
+         M tests/Dobby.IntegrationTests/Architecture/Sprint11ReleaseEvidenceTests.cs
+        ?? docs/superpowers/plans/2026-07-07-p1-release-gate-closure.md
+        """;
+
+    [Fact]
+    public void Sprint11_release_run_preflight_manifest_matches_the_current_task1_evidence_root()
+    {
+        var root = CurrentTask1EvidenceRoot();
+        var manifestPath = Path.Combine(root.FullName, "release-run-manifest.md");
+
+        File.Exists(manifestPath)
+            .ShouldBeTrue($"Sprint 11 preflight manifest is missing from {root.FullName}.");
+
+        var manifest = NormalizeLineEndings(File.ReadAllText(manifestPath));
+        var sourceShortSha = root.Name.Split('-').Last();
+        var sourceFullSha = manifest
+            .Split('\n')
+            .Single(line => line.StartsWith("Source commit full SHA: ", StringComparison.Ordinal))
+            ["Source commit full SHA: ".Length..]
+            .Trim();
+
+        manifest.ShouldContain($"Build ID: {root.Name}");
+        manifest.ShouldContain($"Evidence root: artifacts\\release-evidence\\{root.Name}");
+        sourceFullSha.Length.ShouldBe(40);
+        sourceFullSha.ShouldStartWith(sourceShortSha);
+        manifest.ShouldContain($"Source commit short SHA: {sourceShortSha}");
+        manifest.ShouldContain("Source branch: main");
+        manifest.ShouldContain(NormalizeLineEndings(
+            $$"""
+            Pre-run source config state:
+            ```text
+            {{ExpectedTask1PreRunSourceConfigState}}
+            ```
+            """));
+        manifest.ShouldContain("Authority decisions approve the path; P1/release-ready is not closed until evidence passes.");
+        manifest.ShouldContain("Repository CI status: repository CI ownership is absent; equivalent local release gate human-approved.");
+        manifest.ShouldContain("Release readiness: BLOCKED UNTIL EVIDENCE PASSES");
+        manifest.ShouldNotContain("READY FOR RELEASE REVIEW");
+    }
+
     private static readonly string[] RequiredEvidenceFiles =
     [
         "release-run-manifest.md",
@@ -34,9 +88,9 @@ public sealed class Sprint11ReleaseEvidenceTests
 
         var manifest = Read(root, "release-run-manifest.md");
         manifest.ShouldContain("Sprint 11");
-        manifest.ShouldContain("Release readiness: BLOCKED PENDING HUMAN DECISION");
+        manifest.ShouldContain("Release readiness: BLOCKED UNTIL EVIDENCE PASSES");
         manifest.ShouldContain("repository CI ownership is absent");
-        manifest.ShouldContain("local-only equivalent gate acceptance is blocked pending human approval");
+        manifest.ShouldContain("equivalent local release gate human-approved");
         manifest.ShouldContain("preRunSourceConfigState=clean");
         manifest.ShouldContain("postRunDiffPolicy=allowlisted-generated-evidence-only");
         manifest.ShouldContain("DobbyPluginTrustProfile=Production");
@@ -44,11 +98,13 @@ public sealed class Sprint11ReleaseEvidenceTests
         manifest.ShouldNotContain("CI passed");
         manifest.ShouldNotContain("Status: READY FOR RELEASE REVIEW");
 
-        foreach (var gateId in new[] { "HD-S11-001", "HD-S11-002", "HD-S11-003", "HD-S11-004", "HD-S11-005" })
-        {
-            manifest.ShouldContain(gateId);
-            manifest.ShouldContain($"{gateId}: BLOCKED PENDING HUMAN DECISION");
-        }
+        manifest.ShouldContain("HD-S11-001: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES");
+        manifest.ShouldContain("HD-S11-002: POLICY PATH ACCEPTED ONLY; CLOSURE BLOCKED");
+        manifest.ShouldContain("HD-S11-003: MSIX-PRIMARY RC MECHANICS ACCEPTED ONLY");
+        manifest.ShouldContain("HD-S11-004: APPROVED");
+        manifest.ShouldContain("HD-S11-005: APPROVED");
+        manifest.ShouldContain("Authority decisions approve the path; P1/release-ready is not closed until evidence passes.");
+        manifest.ShouldContain("Informational measurements on this machine do not close AC-014/AC-051.");
     }
 
     [Fact]
@@ -86,15 +142,68 @@ public sealed class Sprint11ReleaseEvidenceTests
         staticScan.ShouldContain("no production private keys");
 
         var productionRecovery = Read(root, "production-recovery-handover.md");
-        productionRecovery.ShouldContain("HD-S11-001: BLOCKED PENDING HUMAN DECISION");
+        productionRecovery.ShouldContain("HD-S11-001: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES");
         productionRecovery.ShouldContain("D-31");
         productionRecovery.ShouldContain("D-33");
         productionRecovery.ShouldContain("No production private key material is stored in this evidence root");
+
+        var installerEvidence = Read(root, "installer-verification.md");
+        installerEvidence.ShouldContain("MSIX-primary RC mechanics accepted only");
+        installerEvidence.ShouldContain("does not imply GA/customer production signing readiness");
+
+        var startupEvidence = Read(root, "startup-performance.md");
+        startupEvidence.ShouldContain("policy path accepted only");
+        startupEvidence.ShouldContain("Current local machine evidence");
+        startupEvidence.ShouldContain("baseline disqualification evidence");
     }
 
     private static string Read(DirectoryInfo root, string fileName)
     {
         return File.ReadAllText(Path.Combine(root.FullName, fileName));
+    }
+
+    private static string NormalizeLineEndings(string value)
+    {
+        return value.Replace("\r\n", "\n", StringComparison.Ordinal);
+    }
+
+    private static DirectoryInfo CurrentTask1EvidenceRoot()
+    {
+        var releaseEvidenceRoot = new DirectoryInfo(Path.Combine(
+            RepoRoot().FullName,
+            "artifacts",
+            "release-evidence"));
+
+        releaseEvidenceRoot.Exists.ShouldBeTrue();
+
+        var candidates = releaseEvidenceRoot
+            .EnumerateDirectories("local-rc-*", SearchOption.TopDirectoryOnly)
+            .Where(ManifestMatchesCurrentTask1Root)
+            .ToArray();
+
+        candidates.Length.ShouldBe(
+            1,
+            "Expected exactly one Task 1 local release-candidate evidence root with an internally consistent manifest state.");
+
+        return candidates[0];
+    }
+
+    private static bool ManifestMatchesCurrentTask1Root(DirectoryInfo directory)
+    {
+        var manifestPath = Path.Combine(directory.FullName, "release-run-manifest.md");
+        if (!File.Exists(manifestPath))
+        {
+            return false;
+        }
+
+        var manifest = NormalizeLineEndings(File.ReadAllText(manifestPath));
+        var sourceShortSha = directory.Name.Split('-').Last();
+        return manifest.Contains($"Build ID: {directory.Name}", StringComparison.Ordinal)
+            && manifest.Contains($"Evidence root: artifacts\\release-evidence\\{directory.Name}", StringComparison.Ordinal)
+            && manifest.Contains($"Source commit short SHA: {sourceShortSha}", StringComparison.Ordinal)
+            && manifest.Contains("Source branch: main", StringComparison.Ordinal)
+            && manifest.Contains("Pre-run source config state:", StringComparison.Ordinal)
+            && manifest.Contains(NormalizeLineEndings(ExpectedTask1PreRunSourceConfigState), StringComparison.Ordinal);
     }
 
     private static DirectoryInfo Sprint11EvidenceRoot()
@@ -115,6 +224,8 @@ public sealed class Sprint11ReleaseEvidenceTests
             })
             .Where(candidate => File.Exists(candidate.ManifestPath))
             .Where(candidate => File.ReadAllText(candidate.ManifestPath).Contains("Sprint 11", StringComparison.Ordinal))
+            .Where(candidate => RequiredEvidenceFiles.All(fileName => File.Exists(Path.Combine(candidate.Directory.FullName, fileName))))
+            .Where(candidate => Directory.Exists(Path.Combine(candidate.Directory.FullName, "ui-snapshots")))
             .OrderByDescending(candidate => candidate.Directory.Name, StringComparer.Ordinal)
             .ToArray();
 

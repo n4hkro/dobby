@@ -1,10 +1,18 @@
 # Sprint 11 Startup Performance Evidence
 
-Status: HD-S11-002 BLOCKED PENDING HUMAN DECISION.
+Status: HD-S11-002 policy path accepted only; closure blocked until an ADR-0042-compliant baseline machine/profile is named and N=100 evidence is collected.
 
 ## AC-014
 
 AC-014 requires ADR-0042 baseline hardware, methodology, artifact format, and accepted P95 evidence for startup and login-to-shell paths.
+
+Authority decisions approve the path; P1/release-ready is not closed until evidence passes.
+
+## Baseline Disqualification Evidence
+
+Current local machine evidence: i5-1135G7 @ 2.40GHz, 4C/8T, ~8.3GB RAM; disqualified for ADR-0042 release baseline because it fails the 16GB RAM minimum and, under strict reading, the 2.5GHz base-clock threshold. Informational measurements on this machine do not close AC-014/AC-051.
+
+This is baseline disqualification evidence only, not release timing/performance evidence.
 
 ## Current Automated Guards
 

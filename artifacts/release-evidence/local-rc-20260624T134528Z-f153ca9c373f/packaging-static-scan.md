@@ -1,6 +1,6 @@
 # Sprint 11 Packaging Static Scan
 
-Status: LOCAL STATIC SCAN PASSED; release readiness remains blocked by HD-S11-001 and HD-S11-003.
+Status: LOCAL STATIC SCAN PASSED; release readiness remains blocked until HD-S11-001 and HD-S11-003 evidence passes.
 
 ## Published Host Artifact
 
@@ -36,4 +36,6 @@ The publish output was scanned for sample plugin payloads, generated Dobby artif
 
 ## Blockers
 
-HD-S11-001 still blocks production recovery handover, and HD-S11-003 still blocks installer/MSIX static scan evidence.
+HD-S11-001 path is approved but production recovery handover closure remains blocked until source/embedded/custody key evidence and published Host import evidence pass. HD-S11-003 MSIX-primary RC mechanics are accepted only; installer/MSIX static scan evidence remains required before release-ready closure.
+
+Authority decisions approve the path; P1/release-ready is not closed until evidence passes.

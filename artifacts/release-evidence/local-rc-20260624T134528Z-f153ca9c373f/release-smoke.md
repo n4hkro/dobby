@@ -1,12 +1,13 @@
 # Sprint 11 Release Smoke
 
-Status: LOCAL SMOKE BASELINE PASSED; release-ready smoke remains blocked by HD-S11-003 installer authority and HD-S11-005 CI/local-gate acceptance.
+Status: LOCAL SMOKE BASELINE PASSED; release-ready smoke remains blocked by missing installer evidence and final scripted local-gate evidence.
 
 ## Artifact Binding
 
 - Publish artifact: `src/Dobby.Host/bin/Release/net10.0-windows/publish/`
 - Host executable SHA-256: `0cbf66dc862b7e69ab5402789d546b2060b951bca6e6718260a06c2c525e1ce3`
-- Installer artifact: BLOCKED by HD-S11-003.
+- Installer artifact: HD-S11-003 MSIX-primary RC mechanics path accepted only; installer artifact evidence is still required.
+- Local gate: HD-S11-005 approved as `repository CI ownership is absent; equivalent local release gate human-approved`; scripted local build/test/static-scan/smoke/hash evidence is still required.
 
 ## AC-008
 
@@ -48,4 +49,6 @@ Sprint 11 changed `MainWindow.xaml.cs` so the license-import handler now reports
 
 ## Blockers
 
-Release smoke cannot be called release-ready until the approved installer artifact exists and HD-S11-005 local/CI acceptance is closed.
+Release smoke cannot be called release-ready until the approved installer artifact exists and scripted local-gate evidence passes.
+
+Authority decisions approve the path; P1/release-ready is not closed until evidence passes.

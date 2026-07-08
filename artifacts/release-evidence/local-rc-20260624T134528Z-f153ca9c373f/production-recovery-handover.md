@@ -1,6 +1,6 @@
 # Sprint 11 Production Recovery Handover
 
-Status: HD-S11-001: BLOCKED PENDING HUMAN DECISION.
+Status: HD-S11-001: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES.
 
 ## Authority
 
@@ -8,6 +8,8 @@ Status: HD-S11-001: BLOCKED PENDING HUMAN DECISION.
 - D-33: Sprint 10 technical-path proof is not production/Admin AC-007 release evidence.
 - ADR-0033 controls production signing key ownership and custody.
 - `src/Dobby.Host/Trust/README.md` requires Sprint 8 bootstrap keys to rotate before production release.
+- D-35 approves the production key/recovery handover path only; it does not close P1/release-ready until evidence passes.
+- Authority decisions approve the path; P1/release-ready is not closed until evidence passes.
 
 ## Current Hash State
 

@@ -2,7 +2,7 @@
 
 Build ID: `local-rc-20260624T124146Z-f153ca9c373f`
 Sprint: Sprint 11, Release Gates, Installer, Evidence, and Smoke
-Release readiness: BLOCKED PENDING HUMAN DECISION
+Release readiness: BLOCKED UNTIL EVIDENCE PASSES
 
 ## Source Binding
 
@@ -13,7 +13,8 @@ Release readiness: BLOCKED PENDING HUMAN DECISION
 - preRunCleanCheck: `git status --short --branch` returned only branch header before this evidence root was generated.
 - postRunDiffPolicy=allowlisted-generated-evidence-only
 - evidenceRoot: `artifacts/release-evidence/local-rc-20260624T124146Z-f153ca9c373f/`
-- repository CI ownership is absent; local-only equivalent gate acceptance is blocked pending human approval.
+- repository CI ownership is absent; equivalent local release gate human-approved.
+- Authority decisions approve the path; P1/release-ready is not closed until evidence passes.
 
 ## Environment
 
@@ -75,15 +76,15 @@ Final no-restore verification after evidence generation is recorded in `unit-int
 
 ## Blocked Decisions
 
-- HD-S11-001: BLOCKED PENDING HUMAN DECISION. Production vendor key handover, custody proof, approved GA-candidate public key, and production/Admin recovery evidence are not available.
-- HD-S11-002: BLOCKED PENDING HUMAN DECISION. ADR-0042 baseline hardware/process/artifact format and acceptance owner are not available.
-- HD-S11-003: BLOCKED PENDING HUMAN DECISION. MSIX package identity, signing certificate, versioning, and packaging tooling are not approved.
-- HD-S11-004: BLOCKED PENDING HUMAN DECISION. This run uses IA-S11-001 local fallback naming; release-owner build ID approval is still required.
-- HD-S11-005: BLOCKED PENDING HUMAN DECISION. Repository CI platform/workflow ownership is absent, and local-only equivalent gate acceptance is blocked pending human approval.
+- HD-S11-001: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES. Production vendor key handover may proceed only with approved GA-candidate public PEM/hash/custodian evidence, source/embedded/custody hash equality, Sprint 8 bootstrap negative control, redacted Admin report/transcript hashes, and published Host import evidence. Production private material remains forbidden in repo/source/tests/evidence.
+- HD-S11-002: POLICY PATH ACCEPTED ONLY; CLOSURE BLOCKED. Current local machine is disqualified for release baseline. Current local machine evidence: i5-1135G7 @ 2.40GHz, 4C/8T, ~8.3GB RAM; disqualified for ADR-0042 release baseline because it fails the 16GB RAM minimum and, under strict reading, the 2.5GHz base-clock threshold. Informational measurements on this machine do not close AC-014/AC-051.
+- HD-S11-003: MSIX-PRIMARY RC MECHANICS ACCEPTED ONLY. Self-signed certificate evidence may support RC installer mechanics only; it does not imply GA/customer production signing readiness unless release authority separately accepts that. MSIX identity/signing/versioning/tooling and install/upgrade evidence remain required before AC-024 release-ready closure.
+- HD-S11-004: APPROVED. This run uses approved local fallback naming `local-rc-<UTC>-<shortsha>`; `skeleton-local` is not release-candidate evidence.
+- HD-S11-005: APPROVED. Repository CI ownership is absent; equivalent local release gate human-approved. Scripted local build/test/static-scan/smoke/hash evidence remains required, and this manifest must not use CI-success wording.
 
 ## Release Claim
 
-This evidence package is suitable for blocked Sprint 11 handoff review only. It is not a ready release-review claim while any HD-S11 gate above remains open.
+This evidence package is suitable for blocked Sprint 11 handoff review only. Authority decisions approve the path; P1/release-ready is not closed until evidence passes.
 
 ## Final Verification Addendum
 

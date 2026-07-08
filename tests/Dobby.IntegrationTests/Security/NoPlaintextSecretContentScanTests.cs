@@ -7,6 +7,10 @@ namespace Dobby.IntegrationTests.Security;
 
 public sealed partial class NoPlaintextSecretContentScanTests
 {
+    private const string PrivateKeyBeginMarker =
+        "-----BEGIN " +
+        "PRIVATE KEY-----";
+
     [Fact]
     public void Committed_source_and_test_files_do_not_contain_plaintext_secret_markers()
     {
@@ -192,6 +196,6 @@ public sealed partial class NoPlaintextSecretContentScanTests
             """;
     }
 
-    [GeneratedRegex("-----BEGIN PRIVATE KEY-----|password\\s*=|Bearer\\s+[A-Za-z0-9._-]{20,}|(?:dpapi|entropy)[A-Za-z0-9_-]*\\s*[:=]\\s*\"?[A-Za-z0-9+/]{32,}={0,2}\"?", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(PrivateKeyBeginMarker + "|password\\s*=|Bearer\\s+[A-Za-z0-9._-]{20,}|(?:dpapi|entropy)[A-Za-z0-9_-]*\\s*[:=]\\s*\"?[A-Za-z0-9+/]{32,}={0,2}\"?", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PlaintextSecretPattern();
 }

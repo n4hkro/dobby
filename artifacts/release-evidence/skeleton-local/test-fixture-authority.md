@@ -55,7 +55,7 @@ This ledger approves TEST-ONLY fixture material for Sprint 5 tests only.
 
 ## Test Private Key Custody
 
-Do not record private key bytes, secret paths, passphrases, or material that enables signing.
+Do not record private key bytes, secret paths, secret phrases, or material that enables signing.
 
 | Field | Value | Status |
 | --- | --- | --- |

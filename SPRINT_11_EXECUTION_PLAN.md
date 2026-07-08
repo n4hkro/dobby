@@ -6,7 +6,7 @@
 - Main goal: "Prove P1 release readiness against documented acceptance criteria and release procedures" (`SPRINT_IMPLEMENTATION_PLAN.md`, Sprint 11 section).
 - Expected deliverable: a release-candidate evidence package under `artifacts/release-evidence/<build-id>/`, Release build/test/format/static-scan results, installer/upgrade verification, release smoke logs, UI snapshot/performance evidence, and explicit disposition of every open release gate (`SPRINT_IMPLEMENTATION_PLAN.md`, Sprint 11; `docs/09_BUILD_RUN_AND_RELEASE.md`).
 - Why this sprint exists: Sprints 1-10 produced the P1 host/runtime/security/plugin/licensing/admin foundations, and Sprint 11 is the consolidation sprint that proves them against AC-008, AC-014, AC-024, AC-041, AC-046, and AC-047 without taking ownership away from the earlier primary AC-owning sprints (`SPRINT_IMPLEMENTATION_PLAN.md`; `artifacts/release-evidence/skeleton-local/architecture-baseline.md`).
-- Readiness: **BLOCKED PENDING HUMAN DECISION for full release-candidate closure**. Planning is safe, but implementation must not claim release readiness until open release/key/performance/installer/CI gates in Section 13 are closed (`artifacts/release-evidence/skeleton-local/decision-log.md`, `D-31` and `D-33`; `src/Dobby.Host/Trust/README.md`; `docs/_perf/README.md`; `installer/README.md`; `tools/verify-flake-sensitive-tests/README.md`).
+- Readiness: **BLOCKED UNTIL EVIDENCE PASSES for full release-candidate closure**. Planning is safe, but implementation must not claim release readiness until open release/key/performance/installer/local-gate evidence in Section 13 is complete (`artifacts/release-evidence/skeleton-local/decision-log.md`, `D-31`, `D-33`, and `D-35` through `D-39`; `src/Dobby.Host/Trust/README.md`; `docs/_perf/README.md`; `installer/README.md`; `tools/verify-flake-sensitive-tests/README.md`).
 - Strategy:
   1. Preserve the current source/docs/spec/ADR boundary and add only release-gate implementation or evidence work mapped to Sprint 11 scope (`SPRINT_IMPLEMENTATION_PLAN.md`; `docs/08_CODING_STANDARDS.md`).
   2. Convert deferred Sprint 10 release evidence into concrete Sprint 11 release-candidate evidence only after production signing/key handoff authority is present (`artifacts/release-evidence/skeleton-local/decision-log.md`, `D-31`, `D-33`; `docs/adr/ADR-0033-signing-key-ownership.md`).
@@ -351,7 +351,7 @@ Result-vs-exception split: domain failures remain `Result`/existing error values
 
 12. Run final verification matrix.
     - Action: run the strongest relevant no-restore verification the local assets allow after restore/build/publish prerequisites are satisfied: Release build, Release unit/integration/smoke, format verify, architecture/static scans, flake-sensitive Release profile, installer/upgrade smoke/manual evidence, performance evidence, and evidence contract tests.
-    - Success criteria: all non-blocked gates pass; blocked gates are explicitly marked as human decisions and prevent a "ready" release claim.
+    - Success criteria: all non-blocked gates pass; blocked gates are explicitly marked as decision/evidence gates and prevent a "ready" release claim.
     - Out-of-scope guardrail: do not mark complete with flaky/known defects or unverified assumptions (`AGENTS.md`).
 
 13. Final evidence review.
@@ -383,15 +383,17 @@ Result-vs-exception split: domain failures remain `Result`/existing error values
 
 | ID | Decision required | Why it blocks | Evidence anchor needed before implementation/closure |
 | --- | --- | --- | --- |
-| HD-S11-001 | Production vendor key handover, custody proof, public key/hash, rotation disposition, approved signing-material use, and committed GA-candidate public-key baseline for production/Admin `.dobbyrecovery` RC evidence. | Sprint 11 must replace Sprint 5 TEST-ONLY recovery fixture closure and Sprint 10 technical-path proof; production private material and signing transport details must not enter repo or evidence. | `production-recovery-handover.md`, decision-log entry, and the release evidence protocol below; source basis `docs/adr/ADR-0033-signing-key-ownership.md`, `src/Dobby.Host/Trust/README.md`, `artifacts/release-evidence/skeleton-local/test-fixture-authority.md`, `D-31`, `D-33`. |
-| HD-S11-002 | ADR-0042 baseline hardware availability, measurement process, artifact format/location, and acceptance criteria owner. | AC-014 and AC-051 release evidence depend on accepted baseline timing; developer/high-end/CI-runner timings are informational only. | `startup-performance.md` plus accepted baseline artifact; source basis `docs/adr/ADR-0042-release-gate-hardware-baseline.md`, `docs/_perf/README.md`. |
-| HD-S11-003 | MSIX package identity, signing certificate, versioning, packaging tooling, MSI fallback disposition, and self-signed certificate release-readiness if used. | Installer verification is Sprint 11 scope, but current repo has only `installer/README.md`; creating packaging files would otherwise invent release identity/tooling. | `installer-verification.md` plus approved MSIX installer files; MSI fallback policy remains in ADR but does not require MSI production/testing unless MSIX is blocked; source basis `docs/adr/ADR-0047-host-installer-and-portable-artifact-policy.md`, `docs/09_BUILD_RUN_AND_RELEASE.md`, `installer/README.md`. |
-| HD-S11-004 | Release build ID / evidence-root naming if no CI build identifier exists. | Release evidence must trace to one publish/installer artifact from the same run. | Decision entry or release-owner note naming `<build-id>`; local fallback is `local-rc-<UTC>-<shortsha>` with `artifacts/release-evidence/<build-id>/release-run-manifest.md`; `skeleton-local` is not RC evidence; source basis `docs/09_BUILD_RUN_AND_RELEASE.md`. |
-| HD-S11-005 | CI platform/workflow ownership if the Build and CI Gate requires repository workflow creation, or explicit local-only equivalent gate acceptance. | No CI workflow exists; tool docs forbid creating a new CI platform without ownership. | CI owner decision, or `repository CI ownership is absent; equivalent local release gate human-approved` in `artifacts/release-evidence/<build-id>/release-run-manifest.md` plus scripted local build/test/static-scan/smoke/hash evidence; source basis `tools/verify-flake-sensitive-tests/README.md`, `docs/09_BUILD_RUN_AND_RELEASE.md`. |
+| HD-S11-001 | PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES. Production vendor key handover, custody proof, public key/hash, rotation disposition, approved signing-material use, and committed GA-candidate public-key baseline for production/Admin `.dobbyrecovery` RC evidence may proceed only through the evidence protocol below. | Sprint 11 must replace Sprint 5 TEST-ONLY recovery fixture closure and Sprint 10 technical-path proof; production private material and signing transport details must not enter repo or evidence. | `production-recovery-handover.md`, decision-log D-35, and the release evidence protocol below; source basis `docs/adr/ADR-0033-signing-key-ownership.md`, `src/Dobby.Host/Trust/README.md`, `artifacts/release-evidence/skeleton-local/test-fixture-authority.md`, `D-31`, `D-33`. |
+| HD-S11-002 | POLICY PATH ACCEPTED ONLY; CLOSURE BLOCKED. Current local machine is disqualified for release baseline; AC-014/AC-051 closure remains blocked until an ADR-0042-compliant baseline machine/profile is named and N=100 evidence is collected. | AC-014 and AC-051 release evidence depend on accepted baseline timing; developer/high-end/CI-runner timings are informational only and do not close the gate. | `startup-performance.md` plus accepted baseline artifact; source basis `docs/adr/ADR-0042-release-gate-hardware-baseline.md`, `docs/_perf/README.md`, decision-log D-36. |
+| HD-S11-003 | MSIX-PRIMARY RC MECHANICS ACCEPTED ONLY. Self-signed certificate evidence may support RC installer mechanics only; it does not imply GA/customer production signing readiness unless release authority separately accepts that. | Installer verification is Sprint 11 scope, but current repo has only `installer/README.md`; creating packaging files would otherwise invent release identity/tooling. | `installer-verification.md` plus approved MSIX installer files; MSI fallback policy remains in ADR but does not require MSI production/testing unless MSIX is blocked; source basis `docs/adr/ADR-0047-host-installer-and-portable-artifact-policy.md`, `docs/09_BUILD_RUN_AND_RELEASE.md`, `installer/README.md`, decision-log D-37. |
+| HD-S11-004 | APPROVED. If no CI build identifier exists, use `local-rc-<UTC>-<shortsha>` with `artifacts/release-evidence/<build-id>/release-run-manifest.md`; `skeleton-local` is not RC evidence. | Release evidence must trace to one publish/installer artifact from the same run. | Decision-log D-38 and release-owner note naming `<build-id>`; source basis `docs/09_BUILD_RUN_AND_RELEASE.md`. |
+| HD-S11-005 | APPROVED. Repository CI ownership is absent for this release pass; equivalent local release gate is human-approved, but scripted local build/test/static-scan/smoke/hash evidence is still required. | No CI workflow exists; tool docs forbid creating a new CI platform without ownership. | Manifest wording must be `repository CI ownership is absent; equivalent local release gate human-approved`, never `CI passed`; source basis `tools/verify-flake-sensitive-tests/README.md`, `docs/09_BUILD_RUN_AND_RELEASE.md`, decision-log D-39. |
 
 ### Release Evidence Protocol / Acceptance Appendix
 
 This appendix carries the detailed acceptance mechanics for HD-S11-001 through HD-S11-005. It is not a new human decision; `artifacts/release-evidence/<build-id>/release-run-manifest.md` is the evidence mechanism for HD-S11-004 and HD-S11-005.
+
+Authority decisions approve the path; P1/release-ready is not closed until evidence passes.
 
 #### HD-S11-001 Production Recovery Closure
 
@@ -417,11 +419,12 @@ This appendix carries the detailed acceptance mechanics for HD-S11-001 through H
 #### HD-S11-002 Performance Closure
 
 - AC-014 release-ready closure requires ADR-0042 canonical hardware/process, N=100 samples, P95 values, and accepted artifact location. Developer workstation, high-end machine, or CI-runner timings may be recorded as informational but cannot close the canonical gate.
+- Current local machine evidence is baseline disqualification evidence, not performance evidence: `i5-1135G7 @ 2.40GHz`, `4C/8T`, approximately `8.3GB RAM`; it is disqualified for ADR-0042 release baseline because it fails the 16GB RAM minimum and, under strict reading, the 2.5GHz base-clock threshold. Informational measurements on this machine do not close AC-014/AC-051.
 
 #### HD-S11-003 Installer Closure
 
 - MSIX is the primary Sprint 11 packaging path. MSI fallback policy remains in ADR-0047, but MSI need not be produced/tested for this RC unless MSIX is blocked and fallback is explicitly exercised.
-- If self-signed certificate evidence is used, release readiness for that certificate must be separately approved; otherwise the installer evidence remains RC-blocked.
+- If self-signed certificate evidence is used, it may support MSIX-primary RC mechanics evidence only; it does not imply GA/customer production signing readiness unless release authority separately accepts that.
 - Installer evidence must record identity, signing certificate disposition, versioning, artifact naming, installer hash, upgrade path, and app data/audit/license/users/permissions/preferences preservation.
 
 #### HD-S11-004 / HD-S11-005 Release Run Manifest And Local Gate
@@ -459,7 +462,7 @@ This appendix carries the detailed acceptance mechanics for HD-S11-001 through H
 
 | File | Scenarios | AC / gate coverage |
 | --- | --- | --- |
-| `tests/Dobby.IntegrationTests/Architecture/Sprint11ReleaseEvidenceTests.cs` or `ReleaseEvidenceTests.cs` | Required RC evidence files/markers, blocked human decisions, no stale Sprint 10 deferred claim after closure. | AC-041; release evidence package. |
+| `tests/Dobby.IntegrationTests/Architecture/Sprint11ReleaseEvidenceTests.cs` or `ReleaseEvidenceTests.cs` | Required RC evidence files/markers, blocked decision/evidence gates, no stale Sprint 10 deferred claim after closure. | AC-041; release evidence package. |
 | `ProductionReleasePackagingStaticScanTests.cs` | Published output extracts `Dobby.Security.dll` resource bytes, proves source/embedded/custody GA-candidate public-key hash equality, fails if embedded hash equals Sprint 8 bootstrap hash `00bedd1f30da9726b50e6aa6929d3df5e7d5e2dbaf05f6435503c01210f5ad1f`, proves `DobbyPluginTrustProfile=Production`, and excludes sample plugin, generated smoke artifacts, devQA trust anchor/profile, TEST-ONLY recovery fixtures, private keys, `.dobbyplugin`, `.dobbylicense`, `.dobbyrecovery` unless approved evidence. | Static scans; devQA trust exclusion; HD-S11-001 artifact-byte proof. |
 | `EncodingBoundaryTests.cs` | New evidence/installer text files are UTF-8 no BOM. | AC-047. |
 | `PackageGovernanceTests.cs` | No new unapproved package pins or rejected/deferred package drift. | Package gate. |
@@ -551,7 +554,7 @@ Boundary preservation expectations:
 Open items allowed at close:
 
 - None for a "READY FOR RELEASE REVIEW" claim.
-- If any HD-S11 item remains open, Sprint 11 may close only as "BLOCKED PENDING HUMAN DECISION" with evidence, not as release-ready.
+- If any HD-S11 item remains open, Sprint 11 may close only as "BLOCKED UNTIL EVIDENCE PASSES" with evidence, not as release-ready.
 
 ## 17. Reviewer Focus
 
@@ -598,7 +601,7 @@ Open items allowed at close:
 
 - [ ] Release build/test/format/static/encoding/package-governance/plugin-boundary checks are green or explicitly blocked.
 - [ ] Unit/integration/smoke results are separated and recorded.
-- [ ] Installer, performance, UI snapshot, storage, KDF, packaging, and production recovery evidence files exist or are blocked by named human decisions.
+- [ ] Installer, performance, UI snapshot, storage, KDF, packaging, and production recovery evidence files exist or are blocked by named decision/evidence gates.
 - [ ] `artifacts/release-evidence/<build-id>/release-run-manifest.md` proves build-id, UTC timestamp, full/short SHA, pre-run clean-state, allowlisted generated evidence diff, commands, result dirs, publish/installer hashes, key hashes, old-bootstrap negative-control, redaction hash chain, and local-only gate wording if applicable.
 - [ ] HD-S11-001 evidence proves source/embedded/custody key hash equality, Sprint 8 bootstrap hash mismatch, production trust profile, DevQa/test/bootstrap absence, Admin output/report hashes, published-artifact Host import result, fail-closed redaction scan, redacted hash-chain equality, and raw cleanup presence/absence verification.
 - [ ] `PluginTrustResourcePackagingTests.cs` no longer uses the Sprint 8 bootstrap hash as the expected current production PEM hash after HD-S11-001 closure; the bootstrap hash remains a negative control.
@@ -624,5 +627,5 @@ Open items allowed at close:
 Confidence limits:
 
 - This plan is evidence-grounded enough for implementation planning, but not enough to claim release readiness.
-- Production cryptographic custody, ADR-0042 baseline process, installer package identity/signing/tooling, build ID/CI evidence ownership, and CI workflow ownership remain human decisions.
-- Implementation may start only on non-authority-gated tests/evidence scaffolding and current-surface verification. Full Sprint 11/release-candidate closure is **BLOCKED PENDING HUMAN DECISION** until HD-S11-001 through HD-S11-005 are closed or explicitly accepted as release blockers.
+- Production cryptographic custody, ADR-0042 baseline process, installer package identity/signing/tooling, build ID, and local-gate evidence remain decision/evidence gates rather than release-ready proof.
+- Implementation may start only on non-authority-gated tests/evidence scaffolding and current-surface verification. Full Sprint 11/release-candidate closure is **BLOCKED UNTIL EVIDENCE PASSES** until HD-S11-001 through HD-S11-005 produce their required evidence or are explicitly recorded as release blockers.

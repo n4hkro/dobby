@@ -240,7 +240,7 @@ Trust resource implementation evidence (2026-06-09):
 - Explicit approval: the current human requester authorized Codex to generate provisional non-main keys, complete the wiring, and leave rotation to a later replacement step.
 - Production source: `src/Dobby.Host/Trust/vendor-master-public-key.pem`; logical resource: `Dobby.Security.Trust.vendor-master-public-key.pem`; SHA-256: `00bedd1f30da9726b50e6aa6929d3df5e7d5e2dbaf05f6435503c01210f5ad1f`.
 - Dev/QA source: `src/Dobby.Host/Trust/dev-qa-public-key.pem`; logical resource: `Dobby.Security.Trust.dev-qa-public-key.pem`; SHA-256: `cb0d35dafea42031e18c778ff208d7b142b280d73ba68983d5f3afccb6a08afc`.
-- Private counterparts are intentionally outside the workspace at `C:\Users\Evaks\.dobby-signing-keys\sprint8-bootstrap`, whose ACL grants only the current owner full control. They are bootstrap material and must be rotated before production release.
+- Private counterparts are intentionally outside the workspace in an owner-only local bootstrap signing store. They are bootstrap material, remain non-release custody material, and must be rotated before production release.
 - Verification: `PluginTrustResourcePackagingTests` passed; explicit `DobbyPluginTrustProfile=Production` and `DobbyPluginTrustProfile=DevQa` builds each succeeded with 0 warnings/errors and exposed only the selected profile resource.
 
 Decision ledger:
@@ -345,7 +345,7 @@ Required before Sprint 10 implementation starts:
 - CLOSED: Sprint 10 implementation treats approved non-production or otherwise available non-release recovery generation only as technical-path proof, not production AC-007 release evidence.
 
 Decision ledger:
-- D-30 / `HD-S10-001`: APPROVED WITH CONSTRAINTS - Admin CLI uses the command-specific long-option contract in `docs/specs/admin-tool.md`. Each command accepts only its approved options; unknown, foreign, repeated, or missing required options exit `64`. Path options use `*-path` names where the value is a path. Profile values are `dev-qa` and `production`, parsed case-insensitively and emitted as canonical lowercase in reports/docs. Internal trust mapping is `dev-qa -> DobbyPluginTrustProfile.DevQa` and `production -> DobbyPluginTrustProfile.Production`. For `sign-plugin-package`, a supplied `--trust-profile` must match the trust profile derived from `--signing-profile`; mismatch exits `65`. Known profiles with unavailable signing material exit `66`. `--overwrite` defaults to false; output/report conflicts without `--overwrite` exit `65`. stdout/stderr must be redacted and must not expose secrets, raw payloads, private key paths, stack traces, or full canonical payloads.
+- D-30 / `HD-S10-001`: APPROVED WITH CONSTRAINTS - Admin CLI uses the command-specific long-option contract in `docs/specs/admin-tool.md`. Each command accepts only its approved options; unknown, foreign, repeated, or missing required options exit `64`. Path options use `*-path` names where the value is a path. Profile values are `dev-qa` and `production`, parsed case-insensitively and emitted as canonical lowercase in reports/docs. Internal trust mapping is `dev-qa -> DobbyPluginTrustProfile.DevQa` and `production -> DobbyPluginTrustProfile.Production`. For `sign-plugin-package`, a supplied `--trust-profile` must match the trust profile derived from `--signing-profile`; mismatch exits `65`. Known profiles with unavailable signing material exit `66`. `--overwrite` defaults to false; output/report conflicts without `--overwrite` exit `65`. stdout/stderr must be redacted and must not expose secrets, raw payloads, private-key filesystem locations, exception call-stack details, or full canonical payloads.
 - D-31 / `HD-S10-002`: APPROVED WITH DEFERRAL - Production/Admin `.dobbyrecovery` release evidence is deferred to Sprint 11/vendor handover. Sprint 10 may implement and test the Admin recovery technical path with fail-closed behavior, but approved non-production or otherwise available non-release recovery generation is technical-path proof only and is not production AC-007 release evidence. Production private key custody remains governed by `ADR-0033`.
 - D-32 / `HD-S10-003`: APPROVED - `verify-plugin-package` remains optional debug/smoke support and is not a Sprint 10 release gate. If implemented, it requires `--plugin-package-path` and `--report-path`, may accept `--trust-profile` and `--overwrite`, defaults `--trust-profile` to `production`, and must not replace install-time package verification.
 - D-33 / `HD-S10-004`: APPROVED - Controlling authority amendment for the AC-007 evidence split. This decision amends `SPRINT_IMPLEMENTATION_PLAN.md` so Sprint 10 owns only `create-recovery-response` AC-007 technical-path evidence, fail-closed exit `66`, redacted diagnostics, approved non-production or otherwise available non-release signing-material proof, and host-import compatibility evidence. Sprint 10 must not claim production/Admin AC-007 release evidence. Production/Admin AC-007 release evidence remains a Sprint 11/vendor handover gate covering production custody proof and release-candidate validation. D-33 supersedes only D-31's out-of-scope phrase "Does not amend `SPRINT_IMPLEMENTATION_PLAN.md`."; D-31 remains authoritative for production key custody, Sprint 11 deferral, and the prohibition on production private signing material in repository, tests, runtime resources, or source-controlled evidence.
@@ -375,3 +375,80 @@ Required before Sprint 10 implementation starts:
 
 Decision ledger:
 - D-34 / `HD-S10-005`: APPROVED - Under `ReadOnlyExpired`, local `.dobbyplugin` package install/import is blocked because it mutates host installed plugin state, install staging/runtime files, and installed plugin metadata/cache. `.dobbylicense` import remains the recovery exception to the `ReadOnlyExpired` mutation/import block. This human decision makes the existing coordinator/tests the Sprint 10 implementation baseline. `docs/specs/plugins-manager.md` and `SPRINT_10_EXECUTION_PLAN.md` must be reconciled so structurally valid signed trusted packages are not treated as package-invalid, but may install only when the current license/runtime mode allows host mutation. Under `ReadOnlyExpired`, rejection is a policy/license-mode denial, not package validation failure.
+
+## Phase B Sprint 11 Release Authority Decisions 2026-07-07
+
+Anchor: `phase-b-sprint11-release-authority-2026-07-07`
+
+Status: APPROVED WITH EVIDENCE GATES - Sprint 11 release-authority path decisions approved on 2026-07-07 after two-agent reconciliation. Authority decisions approve the path; P1/release-ready is not closed until evidence passes.
+
+Designated approver: current human requester in this Codex thread (architecture/security/release approver for this decision)
+
+Patch note: AI-assisted release-authority patch; human approval recorded from the current Codex thread.
+
+Scope:
+- Records the agreed closure path for `HD-S11-001` through `HD-S11-005`.
+- Separates authority approval from release-ready evidence completion.
+- Allows local RC evidence to use the approved local build-id and local equivalent gate wording when CI ownership is absent.
+
+Out of scope:
+- Does not claim P1/release-ready completion.
+- Does not approve production private key material, signing channel identifiers/configuration values, secret phrases, private-key filesystem locations, raw or canonical recovery payloads, exception call-stack details, raw Admin transcripts, or full local secret-bearing paths in repository, tests, runtime resources, or source-controlled evidence.
+- Does not approve the current local machine as the ADR-0042 release baseline.
+- Does not treat self-signed installer evidence as GA/customer production signing readiness.
+- Does not create or approve a CI workflow.
+
+Required before Sprint 11 release-ready closure:
+- OPEN: HD-S11-001 evidence must prove approved GA-candidate public PEM/hash/custodian, source/embedded/custody hash equality, Sprint 8 bootstrap hash negative control, Production trust profile, redacted Admin report/transcript hash chain, and published Host import result. Private material must remain outside repo and evidence.
+- OPEN: HD-S11-002 closure remains blocked until an ADR-0042-compliant baseline machine/profile is named and N=100 cold, warm, and login-to-shell evidence is collected.
+- OPEN: HD-S11-003 release-ready closure remains blocked until MSIX identity/signing/versioning/tooling evidence and install/uninstall/upgrade/data-preservation evidence are produced. Self-signed certificate evidence is RC mechanics evidence only unless release authority separately accepts it for GA/customer signing.
+- OPEN: HD-S11-004 closure requires release evidence under `artifacts/release-evidence/local-rc-<UTC>-<shortsha>/` or another release-owner-approved build id.
+- OPEN: HD-S11-005 closure requires scripted local build/test/static-scan/smoke/hash evidence and manifest wording `repository CI ownership is absent; equivalent local release gate human-approved`; it must not say `CI passed`.
+
+Decision ledger:
+- D-35 / `HD-S11-001`: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES - Production vendor key and recovery handover may proceed through approved GA-candidate public PEM/hash/custodian evidence. The required evidence is source `vendor-master-public-key.pem` hash, published `Dobby.Security.dll` embedded-resource hash, custody/handover public-key hash, equality across all three hashes, Sprint 8 bootstrap hash mismatch as a negative control, `DobbyPluginTrustProfile=Production`, absence of DevQa/bootstrap/TEST-ONLY recovery material, redacted Admin report/transcript hashes, and published Host import result. Production private key material, signing channel identifiers/configuration values, secret phrases, private-key filesystem locations, raw private material, raw or canonical recovery payloads, exception call-stack details, raw Admin transcripts, and full local secret-bearing paths remain forbidden in repo/source/tests/evidence.
+- D-36 / `HD-S11-002`: POLICY PATH ACCEPTED ONLY; CLOSURE BLOCKED - Current local machine is disqualified for release baseline. AC-014/AC-051 closure remains blocked until an ADR-0042-compliant baseline machine/profile is named and N=100 evidence is collected. Current local machine evidence is baseline disqualification evidence only: `i5-1135G7 @ 2.40GHz`, `4C/8T`, approximately `8.3GB RAM`; it fails the 16GB RAM minimum and, under strict reading, the 2.5GHz base-clock threshold. Informational measurements on this machine do not close AC-014/AC-051.
+- D-37 / `HD-S11-003`: MSIX-PRIMARY RC MECHANICS ACCEPTED ONLY - MSIX remains the primary Sprint 11 installer path for RC mechanics evidence. Self-signed certificate evidence may support RC installer mechanics only; it does not imply GA/customer production signing readiness unless release authority separately accepts that. MSI fallback remains ADR-0047 fallback only and is not produced/tested unless MSIX is blocked and fallback is explicitly approved.
+- D-38 / `HD-S11-004`: APPROVED - If no CI build identifier exists, use `local-rc-<UTC>-<shortsha>` as the release evidence build id under `artifacts/release-evidence/<build-id>/`. `skeleton-local` is not release-candidate evidence.
+- D-39 / `HD-S11-005`: APPROVED - Repository CI ownership is absent for this release pass, so the equivalent local release gate is human-approved. Manifest wording must be `repository CI ownership is absent; equivalent local release gate human-approved`, never `CI passed`. Manual attestation alone is insufficient; scripted local build/test/static-scan/smoke/artifact-hash evidence is required.
+
+### Sprint 11 Task 4/5 Authority Addendum 2026-07-07
+
+Status: APPROVED WITH EXECUTION BLOCKERS RECORDED - Task 4 and Task 5 authority decisions are durable for Sprint 11 release evidence, but neither decision closes `HD-S11-002`, `HD-S11-003`, P1, or release-ready.
+
+Scope:
+- Records the agreed durable authority stance for the Task 4 startup-performance path under `HD-S11-002`.
+- Records the agreed durable authority stance for the Task 5 installer/MSIX path under `HD-S11-003`.
+- Keeps remaining evidence gates explicit so later execution does not invent missing measurement or packaging proof.
+
+Out of scope:
+- Does not create `docs/_perf/baselines/v1.0.0.json` before measurement completes and release authority accepts the baseline artifact.
+- Does not approve the current local machine as ADR-0042 baseline hardware.
+- Does not claim Task 4, Task 5, P1, or release-ready closure.
+- Does not treat self-signed RC signing evidence as GA/customer production signing readiness.
+- Does not activate MSI fallback unless MSIX is blocked and fallback is separately approved.
+
+Task 4 authority stance for `D-36` / `HD-S11-002`:
+- Approved combination: `D1-1, D2-1-after-measurement, D3-1R, D4-1`.
+- `docs/_perf/baselines/v1.0.0.json` may be created only after measurement completes and release authority accepts the baseline artifact.
+- The future accepted baseline artifact must include the profile id, hardware/OS specification, measurement method, raw artifact hashes, P95 values, and baseline comparison source/hash.
+- Measurement must bind to the existing startup instrumentation and milestones.
+- Raw JSONL samples and `summary.json` must be hashed.
+- Manual or video fallback is not sufficient for the release gate.
+- Current local machine evidence remains disqualification evidence only and does not close AC-014/AC-051.
+
+Task 5 authority stance for `D-37` / `HD-S11-003`:
+- Approved combination: `D1-3R conditional, D2-1R, D3-1, D4-1, D5-1R, D6-1, D7-3`.
+- MSIX package identity for RC mechanics is `Dobby`.
+- Display name is `Dobby`.
+- `Dobby` as RC-only identity is not a GA/customer package identity commitment.
+- Reject package identities `Dobby.Host` and `Dobby.RC`.
+- Executable and project names may remain internal implementation names, but they must not define the MSIX package identity.
+- Self-signed RC publisher/certificate package family does not promise GA/customer commercial-certificate package family continuity.
+- RC `vN -> vN+1` upgrade evidence proves only the same RC identity/publisher/certificate line.
+- GA upgrade path requires separate authority and evidence.
+- Packaging tooling stance is Windows SDK `MakeAppx` and `SignTool`, with installed versions and paths pinned in evidence before packaging.
+- Signing stance is self-signed certificate for RC mechanics only.
+- Versioning stance requires `vN+1` to monotonically increase under the approved MSIX package version policy and share the same RC identity/family as `vN`.
+- Deterministic install/upgrade evidence requires a snapshot-based clean VM/profile.
+- MSI fallback remains dormant unless MSIX is blocked and fallback is separately approved.
