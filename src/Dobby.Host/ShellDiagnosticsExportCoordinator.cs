@@ -8,7 +8,8 @@ namespace Dobby.Host;
 public sealed class ShellDiagnosticsExportCoordinator(
     DiagnosticsExportPackageBuilder packageBuilder,
     IAuditTrail auditTrail,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    Func<Result>? outputGate = null)
 {
     public Result<DiagnosticsExportPackage> Export(
         string actorId,
@@ -22,6 +23,24 @@ public sealed class ShellDiagnosticsExportCoordinator(
 
         try
         {
+            var gate = outputGate?.Invoke() ?? Result.Success();
+            if (!gate.IsSuccess)
+            {
+                auditTrail.Append(new AuditEvent(
+                    AuditEventName.DiagnosticsExportCreated,
+                    actorId,
+                    "diagnostics.export",
+                    AuditResult.Denied,
+                    correlationId,
+                    timeProvider.GetUtcNow(),
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["uploaded"] = "false"
+                    }));
+
+                return Result.Failure<DiagnosticsExportPackage>(gate.ErrorCode ?? ErrorCode.LicenseDenied);
+            }
+
             var package = packageBuilder.Build(sourceDirectory, outputZipPath);
             auditTrail.Append(new AuditEvent(
                 AuditEventName.DiagnosticsExportCreated,

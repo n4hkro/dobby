@@ -119,5 +119,9 @@ public sealed class LicenseRuntimeModeIntegrationTests
         public void SeedDefaultContext(CurrentCustomerDeploymentContext context)
         {
         }
+
+        public void ProvisionContext(CurrentCustomerDeploymentContext context)
+        {
+        }
     }
 }

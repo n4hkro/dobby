@@ -200,7 +200,7 @@ public sealed class LoginRuntimeWorkflowTests
         {
             var credentialStore = new CredentialStore(Executor, credentialProtector, kdfPolicyResolver);
             var verifier = credentialVerifier ?? credentialStore;
-            var loginService = new LoginService(Executor, verifier, CreateOwnerBootstrapCoordinator(), Throttle);
+            var loginService = new LoginService(Executor, kdfPolicyResolver, verifier, CreateOwnerBootstrapCoordinator(), Throttle);
             var sessionService = new SessionLifecycleService(
                 new SessionStore(Executor),
                 activeSessionAccessor,

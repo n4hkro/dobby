@@ -17,8 +17,11 @@ public sealed class ShellLayoutStateTests
             "Sidebar",
             "ThirdBar",
             "MainContent",
-            "BottomStatus",
-            "MinimizedWorkStrip"
+            "ShellStatusBar",
+            "ShellNotificationHost",
+            "ShellFeedbackHost",
+            "MinimizedWorkSessionStrip",
+            "ProfileMenu"
         ]);
     }
 
@@ -31,8 +34,11 @@ public sealed class ShellLayoutStateTests
             "profile-account-info",
             "change-password",
             "manual-lock",
+            "diagnostics-export",
             "logout"
         ]);
+        state.FocusTraversal.Select(item => item.Name).ShouldContain("ProfileMenu.DiagnosticsExport");
+        state.FocusTraversal.Select(item => item.Name).ShouldContain("MinimizedWorkSessionStrip.Restore");
         state.NotificationKinds.ShouldBe([
             ShellNotificationKind.Toast,
             ShellNotificationKind.Banner,

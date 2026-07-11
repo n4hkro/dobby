@@ -4,6 +4,7 @@ using Dobby.Core;
 using Dobby.Application.Printing;
 using Dobby.Host.Settings;
 using Dobby.Host.Plugins;
+using Dobby.Host.Printing;
 using Dobby.Host.Sessions;
 using Dobby.Licensing;
 using Dobby.Security.Authentication;
@@ -37,16 +38,50 @@ public sealed record HostLoginRuntime(
     ShellDiagnosticsExportCoordinator DiagnosticsExportCoordinator,
     HostPluginPackageInstallCoordinator PluginPackageInstallCoordinator,
     HostPluginLifecycleCoordinator PluginLifecycleCoordinator,
+    HostRuntimeModeMutationGate RuntimeModeMutationGate,
     LicenseImportCoordinator LicenseImportCoordinator,
     HostPluginRuntimeCoordinator PluginRuntimeCoordinator,
     CurrentCustomerDeploymentContextService CurrentCustomerDeploymentContextService,
+    HostCustomerDeploymentContextProvisioningCoordinator CustomerDeploymentContextProvisioningCoordinator,
     ILicenseStateStore LicenseStateStore,
     ILicenseRuntimeModeProvider LicenseRuntimeModeProvider,
     IPrintTargetClassifier PrintTargetClassifier,
+    HostPrintOutputCoordinator PrintOutputCoordinator,
+    HostPrintOutputService PrintOutputService,
     IBackgroundOperationReporter BackgroundOperations,
     string DiagnosticsSourceDirectory,
     string DiagnosticsOutputZipPath) : IAsyncDisposable
 {
+    public Result<CurrentCustomerDeploymentContextResult> ProvisionCustomerDeploymentContext(
+        string actorId,
+        string customerId,
+        string deploymentId,
+        CorrelationId correlationId)
+    {
+        return CustomerDeploymentContextProvisioningCoordinator.Provision(
+            actorId,
+            customerId,
+            deploymentId,
+            correlationId);
+    }
+
+    public ValueTask<Result> ExecutePluginPrintAsync(
+        string pluginId,
+        string packageFingerprint,
+        PrintTargetDescriptor target,
+        bool isPrintToFile,
+        Func<CancellationToken, ValueTask<Result>> execute,
+        CancellationToken cancellationToken = default)
+    {
+        return PrintOutputService.ExecuteAsync(
+            pluginId,
+            packageFingerprint,
+            target,
+            isPrintToFile,
+            execute,
+            cancellationToken);
+    }
+
     public async ValueTask DisposeAsync()
     {
         PostLoginSessionRuntime.Dispose();

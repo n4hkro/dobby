@@ -23,6 +23,15 @@ public sealed class AuditEventTests
 
         var payload = auditEvent.ToCanonicalPayload();
 
+        payload.Keys.ShouldBe([
+            "timestamp",
+            "actor",
+            "action",
+            "target",
+            "result",
+            "correlationId",
+            "details"
+        ]);
         payload["timestamp"].ShouldBe("2026-05-13T07:00:00.0000000+00:00");
         payload["actor"].ShouldBe("owner");
         payload["action"].ShouldBe("user.login");
@@ -33,6 +42,34 @@ public sealed class AuditEventTests
         details.ShouldNotBeNull();
         details["culture"].ShouldBe("az-AZ");
         payload.ShouldNotContainKey("details.culture");
+        payload.Keys.Any(key => string.Equals(key, "severity", StringComparison.OrdinalIgnoreCase))
+            .ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Audit_event_canonical_payload_contract_does_not_include_severity()
+    {
+        var auditEvent = new AuditEvent(
+            AuditEventName.UserLoginFailed,
+            "owner",
+            "host",
+            AuditResult.Failed,
+            CorrelationId.New(),
+            DateTimeOffset.Parse("2026-05-13T08:00:00Z"));
+
+        var payload = auditEvent.ToCanonicalPayload();
+
+        payload.Keys.ShouldBe([
+            "timestamp",
+            "actor",
+            "action",
+            "target",
+            "result",
+            "correlationId"
+        ]);
+        payload.Keys.Any(key => string.Equals(key, "severity", StringComparison.OrdinalIgnoreCase))
+            .ShouldBeFalse();
+        typeof(AuditEvent).GetProperty("Severity").ShouldBeNull();
     }
 
     [Theory]

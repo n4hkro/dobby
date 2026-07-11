@@ -4,7 +4,8 @@ using Dobby.Security.CurrentContext;
 namespace Dobby.Host;
 
 public sealed class HostCustomerDeploymentContextStore(
-    IHostPersistenceCommandExecutor executor) : ICurrentCustomerDeploymentContextStore
+    IHostPersistenceCommandExecutor executor,
+    IHostPersistenceTransactionScope transactionScope) : ICurrentCustomerDeploymentContextStore
 {
     private const string DefaultContextId = "default";
 
@@ -43,6 +44,34 @@ public sealed class HostCustomerDeploymentContextStore(
                 context.DeploymentId,
                 Now = now
             });
+    }
+
+    public void ProvisionContext(CurrentCustomerDeploymentContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentException.ThrowIfNullOrWhiteSpace(context.CustomerId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(context.DeploymentId);
+
+        transactionScope.ExecuteInTransaction(transactionExecutor =>
+        {
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            transactionExecutor.Execute("DELETE FROM CustomerDeploymentContext;");
+            transactionExecutor.Execute(
+                """
+                INSERT INTO CustomerDeploymentContext (
+                    ContextId, CustomerId, DeploymentId, Source, ProtectionScope, SchemaVersion, CreatedAtUtc, UpdatedAtUtc
+                ) VALUES (
+                    @ContextId, @CustomerId, @DeploymentId, 'admin-operator-provisioning', 'machine-bound', 1, @Now, @Now
+                );
+                """,
+                new
+                {
+                    ContextId = DefaultContextId,
+                    context.CustomerId,
+                    context.DeploymentId,
+                    Now = now
+                });
+        });
     }
 
     private sealed class CurrentContextRow

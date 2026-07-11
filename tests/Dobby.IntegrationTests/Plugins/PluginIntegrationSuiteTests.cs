@@ -94,6 +94,7 @@ public sealed class PluginIntegrationSuiteTests
             Substitute.For<IHostPersistenceMigrator>(),
             stateStore,
             Substitute.For<IInstalledPluginMetadataCache>(),
+            CreateSuccessfulActivationStatusPersistence(),
             Substitute.For<IPluginInstallStagingArea>(),
             Substitute.For<IPluginDataRetentionStore>(),
             operationTargets,
@@ -232,6 +233,15 @@ public sealed class PluginIntegrationSuiteTests
                 snapshots.Add(value);
             }
         }
+    }
+
+    private static IHostPluginActivationStatusPersistence CreateSuccessfulActivationStatusPersistence()
+    {
+        var persistence = Substitute.For<IHostPluginActivationStatusPersistence>();
+        persistence
+            .Persist(Arg.Any<IReadOnlyList<InstalledPluginState>>(), Arg.Any<IReadOnlyList<InstalledPluginState>>())
+            .Returns(Result.Success());
+        return persistence;
     }
 
     private sealed class AllowAllTrustVerifier : IPluginTrustVerifier

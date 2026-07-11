@@ -7,17 +7,32 @@ namespace Dobby.Shell.PluginPages;
 
 public sealed class PluginPageRenderRegistry
 {
+    private readonly Action<string, string, string, ErrorCode>? actionFaultSink;
+    private readonly Func<string, Result> actionExecutionGate;
     private readonly Dictionary<Type, Func<IPluginPageModel, FrameworkElement>> renderers = new();
 
-    public static PluginPageRenderRegistry CreateDefault()
+    public PluginPageRenderRegistry(
+        Action<string, string, string, ErrorCode>? actionFaultSink = null,
+        Func<string, Result>? actionExecutionGate = null)
     {
-        var registry = new PluginPageRenderRegistry();
+        this.actionFaultSink = actionFaultSink;
+        this.actionExecutionGate = actionExecutionGate ??
+            (_ => Result.Failure(ErrorCode.LicenseDenied));
+    }
+
+    public static PluginPageRenderRegistry CreateDefault(
+        Func<string, Result> actionExecutionGate,
+        Action<string, string, string, ErrorCode>? actionFaultSink = null)
+    {
+        ArgumentNullException.ThrowIfNull(actionExecutionGate);
+
+        var registry = new PluginPageRenderRegistry(actionFaultSink, actionExecutionGate);
         registry.Register<PluginTextPageModel>(model => new TextBlock
         {
             Text = model.MessageKey,
             TextWrapping = TextWrapping.Wrap
         });
-        registry.Register<PluginActionPageModel>(RenderActionPage);
+        registry.Register<PluginActionPageModel>(registry.RenderActionPage);
         return registry;
     }
 
@@ -45,7 +60,26 @@ public sealed class PluginPageRenderRegistry
             return Result.Failure<FrameworkElement>(ErrorCode.NotFound);
         }
 
-        return Result.Success(renderer(model));
+        try
+        {
+            return Result.Success(renderer(model));
+        }
+        catch (OperationCanceledException)
+        {
+            return Result.Failure<FrameworkElement>(ErrorCode.Cancelled);
+        }
+        catch (ArgumentException)
+        {
+            return Result.Failure<FrameworkElement>(ErrorCode.InvalidInput);
+        }
+        catch (NotSupportedException)
+        {
+            return Result.Failure<FrameworkElement>(ErrorCode.UnsupportedOperation);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure<FrameworkElement>(ErrorCode.PluginInternalError);
+        }
     }
 
     private static int TypeDepth(Type type)
@@ -59,7 +93,7 @@ public sealed class PluginPageRenderRegistry
         return depth;
     }
 
-    private static FrameworkElement RenderActionPage(PluginActionPageModel model)
+    private FrameworkElement RenderActionPage(PluginActionPageModel model)
     {
         var panel = new StackPanel();
         var message = new TextBlock
@@ -85,14 +119,22 @@ public sealed class PluginPageRenderRegistry
                 button.IsEnabled = false;
                 try
                 {
-                    var result = await action.ExecuteAsync(model.Context, CancellationToken.None);
+                    var gate = actionExecutionGate(model.Context.PluginId);
+                    var result = gate.IsSuccess
+                        ? await ExecutePageActionAsync(action, model.Context).ConfigureAwait(true)
+                        : Result.Failure<PluginPageActionResult>(gate.ErrorCode ?? ErrorCode.LicenseDenied);
                     status.Text = result.IsSuccess
                         ? result.Value.MessageKey
                         : result.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString();
+                    if (!result.IsSuccess)
+                    {
+                        RecordActionFault(action, model.Context, result.ErrorCode ?? ErrorCode.PluginInternalError);
+                    }
                 }
                 catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
                 {
                     status.Text = ErrorCode.PluginInternalError.ToString();
+                    RecordActionFault(action, model.Context, ErrorCode.PluginInternalError);
                 }
                 finally
                 {
@@ -104,5 +146,48 @@ public sealed class PluginPageRenderRegistry
 
         panel.Children.Add(status);
         return panel;
+    }
+
+    private void RecordActionFault(
+        PluginPageAction action,
+        PluginPageActionContext context,
+        ErrorCode errorCode)
+    {
+        if (errorCode == ErrorCode.Cancelled)
+        {
+            return;
+        }
+
+        actionFaultSink?.Invoke(
+            context.PluginId,
+            context.RouteKey,
+            action.ActionId,
+            errorCode);
+    }
+
+    private static async Task<Result<PluginPageActionResult>> ExecutePageActionAsync(
+        PluginPageAction action,
+        PluginPageActionContext context)
+    {
+        try
+        {
+            return await action.ExecuteAsync(context, CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return Result.Failure<PluginPageActionResult>(ErrorCode.Cancelled);
+        }
+        catch (ArgumentException)
+        {
+            return Result.Failure<PluginPageActionResult>(ErrorCode.InvalidInput);
+        }
+        catch (NotSupportedException)
+        {
+            return Result.Failure<PluginPageActionResult>(ErrorCode.UnsupportedOperation);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure<PluginPageActionResult>(ErrorCode.PluginInternalError);
+        }
     }
 }

@@ -20,4 +20,22 @@ public sealed class RuntimeFolderLayoutTests
             "temp"
         ]);
     }
+
+    [Fact]
+    public void Logical_roles_stay_under_canonical_roots()
+    {
+        var options = new Dobby.Configuration.RuntimeOptions
+        {
+            DataRoot = Path.Combine(Path.GetTempPath(), "dobby-layout-" + Guid.NewGuid().ToString("N"))
+        };
+
+        RuntimeFolderLayout.PluginInstallStaging(options)
+            .ShouldBe(Path.Combine(options.DataRoot, "plugins", "staging"));
+        RuntimeFolderLayout.DiagnosticsLogs(options)
+            .ShouldBe(Path.Combine(options.DataRoot, "logs"));
+        RuntimeFolderLayout.TemporaryFiles(options)
+            .ShouldBe(Path.Combine(options.DataRoot, "temp"));
+        RuntimeFolderLayout.RequiredFolderNames.ShouldNotContain("staging");
+        RuntimeFolderLayout.RequiredFolderNames.ShouldNotContain("diagnostics");
+    }
 }

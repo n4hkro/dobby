@@ -100,6 +100,20 @@ public sealed class LoginServiceTests
 
         var result = service.Login("owner", "first owner password", null, CorrelationId.New());
 
+        result.Kind.ShouldBe(LoginAttemptKind.KdfUnsupported);
+    }
+
+    [Fact]
+    public void Unauthorized_verifier_failure_returns_validation_failed()
+    {
+        using var fixture = LoginServiceFixture.Create();
+        fixture.CreateLoginService()
+            .Login("owner", "first owner password", null, CorrelationId.New())
+            .Kind.ShouldBe(LoginAttemptKind.Success);
+        var service = fixture.CreateLoginService(new UnauthorizedCredentialVerifier());
+
+        var result = service.Login("owner", "first owner password", null, CorrelationId.New());
+
         result.Kind.ShouldBe(LoginAttemptKind.ValidationFailed);
     }
 
@@ -132,7 +146,7 @@ public sealed class LoginServiceTests
 
         public LoginThrottleService Throttle { get; }
 
-        public LoginService CreateLoginService()
+        public LoginService CreateLoginService(IUserCredentialVerifier? credentialVerifier = null)
         {
             var authOptions = new AuthOptions { PasswordKdfMode = passwordKdfMode };
             var resolver = new KdfPolicyResolver(authOptions);
@@ -142,7 +156,7 @@ public sealed class LoginServiceTests
                 new OwnerBootstrapService(protector, resolver),
                 new DurableAuditTrail(Executor),
                 Time);
-            return new LoginService(Executor, credentialStore, bootstrap, Throttle);
+            return new LoginService(Executor, resolver, credentialVerifier ?? credentialStore, bootstrap, Throttle);
         }
 
         public static LoginServiceFixture Create(string passwordKdfMode = "Pbkdf2Sha256")
@@ -173,6 +187,14 @@ public sealed class LoginServiceTests
         public byte[] Unprotect(byte[] protectedBlob, byte[] entropy)
         {
             return protectedBlob.Skip(ProtectedPrefix.Length).Select(value => (byte)(value ^ 0x5A)).ToArray();
+        }
+    }
+
+    private sealed class UnauthorizedCredentialVerifier : IUserCredentialVerifier
+    {
+        public Result<bool> VerifyPassword(string userId, string password)
+        {
+            return Result.Failure<bool>(ErrorCode.Unauthorized);
         }
     }
 }

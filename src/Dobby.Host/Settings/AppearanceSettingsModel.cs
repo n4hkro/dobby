@@ -1,11 +1,23 @@
 using Dobby.Configuration;
 using Dobby.Core;
+using Dobby.Localization;
 
 namespace Dobby.Host.Settings;
 
 public sealed class AppearanceSettingsModel(ISettingsPreferenceSource preferenceSource)
 {
     public AppThemePreference CurrentTheme => preferenceSource.Load().Value.Appearance.Theme;
+
+    public AppearanceSettingsSection BuildSection()
+    {
+        return new AppearanceSettingsSection(
+            HostResourceKeys.SettingsAppearanceTheme,
+            [
+                HostResourceKeys.SettingsAppearanceThemeLight,
+                HostResourceKeys.SettingsAppearanceThemeDark
+            ],
+            CurrentTheme);
+    }
 
     public Result SetTheme(AppThemePreference theme)
     {

@@ -1,4 +1,5 @@
 using Dobby.Core.Versioning;
+using Dobby.Localization;
 
 namespace Dobby.Host.Settings;
 
@@ -25,7 +26,7 @@ public sealed class AboutInfoProvider(
             legalLine,
             isOwner && !string.IsNullOrWhiteSpace(ownerIdentity)
                 ? ownerIdentity
-                : "About.OwnerStatus.Registered",
+                : HostResourceKeys.AboutOwnerStatusManaged,
             ShowsLicenseStatus: false);
     }
 }

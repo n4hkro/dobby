@@ -15,6 +15,16 @@
   <Window.Resources>
     <host:WorkspaceTabStripMaxWidthConverter x:Key="WorkspaceTabStripMaxWidthConverter" />
     <host:WorkspaceTabWidthConverter x:Key="WorkspaceTabWidthConverter" />
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    <Thickness x:Key="Shell.ProfileMenu.Offset">0,44,0,0</Thickness>
+    <Thickness x:Key="Shell.Spacing.BottomTiny">0,0,0,4</Thickness>
+    <Thickness x:Key="Shell.Spacing.BottomSmall">0,0,0,6</Thickness>
+    <Thickness x:Key="Shell.Spacing.BottomMedium">0,0,0,8</Thickness>
+    <Thickness x:Key="Shell.Spacing.BottomLarge">0,0,0,12</Thickness>
+    <Thickness x:Key="Shell.Spacing.RightSmall">0,0,6,0</Thickness>
+    <Thickness x:Key="Shell.Spacing.RightMedium">0,0,8,0</Thickness>
+    <Thickness x:Key="Shell.Spacing.TopSmall">0,6,0,0</Thickness>
+    <Thickness x:Key="Shell.Spacing.TopLarge">0,12,0,0</Thickness>
 
     <Style x:Key="ShellButtonBaseStyle" TargetType="{x:Type Button}">
       <Setter Property="BorderThickness" Value="{DynamicResource Dobby.Focus.Thickness}" />
@@ -33,7 +43,7 @@
                 Background="{TemplateBinding Background}"
                 BorderBrush="{TemplateBinding BorderBrush}"
                 BorderThickness="{TemplateBinding BorderThickness}"
-                CornerRadius="{DynamicResource Dobby.Radius.Large}">
+                CornerRadius="{DynamicResource Dobby.Radius.Medium}">
               <ContentPresenter
                   Margin="{TemplateBinding Padding}"
                   HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -56,28 +66,26 @@
       </Setter>
     </Style>
 
-    <Style
-        x:Key="WorkspaceTabButtonStyle"
-        BasedOn="{StaticResource ShellButtonBaseStyle}"
-        TargetType="{x:Type Button}">
+    <Style x:Key="FlatShellButtonStyle" BasedOn="{StaticResource ShellButtonBaseStyle}" TargetType="{x:Type Button}">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+
+    <Style x:Key="WorkspaceTabButtonStyle" BasedOn="{StaticResource ShellButtonBaseStyle}" TargetType="{x:Type Button}">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="Padding" Value="{DynamicResource Dobby.Spacing.Medium}" />
       <Setter Property="HorizontalContentAlignment" Value="Left" />
     </Style>
 
-    <Style
-        x:Key="IconButtonStyle"
-        BasedOn="{StaticResource ShellButtonBaseStyle}"
-        TargetType="{x:Type Button}">
+    <Style x:Key="IconButtonStyle" BasedOn="{StaticResource ShellButtonBaseStyle}" TargetType="{x:Type Button}">
       <Setter Property="MinWidth" Value="36" />
       <Setter Property="MinHeight" Value="34" />
       <Setter Property="Padding" Value="{DynamicResource Dobby.Spacing.Small}" />
     </Style>
 
-    <Style
-        x:Key="WorkspaceNewTabButtonStyle"
-        TargetType="{x:Type Button}">
+    <Style x:Key="WorkspaceNewTabButtonStyle" TargetType="{x:Type Button}">
       <Setter Property="Width" Value="34" />
       <Setter Property="Height" Value="34" />
       <Setter Property="Background" Value="Transparent" />
@@ -89,13 +97,8 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="{x:Type Button}">
-            <Border
-                x:Name="NewTabButtonRoot"
-                Background="{TemplateBinding Background}"
-                CornerRadius="{DynamicResource Dobby.Radius.Large}">
-              <ContentPresenter
-                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            <Border x:Name="NewTabButtonRoot" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource Dobby.Radius.Large}">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
@@ -110,9 +113,7 @@
       </Setter>
     </Style>
 
-    <Style
-        x:Key="WorkspaceTabCloseButtonStyle"
-        TargetType="{x:Type Button}">
+    <Style x:Key="WorkspaceTabCloseButtonStyle" TargetType="{x:Type Button}">
       <Setter Property="Width" Value="28" />
       <Setter Property="Height" Value="28" />
       <Setter Property="Background" Value="Transparent" />
@@ -124,13 +125,8 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="{x:Type Button}">
-            <Border
-                x:Name="CloseButtonRoot"
-                Background="{TemplateBinding Background}"
-                CornerRadius="{DynamicResource Dobby.Radius.Large}">
-              <ContentPresenter
-                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            <Border x:Name="CloseButtonRoot" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource Dobby.Radius.Large}">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
@@ -158,9 +154,7 @@
         <Setter.Value>
           <ControlTemplate TargetType="{x:Type Button}">
             <Border Background="{TemplateBinding Background}">
-              <ContentPresenter
-                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
             </Border>
           </ControlTemplate>
         </Setter.Value>
@@ -175,10 +169,7 @@
       </Style.Triggers>
     </Style>
 
-    <Style
-        x:Key="WindowCloseButtonStyle"
-        BasedOn="{StaticResource WindowChromeButtonStyle}"
-        TargetType="{x:Type Button}">
+    <Style x:Key="WindowCloseButtonStyle" BasedOn="{StaticResource WindowChromeButtonStyle}" TargetType="{x:Type Button}">
       <Style.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
           <Setter Property="Background" Value="{DynamicResource Dobby.Brush.ChartRose}" />
@@ -186,23 +177,6 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-
-    <Style
-        x:Key="TopNavPillStyle"
-        BasedOn="{StaticResource ShellButtonBaseStyle}"
-        TargetType="{x:Type Button}">
-      <Setter Property="MinWidth" Value="72" />
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="Padding" Value="{DynamicResource Dobby.Spacing.Small}" />
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding IsActive}" Value="True">
-          <Setter Property="Background" Value="{DynamicResource Dobby.Brush.ControlActive}" />
-          <Setter Property="Foreground" Value="{DynamicResource Dobby.Brush.ControlActiveText}" />
-        </DataTrigger>
-      </Style.Triggers>
-    </Style>
-
   </Window.Resources>
 
   <shellChrome:WindowChrome.WindowChrome>
@@ -219,32 +193,20 @@
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <Grid
-        x:Name="ShellChrome"
-        Grid.Row="0"
-        Background="{DynamicResource Dobby.Brush.ShellChrome}">
-      <Grid
-          x:Name="WindowTitleBar"
-          MinHeight="{DynamicResource Dobby.Shell.ChromeHeight}"
-          MouseLeftButtonDown="WindowTitleBar_MouseLeftButtonDown">
+    <Grid x:Name="ShellChrome" Grid.Row="0" Background="{DynamicResource Dobby.Brush.ShellChrome}">
+      <Grid x:Name="WindowTitleBar" MinHeight="{DynamicResource Dobby.Shell.ChromeHeight}" MouseLeftButtonDown="WindowTitleBar_MouseLeftButtonDown">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="*" MinWidth="0" />
           <ColumnDefinition Width="{DynamicResource Dobby.Shell.CaptionButtonReserveGridLength}" />
         </Grid.ColumnDefinitions>
 
-        <StackPanel
-            x:Name="WorkspaceTabCluster"
-            Grid.Column="0"
-            Orientation="Horizontal"
-            shellChrome:WindowChrome.IsHitTestVisibleInChrome="True">
-          <ItemsControl
-              x:Name="WorkspaceTabStrip"
-              ClipToBounds="True"
-              ItemsSource="{Binding WorkspaceTabs}"
-              shellChrome:WindowChrome.IsHitTestVisibleInChrome="True">
+        <StackPanel x:Name="WorkspaceTabCluster" Grid.Column="0" Orientation="Horizontal" shellChrome:WindowChrome.IsHitTestVisibleInChrome="True">
+          <ItemsControl x:Name="WorkspaceTabStrip" ClipToBounds="True" ItemsSource="{Binding WorkspaceTabs}" shellChrome:WindowChrome.IsHitTestVisibleInChrome="True">
             <ItemsControl.MaxWidth>
               <MultiBinding Converter="{StaticResource WorkspaceTabStripMaxWidthConverter}">
                 <Binding ElementName="WindowTitleBar" Path="ActualWidth" />
@@ -259,10 +221,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Grid
-                    Height="{DynamicResource Dobby.Shell.TabHeight}"
-                    Margin="{DynamicResource Dobby.Spacing.Tiny}"
-                    MaxWidth="{DynamicResource Dobby.Shell.TabWidth}">
+                <Grid Height="{DynamicResource Dobby.Shell.TabHeight}" Margin="{DynamicResource Dobby.Spacing.Tiny}" MaxWidth="{DynamicResource Dobby.Shell.TabWidth}">
                   <Grid.Width>
                     <MultiBinding Converter="{StaticResource WorkspaceTabWidthConverter}">
                       <Binding ElementName="WorkspaceTabStrip" Path="MaxWidth" />
@@ -287,11 +246,7 @@
                       Style="{StaticResource WorkspaceTabButtonStyle}"
                       AutomationProperties.Name="{Binding Title}"
                       shellChrome:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                        Text="{Binding Title}"
-                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock VerticalAlignment="Center" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
                   </Button>
                   <Button
                       Grid.Column="1"
@@ -300,15 +255,8 @@
                       Style="{StaticResource WorkspaceTabCloseButtonStyle}"
                       AutomationProperties.Name="{Binding DataContext.WorkspaceCloseTabLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                       shellChrome:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Viewbox
-                        Width="12"
-                        Height="12">
-                      <Path
-                          Data="M4,4 L16,16 M16,4 L4,16"
-                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                          StrokeEndLineCap="Round"
-                          StrokeStartLineCap="Round"
-                          StrokeThickness="1.6" />
+                    <Viewbox Width="12" Height="12">
+                      <Path Data="M4,4 L16,16 M16,4 L4,16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" StrokeEndLineCap="Round" StrokeStartLineCap="Round" StrokeThickness="1.6" />
                     </Viewbox>
                   </Button>
                 </Grid>
@@ -329,180 +277,368 @@
               Style="{StaticResource WorkspaceNewTabButtonStyle}"
               AutomationProperties.Name="{Binding WorkspaceNewTabLabel}"
               shellChrome:WindowChrome.IsHitTestVisibleInChrome="True">
-            <Viewbox
-                Width="12"
-                Height="12">
-              <Path
-                  Data="M10,3 V17 M3,10 H17"
-                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  StrokeEndLineCap="Round"
-                  StrokeStartLineCap="Round"
-                  StrokeThickness="1.6" />
+            <Viewbox Width="12" Height="12">
+              <Path Data="M10,3 V17 M3,10 H17" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" StrokeEndLineCap="Round" StrokeStartLineCap="Round" StrokeThickness="1.6" />
             </Viewbox>
           </Button>
         </StackPanel>
 
-        <StackPanel
-            x:Name="WindowCaptionButtons"
-            Grid.Column="2"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Top"
-            Orientation="Horizontal"
-            shellChrome:WindowChrome.IsHitTestVisibleInChrome="True">
-          <Button
-              x:Name="WindowMinimizeButton"
-              Click="WindowMinimize_Click"
-              Style="{StaticResource WindowChromeButtonStyle}"
-              AutomationProperties.Name="{Binding WindowMinimizeLabel}">
-            <Viewbox
-                Width="{DynamicResource Dobby.Icon.Size}"
-                Height="{DynamicResource Dobby.Icon.Size}">
-              <Path
-                  Data="M4,10 H16"
-                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  StrokeEndLineCap="Square"
-                  StrokeStartLineCap="Square"
-                  StrokeThickness="1.5" />
+        <StackPanel x:Name="WindowCaptionButtons" Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal" shellChrome:WindowChrome.IsHitTestVisibleInChrome="True">
+          <Button x:Name="WindowMinimizeButton" Click="WindowMinimize_Click" Style="{StaticResource WindowChromeButtonStyle}" AutomationProperties.Name="{Binding WindowMinimizeLabel}">
+            <Viewbox Width="{DynamicResource Dobby.Icon.Size}" Height="{DynamicResource Dobby.Icon.Size}">
+              <Path Data="M4,10 H16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" StrokeThickness="1.5" />
             </Viewbox>
           </Button>
-          <Button
-              x:Name="WindowMaximizeRestoreButton"
-              Click="WindowMaximizeRestore_Click"
-              Style="{StaticResource WindowChromeButtonStyle}"
-              AutomationProperties.Name="{Binding WindowMaximizeLabel}">
-            <Viewbox
-                Width="{DynamicResource Dobby.Icon.Size}"
-                Height="{DynamicResource Dobby.Icon.Size}">
-              <Path
-                  Data="M5,5 H15 V15 H5 Z"
-                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  StrokeThickness="1.5" />
+          <Button x:Name="WindowMaximizeRestoreButton" Click="WindowMaximizeRestore_Click" Style="{StaticResource WindowChromeButtonStyle}" AutomationProperties.Name="{Binding WindowMaximizeLabel}">
+            <Viewbox Width="{DynamicResource Dobby.Icon.Size}" Height="{DynamicResource Dobby.Icon.Size}">
+              <Path Data="M5,5 H15 V15 H5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" StrokeThickness="1.5" />
             </Viewbox>
           </Button>
-          <Button
-              x:Name="WindowCloseButton"
-              Click="WindowClose_Click"
-              Style="{StaticResource WindowCloseButtonStyle}"
-              AutomationProperties.Name="{Binding WindowCloseLabel}">
-            <Viewbox
-                Width="{DynamicResource Dobby.Icon.Size}"
-                Height="{DynamicResource Dobby.Icon.Size}">
-              <Path
-                  Data="M5,5 L15,15 M15,5 L5,15"
-                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  StrokeEndLineCap="Square"
-                  StrokeStartLineCap="Square"
-                  StrokeThickness="1.5" />
+          <Button x:Name="WindowCloseButton" Click="WindowClose_Click" Style="{StaticResource WindowCloseButtonStyle}" AutomationProperties.Name="{Binding WindowCloseLabel}">
+            <Viewbox Width="{DynamicResource Dobby.Icon.Size}" Height="{DynamicResource Dobby.Icon.Size}">
+              <Path Data="M5,5 L15,15 M15,5 L5,15" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" StrokeThickness="1.5" />
             </Viewbox>
           </Button>
         </StackPanel>
       </Grid>
     </Grid>
 
-    <Grid
-        x:Name="TopToolbar"
-        Grid.Row="1"
-        Margin="{DynamicResource Dobby.Spacing.Medium}">
-      <Grid
-          x:Name="ShellHeader">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="220" />
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="220" />
-        </Grid.ColumnDefinitions>
-
-        <StackPanel
-            Grid.Column="0"
-            Orientation="Horizontal">
-          <Viewbox
-              x:Name="ShellBrandMark"
-              Width="28"
-              Height="28"
-              Margin="{DynamicResource Dobby.Spacing.Small}">
-            <Path
-                Data="M4,4 H11 C16,4 20,8 20,14 C20,20 16,24 11,24 H4 Z M9,9 V19 H11 C14,19 16,17 16,14 C16,11 14,9 11,9 Z"
-                Fill="{DynamicResource Dobby.Brush.Text}" />
-          </Viewbox>
-          <TextBlock
-              Margin="{DynamicResource Dobby.Spacing.Small}"
-              VerticalAlignment="Center"
-              FontSize="{DynamicResource Dobby.FontSize.Body}"
-              FontWeight="SemiBold"
-              Foreground="{DynamicResource Dobby.Brush.Text}"
-              Text="{Binding BrandName}" />
-        </StackPanel>
-
-        <ItemsControl
-            x:Name="CenteredTopToolbar"
-            Grid.Column="1"
-            HorizontalAlignment="Center"
-            ItemsSource="{Binding TopNavigation}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <Button
-                  Margin="{DynamicResource Dobby.Spacing.Tiny}"
-                  Click="Navigation_Click"
-                  Content="{Binding Label}"
-                  Tag="{Binding RouteKey}"
-                  Style="{StaticResource TopNavPillStyle}" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
-        <StackPanel
-            Grid.Column="2"
-            HorizontalAlignment="Right"
-            Orientation="Horizontal">
-          <Button
-              Margin="{DynamicResource Dobby.Spacing.Tiny}"
-              Click="ThemeToggle_Click"
-              Style="{StaticResource IconButtonStyle}"
-              AutomationProperties.Name="{Binding ThemeToggleLabel}">
-            <Viewbox
-                Width="{DynamicResource Dobby.Icon.Size}"
-                Height="{DynamicResource Dobby.Icon.Size}">
-              <Path
-                  Data="M12,3 A9,9 0 1 0 21,12 A7,7 0 0 1 12,3"
-                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
-            </Viewbox>
-          </Button>
-          <Button
-              x:Name="ProfileMenuButton"
-              Margin="{DynamicResource Dobby.Spacing.Tiny}"
-              Style="{StaticResource IconButtonStyle}"
-              AutomationProperties.Name="{Binding ProfileAccountInfoLabel}">
-            <Viewbox
-                Width="{DynamicResource Dobby.Icon.Size}"
-                Height="{DynamicResource Dobby.Icon.Size}">
-              <Path
-                  Data="M12,4 A4,4 0 1 1 12,12 A4,4 0 1 1 12,4 M5,21 C6,16 9,14 12,14 C15,14 18,16 19,21 Z"
-                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
-            </Viewbox>
-          </Button>
-        </StackPanel>
-      </Grid>
-    </Grid>
-
-    <Grid
-        x:Name="ShellBody"
-        Grid.Row="2"
-        Margin="{DynamicResource Dobby.Spacing.Medium}">
+    <Grid x:Name="TopToolbar" Grid.Row="1" Margin="{DynamicResource Dobby.Spacing.Medium}">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="72" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <StackPanel Grid.Column="0" Orientation="Horizontal">
+        <Viewbox x:Name="ShellBrandMark" Width="28" Height="28" Margin="{DynamicResource Dobby.Spacing.Small}">
+          <Path Data="M4,4 H11 C16,4 20,8 20,14 C20,20 16,24 11,24 H4 Z M9,9 V19 H11 C14,19 16,17 16,14 C16,11 14,9 11,9 Z" Fill="{DynamicResource Dobby.Brush.Text}" />
+        </Viewbox>
+        <TextBlock Margin="{DynamicResource Dobby.Spacing.Small}" VerticalAlignment="Center" FontSize="{DynamicResource Dobby.FontSize.Body}" FontWeight="SemiBold" Text="{Binding BrandName}" />
+      </StackPanel>
+
+      <ItemsControl x:Name="CenteredTopToolbar" Grid.Column="1" HorizontalAlignment="Center" ItemsSource="{Binding TopNavigation}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button Margin="{DynamicResource Dobby.Spacing.Tiny}" Click="Navigation_Click" Tag="{Binding RouteKey}" Style="{StaticResource FlatShellButtonStyle}">
+              <TextBlock Text="{Binding Label}" TextWrapping="NoWrap" />
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <StackPanel Grid.Column="2" HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button x:Name="SidebarToggleButton" Margin="{DynamicResource Dobby.Spacing.Tiny}" Click="SidebarToggle_Click" Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding SidebarToggleLabel}">
+          <Viewbox Width="{DynamicResource Dobby.Icon.Size}" Height="{DynamicResource Dobby.Icon.Size}">
+            <Path Data="M3,5 H17 M3,10 H17 M3,15 H17" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" StrokeThickness="1.5" />
+          </Viewbox>
+        </Button>
+        <Button Margin="{DynamicResource Dobby.Spacing.Tiny}" Click="ThemeToggle_Click" Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding ThemeToggleLabel}">
+          <Viewbox Width="{DynamicResource Dobby.Icon.Size}" Height="{DynamicResource Dobby.Icon.Size}">
+            <Path Data="M12,3 A9,9 0 1 0 21,12 A7,7 0 0 1 12,3" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+          </Viewbox>
+        </Button>
+        <Button x:Name="ProfileMenuButton" Margin="{DynamicResource Dobby.Spacing.Tiny}" Click="ProfileMenuButton_Click" Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding ProfileAccountInfoLabel}">
+          <Viewbox Width="{DynamicResource Dobby.Icon.Size}" Height="{DynamicResource Dobby.Icon.Size}">
+            <Path Data="M12,4 A4,4 0 1 1 12,12 A4,4 0 1 1 12,4 M5,21 C6,16 9,14 12,14 C15,14 18,16 19,21 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+          </Viewbox>
+        </Button>
+      </StackPanel>
+
+      <Border
+          x:Name="ProfileMenu"
+          Grid.Column="2"
+          Margin="{StaticResource Shell.ProfileMenu.Offset}"
+          Padding="{DynamicResource Dobby.Spacing.Medium}"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Top"
+          Panel.ZIndex="20"
+          Background="{DynamicResource Dobby.Brush.Surface}"
+          BorderBrush="{DynamicResource Dobby.Brush.Border}"
+          BorderThickness="{DynamicResource Dobby.Focus.Thickness}"
+          CornerRadius="{DynamicResource Dobby.Radius.Medium}"
+          Visibility="Collapsed">
+        <StackPanel Width="280">
+          <TextBlock FontWeight="SemiBold" Text="{Binding ProfileAccountInfoLabel}" />
+          <TextBlock x:Name="ProfileAccountText" Margin="{StaticResource Shell.Spacing.BottomMedium}" TextWrapping="Wrap" />
+          <Button x:Name="ProfileAccountInfoButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="ProfileAccountInfo_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ProfileAccountInfoLabel}" />
+          <PasswordBox x:Name="NewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" />
+          <CheckBox x:Name="PasswordChangeRememberMeCheckBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" Content="{Binding RememberMeLabel}" />
+          <Button x:Name="ChangePasswordButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="ChangePassword_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ChangePasswordLabel}" />
+          <Button x:Name="ManualLockButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="ManualLock_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ManualLockLabel}" />
+          <Button x:Name="LogoutButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="Logout_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding LogoutLabel}" />
+          <Button x:Name="DiagnosticsExportButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="DiagnosticsExport_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding DiagnosticsExportLabel}" />
+          <TextBlock x:Name="AccountStatusText" Text="{Binding AccountStatusMessageText}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Grid x:Name="ShellBody" Grid.Row="2" Margin="{DynamicResource Dobby.Spacing.Medium}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition x:Name="SidebarColumn" Width="240" />
+        <ColumnDefinition x:Name="ThirdBarColumn" Width="220" />
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
-      <Grid
-          x:Name="ShellSidebar"
-          Grid.Column="0"
-          Margin="{DynamicResource Dobby.Spacing.Small}">
-        <Grid x:Name="Sidebar" />
-      </Grid>
+      <Border x:Name="Sidebar" Grid.Column="0" Margin="{DynamicResource Dobby.Spacing.Small}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <ItemsControl x:Name="SidebarNavigationList" ItemsSource="{Binding SidebarNavigation}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="{StaticResource Shell.Spacing.BottomSmall}">
+                  <DockPanel LastChildFill="True">
+                    <Button Width="28" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="SidebarNodeToggle_Click" Tag="{Binding NodeId}" Style="{StaticResource FlatShellButtonStyle}" Visibility="{Binding HasChildren, Converter={StaticResource BooleanToVisibilityConverter}}">
+                      <Viewbox Width="10" Height="10">
+                        <Path x:Name="SidebarNodeChevron" Data="M5,3 L10,8 L5,13" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" StrokeThickness="1.5" />
+                      </Viewbox>
+                    </Button>
+                    <Button Click="Navigation_Click" Tag="{Binding RouteKey}" Style="{StaticResource FlatShellButtonStyle}" AutomationProperties.Name="{Binding Label}">
+                      <DockPanel LastChildFill="True">
+                        <Viewbox Width="16" Height="16" Margin="{StaticResource Shell.Spacing.RightMedium}">
+                          <Path Data="{Binding IconPathData}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" Stretch="Uniform" />
+                        </Viewbox>
+                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
+                    </Button>
+                  </DockPanel>
+                </StackPanel>
+                <DataTemplate.Triggers>
+                  <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <Setter TargetName="SidebarNodeChevron" Property="Data" Value="M3,8 L8,3 L13,8" />
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                    <Setter TargetName="SidebarNodeChevron" Property="Data" Value="M3,5 L8,10 L13,5" />
+                  </DataTrigger>
+                </DataTemplate.Triggers>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Border>
+
+      <Border x:Name="ThirdBar" Grid.Column="1" Margin="{DynamicResource Dobby.Spacing.Small}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+        <StackPanel>
+          <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" FontWeight="SemiBold" Text="{Binding ThirdBarLabel}" />
+          <ItemsControl x:Name="ThirdBarNavigationList" ItemsSource="{Binding ThirdBarNavigation}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="Navigation_Click" Tag="{Binding RouteKey}" Style="{StaticResource FlatShellButtonStyle}">
+                  <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Border x:Name="MainContent" Grid.Column="2" Margin="{DynamicResource Dobby.Spacing.Small}" Padding="{DynamicResource Dobby.Spacing.Medium}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <Border x:Name="WorkSessionWarningPanel" Margin="{StaticResource Shell.Spacing.BottomLarge}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Control}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}" Visibility="Collapsed">
+              <StackPanel>
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" Text="{Binding WorkSessionNavigationWarningLabel}" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal">
+                  <Button x:Name="WorkSessionStayButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="WorkSessionStay_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding WorkSessionStayLabel}" />
+                  <Button x:Name="WorkSessionMinimizeButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="WorkSessionMinimize_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding WorkSessionMinimizeLabel}" Visibility="{Binding WorkSessionMinimizeVisibility}" />
+                  <Button x:Name="WorkSessionCloseButton" Click="WorkSessionClose_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding WorkSessionCloseLabel}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <StackPanel x:Name="HomePanel" Visibility="{Binding HomePanelVisibility}">
+              <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" FontSize="{DynamicResource Dobby.FontSize.Heading}" FontWeight="SemiBold" Text="{Binding BrandName}" />
+              <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel x:Name="PluginsSurface" Visibility="{Binding PluginsSurfaceVisibility}">
+              <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" FontSize="{DynamicResource Dobby.FontSize.Heading}" FontWeight="SemiBold" Text="{Binding PluginsManagerHeading}" />
+              <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" Text="{Binding PluginsManagerFeedbackText}" TextWrapping="Wrap" />
+              <ListBox x:Name="PluginsManagerList" BorderThickness="0" ItemsSource="{Binding PluginsManagerItems}" SelectionChanged="PluginsManagerList_SelectionChanged" SelectedValuePath="PluginId" Visibility="{Binding PluginsManagerListVisibility}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="{StaticResource Shell.Spacing.BottomSmall}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Control}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+                      <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                        <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+                        <TextBlock Margin="{StaticResource Shell.Spacing.TopSmall}" Text="{Binding StatusSummary}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <TextBlock x:Name="PluginsManagerSelectedDetailTextBlock" Margin="{StaticResource Shell.Spacing.BottomMedium}" Text="{Binding PluginsManagerSelectedDetailText}" TextWrapping="Wrap" Visibility="{Binding PluginsManagerListVisibility}" />
+              <ItemsControl x:Name="PluginsManagerDetailRows" Margin="{StaticResource Shell.Spacing.BottomMedium}" ItemsSource="{Binding PluginsManagerSelectedDetailRows}" Visibility="{Binding PluginsManagerListVisibility}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Margin="{StaticResource Shell.Spacing.BottomTiny}">
+                      <TextBlock FontWeight="SemiBold" Text="{Binding Label}" />
+                      <TextBlock Text="{Binding Value}" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock x:Name="PluginsManagerEmptyText" Margin="{StaticResource Shell.Spacing.BottomMedium}" Text="{Binding PluginsManagerEmptyText}" Visibility="{Binding PluginsManagerEmptyVisibility}" />
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="PluginsManagerInstallButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="PluginsManagerInstall_Click" Content="{Binding PluginsManagerInstallLabel}" IsEnabled="{Binding PluginsManagerInstallIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" Visibility="{Binding PluginsManagerInstallVisibility}" />
+                <Button x:Name="PluginsManagerEnableButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="PluginsManagerEnable_Click" Content="{Binding PluginsManagerEnableLabel}" IsEnabled="{Binding PluginsManagerEnableIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" />
+                <Button x:Name="PluginsManagerDisableButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="PluginsManagerDisable_Click" Content="{Binding PluginsManagerDisableLabel}" IsEnabled="{Binding PluginsManagerDisableIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" />
+                <Button x:Name="PluginsManagerUninstallButton" Click="PluginsManagerUninstall_Click" Content="{Binding PluginsManagerUninstallLabel}" IsEnabled="{Binding PluginsManagerUninstallIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" />
+              </StackPanel>
+              <StackPanel x:Name="LicensePanel" Margin="{StaticResource Shell.Spacing.TopLarge}" Visibility="{Binding LicensePanelVisibility}">
+                <TextBlock FontWeight="SemiBold" Text="{Binding LicenseHeading}" />
+                <TextBlock Margin="{StaticResource Shell.Spacing.TopSmall}" FontWeight="SemiBold" Text="{Binding LicenseStatusLabel}" Visibility="{Binding LicenseStatusVisibility}" />
+                <TextBlock Text="{Binding LicenseRuntimeModeText}" TextWrapping="Wrap" Visibility="{Binding LicenseStatusVisibility}" />
+                <TextBlock Margin="{StaticResource Shell.Spacing.TopSmall}" FontWeight="SemiBold" Text="{Binding LicenseListLabel}" Visibility="{Binding LicenseListVisibility}" />
+                <TextBlock Text="{Binding LicenseListText}" TextWrapping="Wrap" Visibility="{Binding LicenseListVisibility}" />
+                <TextBlock Margin="{StaticResource Shell.Spacing.TopSmall}" FontWeight="SemiBold" Text="{Binding LicenseDetailLabel}" Visibility="{Binding LicenseDetailVisibility}" />
+                <TextBlock Text="{Binding LicenseDetailText}" TextWrapping="Wrap" Visibility="{Binding LicenseDetailVisibility}" />
+                <Button
+                    x:Name="LicenseImportButton"
+                    Margin="{StaticResource Shell.Spacing.TopSmall}"
+                    Click="LicenseImport_Click"
+                    Content="{Binding LicenseImportLabel}"
+                    IsEnabled="{Binding LicenseImportIsEnabled}"
+                    Style="{StaticResource FlatShellButtonStyle}"
+                    Visibility="{Binding LicenseImportVisibility}" />
+                <TextBlock Margin="{StaticResource Shell.Spacing.TopSmall}" Text="{Binding LicenseFeedbackText}" TextWrapping="Wrap" />
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel x:Name="SettingsSurface" Visibility="{Binding SettingsSurfaceVisibility}">
+              <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" FontSize="{DynamicResource Dobby.FontSize.Heading}" FontWeight="SemiBold" Text="{Binding SettingsHeading}" />
+              <ItemsControl x:Name="SettingsCategoryList" Margin="{StaticResource Shell.Spacing.BottomLarge}" ItemsSource="{Binding SettingsCategories}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding Label}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <StackPanel x:Name="AppearanceSettingsSurface" Margin="{StaticResource Shell.Spacing.BottomLarge}">
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomSmall}" FontWeight="SemiBold" Text="{Binding SettingsAppearanceLabel}" />
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding SettingsAppearanceThemeLabel}" />
+                <ComboBox
+                    x:Name="AppearanceThemeSelector"
+                    DisplayMemberPath="Label"
+                    ItemsSource="{Binding AppearanceThemeOptions}"
+                    SelectedValue="{Binding AppearanceSelectedTheme, Mode=OneWay}"
+                    SelectedValuePath="Theme"
+                    SelectionChanged="AppearanceThemeSelector_SelectionChanged" />
+              </StackPanel>
+
+              <StackPanel x:Name="AccountSettingsSurface" Margin="{StaticResource Shell.Spacing.BottomLarge}">
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomSmall}" FontWeight="SemiBold" Text="{Binding SettingsAccountLabel}" />
+                <TextBlock x:Name="SettingsAccountProfileText" Margin="{StaticResource Shell.Spacing.BottomMedium}" TextWrapping="Wrap" />
+                <PasswordBox x:Name="SettingsNewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" />
+                <CheckBox x:Name="SettingsPasswordChangeRememberMeCheckBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" Content="{Binding RememberMeLabel}" />
+                <Button x:Name="SettingsChangePasswordButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="SettingsChangePassword_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ChangePasswordLabel}" />
+              </StackPanel>
+
+              <StackPanel x:Name="SecuritySessionSettingsSurface" Margin="{StaticResource Shell.Spacing.BottomLarge}">
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomSmall}" FontWeight="SemiBold" Text="{Binding SettingsSecuritySessionLabel}" />
+                <CheckBox x:Name="SecurityAutoLockEnabledCheckBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" Content="{Binding SettingsSecuritySessionAutoLockEnabledLabel}" IsChecked="{Binding SecurityAutoLockEnabled, Mode=OneWay}" />
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding SettingsSecuritySessionAutoLockMinutesLabel}" />
+                <TextBox x:Name="SecurityAutoLockMinutesInput" Margin="{StaticResource Shell.Spacing.BottomSmall}" Text="{Binding SecurityAutoLockMinutesText, Mode=OneWay}" />
+                <Button x:Name="SecurityAutoLockSaveButton" Click="SecurityAutoLockSave_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding SettingsSecuritySessionSaveLabel}" />
+              </StackPanel>
+
+              <StackPanel x:Name="UserManagementSettingsSurface" Margin="{StaticResource Shell.Spacing.BottomLarge}" Visibility="{Binding UserManagementSurfaceVisibility}">
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomSmall}" FontWeight="SemiBold" Text="{Binding SettingsUserManagementLabel}" />
+                <ItemsControl x:Name="UserManagementActionList" IsEnabled="{Binding UserManagementActionsEnabled}" ItemsSource="{Binding UserManagementActionItems}" Visibility="{Binding UserManagementActionsVisibility}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Margin="{StaticResource Shell.Spacing.BottomTiny}" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding Label}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock x:Name="UserManagementDeniedText" Margin="{StaticResource Shell.Spacing.TopSmall}" Text="{Binding UserManagementPermissionDeniedText}" TextWrapping="Wrap" Visibility="{Binding UserManagementDeniedVisibility}" />
+              </StackPanel>
+
+              <StackPanel x:Name="AboutSettingsSurface">
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomSmall}" FontWeight="SemiBold" Text="{Binding SettingsAboutLabel}" />
+                <ItemsControl x:Name="AboutFieldList" ItemsSource="{Binding AboutFields}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <StackPanel Margin="{StaticResource Shell.Spacing.BottomSmall}">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding Label}" />
+                        <TextBlock Text="{Binding Value}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </StackPanel>
+
+            <ContentControl x:Name="PluginPageHost" Margin="{StaticResource Shell.Spacing.TopLarge}" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+
+    <Border x:Name="MinimizedWorkSessionStrip" Grid.Row="3" Margin="{DynamicResource Dobby.Spacing.Medium}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+      <StackPanel>
+        <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" FontWeight="SemiBold" Text="{Binding MinimizedWorkStripLabel}" />
+        <ItemsControl x:Name="MinimizedWorkSessionList" ItemsSource="{Binding MinimizedWorkSessions}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <DockPanel Margin="{StaticResource Shell.Spacing.BottomSmall}" LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" Margin="{StaticResource Shell.Spacing.RightMedium}">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                  <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" />
+                </StackPanel>
+                <Button Click="RestoreWorkSession_Click" Tag="{Binding SessionId}" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding DataContext.WorkSessionRestoreLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
+              </DockPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+    <Grid x:Name="ShellStatusBar" Grid.Row="4" Margin="{DynamicResource Dobby.Spacing.Medium}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="2*" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <Border Grid.Column="0" Margin="{StaticResource Shell.Spacing.RightMedium}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+        <StackPanel>
+          <TextBlock x:Name="BackgroundStatusText" FontWeight="SemiBold" Text="{Binding StatusText}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding BackgroundOperationText}" TextWrapping="Wrap" />
+          <ProgressBar x:Name="BackgroundProgressBar" Margin="{StaticResource Shell.Spacing.TopSmall}" Height="10" Minimum="0" Maximum="100" Value="{Binding BackgroundOperationPercent, Mode=OneWay}" IsIndeterminate="{Binding BackgroundOperationIsIndeterminate, Mode=OneWay}" />
+        </StackPanel>
+      </Border>
+
+      <Border x:Name="ShellNotificationHost" Grid.Column="1" Margin="{StaticResource Shell.Spacing.RightMedium}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+        <StackPanel>
+          <TextBlock Text="{Binding NotificationMessageText}" TextWrapping="Wrap" />
+          <ListBox x:Name="NotificationPresentationList" BorderThickness="0" ItemsSource="{Binding NotificationPresentation}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </StackPanel>
+      </Border>
+
+      <Border x:Name="ShellFeedbackHost" Grid.Column="2" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+        <StackPanel>
+          <TextBlock Text="{Binding FeedbackMessageText}" TextWrapping="Wrap" />
+          <ListBox x:Name="FeedbackStatePresentationList" BorderThickness="0" ItemsSource="{Binding FeedbackStatePresentation}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </StackPanel>
+      </Border>
     </Grid>
   </Grid>
 </Window>

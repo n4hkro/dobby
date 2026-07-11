@@ -2,9 +2,12 @@ using Dobby.Configuration;
 using Dobby.Contracts.BackgroundOperations;
 using Dobby.Application;
 using Dobby.Application.Printing;
+using Dobby.Core;
 using Dobby.Host.Login;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
+using Dobby.Licensing;
+using Dobby.Security.CurrentContext;
 using Shouldly;
 
 namespace Dobby.IntegrationTests.Host;
@@ -83,10 +86,13 @@ public sealed class HostLoginRuntimeFactoryTests
         runtime.SettingsNavigationModel.ShouldNotBeNull();
         runtime.AboutInfoProvider.ShouldNotBeNull();
         runtime.CurrentCustomerDeploymentContextService.ShouldNotBeNull();
+        runtime.CustomerDeploymentContextProvisioningCoordinator.ShouldNotBeNull();
         runtime.LicenseStateStore.ShouldNotBeNull();
         runtime.LicenseRuntimeModeProvider.ShouldNotBeNull();
         runtime.LicenseImportCoordinator.ShouldNotBeNull();
+        runtime.RuntimeModeMutationGate.ShouldNotBeNull();
         runtime.PrintTargetClassifier.ShouldNotBeNull();
+        runtime.PrintOutputService.ShouldNotBeNull();
         runtime.PrintTargetClassifier.Classify(new PrintTargetDescriptor(
                 "Microsoft Print to PDF",
                 "Microsoft Print To PDF",
@@ -96,6 +102,91 @@ public sealed class HostLoginRuntimeFactoryTests
         fixture.Executor.Query<string>("SELECT CustomerId || ':' || DeploymentId FROM CustomerDeploymentContext;")
             .ShouldBe(["default:default"]);
         WaitForAuditRetentionSweep(runtime);
+    }
+
+    [Fact]
+    public void Runtime_provision_entrypoint_replaces_context_and_records_safe_audit()
+    {
+        using var fixture = HostRuntimePersistenceFixture.Create();
+        fixture.SeedOwner("owner-1");
+        var runtime = HostLoginRuntimeFactory.Create(
+            fixture.Options,
+            TimeProvider.System,
+            new RecordingProtector(),
+            new RecordingProtector());
+
+        var result = runtime.ProvisionCustomerDeploymentContext(
+            "owner-1",
+            "customer-a",
+            "deployment-a",
+            CorrelationId.New());
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Context.ShouldBe(new CurrentCustomerDeploymentContext("customer-a", "deployment-a"));
+        fixture.Executor.Query<string>("SELECT CustomerId || ':' || DeploymentId FROM CustomerDeploymentContext;")
+            .ShouldBe(["customer-a:deployment-a"]);
+        var audit = fixture.Executor.Query<AuditRow>(
+            "SELECT EventName, ActorId, Target, Result, DetailsJson FROM AuditLog WHERE EventName = 'customer-deployment-context.provision';")
+            .Single();
+        audit.ActorId.ShouldBe("owner-1");
+        audit.Result.ShouldBe("success");
+        audit.DetailsJson.ShouldNotContain("customer-a");
+        audit.DetailsJson.ShouldNotContain("deployment-a");
+        audit.DetailsJson.ShouldContain("customerIdHash");
+        audit.DetailsJson.ShouldContain("deploymentIdHash");
+        WaitForAuditRetentionSweep(runtime);
+    }
+
+    [Fact]
+    public async Task Runtime_print_entrypoint_uses_license_runtime_mode_before_execution()
+    {
+        using var fixture = HostRuntimePersistenceFixture.Create();
+        fixture.ApplyPostLoginMigrations();
+        var runtime = HostLoginRuntimeFactory.Create(
+            fixture.Options,
+            TimeProvider.System,
+            new RecordingProtector(),
+            new RecordingProtector());
+        runtime.LicenseStateStore.Save(new LicenseStateRecord(
+            new RevisionSeriesKey("plugin.sample", "default", "default"),
+            "plugin.sample",
+            "default",
+            "default",
+            DeviceFingerprint: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            PackageFingerprint: "package-fingerprint",
+            LicenseRevision: 1,
+            LicenseLifecycleState.ReadOnly,
+            DateTimeOffset.Parse("2026-06-20T00:00:00Z"),
+            ExpiresAtUtc: DateTimeOffset.Parse("2026-06-19T00:00:00Z")));
+        var executionCalls = 0;
+
+        var result = await runtime.ExecutePluginPrintAsync(
+            "plugin.sample",
+            "package-fingerprint",
+            new PrintTargetDescriptor("Microsoft Print to PDF", "Microsoft Print To PDF", "PORTPROMPT:", false),
+            isPrintToFile: false,
+            _ =>
+            {
+                executionCalls++;
+                return ValueTask.FromResult(Result.Success());
+            });
+
+        result.ErrorCode.ShouldBe(ErrorCode.LicenseBindingMismatch);
+        executionCalls.ShouldBe(0);
+        WaitForAuditRetentionSweep(runtime);
+    }
+
+    private sealed class AuditRow
+    {
+        public string EventName { get; set; } = string.Empty;
+
+        public string ActorId { get; set; } = string.Empty;
+
+        public string Target { get; set; } = string.Empty;
+
+        public string Result { get; set; } = string.Empty;
+
+        public string DetailsJson { get; set; } = string.Empty;
     }
 
     [Fact]
@@ -191,7 +282,8 @@ public sealed class HostLoginRuntimeFactoryTests
             var probe = ProtectedMaterialAvailabilityProbe.CreateForDataRoot(root);
             probe.IsAvailable().ShouldBeTrue();
             var factory = new EncryptedSqliteConnectionFactory(persistenceOptions, probe);
-            new HostPersistenceMigrator(factory, probe).ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+            Migrator = new HostPersistenceMigrator(factory, probe);
+            Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
             Executor = new HostPersistenceCommandExecutor(factory);
         }
 
@@ -200,6 +292,22 @@ public sealed class HostLoginRuntimeFactoryTests
         public DobbyOptions Options { get; }
 
         public HostPersistenceCommandExecutor Executor { get; }
+
+        private HostPersistenceMigrator Migrator { get; }
+
+        public void ApplyPostLoginMigrations()
+        {
+            Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All)
+                .IsSuccess.ShouldBeTrue();
+        }
+
+        public void SeedOwner(string userId)
+        {
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            Executor.Execute(
+                "INSERT INTO Users(UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc) VALUES (@UserId, @UserId, @UserId, 1, 1, @Now, @Now);",
+                new { UserId = userId, Now = now });
+        }
 
         public static HostRuntimePersistenceFixture Create()
         {

@@ -20,6 +20,12 @@ public enum PrintTargetClass
     Unknown
 }
 
+public enum PrintOutputDecision
+{
+    Denied,
+    ConfirmationRequired
+}
+
 public static class PrintOutputPolicy
 {
     public static bool AllowsOutput(PrintTargetClass targetClass)
@@ -27,10 +33,12 @@ public static class PrintOutputPolicy
         return targetClass == PrintTargetClass.PhysicalPrinter;
     }
 
-    public static Result EnsureReadOnlyExpiredOutputAllowed(PrintTargetClass targetClass)
+    public static PrintOutputDecision EvaluateReadOnlyExpiredOutput(
+        PrintTargetClass targetClass,
+        bool isPrintToFile)
     {
-        return AllowsOutput(targetClass)
-            ? Result.Success()
-            : Result.Failure(ErrorCode.LicenseReadOnly);
+        return !isPrintToFile && AllowsOutput(targetClass)
+            ? PrintOutputDecision.ConfirmationRequired
+            : PrintOutputDecision.Denied;
     }
 }

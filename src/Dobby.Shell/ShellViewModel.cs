@@ -9,6 +9,7 @@ using Dobby.Shell.WorkspaceTabs;
 using Dobby.Shell.WorkSessions;
 using System.Windows;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace Dobby.Shell;
@@ -35,7 +36,15 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private IReadOnlyList<ShellPluginManagerItem> pluginsManagerItems = [];
     private string? selectedPluginManagerPluginId;
     private string? pluginsManagerFeedbackKey;
+    private IReadOnlyList<ShellMinimizedWorkSessionItem> minimizedWorkSessions = [];
     private readonly List<ShellWorkspaceTab> workspaceTabs = [];
+    private string statusTextKey = HostResourceKeys.ShellStatusReady;
+    private string? feedbackMessageKey;
+    private string? notificationMessageKey;
+    private string? accountStatusMessageKey;
+    private bool securityAutoLockEnabled;
+    private int securityAutoLockMinutes = 30;
+    private bool userManagementAvailable;
 
     public ShellViewModel(HostStringCatalog strings)
         : this(strings, Array.Empty<NavigationContribution>())
@@ -101,7 +110,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string WindowCloseLabel => strings.GetString(HostResourceKeys.ShellWindowClose);
 
-    public string StatusText => strings.GetString(HostResourceKeys.ShellStatusReady);
+    public string StatusText => strings.GetString(statusTextKey);
 
     public Visibility HomePanelVisibility => IsActiveBuiltInRoute(RouteRegistry.HomeRouteKey) && !HasActivePluginPage
         ? Visibility.Visible
@@ -131,6 +140,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string WorkSessionCloseLabel => strings.GetString(HostResourceKeys.ShellWorkSessionClose);
 
+    public string WorkSessionRestoreLabel => strings.GetString(HostResourceKeys.ShellWorkSessionRestore);
+
     public string SidebarToggleLabel => strings.GetString(HostResourceKeys.ShellSidebarToggle);
 
     public string ThemeToggleLabel => strings.GetString(HostResourceKeys.ShellThemeToggle);
@@ -138,6 +149,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public string RememberMeLabel => strings.GetString(HostResourceKeys.LoginRememberMe);
 
     public string ProfileAccountInfoLabel => strings.GetString(HostResourceKeys.ShellProfileAccountInfo);
+
+    public string ProfileAnonymousLabel => strings.GetString(HostResourceKeys.ShellProfileAnonymous);
 
     public string ChangePasswordLabel => strings.GetString(HostResourceKeys.ShellProfileChangePassword);
 
@@ -148,6 +161,72 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public string SettingsHeading => strings.GetString(HostResourceKeys.ShellSettingsHeading);
 
     public string AboutHeading => strings.GetString(HostResourceKeys.ShellAboutHeading);
+
+    public string SettingsAppearanceLabel => strings.GetString(HostResourceKeys.SettingsAppearance);
+
+    public string SettingsAppearanceThemeLabel => strings.GetString(HostResourceKeys.SettingsAppearanceTheme);
+
+    public string SettingsAccountLabel => strings.GetString(HostResourceKeys.SettingsAccount);
+
+    public string SettingsSecuritySessionLabel => strings.GetString(HostResourceKeys.SettingsSecuritySession);
+
+    public string SettingsSecuritySessionAutoLockEnabledLabel => strings.GetString(HostResourceKeys.SettingsSecuritySessionAutoLockEnabled);
+
+    public string SettingsSecuritySessionAutoLockMinutesLabel => strings.GetString(HostResourceKeys.SettingsSecuritySessionAutoLockMinutes);
+
+    public string SettingsSecuritySessionSaveLabel => strings.GetString(HostResourceKeys.SettingsSecuritySessionSave);
+
+    public string SettingsUserManagementLabel => strings.GetString(HostResourceKeys.SettingsUserManagement);
+
+    public string SettingsAboutLabel => strings.GetString(HostResourceKeys.SettingsAbout);
+
+    public IReadOnlyList<ShellThemeOptionItem> AppearanceThemeOptions =>
+    [
+        new("Light", strings.GetString(HostResourceKeys.SettingsAppearanceThemeLight)),
+        new("Dark", strings.GetString(HostResourceKeys.SettingsAppearanceThemeDark))
+    ];
+
+    public string AppearanceSelectedTheme => Layout.Theme.ToString() ?? "Light";
+
+    public bool SecurityAutoLockEnabled => securityAutoLockEnabled;
+
+    public int SecurityAutoLockMinutes => securityAutoLockMinutes;
+
+    public string SecurityAutoLockMinutesText => securityAutoLockMinutes.ToString(CultureInfo.InvariantCulture);
+
+    public bool UserManagementIsAvailable => userManagementAvailable;
+
+    public Visibility UserManagementSurfaceVisibility => UserManagementIsAvailable
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility UserManagementActionsVisibility => UserManagementIsAvailable
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility UserManagementDeniedVisibility => UserManagementIsAvailable
+        ? Visibility.Collapsed
+        : Visibility.Visible;
+
+    public bool UserManagementActionsEnabled => UserManagementIsAvailable;
+
+    public string UserManagementPermissionDeniedText => strings.GetString(HostResourceKeys.UserManagementPermissionDenied);
+
+    public IReadOnlyList<ShellPresentationItem> UserManagementActionItems => UserManagementIsAvailable
+        ?
+        [
+            new("create-managed-user", strings.GetString(HostResourceKeys.UserManagementCreateManagedUser)),
+            new("update-display-name", strings.GetString(HostResourceKeys.UserManagementUpdateDisplayName)),
+            new("update-active-state", strings.GetString(HostResourceKeys.UserManagementUpdateActiveState)),
+            new("reset-password", strings.GetString(HostResourceKeys.UserManagementResetPassword)),
+            new("grant-permission", strings.GetString(HostResourceKeys.UserManagementGrantPermission)),
+            new("revoke-permission", strings.GetString(HostResourceKeys.UserManagementRevokePermission))
+        ]
+        : [];
+
+    public IReadOnlyList<string> UserManagementActionLabels => UserManagementActionItems
+        .Select(item => item.Label)
+        .ToArray();
 
     public string MinimizedWorkStripLabel => strings.GetString(HostResourceKeys.ShellMinimizedWorkStrip);
 
@@ -182,6 +261,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         ? PluginManagerDetailText(selected)
         : string.Empty;
 
+    public IReadOnlyList<ShellPluginManagerDetailRow> PluginsManagerSelectedDetailRows => PluginsManagerSelectedItem is { } selected
+        ? PluginManagerDetailRows(selected)
+        : [];
+
     public Visibility PluginsManagerPanelVisibility => PluginsSurfaceVisibility == Visibility.Visible &&
         (canViewPluginsManager || canImportPluginsManager)
         ? Visibility.Visible
@@ -207,7 +290,9 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public bool PluginsManagerCanDelete => canDeletePluginsManager;
 
-    public bool PluginsManagerInstallIsEnabled => canImportPluginsManager && !pluginsManagerBusy;
+    public bool PluginsManagerInstallIsEnabled => canImportPluginsManager &&
+        !pluginsManagerBusy &&
+        (!canViewLicenseStatus || licenseRuntimeMode == PluginRuntimeMode.FullAccess);
 
     public bool PluginsManagerEnableIsEnabled => CanUseSelectedPluginAction(canConfigurePluginsManager) &&
         PluginsManagerSelectedItem is { IsEnabled: false, IsPendingUninstall: false };
@@ -275,6 +360,13 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public bool HasPendingWorkSessionCloseRequest => PendingWorkSessionCloseRequest is not null;
 
+    public Visibility WorkSessionMinimizeVisibility =>
+        PendingWorkSessionCloseRequest?.CloseRequest.Choices.Contains(WorkSessionCloseChoice.Minimize) == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    public bool IsSidebarCollapsed => Layout.Preference.SidebarCollapsed;
+
     public IReadOnlyList<ShellProfileMenuItem> ProfileMenuItems => Layout.ProfileMenuItems;
 
     public IReadOnlyList<ShellFocusTarget> FocusTraversal => Layout.FocusTraversal;
@@ -300,6 +392,26 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public int BackgroundOperationPercent => Layout.BackgroundOperationPercent ?? 0;
 
     public bool BackgroundOperationIsIndeterminate => Layout.BackgroundOperationIsIndeterminate;
+
+    public IReadOnlyList<ShellMinimizedWorkSessionItem> MinimizedWorkSessions => minimizedWorkSessions;
+
+    public bool HasMinimizedWorkSessions => minimizedWorkSessions.Count > 0;
+
+    public string FeedbackMessageText => string.IsNullOrWhiteSpace(feedbackMessageKey)
+        ? string.Empty
+        : strings.GetString(feedbackMessageKey);
+
+    public string AccountStatusMessageText => string.IsNullOrWhiteSpace(accountStatusMessageKey)
+        ? string.Empty
+        : strings.GetString(accountStatusMessageKey);
+
+    public string NotificationMessageText => string.IsNullOrWhiteSpace(notificationMessageKey)
+        ? string.Empty
+        : strings.GetString(notificationMessageKey);
+
+    public bool HasFeedbackMessage => !string.IsNullOrWhiteSpace(feedbackMessageKey);
+
+    public bool HasNotificationMessage => !string.IsNullOrWhiteSpace(notificationMessageKey);
 
     public string DashboardCasesOverviewHeading => strings.GetString(HostResourceKeys.ShellDashboardCasesOverview);
 
@@ -371,6 +483,17 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             return Result.Failure(ErrorCode.NotFound);
         }
 
+        return ActivateWorkspaceTab(tabId, workspaceTabs[tabIndex].RouteKey);
+    }
+
+    public Result ActivateWorkspaceTab(Guid tabId, string resolvedRouteKey)
+    {
+        var tabIndex = IndexOfWorkspaceTab(tabId);
+        if (tabIndex < 0)
+        {
+            return Result.Failure(ErrorCode.NotFound);
+        }
+
         for (var index = 0; index < workspaceTabs.Count; index++)
         {
             workspaceTabs[index] = workspaceTabs[index] with
@@ -379,12 +502,47 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             };
         }
 
-        RebuildNavigationLevels(workspaceTabs[tabIndex].RouteKey, updateActiveWorkspaceTab: false);
-        NotifyWorkspaceTabsChanged();
+        RebuildNavigationLevels(resolvedRouteKey);
         return Result.Success();
     }
 
-    public Result CloseWorkspaceTab(Guid tabId)
+    public Result<string> SelectWorkspaceTabForRouteActivation(Guid tabId)
+    {
+        var tabIndex = IndexOfWorkspaceTab(tabId);
+        if (tabIndex < 0)
+        {
+            return Result.Failure<string>(ErrorCode.NotFound);
+        }
+
+        return Result.Success(workspaceTabs[tabIndex].RouteKey);
+    }
+
+    public Result<string?> CloseWorkspaceTab(Guid tabId)
+    {
+        var tabIndex = IndexOfWorkspaceTab(tabId);
+        if (tabIndex < 0)
+        {
+            return Result.Failure<string?>(ErrorCode.NotFound);
+        }
+
+        var wasActive = workspaceTabs[tabIndex].IsActive;
+        if (workspaceTabs.Count == 1)
+        {
+            return Result.Success<string?>(RouteRegistry.HomeRouteKey);
+        }
+
+        var nextActiveIndex = NextActiveWorkspaceTabIndexBeforeClose(tabIndex, workspaceTabs.Count);
+        if (wasActive)
+        {
+            return Result.Success<string?>(workspaceTabs[nextActiveIndex].RouteKey);
+        }
+
+        workspaceTabs.RemoveAt(tabIndex);
+        NotifyWorkspaceTabsChanged();
+        return Result.Success<string?>(null);
+    }
+
+    public Result CommitCloseWorkspaceTab(Guid tabId, string resolvedRouteKey)
     {
         var tabIndex = IndexOfWorkspaceTab(tabId);
         if (tabIndex < 0)
@@ -392,53 +550,117 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             return Result.Failure(ErrorCode.NotFound);
         }
 
-        if (workspaceTabs.Count == 1)
+        if (!workspaceTabs[tabIndex].IsActive)
         {
-            ResetWorkspaceTabsToHome();
-            RebuildNavigationLevels(RouteRegistry.HomeRouteKey, updateActiveWorkspaceTab: false);
-            NotifyWorkspaceTabsChanged();
             return Result.Success();
         }
 
-        var nextActiveIndex = tabIndex == 0 ? 0 : tabIndex - 1;
+        if (workspaceTabs.Count == 1)
+        {
+            ResetWorkspaceTabsToHome();
+            RebuildNavigationLevels(resolvedRouteKey);
+            return Result.Success();
+        }
+
+        var nextActiveIndex = NextActiveWorkspaceTabIndexAfterClose(tabIndex);
         workspaceTabs.RemoveAt(tabIndex);
         for (var index = 0; index < workspaceTabs.Count; index++)
         {
             workspaceTabs[index] = workspaceTabs[index] with { IsActive = index == nextActiveIndex };
         }
 
-        RebuildNavigationLevels(workspaceTabs[nextActiveIndex].RouteKey, updateActiveWorkspaceTab: false);
-        NotifyWorkspaceTabsChanged();
+        RebuildNavigationLevels(resolvedRouteKey);
         return Result.Success();
     }
 
     public Result ActivateRoute(string? routeKey)
     {
+        RebuildNavigationLevels(ResolveRouteOrHome(routeKey));
+        return Result.Success();
+    }
+
+    public string ResolveRouteOrHome(string? routeKey)
+    {
+        return navigation.ResolveOrHome(routeKey).RouteKey;
+    }
+
+    public Result ActivateResolvedRoute(string routeKey)
+    {
         RebuildNavigationLevels(routeKey);
         return Result.Success();
     }
 
-    public void SetPendingWorkSessionCloseRequest(PendingWorkSessionCloseRequest? pendingRequest)
+    public bool SetPendingWorkSessionCloseRequest(PendingWorkSessionCloseRequest? pendingRequest)
     {
+        if (pendingRequest is not null &&
+            PendingWorkSessionCloseRequest is not null &&
+            PendingWorkSessionCloseRequest.RequestId != pendingRequest.RequestId)
+        {
+            return false;
+        }
+
         PendingWorkSessionCloseRequest = pendingRequest;
         OnPropertyChanged(nameof(PendingWorkSessionCloseRequest));
         OnPropertyChanged(nameof(HasPendingWorkSessionCloseRequest));
+        OnPropertyChanged(nameof(WorkSessionMinimizeVisibility));
+        return true;
     }
 
-    public Result ResolvePendingWorkSessionClose(
+    public Result<string?> ResolvePendingWorkSessionClose(
         WorkSessionCloseChoice choice,
-        WorkSessionCloseCoordinator coordinator)
+        WorkSessionCloseCoordinator coordinator,
+        PendingWorkSessionCloseRequest? expectedRequest = null)
     {
         var pending = PendingWorkSessionCloseRequest;
         if (pending is null)
         {
-            return Result.Success();
+            return Result.Success<string?>(null);
+        }
+
+        if (expectedRequest is not null && pending.RequestId != expectedRequest.RequestId)
+        {
+            return Result.Failure<string?>(ErrorCode.InvalidInput);
         }
 
         if (choice == WorkSessionCloseChoice.Cancel)
         {
             SetPendingWorkSessionCloseRequest(null);
-            return Result.Success();
+            return Result.Success<string?>(null);
+        }
+
+        ArgumentNullException.ThrowIfNull(coordinator);
+
+        if (pending.Action == PendingWorkSessionAction.Navigation)
+        {
+            return Result.Success<string?>(pending.RequestedRouteKey);
+        }
+
+        var result = coordinator.ApplyChoice(pending.CloseRequest, choice);
+        if (!result.IsSuccess)
+        {
+            return Result.Failure<string?>(result.ErrorCode ?? ErrorCode.UnsupportedOperation);
+        }
+
+        SetPendingWorkSessionCloseRequest(null);
+        return Result.Success<string?>(null);
+    }
+
+    public Result CommitPendingWorkSessionClose(
+        WorkSessionCloseChoice choice,
+        WorkSessionCloseCoordinator coordinator,
+        PendingWorkSessionCloseRequest expectedRequest)
+    {
+        ArgumentNullException.ThrowIfNull(expectedRequest);
+
+        var pending = PendingWorkSessionCloseRequest;
+        if (pending is null)
+        {
+            return Result.Failure(ErrorCode.InvalidInput);
+        }
+
+        if (pending.RequestId != expectedRequest.RequestId)
+        {
+            return Result.Failure(ErrorCode.InvalidInput);
         }
 
         ArgumentNullException.ThrowIfNull(coordinator);
@@ -446,25 +668,48 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         var result = coordinator.ApplyChoice(pending.CloseRequest, choice);
         if (!result.IsSuccess)
         {
-            return result;
+            return Result.Failure(result.ErrorCode ?? ErrorCode.UnsupportedOperation);
         }
 
         SetPendingWorkSessionCloseRequest(null);
-        return pending.Action == PendingWorkSessionAction.Navigation
-            ? ActivateRoute(pending.RequestedRouteKey)
-            : Result.Success();
+        return Result.Success();
     }
 
     public void ToggleSidebarCollapsed()
     {
         Layout = Layout.WithSidebarCollapsed(!Layout.Preference.SidebarCollapsed);
         OnLayoutChanged();
+        OnPropertyChanged(nameof(IsSidebarCollapsed));
+        OnPropertyChanged(nameof(SidebarNavigation));
+    }
+
+    public void ToggleSidebarNode(string nodeId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nodeId);
+
+        var openNodeIds = Layout.Preference.SidebarOpenNodeIds.ToHashSet(StringComparer.Ordinal);
+        if (!openNodeIds.Add(nodeId))
+        {
+            openNodeIds.Remove(nodeId);
+        }
+
+        Layout = Layout with
+        {
+            Preference = Layout.Preference with
+            {
+                SidebarOpenNodeIds = openNodeIds.OrderBy(id => id, StringComparer.Ordinal).ToArray()
+            }
+        };
+        RebuildNavigationLevels(ActiveRouteKey, updateActiveWorkspaceTab: false);
+        OnLayoutChanged();
+        OnPropertyChanged(nameof(SidebarNavigation));
     }
 
     public void SetTheme(object theme)
     {
         Layout = Layout.WithTheme(theme);
         OnLayoutChanged();
+        OnPropertyChanged(nameof(AppearanceSelectedTheme));
     }
 
     public void SetShellPreference(ShellLayoutPreference preference)
@@ -494,6 +739,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         ResetWorkspaceTabsToHome();
         RebuildNavigationLevels(RouteRegistry.HomeRouteKey, updateActiveWorkspaceTab: false);
         OnLayoutChanged();
+        OnPropertyChanged(nameof(IsSidebarCollapsed));
         NotifyWorkspaceTabsChanged();
     }
 
@@ -512,12 +758,31 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public void SetSettingsAndAbout(
         IReadOnlyList<ShellSettingsCategoryItem> settingsCategories,
-        IReadOnlyList<ShellAboutField> aboutFields)
+        IReadOnlyList<ShellAboutField> aboutFields,
+        bool? autoLockEnabled = null,
+        int? autoLockMinutes = null)
     {
-        Layout = Layout.WithSettingsAndAbout(settingsCategories, aboutFields);
+        userManagementAvailable = settingsCategories.Any(category =>
+            category.Key.Equals("user-management", StringComparison.Ordinal) &&
+            category.IsAvailable);
+
+        if (autoLockEnabled.HasValue)
+        {
+            securityAutoLockEnabled = autoLockEnabled.Value;
+        }
+
+        if (autoLockMinutes.HasValue)
+        {
+            securityAutoLockMinutes = autoLockMinutes.Value;
+        }
+
+        Layout = Layout.WithSettingsAndAbout(
+            settingsCategories.Where(category => category.IsAvailable).ToArray(),
+            aboutFields);
         OnLayoutChanged();
         OnPropertyChanged(nameof(SettingsCategories));
         OnPropertyChanged(nameof(AboutFields));
+        NotifySettingsSurfaceChanged();
     }
 
     public void ShowBackgroundOperation(BackgroundOperationSnapshot snapshot)
@@ -529,6 +794,24 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(BackgroundOperationIsIndeterminate));
     }
 
+    public void SetMinimizedWorkSessions(IReadOnlyList<WorkSession> sessions)
+    {
+        ArgumentNullException.ThrowIfNull(sessions);
+
+        minimizedWorkSessions = sessions
+            .Where(session => session.IsMinimized)
+            .OrderBy(session => session.LabelKey, StringComparer.Ordinal)
+            .Select(session => new ShellMinimizedWorkSessionItem(
+                session.SessionId,
+                ResolveWorkSessionText(session.LabelKey),
+                ResolveWorkSessionDetail(session),
+                session.Progress.Percent,
+                session.Progress.IsIndeterminate))
+            .ToArray();
+        OnPropertyChanged(nameof(MinimizedWorkSessions));
+        OnPropertyChanged(nameof(HasMinimizedWorkSessions));
+    }
+
     public void SetActivePluginPage(IPluginPageModel? model)
     {
         activePluginPageModel = model;
@@ -538,12 +821,40 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         }
         else
         {
-            UpdateActiveWorkspaceTitle(ResolvePluginPageTitle(model));
+            UpdateActiveWorkspaceRoute(ActiveRouteKey);
         }
 
         OnPropertyChanged(nameof(ActivePluginPageModel));
         OnPropertyChanged(nameof(HasActivePluginPage));
         NotifyRouteSurfaceChanged();
+    }
+
+    public void SetStatus(string statusKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(statusKey);
+
+        statusTextKey = statusKey;
+        OnPropertyChanged(nameof(StatusText));
+    }
+
+    public void SetFeedbackMessage(string? feedbackKey)
+    {
+        feedbackMessageKey = feedbackKey;
+        OnPropertyChanged(nameof(FeedbackMessageText));
+        OnPropertyChanged(nameof(HasFeedbackMessage));
+    }
+
+    public void SetAccountStatusMessage(string? accountStatusKey)
+    {
+        accountStatusMessageKey = accountStatusKey;
+        OnPropertyChanged(nameof(AccountStatusMessageText));
+    }
+
+    public void SetNotificationMessage(string? notificationKey)
+    {
+        notificationMessageKey = notificationKey;
+        OnPropertyChanged(nameof(NotificationMessageText));
+        OnPropertyChanged(nameof(HasNotificationMessage));
     }
 
     public void SetLicenseSurface(
@@ -571,6 +882,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(LicenseListText));
         OnPropertyChanged(nameof(LicenseDetailText));
         OnPropertyChanged(nameof(LicenseFeedbackText));
+        OnPropertyChanged(nameof(PluginsManagerInstallIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerEnableIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerDisableIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerUninstallIsEnabled));
     }
 
     public void SetPluginsManagerSurface(
@@ -590,6 +905,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         canDeletePluginsManager = canDelete;
         pluginsManagerBusy = isBusy;
         pluginsManagerItems = plugins
+            .Select(ToPluginsManagerPresentation)
             .OrderBy(plugin => plugin.DisplayName, StringComparer.Ordinal)
             .ThenBy(plugin => plugin.PluginId, StringComparer.Ordinal)
             .ToArray();
@@ -692,6 +1008,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         };
         RebuildNavigationLevels(requestedRoute);
         OnLayoutChanged();
+        OnPropertyChanged(nameof(IsSidebarCollapsed));
     }
 
     private void OnLayoutChanged()
@@ -720,6 +1037,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(PluginsManagerItems));
         OnPropertyChanged(nameof(PluginsManagerSelectedItem));
         OnPropertyChanged(nameof(PluginsManagerSelectedDetailText));
+        OnPropertyChanged(nameof(PluginsManagerSelectedDetailRows));
         OnPropertyChanged(nameof(PluginsManagerFeedbackText));
     }
 
@@ -730,15 +1048,27 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         var sidebar = path.Count > 1 ? path[1] : null;
 
         var activeRouteKeys = path.Select(node => node.RouteKey).ToHashSet(StringComparer.Ordinal);
+        var openNodeIds = Layout.Preference.SidebarOpenNodeIds.ToHashSet(StringComparer.Ordinal);
+        if (sidebar is not null && sidebar.Children.Count > 0)
+        {
+            openNodeIds.Add(sidebar.Id);
+            Layout = Layout with
+            {
+                Preference = Layout.Preference with
+                {
+                    SidebarOpenNodeIds = openNodeIds.OrderBy(id => id, StringComparer.Ordinal).ToArray()
+                }
+            };
+        }
 
         TopNavigation = navigation.TopToolbar
-            .Select((node, index) => BuildNavigationItem(node, index, activeRouteKeys))
+            .Select((node, index) => BuildNavigationItem(node, index, activeRouteKeys, openNodeIds))
             .ToArray();
         SidebarNavigation = top.Children
-            .Select((node, index) => BuildNavigationItem(node, index, activeRouteKeys))
+            .Select((node, index) => BuildNavigationItem(node, index, activeRouteKeys, openNodeIds))
             .ToArray();
         ThirdBarNavigation = (sidebar?.Children ?? [])
-            .Select((node, index) => BuildNavigationItem(node, index, activeRouteKeys))
+            .Select((node, index) => BuildNavigationItem(node, index, activeRouteKeys, openNodeIds))
             .ToArray();
         ActiveRouteKey = path[^1].RouteKey;
         if (updateActiveWorkspaceTab)
@@ -756,14 +1086,18 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private ShellNavigationItem BuildNavigationItem(
         NavigationNode node,
         int index,
-        IReadOnlySet<string> activeRouteKeys)
+        IReadOnlySet<string> activeRouteKeys,
+        IReadOnlySet<string> openNodeIds)
     {
         return new ShellNavigationItem(
+            node.Id,
             node.RouteKey,
             strings.GetString(node.LabelKey),
             index,
             NavigationIconPathData(node.RouteKey, index),
-            activeRouteKeys.Contains(node.RouteKey));
+            activeRouteKeys.Contains(node.RouteKey),
+            node.Children.Count > 0,
+            openNodeIds.Contains(node.Id) || activeRouteKeys.Contains(node.RouteKey));
     }
 
     private static string NavigationIconPathData(string routeKey, int index)
@@ -803,6 +1137,37 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SettingsSurfaceVisibility));
         OnPropertyChanged(nameof(PluginsManagerPanelVisibility));
         OnPropertyChanged(nameof(LicensePanelVisibility));
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(FeedbackMessageText));
+        OnPropertyChanged(nameof(NotificationMessageText));
+        OnPropertyChanged(nameof(HasFeedbackMessage));
+        OnPropertyChanged(nameof(HasNotificationMessage));
+        OnPropertyChanged(nameof(HasMinimizedWorkSessions));
+    }
+
+    private void NotifySettingsSurfaceChanged()
+    {
+        OnPropertyChanged(nameof(SettingsAppearanceLabel));
+        OnPropertyChanged(nameof(SettingsAppearanceThemeLabel));
+        OnPropertyChanged(nameof(SettingsAccountLabel));
+        OnPropertyChanged(nameof(SettingsSecuritySessionLabel));
+        OnPropertyChanged(nameof(SettingsSecuritySessionAutoLockEnabledLabel));
+        OnPropertyChanged(nameof(SettingsSecuritySessionAutoLockMinutesLabel));
+        OnPropertyChanged(nameof(SettingsSecuritySessionSaveLabel));
+        OnPropertyChanged(nameof(SettingsUserManagementLabel));
+        OnPropertyChanged(nameof(SettingsAboutLabel));
+        OnPropertyChanged(nameof(AppearanceThemeOptions));
+        OnPropertyChanged(nameof(AppearanceSelectedTheme));
+        OnPropertyChanged(nameof(SecurityAutoLockEnabled));
+        OnPropertyChanged(nameof(SecurityAutoLockMinutes));
+        OnPropertyChanged(nameof(SecurityAutoLockMinutesText));
+        OnPropertyChanged(nameof(UserManagementIsAvailable));
+        OnPropertyChanged(nameof(UserManagementSurfaceVisibility));
+        OnPropertyChanged(nameof(UserManagementActionsVisibility));
+        OnPropertyChanged(nameof(UserManagementDeniedVisibility));
+        OnPropertyChanged(nameof(UserManagementActionsEnabled));
+        OnPropertyChanged(nameof(UserManagementActionItems));
+        OnPropertyChanged(nameof(UserManagementActionLabels));
     }
 
     private void ResetWorkspaceTabsToHome()
@@ -827,14 +1192,6 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         return strings.GetString(path[^1].LabelKey);
     }
 
-    private string ResolvePluginPageTitle(IPluginPageModel model)
-    {
-        var label = model.GetType().GetProperty("Label")?.GetValue(model) as string;
-        return string.IsNullOrWhiteSpace(label)
-            ? ResolveWorkspaceTitle(ActiveRouteKey)
-            : label;
-    }
-
     private int IndexOfWorkspaceTab(Guid tabId)
     {
         for (var index = 0; index < workspaceTabs.Count; index++)
@@ -854,6 +1211,16 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         {
             workspaceTabs[index] = workspaceTabs[index] with { IsActive = false };
         }
+    }
+
+    private static int NextActiveWorkspaceTabIndexBeforeClose(int closingIndex, int tabCount)
+    {
+        return closingIndex == 0 && tabCount > 1 ? 1 : closingIndex - 1;
+    }
+
+    private static int NextActiveWorkspaceTabIndexAfterClose(int closingIndex)
+    {
+        return closingIndex == 0 ? 0 : closingIndex - 1;
     }
 
     private void UpdateActiveWorkspaceRoute(string routeKey)
@@ -954,6 +1321,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         return hasPermission &&
             canViewPluginsManager &&
             !pluginsManagerBusy &&
+            (!canViewLicenseStatus || licenseRuntimeMode == PluginRuntimeMode.FullAccess) &&
             PluginsManagerSelectedItem is not null;
     }
 
@@ -964,16 +1332,142 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             ? $"{detail} - {strings.GetString(HostResourceKeys.PluginsManagerRestartRequired)}"
             : detail;
     }
+
+    private IReadOnlyList<ShellPluginManagerDetailRow> PluginManagerDetailRows(ShellPluginManagerItem plugin)
+    {
+        var rows = new List<ShellPluginManagerDetailRow>
+        {
+            new("display-name", strings.GetString(HostResourceKeys.PluginsManagerDetailDisplayName), plugin.DisplayName),
+            new("plugin-id", strings.GetString(HostResourceKeys.PluginsManagerDetailPluginId), plugin.PluginId),
+            new("version", strings.GetString(HostResourceKeys.PluginsManagerDetailVersion), plugin.Version),
+            new("status", strings.GetString(HostResourceKeys.PluginsManagerDetailStatus), plugin.StatusSummary)
+        };
+
+        AddIfPresent(rows, "trust", strings.GetString(HostResourceKeys.PluginsManagerDetailTrust), plugin.TrustSummary);
+        AddIfPresent(rows, "license", strings.GetString(HostResourceKeys.PluginsManagerDetailLicense), plugin.LicenseSummary);
+        AddIfPresent(rows, "fault", strings.GetString(HostResourceKeys.PluginsManagerDetailFault), plugin.FaultSummary);
+        AddIfPresent(rows, "rejection", strings.GetString(HostResourceKeys.PluginsManagerDetailRejection), plugin.SafeRejectionText);
+
+        if (plugin.RestartRequired)
+        {
+            rows.Add(new ShellPluginManagerDetailRow(
+                "restart",
+                strings.GetString(HostResourceKeys.PluginsManagerRestartRequired),
+                strings.GetString(HostResourceKeys.PluginsManagerRestartRequired)));
+        }
+
+        return rows;
+    }
+
+    private static void AddIfPresent(
+        ICollection<ShellPluginManagerDetailRow> rows,
+        string key,
+        string label,
+        string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            rows.Add(new ShellPluginManagerDetailRow(key, label, value));
+        }
+    }
+
+    private ShellPluginManagerItem ToPluginsManagerPresentation(ShellPluginManagerItem plugin)
+    {
+        var status = plugin.IsPendingUninstall || Contains(plugin.StatusSummary, "pending uninstall")
+            ? strings.GetString(HostResourceKeys.PluginsManagerStatusPendingUninstall)
+            : Contains(plugin.StatusSummary, "enabled")
+                ? strings.GetString(HostResourceKeys.PluginsManagerStatusEnabled)
+                : Contains(plugin.StatusSummary, "disabled")
+                    ? strings.GetString(HostResourceKeys.PluginsManagerStatusDisabled)
+                    : Contains(plugin.StatusSummary, "fault")
+                        ? strings.GetString(HostResourceKeys.PluginsManagerStatusFaulted)
+                        : IsRejected(plugin.StatusSummary)
+                            ? strings.GetString(HostResourceKeys.PluginsManagerStatusRejected)
+                            : strings.GetString(HostResourceKeys.PluginsManagerStatusAvailable);
+        var trust = string.IsNullOrWhiteSpace(plugin.TrustSummary)
+            ? strings.GetString(HostResourceKeys.PluginsManagerTrustUnavailable)
+            : Contains(plugin.TrustSummary, "trusted") || Contains(plugin.TrustSummary, "verified")
+                ? strings.GetString(HostResourceKeys.PluginsManagerTrustTrusted)
+                : strings.GetString(HostResourceKeys.PluginsManagerTrustRejected);
+        var license = string.IsNullOrWhiteSpace(plugin.LicenseSummary)
+            ? strings.GetString(HostResourceKeys.PluginsManagerLicenseUnavailable)
+            : Contains(plugin.LicenseSummary, "read-only")
+                ? strings.GetString(HostResourceKeys.PluginsManagerLicenseReadOnly)
+                : Contains(plugin.LicenseSummary, "full")
+                    ? strings.GetString(HostResourceKeys.PluginsManagerLicenseFullAccess)
+                    : strings.GetString(HostResourceKeys.PluginsManagerLicenseDenied);
+        var fault = string.IsNullOrWhiteSpace(plugin.FaultSummary) || Contains(plugin.FaultSummary, "no runtime fault") || Contains(plugin.FaultSummary, "no faults")
+            ? strings.GetString(HostResourceKeys.PluginsManagerFaultNone)
+            : strings.GetString(HostResourceKeys.PluginsManagerFaultDetected);
+        var rejection = IsRejected(plugin.StatusSummary) || !string.IsNullOrWhiteSpace(plugin.SafeRejectionText)
+            ? strings.GetString(HostResourceKeys.PluginsManagerRejectionSafe)
+            : string.Empty;
+
+        return plugin with
+        {
+            StatusSummary = status,
+            TrustSummary = trust,
+            LicenseSummary = license,
+            FaultSummary = fault,
+            SafeRejectionText = rejection
+        };
+    }
+
+    private static bool IsRejected(string value)
+    {
+        return Contains(value, "rejected") || Contains(value, "invalid");
+    }
+
+    private static bool Contains(string value, string expected)
+    {
+        return value.Contains(expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string ResolveWorkSessionText(string keyOrText)
+    {
+        if (keyOrText.StartsWith("Dobby.", StringComparison.Ordinal))
+        {
+            var localized = strings.GetString(keyOrText);
+            if (!localized.StartsWith("[[", StringComparison.Ordinal))
+            {
+                return localized;
+            }
+        }
+
+        return keyOrText;
+    }
+
+    private string ResolveWorkSessionDetail(WorkSession session)
+    {
+        if (!string.IsNullOrWhiteSpace(session.ErrorSummaryKey))
+        {
+            return ResolveWorkSessionText(session.ErrorSummaryKey);
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.ResultSummaryKey))
+        {
+            return ResolveWorkSessionText(session.ResultSummaryKey);
+        }
+
+        return session.Progress.IsIndeterminate
+            ? BackgroundOperationLabel
+            : $"{session.Progress.Percent ?? 0}%";
+    }
 }
 
 public sealed record ShellNavigationItem(
+    string NodeId,
     string RouteKey,
     string Label,
     int Order,
     string IconPathData,
-    bool IsActive);
+    bool IsActive,
+    bool HasChildren,
+    bool IsOpen);
 
 public sealed record ShellPresentationItem(string Key, string Label);
+
+public sealed record ShellThemeOptionItem(string Theme, string Label);
 
 public sealed record ShellDashboardFilterItem(string Key, string Label, bool IsActive);
 
@@ -1002,4 +1496,17 @@ public sealed record ShellPluginManagerItem(
     bool IsEnabled,
     string StatusSummary,
     bool IsPendingUninstall,
-    bool RestartRequired);
+    bool RestartRequired,
+    string TrustSummary = "",
+    string LicenseSummary = "",
+    string FaultSummary = "",
+    string SafeRejectionText = "");
+
+public sealed record ShellPluginManagerDetailRow(string Key, string Label, string Value);
+
+public sealed record ShellMinimizedWorkSessionItem(
+    Guid SessionId,
+    string Title,
+    string Detail,
+    int? Percent,
+    bool IsIndeterminate);

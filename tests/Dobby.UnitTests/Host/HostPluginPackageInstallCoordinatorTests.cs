@@ -29,7 +29,22 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 Substitute.For<IPluginInstallStagingArea>(),
                 CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(new InMemoryAuditTrail()),
-                null!));
+                null!,
+                FullAccessMutationGate()));
+    }
+
+    [Fact]
+    public void Constructor_requires_runtime_mode_mutation_gate()
+    {
+        Should.Throw<ArgumentNullException>(() =>
+            new HostPluginPackageInstallCoordinator(
+                CreateSuccessfulStateStore(),
+                CreateSuccessfulMetadataCache(),
+                Substitute.For<IPluginInstallStagingArea>(),
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
+                CreateAuditCoordinator(new InMemoryAuditTrail()),
+                new AllowAllTrustVerifier(),
+                mutationGate: null!));
     }
 
     [Fact]
@@ -46,7 +61,8 @@ public sealed class HostPluginPackageInstallCoordinatorTests
             staging,
             CreatePolicy(new UserPermissionState("managed", IsOwner: false, IsActive: true)),
             CreateAuditCoordinator(audit),
-            trustVerifier);
+            trustVerifier,
+            FullAccessMutationGate());
 
         var result = coordinator.InstallPackage(
             "managed",
@@ -64,7 +80,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
     }
 
     [Fact]
-    public void Install_package_reads_validates_installs_and_audits_verified_package()
+    public void Install_package_reads_validates_installs_and_audits_verified_package_without_existing_license()
     {
         var packagePath = CreatePackageZip(
             PluginPackageTestData.CreateManifestJson(),
@@ -82,7 +98,8 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 staging,
                 CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
-                new AllowAllTrustVerifier());
+                new AllowAllTrustVerifier(),
+                new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.Denied)));
 
             var result = coordinator.InstallPackage(
                 "owner",
@@ -129,7 +146,8 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 staging,
                 CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
-                new AllowAllTrustVerifier());
+                new AllowAllTrustVerifier(),
+                FullAccessMutationGate());
 
             var result = coordinator.InstallPackage(
                 "owner",
@@ -175,6 +193,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(new InMemoryAuditTrail()),
                 new AllowAllTrustVerifier(),
+                FullAccessMutationGate(),
                 new PluginRuntimeDiagnosticsCoordinator(diagnostics.Add));
 
             var result = coordinator.InstallPackage(
@@ -216,7 +235,8 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
                 new AllowAllTrustVerifier(),
-                currentRuntimeModeProvider: _ => Result.Success(PluginRuntimeMode.ReadOnlyExpired));
+                mutationGate: new HostRuntimeModeMutationGate(
+                    _ => Result.Success(PluginRuntimeMode.ReadOnlyExpired)));
 
             var result = coordinator.InstallPackage(
                 "owner",
@@ -265,7 +285,8 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
                 new AllowAllTrustVerifier(),
-                currentRuntimeModeProvider: _ => Result.Failure<PluginRuntimeMode>(providerError));
+                mutationGate: new HostRuntimeModeMutationGate(
+                    _ => Result.Failure<PluginRuntimeMode>(providerError)));
 
             var result = coordinator.InstallPackage(
                 "owner",
@@ -307,7 +328,8 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 staging,
                 CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
-                new RejectingTrustVerifier("trust-failed", "not trusted"));
+                new RejectingTrustVerifier("trust-failed", "not trusted"),
+                FullAccessMutationGate());
 
             var result = coordinator.InstallPackage(
                 "owner",
@@ -345,7 +367,8 @@ public sealed class HostPluginPackageInstallCoordinatorTests
                 staging,
                 CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
                 CreateAuditCoordinator(audit),
-                new AllowAllTrustVerifier());
+                new AllowAllTrustVerifier(),
+                FullAccessMutationGate());
 
             var result = coordinator.InstallPackage(
                 "owner",
@@ -373,6 +396,11 @@ public sealed class HostPluginPackageInstallCoordinatorTests
         return new PluginRuntimeAuditCoordinator(
             audit,
             new FakeTimeProvider(DateTimeOffset.Parse("2026-06-09T00:00:00Z")));
+    }
+
+    private static HostRuntimeModeMutationGate FullAccessMutationGate()
+    {
+        return new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.FullAccess));
     }
 
     public static TheoryData<ErrorCode, ErrorCode, string> RuntimeProviderFailureCases()

@@ -19,9 +19,12 @@ public sealed class PluginStorageContractTests
 
     [Theory]
     [InlineData("")]
+    [InlineData(".")]
     [InlineData("/absolute")]
+    [InlineData("\\absolute")]
     [InlineData("..")]
     [InlineData("../escape")]
+    [InlineData("nested/./escape")]
     [InlineData("host:reserved")]
     public void Plugin_storage_key_rejects_host_or_path_like_keys(string raw)
     {

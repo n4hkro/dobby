@@ -5,6 +5,7 @@ namespace Dobby.Security.Authentication;
 
 public sealed class LoginService(
     IHostPersistenceCommandExecutor executor,
+    KdfPolicyResolver kdfPolicyResolver,
     IUserCredentialVerifier credentialVerifier,
     IOwnerBootstrapCoordinator ownerBootstrapCoordinator,
     LoginThrottleService throttleService)
@@ -15,6 +16,11 @@ public sealed class LoginService(
         if (!normalized.IsSuccess || !PasswordPolicyValidator.Validate(password).IsSuccess)
         {
             return new LoginAttemptResult(LoginAttemptKind.ValidationFailed);
+        }
+
+        if (!kdfPolicyResolver.Resolve().IsSuccess)
+        {
+            return new LoginAttemptResult(LoginAttemptKind.KdfUnsupported);
         }
 
         var throttle = throttleService.Check();

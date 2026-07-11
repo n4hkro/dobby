@@ -1,5 +1,7 @@
 using Dobby.Contracts.Ordering;
+using Dobby.Core;
 using Dobby.Navigation;
+using Dobby.Shell;
 using Shouldly;
 
 namespace Dobby.UnitTests.Navigation;
@@ -43,5 +45,24 @@ public sealed class NavigationTests
         registry.ResolveOrHome(RouteRegistry.HomeRouteKey).RouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
         registry.ResolveOrHome(RouteRegistry.PluginsRouteKey).RouteKey.ShouldBe(RouteRegistry.PluginsRouteKey);
         registry.ResolveOrHome(RouteRegistry.SettingsRouteKey).RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+    }
+
+    [Fact]
+    public async Task Shell_route_host_resolves_unknown_route_to_home_before_activation()
+    {
+        var activatedRoutes = new List<string>();
+        var host = new ShellRouteHost(
+            routeKey => routeKey == "missing.route" ? RouteRegistry.HomeRouteKey : routeKey ?? RouteRegistry.HomeRouteKey,
+            routeKey =>
+            {
+                activatedRoutes.Add(routeKey);
+                return ValueTask.FromResult(Result.Success());
+            });
+
+        var result = await host.ActivateOrHomeAsync("missing.route");
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBe(RouteRegistry.HomeRouteKey);
+        activatedRoutes.ShouldBe([RouteRegistry.HomeRouteKey]);
     }
 }

@@ -2,9 +2,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Dobby.Core;
+using Dobby.Contracts.Licensing;
 using Dobby.Core.Versioning;
 using Dobby.Host.Plugins;
 using Dobby.Infrastructure.Persistence;
+using Dobby.Licensing;
 using Dobby.Navigation;
 using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Packaging;
@@ -124,15 +126,58 @@ public sealed class PluginActivationRuntimeIntegrationTests
         target.Value.LabelKey.ShouldBe("ops.sync.label");
     }
 
+    [Fact]
+    public async Task Host_activation_persists_safe_fault_status_summaries_for_manager_ui()
+    {
+        using var packages = new RuntimePackageWorkspace();
+        packages.Add("core", ModulePayload.InvalidAssembly);
+        packages.Add("reports", ModulePayload.InvalidAssembly, [new PluginDependencySpec("core")]);
+        packages.Add("standalone", ModulePayload.SampleAssembly);
+        var stateStore = new InMemoryInstalledPluginStateStore(packages.States);
+        var metadataCache = new InMemoryInstalledPluginMetadataCache(packages.States);
+        var licenseModes = new SelectiveLicenseRuntimeModeProvider("standalone");
+        await using var coordinator = CreateCoordinator(
+            stateStore.Snapshot().Value,
+            stateStore: stateStore,
+            metadataCache: metadataCache,
+            activationStatusPersistence: new InMemoryActivationStatusPersistence(stateStore, metadataCache),
+            licenseRuntimeModeProvider: licenseModes);
+
+        var activation = await coordinator.BeginPostLoginActivation(new HostVersion(1, 0, 0), "owner");
+
+        activation.IsSuccess.ShouldBeTrue(activation.IsSuccess ? null : activation.ErrorCode.ToString());
+        var persistedStates = stateStore.Snapshot().Value.ToDictionary(item => item.PluginId, StringComparer.Ordinal);
+        var metadata = metadataCache.SnapshotItems().ToDictionary(item => item.PluginId, StringComparer.Ordinal);
+
+        persistedStates["core"].StatusSummary.ShouldBe("Faulted - Plugin activation failed");
+        persistedStates["reports"].StatusSummary.ShouldBe("Skipped - Dependency activation failed");
+        persistedStates["standalone"].StatusSummary.ShouldBe("Rejected - License denied");
+        metadata["core"].StatusSummary.ShouldBe("Faulted - Plugin activation failed");
+        metadata["reports"].StatusSummary.ShouldBe("Skipped - Dependency activation failed");
+        metadata["standalone"].StatusSummary.ShouldBe("Rejected - License denied");
+    }
+
     private static HostPluginRuntimeCoordinator CreateCoordinator(
         IReadOnlyList<InstalledPluginState> states,
         OperationTargetRegistry? operationTargetRegistry = null,
-        HostPluginActivationCancellation? activationCancellation = null)
+        HostPluginActivationCancellation? activationCancellation = null,
+        IInstalledPluginStateStore? stateStore = null,
+        IInstalledPluginMetadataCache? metadataCache = null,
+        IHostPluginActivationStatusPersistence? activationStatusPersistence = null,
+        ILicenseRuntimeModeProvider? licenseRuntimeModeProvider = null)
     {
-        var stateStore = Substitute.For<IInstalledPluginStateStore>();
-        stateStore.Snapshot().Returns(Result.Success(states));
-        var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
-        metadataCache.RebuildFrom(Arg.Any<IReadOnlyList<InstalledPluginState>>()).Returns(Result.Success());
+        if (stateStore is null)
+        {
+            stateStore = Substitute.For<IInstalledPluginStateStore>();
+            stateStore.Snapshot().Returns(Result.Success(states));
+            stateStore.Upsert(Arg.Any<InstalledPluginState>()).Returns(Result.Success());
+        }
+
+        if (metadataCache is null)
+        {
+            metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+            metadataCache.RebuildFrom(Arg.Any<IReadOnlyList<InstalledPluginState>>()).Returns(Result.Success());
+        }
         var stagingArea = Substitute.For<IPluginInstallStagingArea>();
         stagingArea.Recover().Returns(Result.Success(0));
         stagingArea.CleanupRuntimeOrphans(Arg.Any<IReadOnlyCollection<string>>()).Returns(Result.Success(0));
@@ -146,6 +191,7 @@ public sealed class PluginActivationRuntimeIntegrationTests
             migrator,
             stateStore,
             metadataCache,
+            activationStatusPersistence ?? CreateSuccessfulActivationStatusPersistence(),
             stagingArea,
             Substitute.For<IPluginDataRetentionStore>(),
             operationTargetRegistry ?? OperationTargetRegistry.CreateDefault(),
@@ -154,7 +200,17 @@ public sealed class PluginActivationRuntimeIntegrationTests
             activationCancellation ?? new HostPluginActivationCancellation(),
             new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionRegistry, lifetimes)),
             Substitute.For<IPluginCurrentProcessActivationTracker>(),
-            new AllowAllTrustVerifier());
+            new AllowAllTrustVerifier(),
+            licenseRuntimeModeProvider: licenseRuntimeModeProvider);
+    }
+
+    private static IHostPluginActivationStatusPersistence CreateSuccessfulActivationStatusPersistence()
+    {
+        var persistence = Substitute.For<IHostPluginActivationStatusPersistence>();
+        persistence
+            .Persist(Arg.Any<IReadOnlyList<InstalledPluginState>>(), Arg.Any<IReadOnlyList<InstalledPluginState>>())
+            .Returns(Result.Success());
+        return persistence;
     }
 
     private enum ModulePayload
@@ -344,5 +400,146 @@ public sealed class PluginActivationRuntimeIntegrationTests
     private sealed class AllowAllTrustVerifier : IPluginTrustVerifier
     {
         public PluginTrustVerificationResult Verify(PluginTrustPayload payload) => PluginTrustVerificationResult.Success();
+    }
+
+    private sealed class SelectiveLicenseRuntimeModeProvider(params string[] deniedPluginIds) : ILicenseRuntimeModeProvider
+    {
+        private readonly HashSet<string> denied = deniedPluginIds.ToHashSet(StringComparer.Ordinal);
+
+        public Result<PluginRuntimeMode> GetCurrentMode(string pluginId, string fingerprint)
+        {
+            return Result.Success(
+                denied.Contains(pluginId)
+                    ? PluginRuntimeMode.Denied
+                    : PluginRuntimeMode.FullAccess);
+        }
+    }
+
+    private sealed class InMemoryInstalledPluginStateStore(IReadOnlyList<InstalledPluginState> states) : IInstalledPluginStateStore
+    {
+        private readonly Dictionary<string, InstalledPluginState> byPluginId = states.ToDictionary(
+            state => state.PluginId,
+            StringComparer.Ordinal);
+
+        public Result Upsert(InstalledPluginState state)
+        {
+            byPluginId[state.PluginId] = state;
+            return Result.Success();
+        }
+
+        public Result<InstalledPluginState?> Get(string pluginId)
+        {
+            return Result.Success(byPluginId.TryGetValue(pluginId, out var state) ? state : null);
+        }
+
+        public Result<IReadOnlyList<InstalledPluginState>> Snapshot()
+        {
+            return Result.Success<IReadOnlyList<InstalledPluginState>>(byPluginId.Values.OrderBy(state => state.PluginId, StringComparer.Ordinal).ToArray());
+        }
+
+        public Result SetEnabled(string pluginId, bool isEnabled, string statusSummary)
+        {
+            if (!byPluginId.TryGetValue(pluginId, out var state))
+            {
+                return Result.Failure(ErrorCode.NotFound);
+            }
+
+            byPluginId[pluginId] = state with
+            {
+                IsEnabled = isEnabled,
+                StatusSummary = statusSummary,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            };
+            return Result.Success();
+        }
+
+        public Result Remove(string pluginId)
+        {
+            byPluginId.Remove(pluginId);
+            return Result.Success();
+        }
+    }
+
+    private sealed class InMemoryInstalledPluginMetadataCache(IReadOnlyList<InstalledPluginState> states) : IInstalledPluginMetadataCache
+    {
+        private readonly Dictionary<string, InstalledPluginMetadata> byPluginId = states.ToDictionary(
+            state => state.PluginId,
+            ToMetadata,
+            StringComparer.Ordinal);
+
+        public Result Upsert(InstalledPluginMetadata metadata)
+        {
+            byPluginId[metadata.PluginId] = metadata;
+            return Result.Success();
+        }
+
+        public Result<InstalledPluginMetadata?> Get(string pluginId)
+        {
+            return Result.Success(byPluginId.TryGetValue(pluginId, out var metadata) ? metadata : null);
+        }
+
+        public Result<IReadOnlyList<InstalledPluginMetadata>> Snapshot()
+        {
+            return Result.Success<IReadOnlyList<InstalledPluginMetadata>>(SnapshotItems());
+        }
+
+        public IReadOnlyList<InstalledPluginMetadata> SnapshotItems()
+        {
+            return byPluginId.Values.OrderBy(item => item.PluginId, StringComparer.Ordinal).ToArray();
+        }
+
+        public Result RebuildFrom(IReadOnlyList<InstalledPluginState> installedStates)
+        {
+            byPluginId.Clear();
+            foreach (var state in installedStates)
+            {
+                byPluginId[state.PluginId] = ToMetadata(state);
+            }
+
+            return Result.Success();
+        }
+
+        public Result Remove(string pluginId)
+        {
+            byPluginId.Remove(pluginId);
+            return Result.Success();
+        }
+
+        private static InstalledPluginMetadata ToMetadata(InstalledPluginState state)
+        {
+            return new InstalledPluginMetadata(
+                state.PluginId,
+                state.DisplayName,
+                state.Version,
+                state.Description,
+                state.PackageFingerprint,
+                state.IsEnabled,
+                state.StatusSummary,
+                state.InstalledAtUtc,
+                state.UpdatedAtUtc,
+                state.IsPendingUninstall,
+                state.RestartRequired);
+        }
+    }
+
+    private sealed class InMemoryActivationStatusPersistence(
+        IInstalledPluginStateStore stateStore,
+        IInstalledPluginMetadataCache metadataCache) : IHostPluginActivationStatusPersistence
+    {
+        public Result Persist(
+            IReadOnlyList<InstalledPluginState> installedStates,
+            IReadOnlyList<InstalledPluginState> changedStates)
+        {
+            foreach (var state in changedStates)
+            {
+                var upsert = stateStore.Upsert(state);
+                if (!upsert.IsSuccess)
+                {
+                    return upsert;
+                }
+            }
+
+            return metadataCache.RebuildFrom(installedStates);
+        }
     }
 }

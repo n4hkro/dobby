@@ -1,5 +1,6 @@
 using Dobby.Core.Versioning;
 using Dobby.Host.Settings;
+using Dobby.Localization;
 using Shouldly;
 
 namespace Dobby.UnitTests.Host;
@@ -33,7 +34,7 @@ public sealed class AboutInfoProviderTests
 
         var info = provider.GetInfo(isOwner: false, ownerIdentity: "owner");
 
-        info.OwnerIdentityText.ShouldBe("About.OwnerStatus.Registered");
+        info.OwnerIdentityText.ShouldBe(HostResourceKeys.AboutOwnerStatusManaged);
         info.OwnerIdentityText.ShouldNotBe("owner");
     }
 

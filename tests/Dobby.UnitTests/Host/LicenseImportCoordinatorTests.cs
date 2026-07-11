@@ -285,6 +285,11 @@ public sealed class LicenseImportCoordinatorTests
         public void SeedDefaultContext(CurrentCustomerDeploymentContext context)
         {
         }
+
+        public void ProvisionContext(CurrentCustomerDeploymentContext context)
+        {
+            throw new InvalidOperationException("License import must not provision current context.");
+        }
     }
 
     private sealed class InMemoryLicenseStateStore : ILicenseStateStore

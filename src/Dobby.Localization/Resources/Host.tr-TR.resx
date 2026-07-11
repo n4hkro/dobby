@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+<data name="Dobby.Shell.Navigation.Home" xml:space="preserve">
+    <value>Ana sayfa</value>
+  </data><data name="Dobby.Shell.Navigation.Plugins" xml:space="preserve">
+    <value>Eklentiler</value>
+  </data><data name="Dobby.Shell.Navigation.Settings" xml:space="preserve">
+    <value>Ayarlar</value>
+  </data><data name="Dobby.Shell.Home.Title" xml:space="preserve">
+    <value>Ana sayfa</value>
+  </data><data name="Dobby.Shell.Plugins.Title" xml:space="preserve">
+    <value>Eklentiler</value>
+  </data><data name="Dobby.Shell.Settings.Title" xml:space="preserve">
+    <value>Ayarlar</value>
+  </data><data name="Dobby.Host.Settings.Appearance" xml:space="preserve">
+    <value>Görünüm</value>
+  </data><data name="Dobby.Host.Settings.Appearance.Theme" xml:space="preserve">
+    <value>Tema</value>
+  </data><data name="Dobby.Host.Settings.Appearance.Theme.Light" xml:space="preserve">
+    <value>Açık</value>
+  </data><data name="Dobby.Host.Settings.Appearance.Theme.Dark" xml:space="preserve">
+    <value>Koyu</value>
+  </data><data name="Dobby.Host.Settings.Account" xml:space="preserve">
+    <value>Hesap</value>
+  </data><data name="Dobby.Host.Settings.SecuritySession" xml:space="preserve">
+    <value>Güvenlik ve oturum</value>
+  </data><data name="Dobby.Host.Settings.SecuritySession.AutoLockEnabled" xml:space="preserve">
+    <value>Otomatik kilit</value>
+  </data><data name="Dobby.Host.Settings.SecuritySession.AutoLockMinutes" xml:space="preserve">
+    <value>Kilit dakikası</value>
+  </data><data name="Dobby.Host.Settings.UserManagement" xml:space="preserve">
+    <value>Kullanıcılar</value>
+  </data><data name="Dobby.Host.Settings.About" xml:space="preserve">
+    <value>Hakkında</value>
+  </data><data name="Dobby.Host.UserManagement.PermissionDenied" xml:space="preserve">
+    <value>Bu işlem için izniniz yok</value>
+  </data><data name="Dobby.Host.UserManagement.CreateManagedUser" xml:space="preserve">
+    <value>Yönetilen kullanıcı oluştur</value>
+  </data><data name="Dobby.Host.UserManagement.UpdateDisplayName" xml:space="preserve">
+    <value>Görünen adı güncelle</value>
+  </data><data name="Dobby.Host.UserManagement.UpdateActiveState" xml:space="preserve">
+    <value>Etkinlik durumunu güncelle</value>
+  </data><data name="Dobby.Host.UserManagement.ResetPassword" xml:space="preserve">
+    <value>Parolayı sıfırla</value>
+  </data><data name="Dobby.Host.UserManagement.GrantPermission" xml:space="preserve">
+    <value>İzin ver</value>
+  </data><data name="Dobby.Host.UserManagement.RevokePermission" xml:space="preserve">
+    <value>İzni geri al</value>
+  </data><data name="Dobby.Shell.Brand" xml:space="preserve">
+    <value>Dobby</value>
+  </data><data name="Dobby.Shell.Sidebar.Toggle" xml:space="preserve">
+    <value>Yan paneli değiştir</value>
+  </data><data name="Dobby.Shell.Theme.Toggle" xml:space="preserve">
+    <value>Temayı değiştir</value>
+  </data><data name="Dobby.Shell.Status.Ready" xml:space="preserve">
+    <value>Hazır</value>
+  </data><data name="Dobby.Shell.WorkSessions" xml:space="preserve">
+    <value>İş oturumları</value>
+  </data><data name="Dobby.Shell.WorkSession.NavigationWarning" xml:space="preserve">
+    <value>Açık bir iş oturumu var</value>
+  </data><data name="Dobby.Shell.WorkSession.Stay" xml:space="preserve">
+    <value>Kal</value>
+  </data><data name="Dobby.Shell.WorkSession.Minimize" xml:space="preserve">
+    <value>Küçült</value>
+  </data><data name="Dobby.Shell.WorkSession.Close" xml:space="preserve">
+    <value>Kapat</value>
+  </data><data name="Dobby.Shell.MinimizedWorkStrip" xml:space="preserve">
+    <value>Küçültülen işler</value>
+  </data><data name="Dobby.Shell.ThirdBar" xml:space="preserve">
+    <value>Üçüncü çubuk</value>
+  </data><data name="Dobby.Shell.Workspace.NewTab" xml:space="preserve">
+    <value>Yeni Ana sayfa sekmesi</value>
+  </data><data name="Dobby.Shell.Workspace.CloseTab" xml:space="preserve">
+    <value>Sekmeyi kapat</value>
+  </data><data name="Dobby.Shell.Window.Minimize" xml:space="preserve">
+    <value>Pencereyi küçült</value>
+  </data><data name="Dobby.Shell.Window.Maximize" xml:space="preserve">
+    <value>Pencereyi büyüt</value>
+  </data><data name="Dobby.Shell.Window.Restore" xml:space="preserve">
+    <value>Pencereyi geri yükle</value>
+  </data><data name="Dobby.Shell.Window.Close" xml:space="preserve">
+    <value>Uygulamayı kapat</value>
+  </data><data name="Dobby.Shell.Window.CloseConfirmation.Title" xml:space="preserve">
+    <value>Uygulamayı kapat</value>
+  </data><data name="Dobby.Shell.Window.CloseConfirmation.Message" xml:space="preserve">
+    <value>Dobby uygulamasını kapatmak istiyor musunuz?</value>
+  </data><data name="Dobby.Shell.Settings.Heading" xml:space="preserve">
+    <value>Ayarlar</value>
+  </data><data name="Dobby.Shell.About.Heading" xml:space="preserve">
+    <value>Hakkında</value>
+  </data><data name="Dobby.Shell.BackgroundOperation" xml:space="preserve">
+    <value>Arka plan işlemi</value>
+  </data><data name="Dobby.Shell.Dashboard.CasesOverview" xml:space="preserve">
+    <value>İşlere genel bakış</value>
+  </data><data name="Dobby.Shell.Dashboard.Pipelines" xml:space="preserve">
+    <value>Hatlar</value>
+  </data><data name="Dobby.Shell.Dashboard.InProgress" xml:space="preserve">
+    <value>Devam ediyor</value>
+  </data><data name="Dobby.Shell.Dashboard.Completed" xml:space="preserve">
+    <value>Tamamlandı</value>
+  </data><data name="Dobby.Shell.Dashboard.Expired" xml:space="preserve">
+    <value>Süresi doldu</value>
+  </data><data name="Dobby.Shell.Dashboard.NewCases" xml:space="preserve">
+    <value>Yeni işler</value>
+  </data><data name="Dobby.Shell.Dashboard.PendingInfo" xml:space="preserve">
+    <value>Bilgi bekliyor</value>
+  </data><data name="Dobby.Shell.Dashboard.Closed" xml:space="preserve">
+    <value>Kapalı</value>
+  </data><data name="Dobby.Shell.Dashboard.TopDrivers" xml:space="preserve">
+    <value>Başlıca nedenler</value>
+  </data><data name="Dobby.Shell.Dashboard.CaseMetrics" xml:space="preserve">
+    <value>İş metrikleri</value>
+  </data><data name="Dobby.Shell.Diagnostics.Export" xml:space="preserve">
+    <value>Dışa aktar</value>
+  </data><data name="Dobby.Shell.Diagnostics.Exported" xml:space="preserve">
+    <value>Tanılama dışa aktarıldı</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Heading" xml:space="preserve">
+    <value>Eklentiler</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Install" xml:space="preserve">
+    <value>Eklenti yükle</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Enable" xml:space="preserve">
+    <value>Etkinleştir</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Disable" xml:space="preserve">
+    <value>Devre dışı bırak</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Uninstall" xml:space="preserve">
+    <value>Kaldır</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Empty" xml:space="preserve">
+    <value>Yüklü eklenti yok</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.RestartRequired" xml:space="preserve">
+    <value>Yeniden başlatma gerekli</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.InstallBusy" xml:space="preserve">
+    <value>Eklenti yükleniyor</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.EnableBusy" xml:space="preserve">
+    <value>Eklenti etkinleştiriliyor</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.DisableBusy" xml:space="preserve">
+    <value>Eklenti devre dışı bırakılıyor</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.UninstallBusy" xml:space="preserve">
+    <value>Eklenti kaldırılıyor</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.OperationDenied" xml:space="preserve">
+    <value>Bu eklenti işlemi için izniniz yok</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.ReadOnlyDenied" xml:space="preserve">
+    <value>Bu eklenti işlemi salt okunur lisans modunda kullanılamaz</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.DisplayName" xml:space="preserve">
+    <value>Görünen ad</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.PluginId" xml:space="preserve">
+    <value>Eklenti ID</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Version" xml:space="preserve">
+    <value>Sürüm</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Status" xml:space="preserve">
+    <value>Durum</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Trust" xml:space="preserve">
+    <value>Güven</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.License" xml:space="preserve">
+    <value>Lisans</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Fault" xml:space="preserve">
+    <value>Çalışma zamanı hatası</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Rejection" xml:space="preserve">
+    <value>Paket sonucu</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Enabled" xml:space="preserve">
+    <value>Eklenti etkin</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Disabled" xml:space="preserve">
+    <value>Eklenti devre dışı</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.PendingUninstall" xml:space="preserve">
+    <value>Kaldırma bekleniyor</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Faulted" xml:space="preserve">
+    <value>Eklenti hatası algılandı</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Rejected" xml:space="preserve">
+    <value>Eklenti reddedildi</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Available" xml:space="preserve">
+    <value>Eklenti kullanılabilir</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Trust.Trusted" xml:space="preserve">
+    <value>Güvenilir paket</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Trust.Rejected" xml:space="preserve">
+    <value>Paket güveni reddedildi</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Trust.Unavailable" xml:space="preserve">
+    <value>Paket güveni kullanılamıyor</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.License.FullAccess" xml:space="preserve">
+    <value>Tam lisans erişimi</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.License.ReadOnly" xml:space="preserve">
+    <value>Salt okunur lisans modu</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.License.Denied" xml:space="preserve">
+    <value>Lisans erişimi reddedildi</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.License.Unavailable" xml:space="preserve">
+    <value>Lisans durumu kullanılamıyor</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Fault.None" xml:space="preserve">
+    <value>Çalışma zamanı hatası yok</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Fault.Detected" xml:space="preserve">
+    <value>Çalışma zamanı hatası algılandı</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Rejection.Safe" xml:space="preserve">
+    <value>Eklenti paketi reddedildi</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.UninstallConfirmation.Title" xml:space="preserve">
+    <value>Eklentiyi kaldır</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.UninstallConfirmation.Message" xml:space="preserve">
+    <value>{0} eklentisini kaldırmak istiyor musunuz? Evet eklenti verilerini siler, Hayır eklenti verilerini tutar, İptal işlemi durdurur.</value>
+  </data><data name="Dobby.Shell.Plugins.License.Heading" xml:space="preserve">
+    <value>Eklenti lisansı</value>
+  </data><data name="Dobby.Shell.Plugins.License.Status" xml:space="preserve">
+    <value>Durum</value>
+  </data><data name="Dobby.Shell.Plugins.License.List" xml:space="preserve">
+    <value>Lisanslar</value>
+  </data><data name="Dobby.Shell.Plugins.License.Detail" xml:space="preserve">
+    <value>Ayrıntılar</value>
+  </data><data name="Dobby.Shell.Plugins.License.NoPlugin" xml:space="preserve">
+    <value>Yüklü eklenti yok</value>
+  </data><data name="Dobby.Shell.Plugins.License.Import" xml:space="preserve">
+    <value>Lisans içe aktar</value>
+  </data><data name="Dobby.Shell.Plugins.License.ImportSuccess" xml:space="preserve">
+    <value>Lisans içe aktarıldı</value>
+  </data><data name="Dobby.Shell.Plugins.License.ImportRejected" xml:space="preserve">
+    <value>Lisans içe aktarma reddedildi</value>
+  </data><data name="Dobby.Shell.Plugins.License.ImportBusy" xml:space="preserve">
+    <value>Lisans içe aktarılıyor</value>
+  </data><data name="Dobby.Shell.Plugins.License.ImportPermissionDenied" xml:space="preserve">
+    <value>Lisans içe aktarma izniniz yok</value>
+  </data><data name="Dobby.Shell.Plugins.License.Mode.FullAccess" xml:space="preserve">
+    <value>Tam erişim</value>
+  </data><data name="Dobby.Shell.Plugins.License.Mode.ReadOnlyExpired" xml:space="preserve">
+    <value>Salt okunur</value>
+  </data><data name="Dobby.Shell.Plugins.License.Mode.Denied" xml:space="preserve">
+    <value>Reddedildi</value>
+  </data><data name="Dobby.Shell.PasswordChanged" xml:space="preserve">
+    <value>Parola değiştirildi</value>
+  </data><data name="Dobby.Shell.Profile.AccountInfo" xml:space="preserve">
+    <value>Profil ve hesap bilgisi</value>
+  </data><data name="Dobby.Shell.Profile.Anonymous" xml:space="preserve">
+    <value>Anonim kullanici</value>
+  </data><data name="Dobby.Shell.Profile.ChangePassword" xml:space="preserve">
+    <value>Parolayı değiştir</value>
+  </data><data name="Dobby.Shell.Profile.ManualLock" xml:space="preserve">
+    <value>Kilitle</value>
+  </data><data name="Dobby.Shell.Profile.Logout" xml:space="preserve">
+    <value>Çıkış</value>
+  </data><data name="Dobby.Shell.Feedback.Loading" xml:space="preserve">
+    <value>Yükleniyor</value>
+  </data><data name="Dobby.Shell.Feedback.Empty" xml:space="preserve">
+    <value>Veri yok</value>
+  </data><data name="Dobby.Shell.Feedback.Success" xml:space="preserve">
+    <value>Başarılı</value>
+  </data><data name="Dobby.Shell.Feedback.Error" xml:space="preserve">
+    <value>Hata</value>
+  </data><data name="Dobby.Shell.Feedback.Confirmation" xml:space="preserve">
+    <value>Onay</value>
+  </data><data name="Dobby.Shell.Notification.Toast" xml:space="preserve">
+    <value>Kısa bildirim</value>
+  </data><data name="Dobby.Shell.Notification.Banner" xml:space="preserve">
+    <value>Banner bildirimi</value>
+  </data><data name="Dobby.Shell.Notification.Modal" xml:space="preserve">
+    <value>Modal bildirim</value>
+  </data><data name="Dobby.Host.About.AppVersion" xml:space="preserve">
+    <value>Uygulama sürümü</value>
+  </data><data name="Dobby.Host.About.BuildNumber" xml:space="preserve">
+    <value>Derleme numarası</value>
+  </data><data name="Dobby.Host.About.BuildDate" xml:space="preserve">
+    <value>Derleme tarihi</value>
+  </data><data name="Dobby.Host.About.HostEdition" xml:space="preserve">
+    <value>Host sürümü</value>
+  </data><data name="Dobby.Host.About.HostChannel" xml:space="preserve">
+    <value>Kanal</value>
+  </data><data name="Dobby.Host.About.DeviceCode" xml:space="preserve">
+    <value>Cihaz kodu</value>
+  </data><data name="Dobby.Host.About.Plugins" xml:space="preserve">
+    <value>Eklentiler</value>
+  </data><data name="Dobby.Host.About.PluginsEmpty" xml:space="preserve">
+    <value>Yüklü eklenti yok</value>
+  </data><data name="Dobby.Host.About.SupportContact" xml:space="preserve">
+    <value>Destek iletişimi</value>
+  </data><data name="Dobby.Host.About.LegalLine" xml:space="preserve">
+    <value>Yasal not</value>
+  </data><data name="Dobby.Host.About.OwnerIdentity" xml:space="preserve">
+    <value>Owner durumu</value>
+  </data><data name="About.OwnerStatus.Managed" xml:space="preserve">
+    <value>Yonetilen kullanici</value>
+  </data><data name="About.OwnerStatus.Registered" xml:space="preserve">
+    <value>Owner kayıtlı</value>
+  </data><data name="Dobby.Host.AuditRetentionSweep" xml:space="preserve">
+    <value>Denetim saklama temizliği</value>
+  </data><data name="Dobby.Shell.Diagnostics.Export.Denied" xml:space="preserve"><value>Tanılamayı dışa aktarma izniniz yok</value></data><data name="Dobby.Shell.Profile.ManualLock.Denied" xml:space="preserve"><value>Oturumu kilitleme izniniz yok</value></data><data name="Dobby.Shell.Profile.PasswordChange.Denied" xml:space="preserve"><value>Parolayı değiştirme izniniz yok</value></data><data name="Dobby.Host.Settings.SecuritySession.Save" xml:space="preserve"><value>Kaydet</value></data><data name="Dobby.Shell.Diagnostics.Export.Success" xml:space="preserve"><value>Tanılama dışa aktarıldı</value></data><data name="Dobby.Shell.Profile.PasswordChange.Error" xml:space="preserve"><value>Parola değiştirilemedi</value></data><data name="Dobby.Shell.Profile.Logout.Busy" xml:space="preserve"><value>Çıkış yapılıyor</value></data><data name="Dobby.Shell.Profile.Logout.Error" xml:space="preserve"><value>Çıkış yapılamadı</value></data><data name="Dobby.Shell.Profile.ManualLock.Busy" xml:space="preserve"><value>Oturum kilitleniyor</value></data><data name="Dobby.Shell.Profile.PasswordChange.Success" xml:space="preserve"><value>Parola değiştirildi</value></data><data name="Dobby.Shell.Profile.Logout.Success" xml:space="preserve"><value>Çıkış yapıldı</value></data><data name="Dobby.Shell.Diagnostics.Export.Busy" xml:space="preserve"><value>Tanılama dışa aktarılıyor</value></data><data name="Dobby.Shell.Profile.ManualLock.Success" xml:space="preserve"><value>Oturum kilitlendi</value></data><data name="Dobby.Shell.Profile.Logout.Denied" xml:space="preserve"><value>Çıkış yapma izniniz yok</value></data><data name="Dobby.Shell.Profile.ManualLock.Error" xml:space="preserve"><value>Oturum kilitlenemedi</value></data><data name="Dobby.Shell.Profile.PasswordChange.Busy" xml:space="preserve"><value>Parola değiştiriliyor</value></data><data name="Dobby.Shell.Diagnostics.Export.Error" xml:space="preserve"><value>Tanılama dışa aktarılamadı</value></data><data name="Dobby.Shell.WorkSession.Restore" xml:space="preserve"><value>Geri yükle</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Title" xml:space="preserve"><value>Fiziksel yazdırmayı onaylayın</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Message" xml:space="preserve"><value>Lisans salt okunur modda. Bu fiziksel yazıcıda yazdırmaya devam edilsin mi?</value></data></root>

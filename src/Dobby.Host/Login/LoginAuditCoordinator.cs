@@ -41,6 +41,7 @@ public sealed class LoginAuditCoordinator(IAuditTrail auditTrail, TimeProvider t
         {
             LoginAttemptKind.InvalidCredentials => "invalid-credentials",
             LoginAttemptKind.ValidationFailed => "validation-failed",
+            LoginAttemptKind.KdfUnsupported => "kdf-unsupported",
             LoginAttemptKind.Deactivated => "deactivated",
             LoginAttemptKind.Throttled => "throttled",
             _ => "validation-failed"

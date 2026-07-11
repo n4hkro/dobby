@@ -6,6 +6,7 @@ using Dobby.Contracts.PluginFramework;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core;
 using Dobby.Core.Versioning;
+using Dobby.Messaging;
 using Dobby.PluginFramework.Activation;
 using Dobby.UnitTests.PluginFramework.Packaging;
 using Shouldly;
@@ -146,7 +147,7 @@ public sealed class PluginActivationCoreTests
     {
         var registry = new PluginExtensionPointRegistry();
         await using var lifetimes = new PluginLifetimeManager();
-        var eventBus = new RecordingEventBus();
+        var eventBus = new InMemoryEventBus();
         var reporter = new RecordingBackgroundOperationReporter();
         var cancellation = new RecordingBackgroundOperationCancellation();
         var licensing = new StaticCapabilityLicensing(PluginRuntimeMode.ReadOnlyExpired);
@@ -159,11 +160,54 @@ public sealed class PluginActivationCoreTests
 
         result.IsSuccess.ShouldBeTrue();
         var page = (HostAwarePage)registry.Get<IPluginPage>().Single();
-        page.EventBus.ShouldBeSameAs(eventBus);
+        page.EventBus.ShouldNotBeNull();
+        page.EventBus.ShouldNotBeSameAs(eventBus);
         page.BackgroundOperations.ShouldBeSameAs(reporter);
         page.BackgroundOperationCancellation.ShouldBeSameAs(cancellation);
         page.Licensing.ShouldBeSameAs(licensing);
         page.Licensing.GetCurrentMode().Value.ShouldBe(PluginRuntimeMode.ReadOnlyExpired);
+        var payloads = new List<string>();
+        using var subscription = page.EventBus.Subscribe<SampleEvent>((evt, _) =>
+        {
+            payloads.Add(evt.Payload);
+            return Task.CompletedTask;
+        });
+        await eventBus.PublishAsync(new SampleEvent("hello")
+        {
+            CorrelationId = CorrelationId.New(),
+            OccurredAt = DateTimeOffset.UtcNow
+        });
+        payloads.ShouldBe(["hello"]);
+    }
+
+    [Fact]
+    public async Task Registration_bridge_scopes_work_session_owner_to_resolving_plugin()
+    {
+        var workSessions = new RecordingPluginWorkSessionService();
+        await using var lifetimes = new PluginLifetimeManager();
+        await using var bridge = new PluginServiceRegistrationBridge(
+            new PluginExtensionPointRegistry(),
+            lifetimes,
+            new PluginHostServices(
+                new InMemoryEventBus(),
+                new RecordingBackgroundOperationReporter(),
+                new RecordingBackgroundOperationCancellation(),
+                pluginWorkSessions: workSessions));
+        var registration = bridge.Register("com.dobby.sample", new EmptyModule());
+        registration.IsSuccess.ShouldBeTrue();
+        var scoped = registration.Value.Resolve<IPluginWorkSessionService>();
+
+        var accepted = scoped.Open("com.dobby.sample", "plugin/com.dobby.sample/work", "sample.work");
+        var rejected = scoped.Open("com.dobby.other", "plugin/com.dobby.other/work", "other.work");
+        var missingOwner = scoped.Open(null!, "plugin/com.dobby.sample/work", "missing-owner.work");
+
+        accepted.IsSuccess.ShouldBeTrue();
+        accepted.Value.OwnerId.ShouldBe("com.dobby.sample");
+        rejected.IsSuccess.ShouldBeFalse();
+        rejected.ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        missingOwner.IsSuccess.ShouldBeFalse();
+        missingOwner.ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        workSessions.OpenedOwners.ShouldBe(["com.dobby.sample"]);
     }
 
     [Fact]
@@ -414,6 +458,17 @@ public sealed class PluginActivationCoreTests
         }
     }
 
+    private sealed class EmptyModule : IPluginModule
+    {
+        public void RegisterServices(IPluginServiceCollection services)
+        {
+        }
+
+        public void OnActivated(IPluginActivationContext context)
+        {
+        }
+    }
+
     private sealed class HostAwarePage(
         IEventBus eventBus,
         IBackgroundOperationReporter backgroundOperations,
@@ -490,4 +545,25 @@ public sealed class PluginActivationCoreTests
     {
         public CancellationToken CancellationToken { get; } = CancellationToken.None;
     }
+
+    private sealed class RecordingPluginWorkSessionService : IPluginWorkSessionService
+    {
+        public List<string> OpenedOwners { get; } = [];
+
+        public Result<PluginWorkSessionHandle> Open(string ownerId, string routeKey, string labelKey)
+        {
+            OpenedOwners.Add(ownerId);
+            return Result.Success(new PluginWorkSessionHandle(Guid.NewGuid(), ownerId, routeKey, labelKey));
+        }
+
+        public Result UpdateProgress(Guid sessionId, int percent) => Result.Success();
+
+        public Result RecordResult(Guid sessionId, string resultSummaryKey) => Result.Success();
+
+        public Result RecordError(Guid sessionId, string errorSummaryKey) => Result.Success();
+
+        public Result Close(Guid sessionId) => Result.Success();
+    }
+
+    private sealed record SampleEvent(string Payload) : PublicIntegrationEvent;
 }

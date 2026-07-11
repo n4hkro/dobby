@@ -32,6 +32,49 @@ public sealed class DurableAuditTrailTests
     }
 
     [Fact]
+    public void Durable_audit_round_trip_contract_does_not_include_severity()
+    {
+        using var fixture = AuditPersistenceFixture.Create();
+        IAuditTrail trail = new DurableAuditTrail(fixture.Executor);
+        var auditEvent = new AuditEvent(
+            AuditEventName.UserLoginFailed,
+            "owner",
+            "host",
+            AuditResult.Failed,
+            CorrelationId.New(),
+            DateTimeOffset.Parse("2026-05-13T08:00:00Z"),
+            new Dictionary<string, string> { ["reason"] = "invalid-password" });
+
+        trail.Append(auditEvent);
+
+        fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('AuditLog') ORDER BY cid;")
+            .ShouldBe([
+                "AuditId",
+                "OccurredAtUtc",
+                "EventName",
+                "ActorId",
+                "Target",
+                "Result",
+                "CorrelationId",
+                "DetailsJson"
+            ]);
+        var snapshotEvent = trail.Snapshot().Single();
+        var payload = snapshotEvent.ToCanonicalPayload();
+        payload.Keys.ShouldBe([
+            "timestamp",
+            "actor",
+            "action",
+            "target",
+            "result",
+            "correlationId",
+            "details"
+        ]);
+        payload.Keys.Any(key => string.Equals(key, "severity", StringComparison.OrdinalIgnoreCase))
+            .ShouldBeFalse();
+        typeof(AuditEvent).GetProperty("Severity").ShouldBeNull();
+    }
+
+    [Fact]
     public void Durable_audit_trail_reuses_sanitizer_for_secret_details()
     {
         using var fixture = AuditPersistenceFixture.Create();

@@ -90,6 +90,23 @@ public sealed class CurrentCustomerDeploymentContextTests
         result.Context.ShouldBe(new CurrentCustomerDeploymentContext("default", "default"));
     }
 
+    [Fact]
+    public void Provision_context_replaces_existing_rows_with_exactly_one_non_default_context()
+    {
+        var store = new InMemoryCurrentContextStore(
+            new CurrentCustomerDeploymentContext("default", "default"),
+            new CurrentCustomerDeploymentContext("stale", "stale"));
+        var service = new CurrentCustomerDeploymentContextService(store);
+
+        var result = service.ProvisionContext("customer-a", "deployment-a");
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Context.ShouldBe(new CurrentCustomerDeploymentContext("customer-a", "deployment-a"));
+        store.Contexts.ShouldBe([new CurrentCustomerDeploymentContext("customer-a", "deployment-a")]);
+        store.ProvisionCount.ShouldBe(1);
+        store.SeedCount.ShouldBe(0);
+    }
+
     private sealed class InMemoryCurrentContextStore : ICurrentCustomerDeploymentContextStore
     {
         private readonly List<CurrentCustomerDeploymentContext> contexts;
@@ -101,6 +118,8 @@ public sealed class CurrentCustomerDeploymentContextTests
 
         public int SeedCount { get; private set; }
 
+        public int ProvisionCount { get; private set; }
+
         public IReadOnlyList<CurrentCustomerDeploymentContext> Contexts => contexts;
 
         public IReadOnlyList<CurrentCustomerDeploymentContext> ReadActiveContexts()
@@ -111,6 +130,13 @@ public sealed class CurrentCustomerDeploymentContextTests
         public void SeedDefaultContext(CurrentCustomerDeploymentContext context)
         {
             SeedCount++;
+            contexts.Add(context);
+        }
+
+        public void ProvisionContext(CurrentCustomerDeploymentContext context)
+        {
+            ProvisionCount++;
+            contexts.Clear();
             contexts.Add(context);
         }
     }

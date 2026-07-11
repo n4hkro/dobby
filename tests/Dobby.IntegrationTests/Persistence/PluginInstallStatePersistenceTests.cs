@@ -4,11 +4,13 @@ using Dobby.Core;
 using Dobby.Host.Plugins;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
+using Dobby.IntegrationTests.Plugins;
 using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Manifest;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authorization;
 using Dobby.Security.Trust;
+using NSubstitute;
 using Shouldly;
 
 namespace Dobby.IntegrationTests.Persistence;
@@ -59,6 +61,32 @@ public sealed class PluginInstallStatePersistenceTests
             .ToHashSet(StringComparer.Ordinal);
         cacheColumns.ShouldContain("IsPendingUninstall");
         cacheColumns.ShouldContain("RestartRequired");
+    }
+
+    [Fact]
+    public void Post_login_migration_registers_plugin_storage_table_append_only()
+    {
+        using var fixture = PluginPersistenceFixture.Create();
+
+        fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All)
+            .IsSuccess.ShouldBeTrue();
+
+        PostLoginPluginPersistenceMigrations.All.Keys.ShouldContain("0006_plugin_storage_values");
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = @MigrationId;",
+            new { MigrationId = "0006_plugin_storage_values" })
+            .ShouldBe(1);
+        var columns = fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('PluginStorageValue');")
+            .ToHashSet(StringComparer.Ordinal);
+        columns.ShouldContain("PluginId");
+        columns.ShouldContain("Scope");
+        columns.ShouldContain("UserScopeHash");
+        columns.ShouldContain("StorageKey");
+        columns.ShouldContain("Payload");
+        columns.ShouldContain("ContentType");
+        columns.ShouldContain("SchemaVersion");
+        columns.ShouldContain("CreatedAtUtc");
+        columns.ShouldContain("UpdatedAtUtc");
     }
 
     [Fact]
@@ -247,8 +275,9 @@ public sealed class PluginInstallStatePersistenceTests
             fixture.Migrator,
             stateStore,
             metadataCache,
+            new HostPluginActivationStatusPersistence(stateStore, metadataCache, fixture.TransactionScope),
             staging,
-            new PluginDataRetentionStore(fixture.Root),
+            new PluginDataRetentionStore(fixture.Root, fixture.TransactionScope),
             OperationTargetRegistry.CreateDefault(),
             extensionPointRegistry,
             lifetimeManager,
@@ -263,6 +292,69 @@ public sealed class PluginInstallStatePersistenceTests
         Directory.Exists(retainedRuntimePath).ShouldBeTrue();
         Directory.Exists(orphanRuntimePath).ShouldBeFalse();
         metadataCache.Snapshot().Value.Select(item => item.PluginId).ShouldBe(["com.dobby.keep"]);
+    }
+
+    [Fact]
+    public async Task Activation_status_persistence_is_atomic_when_metadata_cache_rebuild_fails()
+    {
+        using var fixture = PluginPersistenceFixture.Create();
+        fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All).IsSuccess.ShouldBeTrue();
+        using var runtimeFixture = SamplePluginPackageFixture.CreateRuntimeDirectory();
+        var archive = PluginPackageReader.Read(runtimeFixture.PackagePath);
+        archive.IsSuccess.ShouldBeTrue();
+        var packageFingerprint = PluginPackageFingerprint.Compute(archive.Value.Manifest).Fingerprint;
+        var originalState = new InstalledPluginState(
+            SamplePluginPackageFixture.PluginId,
+            SamplePluginPackageFixture.Version,
+            packageFingerprint,
+            "Sample Plugin",
+            "Sample plugin description",
+            IsEnabled: true,
+            ValidationSummary: "verified",
+            RuntimePath: runtimeFixture.PackagePath,
+            StatusSummary: "Pending activation",
+            InstalledAtUtc: DateTimeOffset.UtcNow,
+            UpdatedAtUtc: DateTimeOffset.UtcNow);
+        var seedStateStore = new HostInstalledPluginStateStore(fixture.Executor, fixture.TransactionScope);
+        var seedMetadataCache = new HostInstalledPluginMetadataCache(fixture.Executor, fixture.TransactionScope);
+        seedStateStore.Upsert(originalState).IsSuccess.ShouldBeTrue();
+        seedMetadataCache.RebuildFrom([originalState]).IsSuccess.ShouldBeTrue();
+
+        var failingScope = new InterceptingTransactionScope(
+            fixture.TransactionScope,
+            sql => sql.Contains("DELETE FROM InstalledPluginMetadataCache;", StringComparison.Ordinal));
+        var stateStore = new HostInstalledPluginStateStore(fixture.Executor, failingScope);
+        var metadataCache = new HostInstalledPluginMetadataCache(fixture.Executor, failingScope);
+        var activationStatusPersistence = new HostPluginActivationStatusPersistence(
+            stateStore,
+            metadataCache,
+            failingScope);
+        var extensionPointRegistry = new PluginExtensionPointRegistry();
+        await using var lifetimeManager = new PluginLifetimeManager();
+        var activationTracker = NSubstitute.Substitute.For<IPluginCurrentProcessActivationTracker>();
+        await using var coordinator = new HostPluginRuntimeCoordinator(
+            fixture.Migrator,
+            stateStore,
+            metadataCache,
+            activationStatusPersistence,
+            new PluginInstallStagingArea(fixture.Root, fixture.Executor),
+            new PluginDataRetentionStore(fixture.Root, failingScope),
+            OperationTargetRegistry.CreateDefault(),
+            extensionPointRegistry,
+            lifetimeManager,
+            new HostPluginActivationCancellation(),
+            new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionPointRegistry, lifetimeManager)),
+            activationTracker,
+            new AllowAllTrustVerifier());
+
+        var activation = await coordinator.ActivateInstalledPluginsAsync(new Dobby.Core.Versioning.HostVersion(1, 0, 0), CancellationToken.None);
+
+        activation.IsSuccess.ShouldBeFalse();
+        activation.ErrorCode.ShouldBe(ErrorCode.DatabaseUnavailable);
+        stateStore.Get(SamplePluginPackageFixture.PluginId).Value!.StatusSummary.ShouldBe("Pending activation");
+        metadataCache.Get(SamplePluginPackageFixture.PluginId).Value!.StatusSummary.ShouldBe("Pending activation");
+        extensionPointRegistry.GetRegistrationsSnapshot<Dobby.Contracts.PluginPages.IPluginPage>().ShouldBeEmpty();
+        activationTracker.DidNotReceive().MarkActivatedInCurrentProcess(Arg.Any<IReadOnlyCollection<string>>());
     }
 
     private static PluginPackageDescriptor CreatePackage()
@@ -359,6 +451,41 @@ public sealed class PluginInstallStatePersistenceTests
             if (sql.Contains(failSqlSnippet, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("Injected persistence failure.");
+            }
+
+            return inner.Execute(sql, parameters);
+        }
+
+        public IReadOnlyList<T> Query<T>(string sql, object? parameters = null)
+        {
+            return inner.Query<T>(sql, parameters);
+        }
+
+        public T QueryScalar<T>(string sql, object? parameters = null)
+        {
+            return inner.QueryScalar<T>(sql, parameters);
+        }
+    }
+
+    private sealed class InterceptingTransactionScope(
+        IHostPersistenceTransactionScope inner,
+        Func<string, bool> shouldFail) : IHostPersistenceTransactionScope
+    {
+        public void ExecuteInTransaction(Action<IHostPersistenceCommandExecutor> action)
+        {
+            inner.ExecuteInTransaction(tx => action(new InterceptingCommandExecutor(tx, shouldFail)));
+        }
+    }
+
+    private sealed class InterceptingCommandExecutor(
+        IHostPersistenceCommandExecutor inner,
+        Func<string, bool> shouldFail) : IHostPersistenceCommandExecutor
+    {
+        public int Execute(string sql, object? parameters = null)
+        {
+            if (shouldFail(sql))
+            {
+                throw new InvalidOperationException("Injected transaction failure.");
             }
 
             return inner.Execute(sql, parameters);

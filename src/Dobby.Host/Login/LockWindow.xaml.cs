@@ -7,8 +7,7 @@ namespace Dobby.Host.Login;
 
 public partial class LockWindow : Window
 {
-    private readonly LockRuntimeWorkflow? lockWorkflow;
-    private readonly SessionRecord? session;
+    private readonly LockViewModel viewModel;
     private readonly HostStringCatalog strings = new();
 
     public LockWindow()
@@ -18,9 +17,9 @@ public partial class LockWindow : Window
 
     public LockWindow(LockRuntimeWorkflow? lockWorkflow, SessionRecord? session)
     {
-        this.lockWorkflow = lockWorkflow;
-        this.session = session;
+        viewModel = CreateViewModel(lockWorkflow, session);
         InitializeComponent();
+        DataContext = viewModel;
         ApplyLocalizedText();
     }
 
@@ -28,7 +27,6 @@ public partial class LockWindow : Window
     {
         Title = strings.GetString(HostResourceKeys.LockTitle);
         LockTitleText.Text = strings.GetString(HostResourceKeys.LockTitle);
-        LockedUserText.Text = session?.UserId ?? string.Empty;
         PasswordLabel.Text = strings.GetString(HostResourceKeys.LoginPassword);
         UnlockButton.Content = strings.GetString(HostResourceKeys.LockUnlock);
         LogoutButton.Content = strings.GetString(HostResourceKeys.LockLogout);
@@ -36,31 +34,52 @@ public partial class LockWindow : Window
 
     private void Unlock_Click(object sender, RoutedEventArgs e)
     {
-        if (lockWorkflow is null || session is null)
+        var dialogResult = viewModel.SubmitUnlock(CorrelationId.New());
+        if (!dialogResult.HasValue)
         {
             return;
         }
 
-        var result = lockWorkflow.Unlock(session.UserId, PasswordBox.Password, CorrelationId.New());
-        if (!result.IsSuccess)
-        {
-            return;
-        }
-
-        DialogResult = true;
+        DialogResult = dialogResult.Value;
     }
 
     private void Logout_Click(object sender, RoutedEventArgs e)
     {
-        if (lockWorkflow is not null && session is not null)
+        var dialogResult = viewModel.SubmitLogout(CorrelationId.New());
+        if (!dialogResult.HasValue)
         {
-            var result = lockWorkflow.Logout(session.UserId, CorrelationId.New());
-            if (!result.IsSuccess)
-            {
-                return;
-            }
+            return;
         }
 
-        DialogResult = false;
+        DialogResult = dialogResult.Value;
+    }
+
+    private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        viewModel.SubmittedPassword = PasswordBox.Password;
+    }
+
+    private LockViewModel CreateViewModel(LockRuntimeWorkflow? lockWorkflow, SessionRecord? session)
+    {
+        var userId = session?.UserId ?? string.Empty;
+        if (lockWorkflow is null || string.IsNullOrWhiteSpace(userId))
+        {
+            return new LockViewModel("unknown", new NoOpLockViewModelActions(), strings);
+        }
+
+        return new LockViewModel(userId, new LockViewModelActions(lockWorkflow), strings);
+    }
+
+    private sealed class NoOpLockViewModelActions : ILockViewModelActions
+    {
+        public LockViewModelActionResult Unlock(string userId, string password, CorrelationId correlationId)
+        {
+            return LockViewModelActionResult.Failure(ErrorCode.NotFound);
+        }
+
+        public LockViewModelActionResult Logout(string userId, CorrelationId correlationId)
+        {
+            return LockViewModelActionResult.Failure(ErrorCode.NotFound);
+        }
     }
 }

@@ -179,5 +179,9 @@ public sealed class LicenseRuntimeModeProviderTests
         public void SeedDefaultContext(CurrentCustomerDeploymentContext context)
         {
         }
+
+        public void ProvisionContext(CurrentCustomerDeploymentContext context)
+        {
+        }
     }
 }

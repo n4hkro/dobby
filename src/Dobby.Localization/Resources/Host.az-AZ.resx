@@ -33,17 +33,53 @@
   <data name="Dobby.Host.Settings.Appearance" xml:space="preserve">
     <value>Görünüş</value>
   </data>
+  <data name="Dobby.Host.Settings.Appearance.Theme" xml:space="preserve">
+    <value>Mövzu</value>
+  </data>
+  <data name="Dobby.Host.Settings.Appearance.Theme.Light" xml:space="preserve">
+    <value>İşıqlı</value>
+  </data>
+  <data name="Dobby.Host.Settings.Appearance.Theme.Dark" xml:space="preserve">
+    <value>Tünd</value>
+  </data>
   <data name="Dobby.Host.Settings.Account" xml:space="preserve">
     <value>Hesab</value>
   </data>
   <data name="Dobby.Host.Settings.SecuritySession" xml:space="preserve">
     <value>Təhlükəsizlik və sessiya</value>
   </data>
+  <data name="Dobby.Host.Settings.SecuritySession.AutoLockEnabled" xml:space="preserve">
+    <value>Avtomatik kilid</value>
+  </data>
+  <data name="Dobby.Host.Settings.SecuritySession.AutoLockMinutes" xml:space="preserve">
+    <value>Kilid dəqiqələri</value>
+  </data>
   <data name="Dobby.Host.Settings.UserManagement" xml:space="preserve">
     <value>İstifadəçilər</value>
   </data>
   <data name="Dobby.Host.Settings.About" xml:space="preserve">
     <value>Haqqında</value>
+  </data>
+  <data name="Dobby.Host.UserManagement.PermissionDenied" xml:space="preserve">
+    <value>Bu əməliyyat üçün icazə yoxdur</value>
+  </data>
+  <data name="Dobby.Host.UserManagement.CreateManagedUser" xml:space="preserve">
+    <value>İdarə olunan istifadəçi yarat</value>
+  </data>
+  <data name="Dobby.Host.UserManagement.UpdateDisplayName" xml:space="preserve">
+    <value>Göstərilən adı yenilə</value>
+  </data>
+  <data name="Dobby.Host.UserManagement.UpdateActiveState" xml:space="preserve">
+    <value>Aktiv vəziyyəti yenilə</value>
+  </data>
+  <data name="Dobby.Host.UserManagement.ResetPassword" xml:space="preserve">
+    <value>Şifrəni sıfırla</value>
+  </data>
+  <data name="Dobby.Host.UserManagement.GrantPermission" xml:space="preserve">
+    <value>İcazə ver</value>
+  </data>
+  <data name="Dobby.Host.UserManagement.RevokePermission" xml:space="preserve">
+    <value>İcazəni geri al</value>
   </data>
   <data name="Dobby.Shell.Brand" xml:space="preserve">
     <value>Dobby</value>
@@ -183,6 +219,81 @@
   <data name="Dobby.Shell.Plugins.Manager.OperationDenied" xml:space="preserve">
     <value>Bu plugin əməliyyatı üçün icazə yoxdur</value>
   </data>
+  <data name="Dobby.Shell.Plugins.Manager.ReadOnlyDenied" xml:space="preserve">
+    <value>Bu plugin əməliyyatı yalnız oxuma lisenziya rejimində əlçatan deyil</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Detail.DisplayName" xml:space="preserve">
+    <value>Göstərilən ad</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Detail.PluginId" xml:space="preserve">
+    <value>Plugin ID</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Detail.Version" xml:space="preserve">
+    <value>Versiya</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Detail.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Detail.Trust" xml:space="preserve">
+    <value>Etibar</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Detail.License" xml:space="preserve">
+    <value>Lisenziya</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Detail.Fault" xml:space="preserve">
+    <value>İcra xətası</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Detail.Rejection" xml:space="preserve">
+    <value>Paket nəticəsi</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Status.Enabled" xml:space="preserve">
+    <value>Plugin aktivdir</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Status.Disabled" xml:space="preserve">
+    <value>Plugin deaktivdir</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Status.PendingUninstall" xml:space="preserve">
+    <value>Silinmə gözlənilir</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Status.Faulted" xml:space="preserve">
+    <value>Plugin xətası aşkarlandı</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Status.Rejected" xml:space="preserve">
+    <value>Plugin rədd edildi</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Status.Available" xml:space="preserve">
+    <value>Plugin əlçatandır</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Trust.Trusted" xml:space="preserve">
+    <value>Etibarlı paket</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Trust.Rejected" xml:space="preserve">
+    <value>Paket etibarı rədd edildi</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Trust.Unavailable" xml:space="preserve">
+    <value>Paket etibarı əlçatan deyil</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.License.FullAccess" xml:space="preserve">
+    <value>Tam lisenziya girişi</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.License.ReadOnly" xml:space="preserve">
+    <value>Yalnız oxuma lisenziya rejimi</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.License.Denied" xml:space="preserve">
+    <value>Lisenziya girişi rədd edildi</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.License.Unavailable" xml:space="preserve">
+    <value>Lisenziya statusu əlçatan deyil</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Fault.None" xml:space="preserve">
+    <value>İcra xətası yoxdur</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Fault.Detected" xml:space="preserve">
+    <value>İcra xətası aşkarlandı</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Manager.Rejection.Safe" xml:space="preserve">
+    <value>Plugin paketi rədd edildi</value>
+  </data>
   <data name="Dobby.Shell.Plugins.Manager.UninstallConfirmation.Title" xml:space="preserve">
     <value>Plugini sil</value>
   </data>
@@ -233,6 +344,9 @@
   </data>
   <data name="Dobby.Shell.Profile.AccountInfo" xml:space="preserve">
     <value>Profil və hesab məlumatı</value>
+  </data>
+  <data name="Dobby.Shell.Profile.Anonymous" xml:space="preserve">
+    <value>Anonim istifadəçi</value>
   </data>
   <data name="Dobby.Shell.Profile.ChangePassword" xml:space="preserve">
     <value>Şifrəni dəyiş</value>
@@ -300,10 +414,13 @@
   <data name="Dobby.Host.About.OwnerIdentity" xml:space="preserve">
     <value>Owner statusu</value>
   </data>
+  <data name="About.OwnerStatus.Managed" xml:space="preserve">
+    <value>İdarə olunan istifadəçi</value>
+  </data>
   <data name="About.OwnerStatus.Registered" xml:space="preserve">
     <value>Owner qeydiyyatdadır</value>
   </data>
   <data name="Dobby.Host.AuditRetentionSweep" xml:space="preserve">
     <value>Audit saxlanma təmizliyi</value>
   </data>
-</root>
+<data name="Dobby.Shell.Diagnostics.Export.Denied" xml:space="preserve"><value>Diaqnostika ixracı üçün icazə yoxdur</value></data><data name="Dobby.Shell.Profile.ManualLock.Denied" xml:space="preserve"><value>Sessiyanı kilidləmək üçün icazə yoxdur</value></data><data name="Dobby.Shell.Profile.PasswordChange.Denied" xml:space="preserve"><value>Şifrə dəyişmək üçün icazə yoxdur</value></data><data name="Dobby.Host.Settings.SecuritySession.Save" xml:space="preserve"><value>Saxla</value></data><data name="Dobby.Shell.Diagnostics.Export.Success" xml:space="preserve"><value>Diaqnostika ixrac edildi</value></data><data name="Dobby.Shell.Profile.PasswordChange.Error" xml:space="preserve"><value>Şifrə dəyişdirilə bilmədi</value></data><data name="Dobby.Shell.Profile.Logout.Busy" xml:space="preserve"><value>Çıxış edilir</value></data><data name="Dobby.Shell.Profile.Logout.Error" xml:space="preserve"><value>Çıxış etmək mümkün olmadı</value></data><data name="Dobby.Shell.Profile.ManualLock.Busy" xml:space="preserve"><value>Sessiya kilidlənir</value></data><data name="Dobby.Shell.Profile.PasswordChange.Success" xml:space="preserve"><value>Şifrə dəyişdirildi</value></data><data name="Dobby.Shell.Profile.Logout.Success" xml:space="preserve"><value>Çıxış edildi</value></data><data name="Dobby.Shell.Diagnostics.Export.Busy" xml:space="preserve"><value>Diaqnostika ixrac olunur</value></data><data name="Dobby.Shell.Profile.ManualLock.Success" xml:space="preserve"><value>Sessiya kilidləndi</value></data><data name="Dobby.Shell.Profile.Logout.Denied" xml:space="preserve"><value>Çıxış üçün icazə yoxdur</value></data><data name="Dobby.Shell.Profile.ManualLock.Error" xml:space="preserve"><value>Sessiya kilidlənə bilmədi</value></data><data name="Dobby.Shell.Profile.PasswordChange.Busy" xml:space="preserve"><value>Şifrə dəyişdirilir</value></data><data name="Dobby.Shell.Diagnostics.Export.Error" xml:space="preserve"><value>Diaqnostika ixrac edilə bilmədi</value></data><data name="Dobby.Shell.WorkSession.Restore" xml:space="preserve"><value>Bərpa et</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Title" xml:space="preserve"><value>Fiziki çapı təsdiqləyin</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Message" xml:space="preserve"><value>Lisenziya yalnız oxuma rejimindədir. Bu fiziki printerdə çap davam etsin?</value></data></root>

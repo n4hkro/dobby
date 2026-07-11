@@ -16,14 +16,14 @@ public sealed class HostPluginPackageInstallCoordinator(
     OperationAuthorizationPolicy authorizationPolicy,
     PluginRuntimeAuditCoordinator auditCoordinator,
     IPluginTrustVerifier pluginTrustVerifier,
-    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
-    Func<string, Result<PluginRuntimeMode>>? currentRuntimeModeProvider = null)
+    HostRuntimeModeMutationGate mutationGate,
+    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null)
 {
     private readonly OperationAuthorizationPolicy authorization = authorizationPolicy ?? throw new ArgumentNullException(nameof(authorizationPolicy));
     private readonly IPluginTrustVerifier trustVerifier = pluginTrustVerifier ?? throw new ArgumentNullException(nameof(pluginTrustVerifier));
     private readonly PluginRuntimeDiagnosticsCoordinator? diagnostics = diagnosticsCoordinator;
-    private readonly Func<string, Result<PluginRuntimeMode>> runtimeModeProvider =
-        currentRuntimeModeProvider ?? (_ => Result.Success(PluginRuntimeMode.FullAccess));
+    private readonly HostRuntimeModeMutationGate runtimeModeMutationGate = mutationGate ??
+        throw new ArgumentNullException(nameof(mutationGate));
 
     public Result<InstalledPluginState> InstallPackage(
         string actorId,
@@ -90,10 +90,10 @@ public sealed class HostPluginPackageInstallCoordinator(
         }
 
         var descriptor = validation.Descriptor!;
-        var runtimeMode = runtimeModeProvider(descriptor.Manifest.PluginId);
-        if (!runtimeMode.IsSuccess)
+        var mutationAllowed = runtimeModeMutationGate.EnsurePackageInstallAllowed(descriptor.Manifest.PluginId);
+        if (!mutationAllowed.IsSuccess)
         {
-            var rejection = RuntimeModeFailureRejection(runtimeMode.ErrorCode);
+            var rejection = RuntimeModeFailureRejection(mutationAllowed.ErrorCode);
             var reasons = new[]
             {
                 new PluginPackageValidationReason(rejection.ReasonCode, rejection.Message)
@@ -105,23 +105,6 @@ public sealed class HostPluginPackageInstallCoordinator(
                 correlationId);
             diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
             return Result.Failure<InstalledPluginState>(rejection.ErrorCode);
-        }
-
-        if (runtimeMode.IsSuccess && runtimeMode.Value == PluginRuntimeMode.ReadOnlyExpired)
-        {
-            var reasons = new[]
-            {
-                new PluginPackageValidationReason(
-                    "license-read-only",
-                    "Plugin package installation is unavailable in read-only license mode.")
-            };
-            auditCoordinator.AppendInstallRejected(
-                actorId,
-                descriptor.Manifest.PluginId,
-                reasons,
-                correlationId);
-            diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
-            return Result.Failure<InstalledPluginState>(ErrorCode.LicenseReadOnly);
         }
 
         var install = new PluginPackageInstaller(stagingArea, stateStore, metadataCache).Install(descriptor);
@@ -168,6 +151,14 @@ public sealed class HostPluginPackageInstallCoordinator(
 
     private static RuntimeModeFailure RuntimeModeFailureRejection(ErrorCode? errorCode)
     {
+        if (errorCode == ErrorCode.LicenseReadOnly)
+        {
+            return new RuntimeModeFailure(
+                ErrorCode.LicenseReadOnly,
+                "license-read-only",
+                "Plugin package installation is unavailable in read-only license mode.");
+        }
+
         return errorCode == ErrorCode.LicenseBindingMismatch
             ? new RuntimeModeFailure(
                 ErrorCode.LicenseBindingMismatch,

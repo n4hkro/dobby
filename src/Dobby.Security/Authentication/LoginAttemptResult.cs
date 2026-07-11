@@ -6,6 +6,7 @@ public enum LoginAttemptKind
     InvalidCredentials,
     Throttled,
     Deactivated,
+    KdfUnsupported,
     ValidationFailed
 }
 

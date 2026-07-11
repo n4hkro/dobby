@@ -25,22 +25,90 @@ public enum PendingWorkSessionAction
     PluginUninstall
 }
 
-public sealed record WorkSessionCloseRequest(
-    Guid SessionId,
-    WorkSessionCloseReason Reason,
-    IReadOnlyList<WorkSessionCloseChoice> Choices);
+public sealed record WorkSessionCloseRequest
+{
+    public WorkSessionCloseRequest(
+        Guid sessionId,
+        WorkSessionCloseReason reason,
+        IReadOnlyList<WorkSessionCloseChoice> choices)
+        : this([sessionId], reason, choices)
+    {
+    }
 
-public sealed record PendingWorkSessionCloseRequest(
-    WorkSessionCloseRequest CloseRequest,
-    PendingWorkSessionAction Action,
-    string? RequestedRouteKey)
+    public WorkSessionCloseRequest(
+        IReadOnlyList<Guid> sessionIds,
+        WorkSessionCloseReason reason,
+        IReadOnlyList<WorkSessionCloseChoice> choices)
+    {
+        ArgumentNullException.ThrowIfNull(sessionIds);
+        ArgumentNullException.ThrowIfNull(choices);
+
+        if (sessionIds.Count == 0)
+        {
+            throw new ArgumentException("At least one work session is required.", nameof(sessionIds));
+        }
+
+        SessionIds = sessionIds.Distinct().ToArray();
+        Reason = reason;
+        Choices = choices.ToArray();
+    }
+
+    public IReadOnlyList<Guid> SessionIds { get; }
+
+    public Guid SessionId => SessionIds[0];
+
+    public WorkSessionCloseReason Reason { get; }
+
+    public IReadOnlyList<WorkSessionCloseChoice> Choices { get; }
+}
+
+public sealed record PendingWorkSessionCloseRequest
 {
     public PendingWorkSessionCloseRequest(
         WorkSessionCloseRequest closeRequest,
         string requestedRouteKey)
-        : this(closeRequest, PendingWorkSessionAction.Navigation, requestedRouteKey)
+        : this(closeRequest, PendingWorkSessionAction.Navigation, requestedRouteKey, actionTargetId: null)
     {
     }
+
+    public PendingWorkSessionCloseRequest(
+        WorkSessionCloseRequest closeRequest,
+        PendingWorkSessionAction action,
+        string? requestedRouteKey,
+        string? actionTargetId)
+        : this(Guid.CreateVersion7(), closeRequest, action, requestedRouteKey, actionTargetId)
+    {
+    }
+
+    public PendingWorkSessionCloseRequest(
+        Guid requestId,
+        WorkSessionCloseRequest closeRequest,
+        PendingWorkSessionAction action,
+        string? requestedRouteKey,
+        string? actionTargetId)
+    {
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("A pending request ID is required.", nameof(requestId));
+        }
+
+        ArgumentNullException.ThrowIfNull(closeRequest);
+        RequestId = requestId;
+        CloseRequest = closeRequest;
+        Action = action;
+        RequestedRouteKey = requestedRouteKey;
+        ActionTargetId = actionTargetId;
+    }
+
+    public Guid RequestId { get; }
+
+    public WorkSessionCloseRequest CloseRequest { get; }
+
+    public PendingWorkSessionAction Action { get; }
+
+    public string? RequestedRouteKey { get; }
+
+    public string? ActionTargetId { get; }
 }
 
 public sealed class WorkSessionCloseCoordinator(WorkSessionRegistry registry)
@@ -50,37 +118,41 @@ public sealed class WorkSessionCloseCoordinator(WorkSessionRegistry registry)
         return new WorkSessionCloseRequest(
             sessionId,
             reason,
-            [
-                WorkSessionCloseChoice.Cancel,
-                WorkSessionCloseChoice.Minimize,
-                WorkSessionCloseChoice.Close
-            ]);
+            ChoicesFor(reason));
     }
 
-    public PendingWorkSessionCloseRequest? RequestNavigation(string routeKey)
+    public PendingWorkSessionCloseRequest? RequestNavigation(
+        string currentRouteKey,
+        string requestedRouteKey)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(routeKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(currentRouteKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(requestedRouteKey);
 
-        var session = FirstActiveSession();
-        if (session is null)
-        {
-            return null;
-        }
-
-        return new PendingWorkSessionCloseRequest(
-            RequestClose(session.SessionId, WorkSessionCloseReason.Navigation),
-            routeKey);
+        var sessionIds = registry.Snapshot()
+            .Where(session =>
+                !session.IsMinimized &&
+                session.RouteKey.Equals(currentRouteKey, StringComparison.Ordinal))
+            .Select(session => session.SessionId)
+            .ToArray();
+        return sessionIds.Length == 0
+            ? null
+            : new PendingWorkSessionCloseRequest(
+                RequestClose(sessionIds, WorkSessionCloseReason.Navigation),
+                requestedRouteKey);
     }
 
     public PendingWorkSessionCloseRequest? RequestLogout()
     {
-        var session = FirstActiveSession();
-        return session is null
+        var sessionIds = registry.Snapshot()
+            .Select(session => session.SessionId)
+            .ToArray();
+        return sessionIds.Length == 0
             ? null
             : new PendingWorkSessionCloseRequest(
-                RequestClose(session.SessionId, WorkSessionCloseReason.Logout),
+                RequestClose(sessionIds, WorkSessionCloseReason.Logout),
                 PendingWorkSessionAction.Logout,
-                null);
+                requestedRouteKey: null,
+                actionTargetId: null);
     }
 
     public PendingWorkSessionCloseRequest? RequestPluginDisable(string pluginId)
@@ -113,37 +185,32 @@ public sealed class WorkSessionCloseCoordinator(WorkSessionRegistry registry)
             case WorkSessionCloseChoice.Cancel:
                 return Result.Success();
             case WorkSessionCloseChoice.Minimize:
-                registry.Minimize(request.SessionId);
+                foreach (var sessionId in request.SessionIds)
+                {
+                    registry.Minimize(sessionId);
+                }
+
                 return Result.Success();
             case WorkSessionCloseChoice.Close:
-                registry.Close(request.SessionId);
+                foreach (var sessionId in request.SessionIds)
+                {
+                    registry.Close(sessionId);
+                }
+
                 return Result.Success();
             default:
                 return Result.Failure(ErrorCode.UnsupportedOperation);
         }
     }
 
-    public void HandleLock()
+    public IReadOnlyList<WorkSession> HandleLock()
     {
+        return registry.Snapshot();
     }
 
-    public void HandleLogout()
+    public PendingWorkSessionCloseRequest? HandleLogout()
     {
-        foreach (var session in registry.Snapshot())
-        {
-            var request = RequestClose(session.SessionId, WorkSessionCloseReason.Logout);
-            _ = ApplyChoice(request, WorkSessionCloseChoice.Close);
-        }
-    }
-
-    private WorkSession? FirstActiveSession(string? ownerOrRouteKey = null)
-    {
-        return registry.Snapshot()
-            .FirstOrDefault(candidate =>
-                !candidate.IsMinimized &&
-                (string.IsNullOrWhiteSpace(ownerOrRouteKey) ||
-                    candidate.OwnerId.Equals(ownerOrRouteKey, StringComparison.Ordinal) ||
-                    candidate.RouteKey.Equals(ownerOrRouteKey, StringComparison.Ordinal)));
+        return RequestLogout();
     }
 
     private PendingWorkSessionCloseRequest? RequestPluginLifecycleAction(
@@ -153,12 +220,39 @@ public sealed class WorkSessionCloseCoordinator(WorkSessionRegistry registry)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
 
-        var session = FirstActiveSession(pluginId);
-        return session is null
+        var sessionIds = registry.Snapshot()
+            .Where(candidate => candidate.OwnerId.Equals(pluginId, StringComparison.Ordinal))
+            .Select(candidate => candidate.SessionId)
+            .ToArray();
+        return sessionIds.Length == 0
             ? null
             : new PendingWorkSessionCloseRequest(
-                RequestClose(session.SessionId, reason),
+                RequestClose(sessionIds, reason),
                 action,
-                null);
+                requestedRouteKey: null,
+                actionTargetId: pluginId);
+    }
+
+    private static WorkSessionCloseRequest RequestClose(
+        IReadOnlyList<Guid> sessionIds,
+        WorkSessionCloseReason reason)
+    {
+        return new WorkSessionCloseRequest(sessionIds, reason, ChoicesFor(reason));
+    }
+
+    private static IReadOnlyList<WorkSessionCloseChoice> ChoicesFor(WorkSessionCloseReason reason)
+    {
+        return reason == WorkSessionCloseReason.Navigation
+            ?
+            [
+                WorkSessionCloseChoice.Cancel,
+                WorkSessionCloseChoice.Minimize,
+                WorkSessionCloseChoice.Close
+            ]
+            :
+            [
+                WorkSessionCloseChoice.Cancel,
+                WorkSessionCloseChoice.Close
+            ];
     }
 }

@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+<data name="Dobby.Shell.Navigation.Home" xml:space="preserve">
+    <value>Home</value>
+  </data><data name="Dobby.Shell.Navigation.Plugins" xml:space="preserve">
+    <value>Plugins</value>
+  </data><data name="Dobby.Shell.Navigation.Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data><data name="Dobby.Shell.Home.Title" xml:space="preserve">
+    <value>Home</value>
+  </data><data name="Dobby.Shell.Plugins.Title" xml:space="preserve">
+    <value>Plugins</value>
+  </data><data name="Dobby.Shell.Settings.Title" xml:space="preserve">
+    <value>Settings</value>
+  </data><data name="Dobby.Host.Settings.Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data><data name="Dobby.Host.Settings.Appearance.Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data><data name="Dobby.Host.Settings.Appearance.Theme.Light" xml:space="preserve">
+    <value>Light</value>
+  </data><data name="Dobby.Host.Settings.Appearance.Theme.Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data><data name="Dobby.Host.Settings.Account" xml:space="preserve">
+    <value>Account</value>
+  </data><data name="Dobby.Host.Settings.SecuritySession" xml:space="preserve">
+    <value>Security and session</value>
+  </data><data name="Dobby.Host.Settings.SecuritySession.AutoLockEnabled" xml:space="preserve">
+    <value>Auto-lock</value>
+  </data><data name="Dobby.Host.Settings.SecuritySession.AutoLockMinutes" xml:space="preserve">
+    <value>Lock after minutes</value>
+  </data><data name="Dobby.Host.Settings.UserManagement" xml:space="preserve">
+    <value>Users</value>
+  </data><data name="Dobby.Host.Settings.About" xml:space="preserve">
+    <value>About</value>
+  </data><data name="Dobby.Host.UserManagement.PermissionDenied" xml:space="preserve">
+    <value>You do not have permission for this operation</value>
+  </data><data name="Dobby.Host.UserManagement.CreateManagedUser" xml:space="preserve">
+    <value>Create managed user</value>
+  </data><data name="Dobby.Host.UserManagement.UpdateDisplayName" xml:space="preserve">
+    <value>Update display name</value>
+  </data><data name="Dobby.Host.UserManagement.UpdateActiveState" xml:space="preserve">
+    <value>Update active state</value>
+  </data><data name="Dobby.Host.UserManagement.ResetPassword" xml:space="preserve">
+    <value>Reset password</value>
+  </data><data name="Dobby.Host.UserManagement.GrantPermission" xml:space="preserve">
+    <value>Grant permission</value>
+  </data><data name="Dobby.Host.UserManagement.RevokePermission" xml:space="preserve">
+    <value>Revoke permission</value>
+  </data><data name="Dobby.Shell.Brand" xml:space="preserve">
+    <value>Dobby</value>
+  </data><data name="Dobby.Shell.Sidebar.Toggle" xml:space="preserve">
+    <value>Toggle sidebar</value>
+  </data><data name="Dobby.Shell.Theme.Toggle" xml:space="preserve">
+    <value>Toggle theme</value>
+  </data><data name="Dobby.Shell.Status.Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data><data name="Dobby.Shell.WorkSessions" xml:space="preserve">
+    <value>Work sessions</value>
+  </data><data name="Dobby.Shell.WorkSession.NavigationWarning" xml:space="preserve">
+    <value>There is an open work session</value>
+  </data><data name="Dobby.Shell.WorkSession.Stay" xml:space="preserve">
+    <value>Stay</value>
+  </data><data name="Dobby.Shell.WorkSession.Minimize" xml:space="preserve">
+    <value>Minimize</value>
+  </data><data name="Dobby.Shell.WorkSession.Close" xml:space="preserve">
+    <value>Close</value>
+  </data><data name="Dobby.Shell.MinimizedWorkStrip" xml:space="preserve">
+    <value>Minimized work</value>
+  </data><data name="Dobby.Shell.ThirdBar" xml:space="preserve">
+    <value>Third bar</value>
+  </data><data name="Dobby.Shell.Workspace.NewTab" xml:space="preserve">
+    <value>New Home tab</value>
+  </data><data name="Dobby.Shell.Workspace.CloseTab" xml:space="preserve">
+    <value>Close tab</value>
+  </data><data name="Dobby.Shell.Window.Minimize" xml:space="preserve">
+    <value>Minimize window</value>
+  </data><data name="Dobby.Shell.Window.Maximize" xml:space="preserve">
+    <value>Maximize window</value>
+  </data><data name="Dobby.Shell.Window.Restore" xml:space="preserve">
+    <value>Restore window</value>
+  </data><data name="Dobby.Shell.Window.Close" xml:space="preserve">
+    <value>Close application</value>
+  </data><data name="Dobby.Shell.Window.CloseConfirmation.Title" xml:space="preserve">
+    <value>Close application</value>
+  </data><data name="Dobby.Shell.Window.CloseConfirmation.Message" xml:space="preserve">
+    <value>Do you want to close Dobby?</value>
+  </data><data name="Dobby.Shell.Settings.Heading" xml:space="preserve">
+    <value>Settings</value>
+  </data><data name="Dobby.Shell.About.Heading" xml:space="preserve">
+    <value>About</value>
+  </data><data name="Dobby.Shell.BackgroundOperation" xml:space="preserve">
+    <value>Background operation</value>
+  </data><data name="Dobby.Shell.Dashboard.CasesOverview" xml:space="preserve">
+    <value>Cases overview</value>
+  </data><data name="Dobby.Shell.Dashboard.Pipelines" xml:space="preserve">
+    <value>Pipelines</value>
+  </data><data name="Dobby.Shell.Dashboard.InProgress" xml:space="preserve">
+    <value>In progress</value>
+  </data><data name="Dobby.Shell.Dashboard.Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data><data name="Dobby.Shell.Dashboard.Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data><data name="Dobby.Shell.Dashboard.NewCases" xml:space="preserve">
+    <value>New cases</value>
+  </data><data name="Dobby.Shell.Dashboard.PendingInfo" xml:space="preserve">
+    <value>Waiting for information</value>
+  </data><data name="Dobby.Shell.Dashboard.Closed" xml:space="preserve">
+    <value>Closed</value>
+  </data><data name="Dobby.Shell.Dashboard.TopDrivers" xml:space="preserve">
+    <value>Top drivers</value>
+  </data><data name="Dobby.Shell.Dashboard.CaseMetrics" xml:space="preserve">
+    <value>Case metrics</value>
+  </data><data name="Dobby.Shell.Diagnostics.Export" xml:space="preserve">
+    <value>Export</value>
+  </data><data name="Dobby.Shell.Diagnostics.Exported" xml:space="preserve">
+    <value>Diagnostics exported</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Heading" xml:space="preserve">
+    <value>Plugins</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Install" xml:space="preserve">
+    <value>Install plugin</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Enable" xml:space="preserve">
+    <value>Enable</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Disable" xml:space="preserve">
+    <value>Disable</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Uninstall" xml:space="preserve">
+    <value>Uninstall</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Empty" xml:space="preserve">
+    <value>No installed plugins</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.RestartRequired" xml:space="preserve">
+    <value>Restart required</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.InstallBusy" xml:space="preserve">
+    <value>Installing plugin</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.EnableBusy" xml:space="preserve">
+    <value>Enabling plugin</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.DisableBusy" xml:space="preserve">
+    <value>Disabling plugin</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.UninstallBusy" xml:space="preserve">
+    <value>Uninstalling plugin</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.OperationDenied" xml:space="preserve">
+    <value>You do not have permission for this plugin operation</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.ReadOnlyDenied" xml:space="preserve">
+    <value>This plugin operation is unavailable in read-only license mode</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.DisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.PluginId" xml:space="preserve">
+    <value>Plugin ID</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Version" xml:space="preserve">
+    <value>Version</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Status" xml:space="preserve">
+    <value>Status</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Trust" xml:space="preserve">
+    <value>Trust</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.License" xml:space="preserve">
+    <value>License</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Fault" xml:space="preserve">
+    <value>Runtime fault</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Detail.Rejection" xml:space="preserve">
+    <value>Package result</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Enabled" xml:space="preserve">
+    <value>Plugin enabled</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Disabled" xml:space="preserve">
+    <value>Plugin disabled</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.PendingUninstall" xml:space="preserve">
+    <value>Pending uninstall</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Faulted" xml:space="preserve">
+    <value>Plugin fault detected</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Rejected" xml:space="preserve">
+    <value>Plugin rejected</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Status.Available" xml:space="preserve">
+    <value>Plugin available</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Trust.Trusted" xml:space="preserve">
+    <value>Trusted package</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Trust.Rejected" xml:space="preserve">
+    <value>Package trust rejected</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Trust.Unavailable" xml:space="preserve">
+    <value>Package trust unavailable</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.License.FullAccess" xml:space="preserve">
+    <value>Full license access</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.License.ReadOnly" xml:space="preserve">
+    <value>Read-only license mode</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.License.Denied" xml:space="preserve">
+    <value>License access denied</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.License.Unavailable" xml:space="preserve">
+    <value>License status unavailable</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Fault.None" xml:space="preserve">
+    <value>No runtime fault</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Fault.Detected" xml:space="preserve">
+    <value>Runtime fault detected</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.Rejection.Safe" xml:space="preserve">
+    <value>Plugin package rejected</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.UninstallConfirmation.Title" xml:space="preserve">
+    <value>Uninstall plugin</value>
+  </data><data name="Dobby.Shell.Plugins.Manager.UninstallConfirmation.Message" xml:space="preserve">
+    <value>Do you want to uninstall {0}? Yes deletes plugin data, No keeps plugin data, Cancel stops the operation.</value>
+  </data><data name="Dobby.Shell.Plugins.License.Heading" xml:space="preserve">
+    <value>Plugin license</value>
+  </data><data name="Dobby.Shell.Plugins.License.Status" xml:space="preserve">
+    <value>Status</value>
+  </data><data name="Dobby.Shell.Plugins.License.List" xml:space="preserve">
+    <value>Licenses</value>
+  </data><data name="Dobby.Shell.Plugins.License.Detail" xml:space="preserve">
+    <value>Details</value>
+  </data><data name="Dobby.Shell.Plugins.License.NoPlugin" xml:space="preserve">
+    <value>No installed plugins</value>
+  </data><data name="Dobby.Shell.Plugins.License.Import" xml:space="preserve">
+    <value>Import license</value>
+  </data><data name="Dobby.Shell.Plugins.License.ImportSuccess" xml:space="preserve">
+    <value>License imported</value>
+  </data><data name="Dobby.Shell.Plugins.License.ImportRejected" xml:space="preserve">
+    <value>License import was rejected</value>
+  </data><data name="Dobby.Shell.Plugins.License.ImportBusy" xml:space="preserve">
+    <value>Importing license</value>
+  </data><data name="Dobby.Shell.Plugins.License.ImportPermissionDenied" xml:space="preserve">
+    <value>You do not have permission to import licenses</value>
+  </data><data name="Dobby.Shell.Plugins.License.Mode.FullAccess" xml:space="preserve">
+    <value>Full access</value>
+  </data><data name="Dobby.Shell.Plugins.License.Mode.ReadOnlyExpired" xml:space="preserve">
+    <value>Read only</value>
+  </data><data name="Dobby.Shell.Plugins.License.Mode.Denied" xml:space="preserve">
+    <value>Denied</value>
+  </data><data name="Dobby.Shell.PasswordChanged" xml:space="preserve">
+    <value>Password changed</value>
+  </data><data name="Dobby.Shell.Profile.AccountInfo" xml:space="preserve">
+    <value>Profile and account information</value>
+  </data><data name="Dobby.Shell.Profile.Anonymous" xml:space="preserve">
+    <value>Anonymous user</value>
+  </data><data name="Dobby.Shell.Profile.ChangePassword" xml:space="preserve">
+    <value>Change password</value>
+  </data><data name="Dobby.Shell.Profile.ManualLock" xml:space="preserve">
+    <value>Lock</value>
+  </data><data name="Dobby.Shell.Profile.Logout" xml:space="preserve">
+    <value>Logout</value>
+  </data><data name="Dobby.Shell.Feedback.Loading" xml:space="preserve">
+    <value>Loading</value>
+  </data><data name="Dobby.Shell.Feedback.Empty" xml:space="preserve">
+    <value>No data</value>
+  </data><data name="Dobby.Shell.Feedback.Success" xml:space="preserve">
+    <value>Success</value>
+  </data><data name="Dobby.Shell.Feedback.Error" xml:space="preserve">
+    <value>Error</value>
+  </data><data name="Dobby.Shell.Feedback.Confirmation" xml:space="preserve">
+    <value>Confirmation</value>
+  </data><data name="Dobby.Shell.Notification.Toast" xml:space="preserve">
+    <value>Toast notification</value>
+  </data><data name="Dobby.Shell.Notification.Banner" xml:space="preserve">
+    <value>Banner notification</value>
+  </data><data name="Dobby.Shell.Notification.Modal" xml:space="preserve">
+    <value>Modal notification</value>
+  </data><data name="Dobby.Host.About.AppVersion" xml:space="preserve">
+    <value>Application version</value>
+  </data><data name="Dobby.Host.About.BuildNumber" xml:space="preserve">
+    <value>Build number</value>
+  </data><data name="Dobby.Host.About.BuildDate" xml:space="preserve">
+    <value>Build date</value>
+  </data><data name="Dobby.Host.About.HostEdition" xml:space="preserve">
+    <value>Host edition</value>
+  </data><data name="Dobby.Host.About.HostChannel" xml:space="preserve">
+    <value>Channel</value>
+  </data><data name="Dobby.Host.About.DeviceCode" xml:space="preserve">
+    <value>Device code</value>
+  </data><data name="Dobby.Host.About.Plugins" xml:space="preserve">
+    <value>Plugins</value>
+  </data><data name="Dobby.Host.About.PluginsEmpty" xml:space="preserve">
+    <value>No installed plugins</value>
+  </data><data name="Dobby.Host.About.SupportContact" xml:space="preserve">
+    <value>Support contact</value>
+  </data><data name="Dobby.Host.About.LegalLine" xml:space="preserve">
+    <value>Legal notice</value>
+  </data><data name="Dobby.Host.About.OwnerIdentity" xml:space="preserve">
+    <value>Owner status</value>
+  </data><data name="About.OwnerStatus.Managed" xml:space="preserve">
+    <value>Managed user</value>
+  </data><data name="About.OwnerStatus.Registered" xml:space="preserve">
+    <value>Owner is registered</value>
+  </data><data name="Dobby.Host.AuditRetentionSweep" xml:space="preserve">
+    <value>Audit retention cleanup</value>
+  </data><data name="Dobby.Shell.Diagnostics.Export.Denied" xml:space="preserve"><value>You do not have permission to export diagnostics</value></data><data name="Dobby.Shell.Profile.ManualLock.Denied" xml:space="preserve"><value>You do not have permission to lock the session</value></data><data name="Dobby.Shell.Profile.PasswordChange.Denied" xml:space="preserve"><value>You do not have permission to change the password</value></data><data name="Dobby.Host.Settings.SecuritySession.Save" xml:space="preserve"><value>Save</value></data><data name="Dobby.Shell.Diagnostics.Export.Success" xml:space="preserve"><value>Diagnostics exported</value></data><data name="Dobby.Shell.Profile.PasswordChange.Error" xml:space="preserve"><value>Password could not be changed</value></data><data name="Dobby.Shell.Profile.Logout.Busy" xml:space="preserve"><value>Logging out</value></data><data name="Dobby.Shell.Profile.Logout.Error" xml:space="preserve"><value>Could not log out</value></data><data name="Dobby.Shell.Profile.ManualLock.Busy" xml:space="preserve"><value>Locking session</value></data><data name="Dobby.Shell.Profile.PasswordChange.Success" xml:space="preserve"><value>Password changed</value></data><data name="Dobby.Shell.Profile.Logout.Success" xml:space="preserve"><value>Logged out</value></data><data name="Dobby.Shell.Diagnostics.Export.Busy" xml:space="preserve"><value>Exporting diagnostics</value></data><data name="Dobby.Shell.Profile.ManualLock.Success" xml:space="preserve"><value>Session locked</value></data><data name="Dobby.Shell.Profile.Logout.Denied" xml:space="preserve"><value>You do not have permission to log out</value></data><data name="Dobby.Shell.Profile.ManualLock.Error" xml:space="preserve"><value>Session could not be locked</value></data><data name="Dobby.Shell.Profile.PasswordChange.Busy" xml:space="preserve"><value>Changing password</value></data><data name="Dobby.Shell.Diagnostics.Export.Error" xml:space="preserve"><value>Diagnostics could not be exported</value></data><data name="Dobby.Shell.WorkSession.Restore" xml:space="preserve"><value>Restore</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Title" xml:space="preserve"><value>Confirm physical printing</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Message" xml:space="preserve"><value>The license is in read-only mode. Continue printing to this physical printer?</value></data></root>

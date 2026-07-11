@@ -18,10 +18,13 @@ public sealed class HostPluginLifecycleCoordinator(
     IPluginDataRetentionStore dataRetentionStore,
     IPluginCurrentProcessActivationTracker activationTracker,
     OperationAuthorizationPolicy authorizationPolicy,
-    PluginRuntimeAuditCoordinator auditCoordinator)
+    PluginRuntimeAuditCoordinator auditCoordinator,
+    HostRuntimeModeMutationGate mutationGate)
 {
     private readonly IPluginDataRetentionStore dataRetentionStore =
         dataRetentionStore ?? throw new ArgumentNullException(nameof(dataRetentionStore));
+    private readonly HostRuntimeModeMutationGate runtimeModeMutationGate = mutationGate ??
+        throw new ArgumentNullException(nameof(mutationGate));
 
     public Result<IReadOnlyList<InstalledPluginMetadata>> ListPlugins(string actorId, CorrelationId correlationId)
     {
@@ -53,6 +56,12 @@ public sealed class HostPluginLifecycleCoordinator(
         if (!authorized.IsSuccess)
         {
             return authorized;
+        }
+
+        var mutationAllowed = runtimeModeMutationGate.EnsurePluginMutationAllowed(pluginId);
+        if (!mutationAllowed.IsSuccess)
+        {
+            return mutationAllowed;
         }
 
         var existing = stateStore.Get(pluginId);
@@ -152,6 +161,12 @@ public sealed class HostPluginLifecycleCoordinator(
         if (!authorized.IsSuccess)
         {
             return authorized;
+        }
+
+        var mutationAllowed = runtimeModeMutationGate.EnsurePluginMutationAllowed(pluginId);
+        if (!mutationAllowed.IsSuccess)
+        {
+            return mutationAllowed;
         }
 
         var existing = stateStore.Get(pluginId);

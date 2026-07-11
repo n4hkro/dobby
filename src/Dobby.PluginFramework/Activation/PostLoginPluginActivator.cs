@@ -137,31 +137,34 @@ public sealed class PostLoginPluginActivator(
                 continue;
             }
 
-            try
-            {
-                var hostServices = serviceBridge.HostServices;
-                moduleResult.Value.OnActivated(new PluginActivationContext(
-                    current.PluginId,
-                    current.Version,
-                    CorrelationId.New(),
-                    hostServices.EventBus,
-                    hostServices.BackgroundOperations,
-                    hostServices.BackgroundOperationCancellation));
-            }
-            catch (OperationCanceledException)
-            {
-                await serviceBridge.CleanupPluginAsync(current.PluginId).ConfigureAwait(false);
-                return Result.Success(new PluginActivationExecutionOutcome(
-                    PluginActivationCompletion.Cancelled,
-                    BuildRun(outcomes, activated)));
-            }
-            catch (Exception)
+            var hostServices = serviceBridge.HostServices;
+            var activate = await PluginExceptionBoundary.InvokeAsync(
+                () =>
+                {
+                    moduleResult.Value.OnActivated(new PluginActivationContext(
+                        current.PluginId,
+                        current.Version,
+                        CorrelationId.New(),
+                        hostServices.ResolveEventBus(current.PluginId),
+                        hostServices.BackgroundOperations,
+                        hostServices.BackgroundOperationCancellation));
+                    return Task.FromResult(true);
+                },
+                cancellationToken).ConfigureAwait(false);
+            if (!activate.IsSuccess)
             {
                 await serviceBridge.CleanupPluginAsync(current.PluginId).ConfigureAwait(false);
+                if (activate.ErrorCode == ErrorCode.Cancelled)
+                {
+                    return Result.Success(new PluginActivationExecutionOutcome(
+                        PluginActivationCompletion.Cancelled,
+                        BuildRun(outcomes, activated)));
+                }
+
                 outcomes[current.PluginId] = new PluginActivationOutcome(
                     current.PluginId,
                     PluginActivationStatus.Faulted,
-                    ErrorCode.PluginInternalError.ToString());
+                    activate.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString());
                 failedPlugins.Add(current.PluginId);
                 continue;
             }
@@ -196,6 +199,28 @@ public sealed class PostLoginPluginActivator(
         return Result.Success(new PluginActivationExecutionOutcome(
             PluginActivationCompletion.Completed,
             BuildRun(outcomes, activated)));
+    }
+
+    public async ValueTask RollbackActivatedPluginsAsync(IReadOnlyList<string> activatedPluginIds)
+    {
+        ArgumentNullException.ThrowIfNull(activatedPluginIds);
+
+        for (var index = activatedPluginIds.Count - 1; index >= 0; index--)
+        {
+            var pluginId = activatedPluginIds[index];
+            if (string.IsNullOrWhiteSpace(pluginId))
+            {
+                continue;
+            }
+
+            try
+            {
+                await serviceBridge.CleanupPluginAsync(pluginId).ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+        }
     }
 
     public async ValueTask DisposeAsync()

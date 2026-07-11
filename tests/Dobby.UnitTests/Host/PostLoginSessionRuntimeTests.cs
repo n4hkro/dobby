@@ -221,6 +221,40 @@ public sealed class PostLoginSessionRuntimeTests
     }
 
     [Fact]
+    public void Lock_screen_unlock_returns_retry_after_metadata_from_configured_throttle()
+    {
+        var store = Substitute.For<ISessionStore>();
+        store.IsUserActive("user-1").Returns(true);
+        var accessor = new ActiveSessionAccessor();
+        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-18T00:00:00Z"));
+        var credentials = Substitute.For<IUserCredentialVerifier>();
+        credentials.VerifyPassword("user-1", "wrong").Returns(Result.Success(false));
+        var sessionService = new SessionLifecycleService(
+            store,
+            accessor,
+            credentials,
+            time,
+            new SessionOptions { AbsoluteTimeoutMinutes = 480, IdleTimeoutMinutes = 30 });
+        sessionService.Create("user-1").IsSuccess.ShouldBeTrue();
+        var audit = new SessionLifecycleAuditCoordinator(new InMemoryAuditTrail(), time);
+        var throttle = new LoginThrottleService([0, 0, 10], time);
+        var workflow = new LockRuntimeWorkflow(sessionService, audit, throttle);
+
+        workflow.UnlockForLockScreen("user-1", "wrong", CorrelationId.New()).RetryAfterSeconds.ShouldBe(0);
+        workflow.UnlockForLockScreen("user-1", "wrong", CorrelationId.New()).RetryAfterSeconds.ShouldBe(0);
+        var throttled = workflow.UnlockForLockScreen("user-1", "wrong", CorrelationId.New());
+        var blocked = workflow.UnlockForLockScreen("user-1", "wrong", CorrelationId.New());
+
+        throttled.IsSuccess.ShouldBeFalse();
+        throttled.ErrorCode.ShouldBe(ErrorCode.Unauthorized);
+        throttled.RetryAfterSeconds.ShouldBe(10);
+        blocked.IsSuccess.ShouldBeFalse();
+        blocked.ErrorCode.ShouldBe(ErrorCode.Unauthorized);
+        blocked.RetryAfterSeconds.ShouldBe(10);
+        credentials.Received(3).VerifyPassword("user-1", "wrong");
+    }
+
+    [Fact]
     public void Disposing_post_login_runtime_cancels_in_flight_plugin_activation()
     {
         var store = Substitute.For<ISessionStore>();

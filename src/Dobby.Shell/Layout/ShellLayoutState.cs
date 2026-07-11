@@ -83,14 +83,18 @@ public sealed record ShellLayoutState(
                 "Sidebar",
                 "ThirdBar",
                 "MainContent",
-                "BottomStatus",
-                "MinimizedWorkStrip"
+                "ShellStatusBar",
+                "ShellNotificationHost",
+                "ShellFeedbackHost",
+                "MinimizedWorkSessionStrip",
+                "ProfileMenu"
             ],
             ProfileMenuItems:
             [
                 new ShellProfileMenuItem("profile-account-info", "Dobby.Shell.Profile.AccountInfo"),
                 new ShellProfileMenuItem("change-password", "Dobby.Shell.Profile.ChangePassword"),
                 new ShellProfileMenuItem("manual-lock", "Dobby.Shell.Profile.ManualLock"),
+                new ShellProfileMenuItem("diagnostics-export", "Dobby.Shell.Diagnostics.Export"),
                 new ShellProfileMenuItem("logout", "Dobby.Shell.Profile.Logout")
             ],
             NotificationKinds:
@@ -117,6 +121,8 @@ public sealed record ShellLayoutState(
                 new ShellFocusTarget("ProfileMenu.AccountInfo", "Dobby.Shell.Profile.AccountInfo"),
                 new ShellFocusTarget("ProfileMenu.ChangePassword", "Dobby.Shell.Profile.ChangePassword"),
                 new ShellFocusTarget("ProfileMenu.ManualLock", "Dobby.Shell.Profile.ManualLock"),
+                new ShellFocusTarget("ProfileMenu.DiagnosticsExport", "Dobby.Shell.Diagnostics.Export"),
+                new ShellFocusTarget("MinimizedWorkSessionStrip.Restore", "Dobby.Shell.WorkSession.Restore"),
                 new ShellFocusTarget("ProfileMenu.Logout", "Dobby.Shell.Profile.Logout")
             ],
             SettingsCategories: [],

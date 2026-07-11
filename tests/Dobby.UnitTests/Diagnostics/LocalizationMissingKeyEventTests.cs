@@ -17,5 +17,6 @@ public sealed class LocalizationMissingKeyEventTests
         evt.EventName.ShouldBe("localization.missing-key");
         evt.DeduplicationKey.ShouldBe("az-AZ|Plugins.InstallButton|plugin:sample");
         evt.Severity.ShouldBe("Warning");
+        evt.GetType().Namespace.ShouldBe("Dobby.Diagnostics");
     }
 }

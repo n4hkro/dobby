@@ -60,20 +60,65 @@ public sealed class ShellUiStaticScanTests
             "WindowMaximizeRestoreButton",
             "WindowCloseButton",
             "TopToolbar",
-            "ShellHeader",
             "ShellBrandMark",
             "CenteredTopToolbar",
             "ProfileMenuButton",
             "ShellBody",
-            "ShellSidebar",
             "Sidebar",
-        };
-        var removedNames = new[]
-        {
             "SidebarNavigationList",
             "ThirdBar",
             "ThirdBarNavigationList",
             "MainContent",
+            "HomePanel",
+            "PluginsSurface",
+            "SettingsSurface",
+            "PluginPageHost",
+            "ShellStatusBar",
+            "ShellNotificationHost",
+            "ShellFeedbackHost",
+            "MinimizedWorkSessionStrip",
+            "ProfileMenu",
+            "NotificationPresentationList",
+            "FeedbackStatePresentationList",
+            "WorkSessionWarningPanel",
+            "WorkSessionStayButton",
+            "WorkSessionMinimizeButton",
+            "WorkSessionCloseButton",
+            "SettingsCategoryList",
+            "AppearanceSettingsSurface",
+            "AppearanceThemeSelector",
+            "AccountSettingsSurface",
+            "SettingsAccountProfileText",
+            "SettingsNewPasswordBox",
+            "SettingsPasswordChangeRememberMeCheckBox",
+            "SettingsChangePasswordButton",
+            "SecuritySessionSettingsSurface",
+            "SecurityAutoLockEnabledCheckBox",
+            "SecurityAutoLockMinutesInput",
+            "UserManagementSettingsSurface",
+            "UserManagementDeniedText",
+            "AboutSettingsSurface",
+            "AboutFieldList",
+            "PluginsManagerList",
+            "PluginsManagerDetailRows",
+            "PluginsManagerEmptyText",
+            "PluginsManagerInstallButton",
+            "PluginsManagerEnableButton",
+            "PluginsManagerDisableButton",
+            "PluginsManagerUninstallButton",
+            "LicensePanel",
+            "LicenseImportButton",
+            "BackgroundStatusText",
+            "LogoutButton",
+            "ManualLockButton",
+            "ChangePasswordButton",
+            "NewPasswordBox",
+            "PasswordChangeRememberMeCheckBox",
+            "AccountStatusText",
+            "DiagnosticsExportButton"
+        };
+        var removedNames = new[]
+        {
             "MainContentPanelFrame",
             "MainContentPanelBorder",
             "MainContentCutoutMask",
@@ -83,46 +128,19 @@ public sealed class ShellUiStaticScanTests
             "HomePipelineBoard",
             "HomeMetricPanels",
             "PipelineSubnav",
-            "HomePanel",
-            "PluginsSurface",
-            "SettingsSurface",
             "BottomStatus",
             "MinimizedWorkStrip",
-            "PluginPageHost",
-            "NotificationPresentationList",
-            "FeedbackStatePresentationList",
-            "WorkSessionWarningPanel",
-            "WorkSessionStayButton",
-            "WorkSessionMinimizeButton",
-            "WorkSessionCloseButton",
             "ProfileMenuPanel",
-            "SettingsCategoryList",
-            "AboutFieldList",
             "PluginsManagerPanel",
-            "PluginsManagerList",
-            "PluginsManagerEmptyText",
             "PluginsManagerDetailText",
-            "PluginsManagerInstallButton",
-            "PluginsManagerEnableButton",
-            "PluginsManagerDisableButton",
-            "PluginsManagerUninstallButton",
             "PluginsManagerFeedbackText",
-            "LicensePanel",
             "LicenseStatusPanel",
             "LicenseStatusText",
             "LicenseListPanel",
             "LicenseListText",
             "LicenseDetailPanel",
             "LicenseDetailText",
-            "LicenseImportButton",
-            "LicenseFeedbackText",
-            "BackgroundStatusText",
-            "LogoutButton",
-            "ManualLockButton",
-            "ChangePasswordButton",
-            "NewPasswordBox",
-            "PasswordChangeRememberMeCheckBox",
-            "AccountStatusText"
+            "LicenseFeedbackText"
         };
 
         foreach (var name in requiredNames)
@@ -131,15 +149,21 @@ public sealed class ShellUiStaticScanTests
         }
 
         AssertAbsentNamedElements(shell, removedNames);
-        shell.ShouldNotContain("Logout_Click");
         shell.ShouldNotContain(string.Concat("Clear", "Saved", "Login", "Button"));
         shell.ShouldNotContain(string.Concat("Clear", "Saved", "Login", "_Click"));
         shell.ShouldContain("Navigation_Click");
-        shell.ShouldNotContain("WorkSessionStay_Click");
-        shell.ShouldNotContain("PluginsManagerInstall_Click");
-        shell.ShouldNotContain("PluginsManagerEnable_Click");
-        shell.ShouldNotContain("PluginsManagerDisable_Click");
-        shell.ShouldNotContain("PluginsManagerUninstall_Click");
+        shell.ShouldContain("WorkSessionStay_Click");
+        shell.ShouldContain("WorkSessionMinimize_Click");
+        shell.ShouldContain("WorkSessionClose_Click");
+        shell.ShouldContain("ChangePassword_Click");
+        shell.ShouldContain("ManualLock_Click");
+        shell.ShouldContain("Logout_Click");
+        shell.ShouldContain("DiagnosticsExport_Click");
+        shell.ShouldContain("LicenseImport_Click");
+        shell.ShouldContain("PluginsManagerInstall_Click");
+        shell.ShouldContain("PluginsManagerEnable_Click");
+        shell.ShouldContain("PluginsManagerDisable_Click");
+        shell.ShouldContain("PluginsManagerUninstall_Click");
         shell.ShouldContain("WorkspaceNewTab_Click");
         shell.ShouldContain("WorkspaceTab_Click");
         shell.ShouldContain("WorkspaceTabClose_Click");
@@ -155,17 +179,129 @@ public sealed class ShellUiStaticScanTests
         shell.ShouldContain("ItemsSource=\"{Binding WorkspaceTabs}\"");
         shell.ShouldContain("AutomationProperties.Name=\"{Binding WorkspaceNewTabLabel}\"");
         shell.ShouldContain("x:Name=\"CenteredTopToolbar\"");
-        shell.ShouldNotContain("IsEnabled=\"{Binding PluginsManagerInstallIsEnabled}\"");
-        shell.ShouldNotContain("IsEnabled=\"{Binding PluginsManagerEnableIsEnabled}\"");
-        shell.ShouldNotContain("IsEnabled=\"{Binding PluginsManagerDisableIsEnabled}\"");
-        shell.ShouldNotContain("IsEnabled=\"{Binding PluginsManagerUninstallIsEnabled}\"");
-        shell.ShouldNotContain("IsEnabled=\"{Binding LicenseImportIsEnabled}\"");
-        shell.ShouldNotContain("WorkSessionMinimize_Click");
-        shell.ShouldNotContain("WorkSessionClose_Click");
+        shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerInstallIsEnabled}\"");
+        shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerEnableIsEnabled}\"");
+        shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerDisableIsEnabled}\"");
+        shell.ShouldContain("IsEnabled=\"{Binding PluginsManagerUninstallIsEnabled}\"");
+        shell.ShouldContain("IsEnabled=\"{Binding LicenseImportIsEnabled}\"");
         shell.ShouldContain("Tag=\"{Binding RouteKey}\"");
-        shell.ShouldNotContain("Visibility=\"{Binding HomePanelVisibility}\"");
-        shell.ShouldNotContain("Visibility=\"{Binding PluginsSurfaceVisibility}\"");
-        shell.ShouldNotContain("Visibility=\"{Binding SettingsSurfaceVisibility}\"");
+        shell.ShouldContain("Visibility=\"{Binding HomePanelVisibility}\"");
+        shell.ShouldContain("Visibility=\"{Binding PluginsSurfaceVisibility}\"");
+        shell.ShouldContain("Visibility=\"{Binding SettingsSurfaceVisibility}\"");
+    }
+
+    [Fact]
+    public void Host_sidebar_open_node_state_uses_distinct_collapsed_and_expanded_chevrons()
+    {
+        var root = RepoRoot();
+        var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
+        var defaultChevron = Regex.Match(
+            shell,
+            "Path x:Name=\"SidebarNodeChevron\" Data=\"(?<data>[^\"]+)\"",
+            RegexOptions.Singleline);
+        var openChevron = Regex.Match(
+            shell,
+            "DataTrigger Binding=\"\\{Binding IsOpen\\}\" Value=\"True\".*?Setter TargetName=\"SidebarNodeChevron\" Property=\"Data\" Value=\"(?<data>[^\"]+)\"",
+            RegexOptions.Singleline);
+
+        defaultChevron.Success.ShouldBeTrue();
+        openChevron.Success.ShouldBeTrue();
+        openChevron.Groups["data"].Value.ShouldNotBe(defaultChevron.Groups["data"].Value);
+    }
+
+    [Fact]
+    public void Host_shell_settings_surface_uses_rendered_sections_and_gated_user_management_actions()
+    {
+        var root = RepoRoot();
+        var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
+
+        foreach (var name in new[]
+        {
+            "AppearanceSettingsSurface",
+            "AppearanceThemeSelector",
+            "AccountSettingsSurface",
+            "SettingsAccountProfileText",
+            "SettingsNewPasswordBox",
+            "SettingsPasswordChangeRememberMeCheckBox",
+            "SettingsChangePasswordButton",
+            "SecuritySessionSettingsSurface",
+            "SecurityAutoLockEnabledCheckBox",
+            "SecurityAutoLockMinutesInput",
+            "UserManagementSettingsSurface",
+            "UserManagementActionList",
+            "UserManagementDeniedText",
+            "AboutSettingsSurface",
+            "AboutFieldList"
+        })
+        {
+            shell.ShouldContain($"x:Name=\"{name}\"");
+        }
+
+        shell.ShouldContain("ItemsSource=\"{Binding AppearanceThemeOptions}\"");
+        shell.ShouldContain("IsChecked=\"{Binding SecurityAutoLockEnabled");
+        shell.ShouldContain("Text=\"{Binding SecurityAutoLockMinutesText");
+        shell.ShouldContain("Visibility=\"{Binding UserManagementSurfaceVisibility}\"");
+        shell.ShouldContain("ItemsSource=\"{Binding UserManagementActionItems}\"");
+        shell.ShouldContain("IsEnabled=\"{Binding UserManagementActionsEnabled}\"");
+        shell.ShouldContain("Visibility=\"{Binding UserManagementActionsVisibility}\"");
+        shell.ShouldContain("Visibility=\"{Binding UserManagementDeniedVisibility}\"");
+        shell.ShouldNotContain("ItemsSource=\"{Binding UserManagementActionLabels}\"");
+    }
+
+    [Fact]
+    public void Host_shell_work_session_restore_uses_restore_specific_localized_label()
+    {
+        var root = RepoRoot();
+        var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
+        var keys = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Localization", "HostResourceKeys.cs"));
+        var catalog = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Localization", "HostStringCatalog.cs"));
+
+        keys.ShouldContain("ShellWorkSessionRestore");
+        catalog.ShouldContain("HostResourceKeys.ShellWorkSessionRestore");
+        shell.ShouldContain("WorkSessionRestoreLabel");
+        shell.ShouldNotContain("Content=\"{Binding DataContext.WorkSessionMinimizeLabel");
+    }
+
+    [Fact]
+    public void Host_profile_actions_use_localized_feedback_without_raw_error_codes()
+    {
+        var root = RepoRoot();
+        var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var keys = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Localization", "HostResourceKeys.cs"));
+        var profileActions = CodeBetween(mainWindowCode, "private void ChangePassword_Click", "private void QueueThemePreferencePersist");
+
+        foreach (var keyName in new[]
+        {
+            "ShellProfilePasswordChangeBusy",
+            "ShellProfilePasswordChangeDenied",
+            "ShellProfilePasswordChangeError",
+            "ShellProfilePasswordChangeSuccess",
+            "ShellProfileManualLockBusy",
+            "ShellProfileManualLockDenied",
+            "ShellProfileManualLockError",
+            "ShellProfileManualLockSuccess",
+            "ShellDiagnosticsExportBusy",
+            "ShellDiagnosticsExportDenied",
+            "ShellDiagnosticsExportError",
+            "ShellDiagnosticsExportSuccess",
+            "ShellProfileLogoutBusy",
+            "ShellProfileLogoutDenied",
+            "ShellProfileLogoutError",
+            "ShellProfileLogoutSuccess"
+        })
+        {
+            keys.ShouldContain(keyName);
+            profileActions.ShouldContain($"HostResourceKeys.{keyName}");
+        }
+
+        mainWindowCode.ShouldContain("SetAccountStatusMessage");
+        profileActions.ShouldNotContain("result.ErrorCode?.ToString()");
+        profileActions.ShouldNotContain("ErrorCode.InvalidInput.ToString()");
+        profileActions.ShouldNotContain("ErrorCode.UnsupportedOperation.ToString()");
+        profileActions.ShouldNotContain("ErrorCode.IoFailed.ToString()");
+        profileActions.ShouldContain("result = Result.Failure(ErrorCode.UnsupportedOperation);");
+        profileActions.ShouldNotContain("result = Result.Success();");
+        mainWindowCode.ShouldContain("DiagnosticsExportButton.IsEnabled = canExportDiagnostics;");
     }
 
     [Fact]
@@ -176,10 +312,16 @@ public sealed class ShellUiStaticScanTests
         var requiredPolishedNames = new[]
         {
             "ShellChrome",
-            "ShellHeader",
+            "TopToolbar",
             "ShellBody",
-            "ShellSidebar",
-            "Sidebar"
+            "Sidebar",
+            "ThirdBar",
+            "MainContent",
+            "ShellStatusBar",
+            "ShellNotificationHost",
+            "ShellFeedbackHost",
+            "MinimizedWorkSessionStrip",
+            "ProfileMenu"
         };
 
         foreach (var name in requiredPolishedNames)
@@ -196,7 +338,7 @@ public sealed class ShellUiStaticScanTests
     }
 
     [Fact]
-    public void Host_shell_design_surface_keeps_chrome_header_and_empty_sidebar_only()
+    public void Host_shell_design_surface_renders_task5_regions_without_removed_cutout_layout()
     {
         var root = RepoRoot();
         var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
@@ -205,10 +347,9 @@ public sealed class ShellUiStaticScanTests
         NamedElement(shell, "TopToolbar").ShouldNotContain("Visibility=\"Collapsed\"");
         NamedElement(shell, "ShellBody").ShouldNotContain("Visibility=\"Hidden\"");
         NamedElement(shell, "ShellBody").ShouldNotContain("Visibility=\"Collapsed\"");
-        NamedElement(shell, "ShellSidebar").ShouldNotContain("<Button");
-        NamedElement(shell, "ShellSidebar").ShouldNotContain("<ItemsControl");
-        NamedElement(shell, "Sidebar").ShouldNotContain("<Button");
-        NamedElement(shell, "Sidebar").ShouldNotContain("<ItemsControl");
+        shell.ShouldContain("x:Name=\"SidebarNavigationList\"");
+        shell.ShouldContain("x:Name=\"ThirdBarNavigationList\"");
+        shell.ShouldContain("x:Name=\"PluginPageHost\"");
         shell.ShouldNotContain("ShellSubnavCutout");
         shell.ShouldNotContain("ShellMainContentPanelBorderGeometryConverter");
         shell.ShouldNotContain("ThirdBarPillStyle");
@@ -293,15 +434,12 @@ public sealed class ShellUiStaticScanTests
 
         AssertAbsentNamedElements(
             shell,
-            "MainContent",
             "MainContentPanelFrame",
             "MainContentPanelBorder",
             "MainContentCutoutMetrics",
             "MainContentCutoutMask",
             "MainContentCutoutBorder",
             "PipelineSubnav",
-            "ThirdBar",
-            "ThirdBarNavigationList",
             "ShellContentHost");
 
         shell.ShouldNotContain("ShellSubnavCutout");
@@ -329,9 +467,11 @@ public sealed class ShellUiStaticScanTests
         var root = RepoRoot();
         var shell = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml"));
 
-        NamedElement(shell, "ShellSidebar").ShouldNotContain("Background=");
         NamedElement(shell, "TopToolbar").ShouldNotContain("Background=");
         NamedElement(shell, "CenteredTopToolbar").ShouldNotContain("Background=");
+        NamedElement(shell, "Sidebar").ShouldContain("Background=\"{DynamicResource Dobby.Brush.Surface}\"");
+        NamedElement(shell, "ThirdBar").ShouldContain("Background=\"{DynamicResource Dobby.Brush.Surface}\"");
+        NamedElement(shell, "MainContent").ShouldContain("Background=\"{DynamicResource Dobby.Brush.Surface}\"");
     }
 
     [Fact]
@@ -346,9 +486,11 @@ public sealed class ShellUiStaticScanTests
         mainWindowCode.ShouldContain("ContentRendered");
         mainWindowCode.ShouldContain("HwndSource");
         mainWindowCode.ShouldContain("ScClose");
-        mainWindowCode.ShouldNotContain("PluginPageHost");
+        mainWindowCode.ShouldContain("PluginPageHost");
+        mainWindowCode.ShouldContain("RenderPluginPageHost");
         mainWindowCode.ShouldNotContain("UpdatePluginPageHost");
-        mainWindowCode.ShouldNotContain("RequestLogout");
+        mainWindowCode.ShouldContain("RequestRemainingWorkSessionClose");
+        mainWindowCode.ShouldContain("workSessionCloseCoordinator.RequestLogout()");
         mainWindowCode.ShouldNotContain("HandleLock()");
         workSessionCode.ShouldContain("WorkSessionCloseReason.Logout");
         workSessionCode.ShouldContain("WorkSessionCloseReason.PluginDisable");
@@ -361,23 +503,35 @@ public sealed class ShellUiStaticScanTests
     }
 
     [Fact]
+    public void Profile_account_text_does_not_use_hardcoded_anonymous_or_raw_session_identifiers()
+    {
+        var root = RepoRoot();
+        var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var updateProfileAccountText = CodeBetween(mainWindowCode, "private void UpdateProfileAccountText()", "private void BeginApplicationExit()");
+
+        updateProfileAccountText.ShouldNotContain("\"anonymous\"");
+        updateProfileAccountText.ShouldNotContain("session.SessionId");
+        updateProfileAccountText.ShouldContain("shellViewModel.ProfileAnonymousLabel");
+    }
+
+    [Fact]
     public void Plugins_manager_uninstall_requires_confirmation_and_explicit_data_choice()
     {
         var root = RepoRoot();
         var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
         var confirmationCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Plugins", "PluginUninstallConfirmation.cs"));
 
-        mainWindowCode.ShouldNotContain("PluginsManagerUninstall_Click");
-        mainWindowCode.ShouldNotContain("PluginsManagerDisable_Click");
-        mainWindowCode.ShouldNotContain("PluginsManagerEnable_Click");
-        mainWindowCode.ShouldNotContain("PluginsManagerInstall_Click");
-        mainWindowCode.ShouldNotContain("pluginUninstallConfirmation.Confirm(");
-        mainWindowCode.ShouldNotContain("PluginUninstallConfirmationRequest");
-        mainWindowCode.ShouldNotContain("confirmation.DataChoice");
-        mainWindowCode.ShouldNotContain("WasActivatedInCurrentProcess(selectedPlugin.PluginId)");
-        mainWindowCode.ShouldNotContain("RunSelectedPluginLifecycleActionAsync");
+        mainWindowCode.ShouldContain("PluginsManagerUninstall_Click");
+        mainWindowCode.ShouldContain("PluginsManagerDisable_Click");
+        mainWindowCode.ShouldContain("PluginsManagerEnable_Click");
+        mainWindowCode.ShouldContain("PluginsManagerInstall_Click");
+        mainWindowCode.ShouldContain("PluginUninstallConfirmationRequest");
+        mainWindowCode.ShouldContain("confirmation.DataChoice");
+        mainWindowCode.ShouldContain("WasPluginActivatedInCurrentProcess?.Invoke(plugin.PluginId)");
+        mainWindowCode.ShouldContain("RunSelectedPluginLifecycleAction(");
+        mainWindowCode.ShouldContain("ContinuePendingPluginLifecycleAction(");
         mainWindowCode.ShouldNotContain("Task.Run(() => action(");
-        mainWindowCode.ShouldNotContain("var wasActivatedInCurrentProcess = selectedPlugin.IsEnabled");
+        mainWindowCode.ShouldNotContain("var wasActivatedInCurrentProcess = selected.IsEnabled");
         mainWindowCode.ShouldNotContain("PluginUninstallDataChoice.KeepData,\r\n                wasActivatedInCurrentProcess: true");
         mainWindowCode.ShouldNotContain("PluginUninstallDataChoice.KeepData,\n                wasActivatedInCurrentProcess: true");
         confirmationCode.ShouldContain("HostResourceKeys.PluginsManagerUninstallConfirmationMessage");
@@ -396,38 +550,38 @@ public sealed class ShellUiStaticScanTests
         presenterCode.ShouldContain("window.AttachRuntime(");
         mainWindowCode.ShouldNotContain("IBackgroundOperationReporter? backgroundOperations");
         mainWindowCode.ShouldNotContain("backgroundOperations = loginRuntime.BackgroundOperations");
-        mainWindowCode.ShouldNotContain("ReportPluginsManagerBackgroundOperation(");
-        mainWindowCode.ShouldNotContain("backgroundOperations?.Progress.Report(new BackgroundOperationSnapshot(");
-        mainWindowCode.ShouldNotContain("HostResourceKeys.PluginsManagerInstallBusy");
-        mainWindowCode.ShouldNotContain("HostResourceKeys.PluginsManagerEnableBusy");
-        mainWindowCode.ShouldNotContain("HostResourceKeys.PluginsManagerDisableBusy");
-        mainWindowCode.ShouldNotContain("HostResourceKeys.PluginsManagerUninstallBusy");
-        mainWindowCode.ShouldNotContain("private async void PluginsManagerEnable_Click");
-        mainWindowCode.ShouldNotContain("private async void PluginsManagerDisable_Click");
-        mainWindowCode.ShouldNotContain("private void RunSelectedPluginLifecycleAction(");
-        mainWindowCode.ShouldNotContain("private void RunPluginLifecycleAction(");
-        mainWindowCode.ShouldNotContain("BackgroundOperationStatus.Running");
-        mainWindowCode.ShouldNotContain("BackgroundOperationStatus.Completed");
-        mainWindowCode.ShouldNotContain("BackgroundOperationStatus.Failed");
+        mainWindowCode.ShouldContain("ReportPluginsManagerBackgroundOperation(");
+        mainWindowCode.ShouldContain("loginRuntime?.BackgroundOperations.Progress.Report(new BackgroundOperationSnapshot(");
+        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerInstallBusy");
+        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerEnableBusy");
+        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerDisableBusy");
+        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerUninstallBusy");
+        mainWindowCode.ShouldContain("private void PluginsManagerEnable_Click");
+        mainWindowCode.ShouldContain("private void PluginsManagerDisable_Click");
+        mainWindowCode.ShouldContain("private void RunSelectedPluginLifecycleAction(");
+        mainWindowCode.ShouldContain("private void RunPluginLifecycleAction(");
+        mainWindowCode.ShouldContain("private void ContinuePendingPluginLifecycleAction(");
+        mainWindowCode.ShouldContain("BackgroundOperationStatus.Running");
+        mainWindowCode.ShouldContain("BackgroundOperationStatus.Completed");
+        mainWindowCode.ShouldContain("BackgroundOperationStatus.Failed");
     }
 
     [Fact]
-    public void License_import_long_running_action_reports_background_operations()
+    public void License_import_long_running_action_uses_busy_state_and_coordinator_seam()
     {
         var root = RepoRoot();
         var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
         var presenterCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "PostLoginShellPresenter.cs"));
+        var actionCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Plugins", "LicenseImportShellAction.cs"));
 
         presenterCode.ShouldContain("window.AttachRuntime(");
         mainWindowCode.ShouldNotContain("backgroundOperations = loginRuntime.BackgroundOperations");
-        mainWindowCode.ShouldNotContain("LicenseImport_Click");
+        mainWindowCode.ShouldContain("private async void LicenseImport_Click");
+        mainWindowCode.ShouldContain("licenseImportAction.ImportAsync");
+        actionCode.ShouldContain("Interlocked.CompareExchange");
+        actionCode.ShouldContain("shellViewModel.SetLicenseImportBusy(true)");
+        actionCode.ShouldContain("importCoordinator.ImportFileAsync");
         mainWindowCode.ShouldNotContain("ReportLicenseImportBackgroundOperation(");
-        mainWindowCode.ShouldNotContain("licenseImportCoordinator.ImportFileAsync");
-        mainWindowCode.ShouldNotContain("HostResourceKeys.LicenseImportAction");
-        mainWindowCode.ShouldNotContain("BackgroundOperationStatus.Running");
-        mainWindowCode.ShouldNotContain("BackgroundOperationStatus.Completed");
-        mainWindowCode.ShouldNotContain("BackgroundOperationStatus.Failed");
-        mainWindowCode.ShouldNotContain("backgroundOperations?.Progress.Report(new BackgroundOperationSnapshot(");
     }
 
     [Fact]
@@ -522,6 +676,15 @@ public sealed class ShellUiStaticScanTests
         return nextName < 0
             ? xaml[start..]
             : xaml[start..nextName];
+    }
+
+    private static string CodeBetween(string source, string startMarker, string endMarker)
+    {
+        var start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        start.ShouldBeGreaterThanOrEqualTo(0);
+        var end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        end.ShouldBeGreaterThan(start);
+        return source[start..end];
     }
 
     private static void AssertAbsentNamedElements(string xaml, params string[] names)

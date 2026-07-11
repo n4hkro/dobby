@@ -12,6 +12,7 @@ public sealed class LoginAuditCoordinatorTests
     [Theory]
     [InlineData(LoginAttemptKind.InvalidCredentials, "invalid-credentials")]
     [InlineData(LoginAttemptKind.ValidationFailed, "validation-failed")]
+    [InlineData(LoginAttemptKind.KdfUnsupported, "kdf-unsupported")]
     [InlineData(LoginAttemptKind.Deactivated, "deactivated")]
     [InlineData(LoginAttemptKind.Throttled, "throttled")]
     public void Failed_login_attempts_append_user_login_failed_with_safe_reason(LoginAttemptKind kind, string reason)

@@ -95,27 +95,28 @@ public sealed class LoginWindowRuntimeWiringTests
         CountOccurrences(mainWindow, "ShellViewModel.CreateDefault").ShouldBe(1);
         mainWindow.ShouldContain(": this(CreateDefaultShellViewModel())");
         mainWindow.ShouldContain("private static ShellViewModel CreateDefaultShellViewModel()");
-        mainWindow.ShouldContain(": this(shellViewModel)");
+        mainWindow.ShouldContain(": this(shellViewModel, actionOverrides)");
         mainWindow.ShouldNotContain(": this()\r\n    {\r\n        SetShellViewModel(shellViewModel);");
     }
 
     [Fact]
-    public void Main_window_omits_removed_account_password_change_and_manual_lock_surface()
+    public void Main_window_exposes_account_password_change_and_manual_lock_surface()
     {
-        var app = ReadSource("src", "Dobby.Host", "App.xaml.cs");
         var xaml = ReadSource("src", "Dobby.Host", "MainWindow.xaml");
         var codeBehind = ReadSource("src", "Dobby.Host", "MainWindow.xaml.cs");
 
-        codeBehind.ShouldNotContain("loginRuntime.SelfServicePasswordChangeCoordinator");
-        xaml.ShouldNotContain("NewPasswordBox");
-        xaml.ShouldNotContain("PasswordChangeRememberMeCheckBox");
-        xaml.ShouldNotContain("ChangePasswordButton");
-        xaml.ShouldNotContain("ManualLockButton");
-        codeBehind.ShouldNotContain("SelfServicePasswordChangeCoordinator");
-        codeBehind.ShouldNotContain("ChangePassword_Click");
-        codeBehind.ShouldNotContain("passwordChangeCoordinator.ChangePassword");
-        codeBehind.ShouldNotContain("ManualLock_Click");
-        codeBehind.ShouldNotContain("sessionRuntime.LockNow");
+        xaml.ShouldContain("NewPasswordBox");
+        xaml.ShouldContain("SettingsNewPasswordBox");
+        xaml.ShouldContain("PasswordChangeRememberMeCheckBox");
+        xaml.ShouldContain("SettingsPasswordChangeRememberMeCheckBox");
+        xaml.ShouldContain("ChangePasswordButton");
+        xaml.ShouldContain("SettingsChangePasswordButton");
+        xaml.ShouldContain("ManualLockButton");
+        codeBehind.ShouldContain("ChangePassword_Click");
+        codeBehind.ShouldContain("SettingsChangePassword_Click");
+        codeBehind.ShouldContain("loginRuntime.AccountSettingsModel.ChangePassword");
+        codeBehind.ShouldContain("ManualLock_Click");
+        codeBehind.ShouldContain("sessionRuntime.LockNow");
     }
 
     [Fact]
@@ -254,13 +255,22 @@ public sealed class LoginWindowRuntimeWiringTests
     public void Lock_window_submits_unlock_and_logout_to_runtime_workflow()
     {
         var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LockWindow.xaml.cs");
+        var viewModel = ReadSource("src", "Dobby.Host", "Login", "LockViewModel.cs");
+        var unlockHandler = codeBehind[
+            codeBehind.IndexOf("private void Unlock_Click", StringComparison.Ordinal)..
+            codeBehind.IndexOf("private void Logout_Click", StringComparison.Ordinal)];
+        var logoutHandler = codeBehind[
+            codeBehind.IndexOf("private void Logout_Click", StringComparison.Ordinal)..
+            codeBehind.IndexOf("private void PasswordBox_PasswordChanged", StringComparison.Ordinal)];
 
-        codeBehind.ShouldContain("lockWorkflow.Unlock");
-        codeBehind.IndexOf("lockWorkflow.Unlock", StringComparison.Ordinal)
-            .ShouldBeLessThan(codeBehind.IndexOf("DialogResult = true", StringComparison.Ordinal));
-        codeBehind.ShouldContain("lockWorkflow.Logout");
-        codeBehind.IndexOf("lockWorkflow.Logout", StringComparison.Ordinal)
-            .ShouldBeLessThan(codeBehind.IndexOf("DialogResult = false", StringComparison.Ordinal));
+        unlockHandler.ShouldContain("viewModel.SubmitUnlock");
+        unlockHandler.IndexOf("viewModel.SubmitUnlock", StringComparison.Ordinal)
+            .ShouldBeLessThan(unlockHandler.IndexOf("DialogResult = dialogResult.Value", StringComparison.Ordinal));
+        logoutHandler.ShouldContain("viewModel.SubmitLogout");
+        logoutHandler.IndexOf("viewModel.SubmitLogout", StringComparison.Ordinal)
+            .ShouldBeLessThan(logoutHandler.IndexOf("DialogResult = dialogResult.Value", StringComparison.Ordinal));
+        viewModel.ShouldContain("workflow.UnlockForLockScreen");
+        viewModel.ShouldContain("workflow.Logout");
     }
 
     [Fact]
@@ -279,7 +289,8 @@ public sealed class LoginWindowRuntimeWiringTests
         codeBehind.ShouldContain("HostResourceKeys.LoginPassword");
         codeBehind.ShouldContain("HostResourceKeys.LockUnlock");
         codeBehind.ShouldContain("HostResourceKeys.LockLogout");
-        codeBehind.ShouldContain("LockedUserText.Text = session?.UserId");
+        xaml.ShouldContain("Text=\"{Binding CurrentUserLabel}\"");
+        codeBehind.ShouldContain("DataContext = viewModel");
     }
 
     [Fact]

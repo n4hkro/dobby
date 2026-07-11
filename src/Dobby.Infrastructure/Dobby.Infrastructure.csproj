@@ -23,5 +23,6 @@
     <EmbeddedResource Include="Persistence\Migrations\0003_license_state.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0003_license_state.sql" />
     <EmbeddedResource Include="Persistence\Migrations\0004_license_lifecycle_inputs.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0004_license_lifecycle_inputs.sql" />
     <EmbeddedResource Include="Persistence\Migrations\0005_plugin_lifecycle_state.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0005_plugin_lifecycle_state.sql" />
+    <EmbeddedResource Include="Persistence\Migrations\0006_plugin_storage_values.sql" LogicalName="Dobby.Infrastructure.Persistence.Migrations.0006_plugin_storage_values.sql" />
   </ItemGroup>
 </Project>

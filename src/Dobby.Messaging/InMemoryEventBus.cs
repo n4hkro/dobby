@@ -1,8 +1,9 @@
 using Dobby.Contracts.Events;
+using Dobby.Core;
 
 namespace Dobby.Messaging;
 
-public sealed class InMemoryEventBus : IEventBus
+public sealed class InMemoryEventBus(Action<Type, ErrorCode>? handlerFaultSink = null) : IEventBus
 {
     private readonly object _gate = new();
     private readonly Dictionary<Type, List<Func<PublicIntegrationEvent, CancellationToken, Task>>> _handlers = [];
@@ -44,7 +45,7 @@ public sealed class InMemoryEventBus : IEventBus
         return new Subscription(() => Unsubscribe<TEvent>(Adapter));
     }
 
-    private static async Task PublishSequentiallyAsync(
+    private async Task PublishSequentiallyAsync(
         IEnumerable<Func<PublicIntegrationEvent, CancellationToken, Task>> handlers,
         PublicIntegrationEvent @event,
         CancellationToken cancellationToken)
@@ -52,7 +53,51 @@ public sealed class InMemoryEventBus : IEventBus
         foreach (var handler in handlers)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await handler(@event, cancellationToken);
+            if (handlerFaultSink is null)
+            {
+                await handler(@event, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            var result = await InvokeHandlerAsync(handler, @event, cancellationToken).ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                handlerFaultSink.Invoke(
+                    @event.GetType(),
+                    result.ErrorCode ?? ErrorCode.PluginInternalError);
+            }
+        }
+    }
+
+    private static async Task<Result> InvokeHandlerAsync(
+        Func<PublicIntegrationEvent, CancellationToken, Task> handler,
+        PublicIntegrationEvent @event,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await handler(@event, cancellationToken).ConfigureAwait(false);
+            return Result.Success();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            return Result.Failure(ErrorCode.Cancelled);
+        }
+        catch (ArgumentException)
+        {
+            return Result.Failure(ErrorCode.InvalidInput);
+        }
+        catch (NotSupportedException)
+        {
+            return Result.Failure(ErrorCode.UnsupportedOperation);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure(ErrorCode.PluginInternalError);
         }
     }
 

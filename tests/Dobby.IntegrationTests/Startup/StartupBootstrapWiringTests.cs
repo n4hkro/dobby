@@ -466,7 +466,7 @@ public sealed class StartupBootstrapWiringTests
             "window.ContentRendered += (_, _) =>",
             StringComparison.Ordinal);
         var configureSettings = shellPresenterSource.IndexOf(
-            "BuildSettingsAndAbout(strings, loginRuntime, userId)",
+            "BuildSettingsAndAbout(strings, loginRuntime, userId, scopedPreferenceSource)",
             StringComparison.Ordinal);
         var showDialog = shellPresenterSource.IndexOf("window.ShowDialog();", StringComparison.Ordinal);
 

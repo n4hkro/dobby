@@ -85,8 +85,10 @@ yaratmır. License import yalnız bu mövcud context-ə qarşı validate edir;
 yaratmır və dəyişdirmir.
 
 Non-default vendor/customer deployment context provisioning Phase 1 host UI
-scope-una daxil deyil. Belə provisioning gələcək explicit admin/operator
-workflow-u və ya bu ADR-ə amendment tələb edir.
+scope-una daxil deyil. Phase 1-də host-internal explicit admin/operator provisioning
+workflow-u non-default context-i provision edə bilər. Bu workflow bütün mövcud context
+row-larını atomik olaraq exactly one active context ilə əvəz edir; customer-switching UI,
+multi-customer runtime və ya license import-dan opportunistic provisioning yaratmır.
 
 ### 7. Rejected alternatives
 

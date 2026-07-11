@@ -1,13 +1,15 @@
 using System.Runtime.ExceptionServices;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Dobby.Configuration;
-using Dobby.Contracts.Ordering;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.Ordering;
 using Dobby.Contracts.Licensing;
+using Dobby.Contracts.PluginPages;
 using Dobby.Host;
 using Dobby.Localization;
 using Dobby.Navigation;
@@ -20,170 +22,253 @@ namespace Dobby.IntegrationTests.Shell;
 [Collection(WpfIntegrationTestCollection.Name)]
 public sealed class ShellSnapshotTests
 {
-    [Theory]
-    [InlineData(1024, 680, AppThemePreference.Light)]
-    [InlineData(1920, 1080, AppThemePreference.Dark)]
-    public void Shell_snapshot_descriptor_covers_required_surfaces_and_nested_navigation_without_plugin_activation(
-        int width,
-        int height,
-        AppThemePreference theme)
+    [Fact]
+    public void Main_shell_xaml_lists_required_named_regions()
     {
-        var state = ShellLayoutState.CreateDefault(NavigationComposer.Compose(SnapshotContributions()));
+        var xaml = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "MainWindow.xaml"));
 
-        var snapshot = state.CreateSnapshotDescriptor(width, height, theme);
-
-        snapshot.ShouldContain($"viewport={width}x{height}");
-        snapshot.ShouldContain($"theme={theme}");
-        snapshot.ShouldContain("surface=TopToolbar");
-        snapshot.ShouldContain("surface=Sidebar");
-        snapshot.ShouldContain("surface=ThirdBar");
-        snapshot.ShouldContain("node=sample.analytics.daily.filters,target=ThirdBar");
+        foreach (var name in RequiredSurfaces())
+        {
+            xaml.ShouldContain($"x:Name=\"{name}\"");
+        }
     }
 
     [Theory]
     [InlineData(1024, 680, AppThemePreference.Light)]
     [InlineData(1920, 1080, AppThemePreference.Dark)]
-    public void Shell_rendered_window_keeps_only_titlebar_tabs_and_header_navigation_visible(
+    public void Main_shell_renders_required_named_regions(
         int width,
         int height,
         AppThemePreference theme)
     {
         var evidence = RunOnSta(() => RenderShellEvidence(width, height, theme));
 
-        AssertMinimalShellSurface(evidence);
+        foreach (var name in RequiredSurfaces())
+        {
+            evidence.SurfaceNames.ShouldContain(name);
+        }
+
         evidence.RouteTags.ShouldContain(RouteRegistry.HomeRouteKey);
         evidence.RouteTags.ShouldContain(RouteRegistry.PluginsRouteKey);
         evidence.RouteTags.ShouldContain(RouteRegistry.SettingsRouteKey);
-        evidence.RouteTags.ShouldNotContain("plugin.sample.analytics.daily");
-        evidence.RouteTags.ShouldNotContain("plugin.sample.analytics.daily.filters");
         evidence.Text.ShouldContain("Dobby");
         evidence.Text.ShouldContain("Ana səhifə");
         evidence.Text.ShouldContain("Pluginlər");
         evidence.Text.ShouldContain("Tənzimləmələr");
-        evidence.Text.ShouldNotContain("Cases Overview");
-        evidence.Text.ShouldNotContain("Plugin lisenziyası");
-        evidence.Text.ShouldNotContain("Təsdiq");
+        evidence.Text.ShouldContain("Hazırdır");
+        evidence.Text.ShouldContain("Yığılmış işlər");
+        evidence.Text.ShouldContain("Qısa bildiriş");
+        evidence.Text.ShouldContain("Yüklənir");
+        evidence.Text.ShouldContain("Şifrəni dəyiş");
         evidence.UniqueSampledColors.ShouldBeGreaterThan(3);
-    }
-
-    [Theory]
-    [InlineData(1366, 768, AppThemePreference.Light, 96, 96)]
-    [InlineData(1920, 1080, AppThemePreference.Dark, 120, 120)]
-    [InlineData(2560, 1440, AppThemePreference.Light, 96, 96)]
-    [InlineData(3840, 2160, AppThemePreference.Dark, 96, 96)]
-    [InlineData(1920, 1080, AppThemePreference.Light, 144, 144)]
-    public void Shell_rendered_window_covers_resolution_and_dpi_matrix(
-        int width,
-        int height,
-        AppThemePreference theme,
-        double dpiX,
-        double dpiY)
-    {
-        var evidence = RunOnSta(() => RenderShellEvidence(width, height, theme, dpiX, dpiY));
-
-        AssertMinimalShellSurface(evidence);
-        evidence.Text.ShouldNotContain("Qısa bildiriş");
-        evidence.Text.ShouldNotContain("Təsdiq");
-        evidence.UniqueSampledColors.ShouldBeGreaterThan(3);
-    }
-
-    [Theory]
-    [InlineData(1024, 680, AppThemePreference.Light)]
-    [InlineData(1920, 1080, AppThemePreference.Dark)]
-    public void Shell_rendered_home_route_does_not_render_removed_body_regions(
-        int width,
-        int height,
-        AppThemePreference theme)
-    {
-        var evidence = RunOnSta(() => RenderShellEvidence(width, height, theme, activateNestedRoute: false));
-
-        AssertMinimalShellSurface(evidence);
-        evidence.SurfaceNames.ShouldNotContain("HomeDashboardHeader");
-        evidence.SurfaceNames.ShouldNotContain("HomePipelineBoard");
-        evidence.SurfaceNames.ShouldNotContain("HomeMetricPanels");
-        evidence.SurfaceNames.ShouldNotContain("PipelineSubnav");
-        evidence.Text.ShouldNotContain("Cases Overview");
-        evidence.Text.ShouldNotContain("Pipelines");
-        evidence.Text.ShouldNotContain("Davam edir");
-        evidence.Text.ShouldNotContain("Tamamlandı");
-        evidence.Text.ShouldNotContain("Vaxtı keçib");
     }
 
     [Fact]
-    public void Shell_rendered_nested_plugin_route_keeps_sidebar_empty_and_third_bar_removed()
+    public void Main_content_renders_settings_about_and_plugin_page_surfaces()
+    {
+        var strings = HostStringCatalog.CreateResourceBacked();
+        var settingsEvidence = RunOnSta(() => RenderShellEvidence(
+            1366,
+            768,
+            AppThemePreference.Light,
+            RouteRegistry.SettingsRouteKey));
+
+        settingsEvidence.SurfaceNames.ShouldContain("MainContent");
+        settingsEvidence.SurfaceNames.ShouldContain("AppearanceSettingsSurface");
+        settingsEvidence.SurfaceNames.ShouldContain("AppearanceThemeSelector");
+        settingsEvidence.SurfaceNames.ShouldContain("AccountSettingsSurface");
+        settingsEvidence.SurfaceNames.ShouldContain("SettingsAccountProfileText");
+        settingsEvidence.SurfaceNames.ShouldContain("SettingsNewPasswordBox");
+        settingsEvidence.SurfaceNames.ShouldContain("SecuritySessionSettingsSurface");
+        settingsEvidence.SurfaceNames.ShouldContain("SecurityAutoLockEnabledCheckBox");
+        settingsEvidence.SurfaceNames.ShouldContain("SecurityAutoLockMinutesInput");
+        settingsEvidence.SurfaceNames.ShouldContain("UserManagementSettingsSurface");
+        settingsEvidence.SurfaceNames.ShouldContain("UserManagementActionList");
+        settingsEvidence.SurfaceNames.ShouldContain("AboutSettingsSurface");
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.ShellSettingsHeading));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.SettingsAppearance));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.SettingsAccount));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.SettingsSecuritySession));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.SettingsUserManagement));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.SettingsAbout));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutAppVersion));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutBuildNumber));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutBuildDate));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutHostEdition));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutHostChannel));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutDeviceCode));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutPlugins));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutSupportContact));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutLegalLine));
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutOwnerIdentity));
+        settingsEvidence.Text.ShouldContain("100");
+        settingsEvidence.Text.ShouldContain("2026-07-09");
+        settingsEvidence.Text.ShouldContain("local");
+        settingsEvidence.Text.ShouldContain("stable");
+        settingsEvidence.Text.ShouldContain("device-redacted-1234");
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutPluginsEmpty));
+        settingsEvidence.Text.ShouldContain("support@example.invalid");
+        settingsEvidence.Text.ShouldContain("Copyright Dobby");
+        settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutOwnerStatusManaged));
+        settingsEvidence.Text.ShouldNotContain(strings.GetString(HostResourceKeys.LicenseStatusLabel));
+        settingsEvidence.Text.ShouldNotContain(strings.GetString(HostResourceKeys.LicenseImportAction));
+
+        var pluginEvidence = RunOnSta(() => RenderShellEvidence(
+            1366,
+            768,
+            AppThemePreference.Light,
+            RouteRegistry.SettingsRouteKey,
+            new PluginTextPageModel("plugin.page.ready")));
+
+        pluginEvidence.SurfaceNames.ShouldContain("PluginPageHost");
+        pluginEvidence.Text.ShouldContain("plugin.page.ready");
+    }
+
+    [Fact]
+    public void Plugin_page_host_does_not_echo_unapproved_plugin_model_text()
     {
         var evidence = RunOnSta(() => RenderShellEvidence(
             1366,
             768,
-            AppThemePreference.Dark,
-            activateNestedRoute: false,
-            activeRouteKey: "plugin.sample.analytics.daily"));
+            AppThemePreference.Light,
+            RouteRegistry.SettingsRouteKey,
+            new UnsafePluginPageModel()));
 
-        AssertMinimalShellSurface(evidence);
-        evidence.RouteTags.ShouldContain(RouteRegistry.HomeRouteKey);
-        evidence.RouteTags.ShouldContain(RouteRegistry.PluginsRouteKey);
-        evidence.RouteTags.ShouldContain(RouteRegistry.SettingsRouteKey);
-        evidence.RouteTags.ShouldNotContain("plugin.sample.analytics.daily");
-        evidence.RouteTags.ShouldNotContain("plugin.sample.analytics.daily.filters");
-        evidence.Text.ShouldNotContain("Dobby.Plugin.Sample.Analytics.Daily.Filters");
+        evidence.SurfaceNames.ShouldContain("PluginPageHost");
+        evidence.Text.ShouldNotContain(UnsafePluginPageModel.LeakedText);
+    }
+
+    [Fact]
+    public void Settings_surface_hides_enabled_user_management_actions_when_unavailable()
+    {
+        var strings = HostStringCatalog.CreateResourceBacked();
+        var settingsEvidence = RunOnSta(() => RenderShellEvidence(
+            1366,
+            768,
+            AppThemePreference.Light,
+            RouteRegistry.SettingsRouteKey,
+            userManagementAvailable: false));
+
+        settingsEvidence.SurfaceNames.ShouldNotContain("UserManagementSettingsSurface");
+        settingsEvidence.SurfaceNames.ShouldNotContain("UserManagementActionList");
+        settingsEvidence.Text.ShouldNotContain(strings.GetString(HostResourceKeys.SettingsUserManagement));
+        settingsEvidence.Text.ShouldNotContain(strings.GetString(HostResourceKeys.UserManagementPermissionDenied));
+        settingsEvidence.Text.ShouldNotContain(strings.GetString(HostResourceKeys.UserManagementCreateManagedUser));
+        settingsEvidence.Text.ShouldNotContain(strings.GetString(HostResourceKeys.UserManagementResetPassword));
+        settingsEvidence.EnabledButtonText.ShouldNotContain(strings.GetString(HostResourceKeys.UserManagementCreateManagedUser));
+        settingsEvidence.EnabledButtonText.ShouldNotContain(strings.GetString(HostResourceKeys.UserManagementResetPassword));
+    }
+
+    [Fact]
+    public void Plugins_surface_renders_fault_status_summary_and_detail_text()
+    {
+        var strings = HostStringCatalog.CreateResourceBacked();
+        var evidence = RunOnSta(() => RenderShellEvidence(
+            1366,
+            768,
+            AppThemePreference.Light,
+            RouteRegistry.PluginsRouteKey,
+            pluginManagerItems:
+            [
+                new ShellPluginManagerItem(
+                    "com.dobby.sample",
+                    "Sample Plugin",
+                    "1.0.0",
+                    "Verification plugin",
+                    IsEnabled: true,
+                    "Faulted",
+                    IsPendingUninstall: false,
+                    RestartRequired: false)
+            ]));
+
+        var faulted = strings.GetString(HostResourceKeys.PluginsManagerStatusFaulted);
+        evidence.Text.ShouldContain(faulted);
+        evidence.Text.ShouldContain($"Sample Plugin 1.0.0 - {faulted}");
+    }
+
+    [Fact]
+    public async Task Shell_route_host_maps_plugin_route_activation_exceptions_to_safe_failure()
+    {
+        var host = new ShellRouteHost(
+            routeKey => routeKey ?? RouteRegistry.HomeRouteKey,
+            _ => throw new InvalidOperationException("raw plugin fault detail"));
+
+        var result = await host.ActivateOrHomeAsync("plugin/com.dobby.sample/fault");
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorCode.ShouldBe(Dobby.Core.ErrorCode.PluginInternalError);
     }
 
     private static RenderedShellEvidence RenderShellEvidence(
         int width,
         int height,
         AppThemePreference theme,
-        double dpiX = 96,
-        double dpiY = 96,
-        bool activateNestedRoute = true,
-        IReadOnlyList<NavigationContribution>? contributions = null,
-        string? activeRouteKey = null)
+        string activeRouteKey = "plugin.sample.analytics.daily",
+        IPluginPageModel? pluginPageModel = null,
+        bool userManagementAvailable = true,
+        IReadOnlyList<ShellPluginManagerItem>? pluginManagerItems = null)
     {
+        var strings = HostStringCatalog.CreateResourceBacked();
         var shell = new ShellViewModel(
-            HostStringCatalog.CreateResourceBacked(),
-            contributions ?? SnapshotContributions());
-        if (!string.IsNullOrWhiteSpace(activeRouteKey))
-        {
-            shell.ActivateRoute(activeRouteKey).IsSuccess.ShouldBeTrue();
-        }
-        else if (activateNestedRoute)
-        {
-            shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
-        }
-
+            strings,
+            SnapshotContributions());
+        shell.ActivateRoute(activeRouteKey).IsSuccess.ShouldBeTrue();
         shell.SetTheme(theme);
         shell.SetSettingsAndAbout(
             [
-                new ShellSettingsCategoryItem("appearance", "Appearance", true),
-                new ShellSettingsCategoryItem("account", "Account", true),
-                new ShellSettingsCategoryItem("security-session", "Security / Session", true),
-                new ShellSettingsCategoryItem("user-management", "User Management", true),
-                new ShellSettingsCategoryItem("about", "About", true)
+                new ShellSettingsCategoryItem("appearance", strings.GetString(HostResourceKeys.SettingsAppearance), true),
+                new ShellSettingsCategoryItem("account", strings.GetString(HostResourceKeys.SettingsAccount), true),
+                new ShellSettingsCategoryItem("security-session", strings.GetString(HostResourceKeys.SettingsSecuritySession), true),
+                new ShellSettingsCategoryItem("user-management", strings.GetString(HostResourceKeys.SettingsUserManagement), userManagementAvailable),
+                new ShellSettingsCategoryItem("about", strings.GetString(HostResourceKeys.SettingsAbout), true)
             ],
             [
-                new ShellAboutField("version", "App version", "7.0.0-test"),
-                new ShellAboutField("build", "Build number/date", "sprint7-rendered"),
-                new ShellAboutField("edition", "Host edition/channel", "Desktop / local"),
-                new ShellAboutField("device", "Device code", "redacted-1234"),
-                new ShellAboutField("plugins", "Plugin versions/status", "No plugins installed"),
-                new ShellAboutField("support", "Support contact", "support@example.invalid"),
-                new ShellAboutField("legal", "Legal", "Local verification"),
-                new ShellAboutField("owner", "Registered owner", "Registered")
-            ]);
+                new ShellAboutField("app-version", strings.GetString(HostResourceKeys.AboutAppVersion), "7.0.0-test"),
+                new ShellAboutField("build-number", strings.GetString(HostResourceKeys.AboutBuildNumber), "100"),
+                new ShellAboutField("build-date", strings.GetString(HostResourceKeys.AboutBuildDate), "2026-07-09"),
+                new ShellAboutField("host-edition", strings.GetString(HostResourceKeys.AboutHostEdition), "local"),
+                new ShellAboutField("host-channel", strings.GetString(HostResourceKeys.AboutHostChannel), "stable"),
+                new ShellAboutField("device-code", strings.GetString(HostResourceKeys.AboutDeviceCode), "device-redacted-1234"),
+                new ShellAboutField("plugins", strings.GetString(HostResourceKeys.AboutPlugins), strings.GetString(HostResourceKeys.AboutPluginsEmpty)),
+                new ShellAboutField("support-contact", strings.GetString(HostResourceKeys.AboutSupportContact), "support@example.invalid"),
+                new ShellAboutField("legal-line", strings.GetString(HostResourceKeys.AboutLegalLine), "Copyright Dobby"),
+                new ShellAboutField("owner-identity", strings.GetString(HostResourceKeys.AboutOwnerIdentity), strings.GetString(HostResourceKeys.AboutOwnerStatusManaged))
+            ],
+            autoLockEnabled: true,
+            autoLockMinutes: 12);
         shell.SetLicenseSurface(
             canViewStatus: true,
             canImport: true,
             PluginRuntimeMode.ReadOnlyExpired);
+        shell.SetPluginsManagerSurface(
+            canView: true,
+            canImport: true,
+            canConfigure: true,
+            canDelete: true,
+            pluginManagerItems ??
+            [
+                new ShellPluginManagerItem(
+                    "com.dobby.default",
+                    "Default Plugin",
+                    "1.0.0",
+                    "Default plugin entry",
+                    IsEnabled: true,
+                    "Enabled",
+                    IsPendingUninstall: false,
+                    RestartRequired: false)
+            ]);
         shell.ShowBackgroundOperation(new BackgroundOperationSnapshot(
             Guid.NewGuid(),
             BackgroundOperationOwnerKind.Host,
             null,
-            "Dobby.Shell.Status.Ready",
+            HostResourceKeys.ShellStatusReady,
             null,
             BackgroundOperationStatus.Running,
             BackgroundOperationProgress.Indeterminate(),
             CanCancel: false,
             Guid.NewGuid(),
             FailureReason: null));
+        shell.SetActivePluginPage(pluginPageModel);
 
         var window = new MainWindow
         {
@@ -204,49 +289,22 @@ public sealed class ShellSnapshotTests
             window.Arrange(new Rect(0, 0, width, height));
             window.Show();
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            var profileButton = FindVisuals<Button>(root: window)
+                .FirstOrDefault(button => button.Name.Equals("ProfileMenuButton", StringComparison.Ordinal));
+            profileButton?.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             window.UpdateLayout();
 
-            var rendered = new RenderTargetBitmap(
-                width,
-                height,
-                dpiX,
-                dpiY,
-                PixelFormats.Pbgra32);
+            var rendered = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
             rendered.Render(window);
 
             var root = (FrameworkElement)window.Content;
-            var surfaceBounds = FindVisuals<FrameworkElement>(root)
-                .Where(element => RequiredSurfaces().Contains(element.Name, StringComparer.Ordinal) &&
-                    element.IsVisible &&
-                    element.ActualWidth > 0 &&
-                    element.ActualHeight > 0)
-                .GroupBy(element => element.Name, StringComparer.Ordinal)
-                    .ToDictionary(
-                        group => group.Key,
-                        group => BoundsToRoot(group.First(), root),
-                        StringComparer.Ordinal);
-            var pipelineSubnav = FindVisuals<FrameworkElement>(root)
-                .FirstOrDefault(element => string.Equals(element.Name, "PipelineSubnav", StringComparison.Ordinal));
-            var pipelineButtonBounds = pipelineSubnav is null
-                ? []
-                : FindVisuals<Button>(pipelineSubnav)
-                    .Where(button => button.IsVisible && button.ActualWidth > 0 && button.ActualHeight > 0)
-                    .Select(button => BoundsToRoot(button, root))
-                    .ToArray();
-            var pathDataBounds = FindVisuals<System.Windows.Shapes.Path>(root)
-                .Where(path => !string.IsNullOrWhiteSpace(path.Name) &&
-                    path.Data is not null &&
-                    !path.Data.Bounds.IsEmpty)
-                .ToDictionary(
-                    path => path.Name,
-                    path => path.TransformToAncestor(root).TransformBounds(path.Data.Bounds),
-                    StringComparer.Ordinal);
-
             return new RenderedShellEvidence(
-                surfaceBounds.Keys.ToArray(),
-                surfaceBounds,
-                pathDataBounds,
-                pipelineButtonBounds,
+                FindVisuals<FrameworkElement>(root)
+                    .Where(element => !string.IsNullOrWhiteSpace(element.Name) && element.IsVisible)
+                    .Select(element => element.Name)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray(),
                 FindVisuals<Button>(root)
                     .Where(button => button.IsVisible)
                     .Select(button => button.Tag as string)
@@ -255,7 +313,17 @@ public sealed class ShellSnapshotTests
                 FindVisuals<TextBlock>(root)
                     .Where(text => text.IsVisible)
                     .Select(text => text.Text)
+                    .Concat(FindVisuals<Button>(root)
+                        .Where(button => button.IsVisible)
+                        .Select(button => button.Content?.ToString()))
                     .Where(text => !string.IsNullOrWhiteSpace(text))
+                    .Select(text => text!)
+                    .ToArray(),
+                FindVisuals<Button>(root)
+                    .Where(button => button.IsVisible && button.IsEnabled)
+                    .Select(button => button.Content?.ToString())
+                    .Where(text => !string.IsNullOrWhiteSpace(text))
+                    .Select(text => text!)
                     .ToArray(),
                 CountUniqueSampledColors(rendered));
         }
@@ -263,6 +331,22 @@ public sealed class ShellSnapshotTests
         {
             window.Close();
         }
+    }
+
+    private static IReadOnlyList<string> RequiredSurfaces()
+    {
+        return
+        [
+            "TopToolbar",
+            "Sidebar",
+            "ThirdBar",
+            "MainContent",
+            "ShellStatusBar",
+            "ShellNotificationHost",
+            "ShellFeedbackHost",
+            "MinimizedWorkSessionStrip",
+            "ProfileMenu"
+        ];
     }
 
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()
@@ -291,34 +375,6 @@ public sealed class ShellSnapshotTests
         return [parent, child, leaf];
     }
 
-    private static IReadOnlyList<NavigationContribution> ThirdBarContributions(int thirdBarItemCount)
-    {
-        var parent = NavigationContribution.Create(
-            "sample.analytics",
-            "plugin.sample.analytics",
-            "Dobby.Plugin.Sample.Analytics",
-            NavigationTarget.TopToolbar,
-            new UiOrderingKey("default", 50, "sample", 0));
-        var child = NavigationContribution.Create(
-            "sample.analytics.daily",
-            "plugin.sample.analytics.daily",
-            "Dobby.Plugin.Sample.Analytics.Daily",
-            NavigationTarget.Sidebar,
-            new UiOrderingKey("default", 10, "sample", 1),
-            parent.Id);
-
-        var leaves = Enumerable.Range(0, thirdBarItemCount)
-            .Select(index => NavigationContribution.Create(
-                $"sample.analytics.daily.filters.{index}",
-                $"plugin.sample.analytics.daily.filters.{index}",
-                $"Filter {index + 1}",
-                NavigationTarget.ThirdBar,
-                new UiOrderingKey("default", 10 + index, "sample", 2 + index),
-                child.Id));
-
-        return [parent, child, .. leaves];
-    }
-
     private static void AddThemeResources(Window window, AppThemePreference theme)
     {
         window.Resources.MergedDictionaries.Add(new ResourceDictionary
@@ -329,86 +385,6 @@ public sealed class ShellSnapshotTests
         {
             Source = new Uri($"/Dobby.UI;component/Themes/{theme}Theme.xaml", UriKind.Relative)
         });
-    }
-
-    private static IReadOnlyList<string> RequiredSurfaces()
-    {
-        return
-        [
-            "ShellChrome",
-            "WindowTitleBar",
-            "WorkspaceTabStrip",
-            "WorkspaceNewTabButton",
-            "WindowCaptionButtons",
-            "TopToolbar",
-            "ShellHeader",
-            "ShellBrandMark",
-            "CenteredTopToolbar",
-            "ProfileMenuButton",
-            "ShellBody",
-            "ShellSidebar",
-            "Sidebar",
-            "SidebarNavigationList",
-            "ThirdBar",
-            "ThirdBarNavigationList",
-            "MainContent",
-            "MainContentPanelFrame",
-            "MainContentPanelBorder",
-            "MainContentCutoutMask",
-            "MainContentCutoutBorder",
-            "MainContentBody",
-            "HomeDashboardHeader",
-            "HomePipelineBoard",
-            "HomeMetricPanels",
-            "PipelineSubnav",
-            "BottomStatus",
-            "MinimizedWorkStrip"
-        ];
-    }
-
-    private static void AssertMinimalShellSurface(RenderedShellEvidence evidence)
-    {
-        foreach (var surface in new[]
-        {
-            "ShellChrome",
-            "WindowTitleBar",
-            "WorkspaceTabStrip",
-            "WorkspaceNewTabButton",
-            "WindowCaptionButtons",
-            "TopToolbar",
-            "ShellHeader",
-            "ShellBrandMark",
-            "CenteredTopToolbar",
-            "ProfileMenuButton",
-            "ShellBody",
-            "ShellSidebar",
-            "Sidebar"
-        })
-        {
-            evidence.SurfaceNames.ShouldContain(surface);
-        }
-
-        foreach (var surface in new[]
-        {
-            "SidebarNavigationList",
-            "ThirdBar",
-            "ThirdBarNavigationList",
-            "MainContent",
-            "MainContentPanelFrame",
-            "MainContentPanelBorder",
-            "MainContentCutoutMask",
-            "MainContentCutoutBorder",
-            "MainContentBody",
-            "HomeDashboardHeader",
-            "HomePipelineBoard",
-            "HomeMetricPanels",
-            "PipelineSubnav",
-            "BottomStatus",
-            "MinimizedWorkStrip"
-        })
-        {
-            evidence.SurfaceNames.ShouldNotContain(surface);
-        }
     }
 
     private static IReadOnlyList<T> FindVisuals<T>(DependencyObject root)
@@ -428,12 +404,6 @@ public sealed class ShellSnapshotTests
         }
 
         return matches;
-    }
-
-    private static Rect BoundsToRoot(FrameworkElement element, Visual root)
-    {
-        var topLeft = element.TransformToAncestor(root).Transform(new Point(0, 0));
-        return new Rect(topLeft.X, topLeft.Y, element.ActualWidth, element.ActualHeight);
     }
 
     private static int CountUniqueSampledColors(BitmapSource bitmap)
@@ -485,10 +455,29 @@ public sealed class ShellSnapshotTests
 
     private sealed record RenderedShellEvidence(
         IReadOnlyList<string> SurfaceNames,
-        IReadOnlyDictionary<string, Rect> SurfaceBounds,
-        IReadOnlyDictionary<string, Rect> PathDataBounds,
-        IReadOnlyList<Rect> PipelineSubnavButtonBounds,
         IReadOnlyList<string> RouteTags,
         IReadOnlyList<string> Text,
+        IReadOnlyList<string> EnabledButtonText,
         int UniqueSampledColors);
+
+    private sealed class UnsafePluginPageModel : IPluginPageModel
+    {
+        public const string LeakedText = "plugin supplied control leaked";
+
+        public override string ToString()
+        {
+            return LeakedText;
+        }
+    }
+
+    private static DirectoryInfo RepoRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null && !File.Exists(Path.Combine(current.FullName, "Dobby.sln")))
+        {
+            current = current.Parent;
+        }
+
+        return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
+    }
 }

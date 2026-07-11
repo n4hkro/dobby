@@ -1,5 +1,6 @@
 using Dobby.Contracts.Ordering;
 using Dobby.Contracts.PluginPages;
+using Dobby.Core;
 using Dobby.Localization;
 using Dobby.Navigation;
 using Dobby.Shell;
@@ -32,6 +33,8 @@ public sealed class ShellViewModelNavigationTests
         var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
         var preference = ShellLayoutPreference.Default with
         {
+            SidebarCollapsed = true,
+            SidebarOpenNodeIds = ["sample.analytics.daily"],
             NavigationOverrides = new NavigationUserOverrides(
                 TopToolbarOrder: ["plugin.sample.analytics"],
                 SidebarRouteOrder: ["plugin.sample.analytics.daily"],
@@ -47,6 +50,8 @@ public sealed class ShellViewModelNavigationTests
             .ShouldContain(RouteRegistry.PluginsRouteKey);
         shell.TopNavigation.Select(item => item.RouteKey)
             .ShouldNotContain("plugin.sample.reports");
+        shell.Layout.Preference.SidebarCollapsed.ShouldBeTrue();
+        shell.Layout.Preference.SidebarOpenNodeIds.ShouldBe(["sample.analytics.daily"]);
         shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
         shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
         shell.ActiveWorkspaceTab.Title.ShouldBe("Ana səhifə");
@@ -84,7 +89,7 @@ public sealed class ShellViewModelNavigationTests
         var propertyChanges = new List<string?>();
         shell.PropertyChanged += (_, args) => propertyChanges.Add(args.PropertyName);
 
-        var pending = coordinator.RequestNavigation("plugin.sample.analytics");
+        var pending = coordinator.RequestNavigation("plugin.sample.work", "plugin.sample.analytics");
 
         pending.ShouldNotBeNull();
         pending.RequestedRouteKey.ShouldBe("plugin.sample.analytics");
@@ -97,6 +102,7 @@ public sealed class ShellViewModelNavigationTests
         var result = shell.ResolvePendingWorkSessionClose(WorkSessionCloseChoice.Cancel, coordinator);
 
         result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBeNull();
         shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
         shell.PendingWorkSessionCloseRequest.ShouldBeNull();
         shell.HasPendingWorkSessionCloseRequest.ShouldBeFalse();
@@ -106,35 +112,121 @@ public sealed class ShellViewModelNavigationTests
         propertyChanges.ShouldContain(nameof(ShellViewModel.HasPendingWorkSessionCloseRequest));
 
         registry.Minimize(session.SessionId);
-        coordinator.RequestNavigation("plugin.sample.analytics").ShouldBeNull();
+        coordinator.RequestNavigation("plugin.sample.work", "plugin.sample.analytics").ShouldBeNull();
     }
 
     [Theory]
     [InlineData(WorkSessionCloseChoice.Minimize)]
     [InlineData(WorkSessionCloseChoice.Close)]
-    public void Pending_work_session_minimize_or_close_continues_requested_navigation(WorkSessionCloseChoice choice)
+    public void Pending_work_session_minimize_or_close_returns_requested_navigation_without_applying_choice_until_activation_commits(WorkSessionCloseChoice choice)
     {
         var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
         var registry = new WorkSessionRegistry();
         var coordinator = new WorkSessionCloseCoordinator(registry);
         var session = registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
-        var pending = coordinator.RequestNavigation("plugin.sample.analytics");
+        var pending = coordinator.RequestNavigation("plugin.sample.work", "plugin.sample.analytics");
         shell.SetPendingWorkSessionCloseRequest(pending);
 
         var result = shell.ResolvePendingWorkSessionClose(choice, coordinator);
 
         result.IsSuccess.ShouldBeTrue();
-        shell.ActiveRouteKey.ShouldBe("plugin.sample.analytics");
-        shell.PendingWorkSessionCloseRequest.ShouldBeNull();
-        shell.HasPendingWorkSessionCloseRequest.ShouldBeFalse();
+        result.Value.ShouldBe("plugin.sample.analytics");
+        shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        shell.PendingWorkSessionCloseRequest.ShouldBe(pending);
+        shell.HasPendingWorkSessionCloseRequest.ShouldBeTrue();
         if (choice == WorkSessionCloseChoice.Minimize)
         {
-            registry.Get(session.SessionId)!.IsMinimized.ShouldBeTrue();
+            registry.Get(session.SessionId)!.IsMinimized.ShouldBeFalse();
         }
         else
         {
-            registry.Get(session.SessionId).ShouldBeNull();
+            registry.Get(session.SessionId).ShouldNotBeNull();
         }
+    }
+
+    [Fact]
+    public void Pending_logout_close_applies_immediately_without_route_activation()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        var registry = new WorkSessionRegistry();
+        var coordinator = new WorkSessionCloseCoordinator(registry);
+        var session = registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+        var pending = coordinator.HandleLogout();
+        pending.ShouldNotBeNull();
+        shell.SetPendingWorkSessionCloseRequest(pending);
+
+        var result = shell.ResolvePendingWorkSessionClose(WorkSessionCloseChoice.Close, coordinator);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBeNull();
+        shell.PendingWorkSessionCloseRequest.ShouldBeNull();
+        shell.HasPendingWorkSessionCloseRequest.ShouldBeFalse();
+        registry.Get(session.SessionId).ShouldBeNull();
+    }
+
+    [Fact]
+    public void Pending_logout_rejects_minimize_and_preserves_the_request_and_session()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        var registry = new WorkSessionRegistry();
+        var coordinator = new WorkSessionCloseCoordinator(registry);
+        var session = registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+        var pending = coordinator.HandleLogout();
+        pending.ShouldNotBeNull();
+        shell.SetPendingWorkSessionCloseRequest(pending);
+
+        var result = shell.ResolvePendingWorkSessionClose(WorkSessionCloseChoice.Minimize, coordinator);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+        shell.PendingWorkSessionCloseRequest.ShouldBe(pending);
+        registry.Get(session.SessionId).ShouldNotBeNull();
+        registry.Get(session.SessionId)!.IsMinimized.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Pending_work_session_request_cannot_be_replaced_before_resolution_commits()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        var registry = new WorkSessionRegistry();
+        var coordinator = new WorkSessionCloseCoordinator(registry);
+        registry.Open("plugin.sample", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+        var navigation = coordinator.RequestNavigation("plugin.sample.work", "plugin.sample.analytics");
+        var logout = coordinator.HandleLogout();
+        navigation.ShouldNotBeNull();
+        logout.ShouldNotBeNull();
+
+        shell.SetPendingWorkSessionCloseRequest(navigation).ShouldBeTrue();
+        shell.SetPendingWorkSessionCloseRequest(logout).ShouldBeFalse();
+
+        shell.PendingWorkSessionCloseRequest.ShouldBe(navigation);
+        shell.PendingWorkSessionCloseRequest!.RequestId.ShouldBe(navigation.RequestId);
+    }
+
+    [Fact]
+    public void Stale_navigation_commit_cannot_apply_its_choice_to_a_newer_pending_request()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        var registry = new WorkSessionRegistry();
+        var coordinator = new WorkSessionCloseCoordinator(registry);
+        var session = registry.Open("plugin.sample", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+        var navigation = coordinator.RequestNavigation("plugin.sample.work", "plugin.sample.analytics");
+        var logout = coordinator.HandleLogout();
+        navigation.ShouldNotBeNull();
+        logout.ShouldNotBeNull();
+        shell.SetPendingWorkSessionCloseRequest(navigation).ShouldBeTrue();
+        shell.SetPendingWorkSessionCloseRequest(null).ShouldBeTrue();
+        shell.SetPendingWorkSessionCloseRequest(logout).ShouldBeTrue();
+
+        var result = shell.CommitPendingWorkSessionClose(
+            WorkSessionCloseChoice.Close,
+            coordinator,
+            navigation);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+        shell.PendingWorkSessionCloseRequest.ShouldBe(logout);
+        registry.Get(session.SessionId).ShouldNotBeNull();
     }
 
     [Fact]
@@ -150,6 +242,54 @@ public sealed class ShellViewModelNavigationTests
         shell.ActivePluginPageModel.ShouldNotBeNull();
         propertyChanges.ShouldContain(nameof(ShellViewModel.ActivePluginPageModel));
         propertyChanges.ShouldContain(nameof(ShellViewModel.HasActivePluginPage));
+    }
+
+    [Fact]
+    public void Workspace_tab_route_restore_returns_route_without_selecting_tab_until_activation_commits()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
+        var analyticsTabId = shell.ActiveWorkspaceTab.TabId;
+        shell.OpenWorkspaceTab();
+        shell.ActivateRoute("plugin.sample.reports").IsSuccess.ShouldBeTrue();
+        var activeBefore = shell.ActiveWorkspaceTab;
+
+        var restoredRoute = shell.SelectWorkspaceTabForRouteActivation(analyticsTabId);
+
+        restoredRoute.IsSuccess.ShouldBeTrue();
+        restoredRoute.Value.ShouldBe("plugin.sample.analytics.daily");
+        shell.ActiveWorkspaceTab.ShouldBe(activeBefore);
+    }
+
+    [Fact]
+    public void Workspace_tab_click_uses_shell_route_host_instead_of_direct_route_activation()
+    {
+        var mainWindowCode = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var workspaceTabClick = MethodBody(mainWindowCode, "private async void WorkspaceTab_Click", "private async void WorkspaceTabClose_Click");
+        var select = workspaceTabClick.IndexOf("SelectWorkspaceTabForRouteActivation", StringComparison.Ordinal);
+        var activateTab = workspaceTabClick.IndexOf("shellViewModel.ActivateWorkspaceTab(tabId, restoredRouteKey)", StringComparison.Ordinal);
+        var routeHost = workspaceTabClick.IndexOf("shellRouteHost!.ActivateOrHomeAsync(restoredRouteKey)", StringComparison.Ordinal);
+
+        workspaceTabClick.ShouldContain("var previousActiveTab = shellViewModel.ActiveWorkspaceTab;");
+        workspaceTabClick.ShouldContain("SelectWorkspaceTabForRouteActivation");
+        workspaceTabClick.ShouldContain("shellViewModel.ActivateWorkspaceTab(tabId, restoredRouteKey)");
+        workspaceTabClick.ShouldContain("shellRouteHost!.ActivateOrHomeAsync(restoredRouteKey)");
+        workspaceTabClick.ShouldContain("shellViewModel.ActivateWorkspaceTab(previousActiveTab.TabId, previousActiveTab.RouteKey);");
+        select.ShouldBeGreaterThanOrEqualTo(0);
+        activateTab.ShouldBeGreaterThan(select);
+        routeHost.ShouldBeGreaterThan(activateTab);
+    }
+
+    [Fact]
+    public void Pending_work_session_choice_uses_shell_route_host_for_navigation_continuation()
+    {
+        var mainWindowCode = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var pendingChoice = MethodBody(mainWindowCode, "private async void WorkSessionMinimize_Click", "private void DiagnosticsExport_Click");
+
+        pendingChoice.ShouldContain("ResolvePendingWorkSessionChoiceAsync");
+        pendingChoice.ShouldContain("shellRouteHost!.ActivateOrHomeAsync(continuationRoute.Value)");
+        pendingChoice.ShouldContain("shellViewModel.CommitPendingWorkSessionClose(");
+        pendingChoice.ShouldContain("pending);");
     }
 
     [Fact]
@@ -230,6 +370,22 @@ public sealed class ShellViewModelNavigationTests
         shell.ActiveRouteKey.ShouldBe("plugin/com.dobby.sample/sample.home");
     }
 
+    [Fact]
+    public void Applied_sidebar_open_node_state_is_visible_and_persisted()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        shell.ApplyPreference(ShellLayoutPreference.Default with
+        {
+            SidebarOpenNodeIds = ["sample.analytics.daily"]
+        });
+
+        shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
+
+        shell.SidebarNavigation.Single().HasChildren.ShouldBeTrue();
+        shell.SidebarNavigation.Single().IsOpen.ShouldBeTrue();
+        shell.ExportPreference(1024, 680, null, null).SidebarOpenNodeIds.ShouldContain("sample.analytics.daily");
+    }
+
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()
     {
         var parent = NavigationContribution.Create(
@@ -265,5 +421,25 @@ public sealed class ShellViewModelNavigationTests
     private sealed class DummyPluginPageModel(string label) : IPluginPageModel
     {
         public string Label { get; } = label;
+    }
+
+    private static string MethodBody(string source, string startMarker, string endMarker)
+    {
+        var start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        start.ShouldBeGreaterThanOrEqualTo(0);
+        var end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        end.ShouldBeGreaterThan(start);
+        return source[start..end];
+    }
+
+    private static DirectoryInfo RepoRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null && !File.Exists(Path.Combine(current.FullName, "Dobby.sln")))
+        {
+            current = current.Parent;
+        }
+
+        return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
     }
 }

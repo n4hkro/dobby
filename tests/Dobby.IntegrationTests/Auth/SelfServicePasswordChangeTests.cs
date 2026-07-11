@@ -50,6 +50,25 @@ public sealed class SelfServicePasswordChangeTests
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.password.change';").ShouldBe(0);
     }
 
+    [Fact]
+    public void Account_settings_shortcut_changes_password_without_current_password_and_preserves_active_session()
+    {
+        using var fixture = PasswordChangeFixture.Create();
+        var userId = fixture.InsertUserWithCredential("old password");
+        fixture.InsertActiveSession(userId, "session-1", version: 1);
+        var coordinator = fixture.CreateCoordinator();
+
+        var result = fixture.CreateAccountSettingsModel(coordinator)
+            .ChangePassword(userId, "session-1", "new password", rememberMe: true, CorrelationId.New());
+
+        result.IsSuccess.ShouldBeTrue(result.IsSuccess ? null : result.ErrorCode.ToString());
+        fixture.CredentialStore.VerifyPassword(userId, "old password").Value.ShouldBeFalse();
+        fixture.CredentialStore.VerifyPassword(userId, "new password").Value.ShouldBeTrue();
+        fixture.Executor.QueryScalar<int>("SELECT SessionVersion FROM Sessions WHERE SessionId = 'session-1';").ShouldBe(2);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions WHERE SessionId = 'session-1' AND InvalidatedAtUtc IS NULL;").ShouldBe(1);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.password.change' AND Result = 'success';").ShouldBe(1);
+    }
+
     private sealed class PasswordChangeFixture : IDisposable
     {
         private readonly RecordingProtector protector = new();
@@ -98,6 +117,11 @@ public sealed class SelfServicePasswordChangeTests
         public SelfServicePasswordChangeCoordinator CreateCoordinator()
         {
             return new SelfServicePasswordChangeCoordinator(Executor, CredentialStore, RememberMe, new DurableAuditTrail(Executor));
+        }
+
+        public Dobby.Host.Settings.AccountSettingsModel CreateAccountSettingsModel(SelfServicePasswordChangeCoordinator coordinator)
+        {
+            return new Dobby.Host.Settings.AccountSettingsModel(coordinator.ChangePassword);
         }
 
         public static PasswordChangeFixture Create()

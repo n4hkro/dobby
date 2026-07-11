@@ -51,11 +51,24 @@ public static class HostResourceKeys
     public const string RecoveryImportOwnerMissing = "Dobby.Host.Recovery.ImportOwnerMissing";
     public const string RecoveryImportCancelled = "Dobby.Host.Recovery.ImportCancelled";
     public const string SettingsAppearance = "Dobby.Host.Settings.Appearance";
+    public const string SettingsAppearanceTheme = "Dobby.Host.Settings.Appearance.Theme";
+    public const string SettingsAppearanceThemeLight = "Dobby.Host.Settings.Appearance.Theme.Light";
+    public const string SettingsAppearanceThemeDark = "Dobby.Host.Settings.Appearance.Theme.Dark";
     public const string SettingsAccount = "Dobby.Host.Settings.Account";
     public const string SettingsSecuritySession = "Dobby.Host.Settings.SecuritySession";
+    public const string SettingsSecuritySessionAutoLockEnabled = "Dobby.Host.Settings.SecuritySession.AutoLockEnabled";
+    public const string SettingsSecuritySessionAutoLockMinutes = "Dobby.Host.Settings.SecuritySession.AutoLockMinutes";
+    public const string SettingsSecuritySessionSave = "Dobby.Host.Settings.SecuritySession.Save";
     public const string SettingsUserManagement = "Dobby.Host.Settings.UserManagement";
     public const string SettingsAbout = "Dobby.Host.Settings.About";
     public const string UserManagementPermissionDenied = "Dobby.Host.UserManagement.PermissionDenied";
+    public const string UserManagementCreateManagedUser = "Dobby.Host.UserManagement.CreateManagedUser";
+    public const string UserManagementUpdateDisplayName = "Dobby.Host.UserManagement.UpdateDisplayName";
+    public const string UserManagementUpdateActiveState = "Dobby.Host.UserManagement.UpdateActiveState";
+    public const string UserManagementResetPassword = "Dobby.Host.UserManagement.ResetPassword";
+    public const string UserManagementGrantPermission = "Dobby.Host.UserManagement.GrantPermission";
+    public const string UserManagementRevokePermission = "Dobby.Host.UserManagement.RevokePermission";
+    public const string AboutOwnerStatusManaged = "About.OwnerStatus.Managed";
     public const string AboutOwnerStatusRegistered = "About.OwnerStatus.Registered";
     public const string ShellBrand = "Dobby.Shell.Brand";
     public const string ShellSidebarToggle = "Dobby.Shell.Sidebar.Toggle";
@@ -66,6 +79,7 @@ public static class HostResourceKeys
     public const string ShellWorkSessionStay = "Dobby.Shell.WorkSession.Stay";
     public const string ShellWorkSessionMinimize = "Dobby.Shell.WorkSession.Minimize";
     public const string ShellWorkSessionClose = "Dobby.Shell.WorkSession.Close";
+    public const string ShellWorkSessionRestore = "Dobby.Shell.WorkSession.Restore";
     public const string ShellMinimizedWorkStrip = "Dobby.Shell.MinimizedWorkStrip";
     public const string ShellThirdBar = "Dobby.Shell.ThirdBar";
     public const string ShellWorkspaceNewTab = "Dobby.Shell.Workspace.NewTab";
@@ -91,6 +105,10 @@ public static class HostResourceKeys
     public const string ShellDashboardCaseMetrics = "Dobby.Shell.Dashboard.CaseMetrics";
     public const string ShellDiagnosticsExport = "Dobby.Shell.Diagnostics.Export";
     public const string ShellDiagnosticsExported = "Dobby.Shell.Diagnostics.Exported";
+    public const string ShellDiagnosticsExportBusy = "Dobby.Shell.Diagnostics.Export.Busy";
+    public const string ShellDiagnosticsExportDenied = "Dobby.Shell.Diagnostics.Export.Denied";
+    public const string ShellDiagnosticsExportError = "Dobby.Shell.Diagnostics.Export.Error";
+    public const string ShellDiagnosticsExportSuccess = "Dobby.Shell.Diagnostics.Export.Success";
     public const string PluginsManagerHeading = "Dobby.Shell.Plugins.Manager.Heading";
     public const string PluginsManagerInstall = "Dobby.Shell.Plugins.Manager.Install";
     public const string PluginsManagerEnable = "Dobby.Shell.Plugins.Manager.Enable";
@@ -103,6 +121,31 @@ public static class HostResourceKeys
     public const string PluginsManagerDisableBusy = "Dobby.Shell.Plugins.Manager.DisableBusy";
     public const string PluginsManagerUninstallBusy = "Dobby.Shell.Plugins.Manager.UninstallBusy";
     public const string PluginsManagerOperationDenied = "Dobby.Shell.Plugins.Manager.OperationDenied";
+    public const string PluginsManagerReadOnlyDenied = "Dobby.Shell.Plugins.Manager.ReadOnlyDenied";
+    public const string PluginsManagerDetailDisplayName = "Dobby.Shell.Plugins.Manager.Detail.DisplayName";
+    public const string PluginsManagerDetailPluginId = "Dobby.Shell.Plugins.Manager.Detail.PluginId";
+    public const string PluginsManagerDetailVersion = "Dobby.Shell.Plugins.Manager.Detail.Version";
+    public const string PluginsManagerDetailStatus = "Dobby.Shell.Plugins.Manager.Detail.Status";
+    public const string PluginsManagerDetailTrust = "Dobby.Shell.Plugins.Manager.Detail.Trust";
+    public const string PluginsManagerDetailLicense = "Dobby.Shell.Plugins.Manager.Detail.License";
+    public const string PluginsManagerDetailFault = "Dobby.Shell.Plugins.Manager.Detail.Fault";
+    public const string PluginsManagerDetailRejection = "Dobby.Shell.Plugins.Manager.Detail.Rejection";
+    public const string PluginsManagerStatusEnabled = "Dobby.Shell.Plugins.Manager.Status.Enabled";
+    public const string PluginsManagerStatusDisabled = "Dobby.Shell.Plugins.Manager.Status.Disabled";
+    public const string PluginsManagerStatusPendingUninstall = "Dobby.Shell.Plugins.Manager.Status.PendingUninstall";
+    public const string PluginsManagerStatusFaulted = "Dobby.Shell.Plugins.Manager.Status.Faulted";
+    public const string PluginsManagerStatusRejected = "Dobby.Shell.Plugins.Manager.Status.Rejected";
+    public const string PluginsManagerStatusAvailable = "Dobby.Shell.Plugins.Manager.Status.Available";
+    public const string PluginsManagerTrustTrusted = "Dobby.Shell.Plugins.Manager.Trust.Trusted";
+    public const string PluginsManagerTrustRejected = "Dobby.Shell.Plugins.Manager.Trust.Rejected";
+    public const string PluginsManagerTrustUnavailable = "Dobby.Shell.Plugins.Manager.Trust.Unavailable";
+    public const string PluginsManagerLicenseFullAccess = "Dobby.Shell.Plugins.Manager.License.FullAccess";
+    public const string PluginsManagerLicenseReadOnly = "Dobby.Shell.Plugins.Manager.License.ReadOnly";
+    public const string PluginsManagerLicenseDenied = "Dobby.Shell.Plugins.Manager.License.Denied";
+    public const string PluginsManagerLicenseUnavailable = "Dobby.Shell.Plugins.Manager.License.Unavailable";
+    public const string PluginsManagerFaultNone = "Dobby.Shell.Plugins.Manager.Fault.None";
+    public const string PluginsManagerFaultDetected = "Dobby.Shell.Plugins.Manager.Fault.Detected";
+    public const string PluginsManagerRejectionSafe = "Dobby.Shell.Plugins.Manager.Rejection.Safe";
     public const string PluginsManagerUninstallConfirmationTitle = "Dobby.Shell.Plugins.Manager.UninstallConfirmation.Title";
     public const string PluginsManagerUninstallConfirmationMessage = "Dobby.Shell.Plugins.Manager.UninstallConfirmation.Message";
     public const string LicenseHeading = "Dobby.Shell.Plugins.License.Heading";
@@ -118,6 +161,8 @@ public static class HostResourceKeys
     public const string LicenseModeFullAccess = "Dobby.Shell.Plugins.License.Mode.FullAccess";
     public const string LicenseModeReadOnlyExpired = "Dobby.Shell.Plugins.License.Mode.ReadOnlyExpired";
     public const string LicenseModeDenied = "Dobby.Shell.Plugins.License.Mode.Denied";
+    public const string PrintReadOnlyConfirmationTitle = "Dobby.Shell.Print.ReadOnlyConfirmation.Title";
+    public const string PrintReadOnlyConfirmationMessage = "Dobby.Shell.Print.ReadOnlyConfirmation.Message";
     public static string ShellPasswordChanged
     {
         get
@@ -126,15 +171,22 @@ public static class HostResourceKeys
         }
     }
     public const string ShellProfileAccountInfo = "Dobby.Shell.Profile.AccountInfo";
-    public static string ShellProfileChangePassword
-    {
-        get
-        {
-            return string.Concat("Dobby.Shell.Profile.Change", "Password");
-        }
-    }
+    public const string ShellProfileAnonymous = "Dobby.Shell.Profile.Anonymous";
+    public const string ShellProfileChangePassword = "Dobby.Shell.Profile.ChangePassword";
+    public const string ShellProfilePasswordChangeBusy = "Dobby.Shell.Profile.PasswordChange.Busy";
+    public const string ShellProfilePasswordChangeDenied = "Dobby.Shell.Profile.PasswordChange.Denied";
+    public const string ShellProfilePasswordChangeError = "Dobby.Shell.Profile.PasswordChange.Error";
+    public const string ShellProfilePasswordChangeSuccess = "Dobby.Shell.Profile.PasswordChange.Success";
     public const string ShellProfileManualLock = "Dobby.Shell.Profile.ManualLock";
+    public const string ShellProfileManualLockBusy = "Dobby.Shell.Profile.ManualLock.Busy";
+    public const string ShellProfileManualLockDenied = "Dobby.Shell.Profile.ManualLock.Denied";
+    public const string ShellProfileManualLockError = "Dobby.Shell.Profile.ManualLock.Error";
+    public const string ShellProfileManualLockSuccess = "Dobby.Shell.Profile.ManualLock.Success";
     public const string ShellProfileLogout = "Dobby.Shell.Profile.Logout";
+    public const string ShellProfileLogoutBusy = "Dobby.Shell.Profile.Logout.Busy";
+    public const string ShellProfileLogoutDenied = "Dobby.Shell.Profile.Logout.Denied";
+    public const string ShellProfileLogoutError = "Dobby.Shell.Profile.Logout.Error";
+    public const string ShellProfileLogoutSuccess = "Dobby.Shell.Profile.Logout.Success";
     public const string ShellFeedbackLoading = "Dobby.Shell.Feedback.Loading";
     public const string ShellFeedbackEmpty = "Dobby.Shell.Feedback.Empty";
     public const string ShellFeedbackSuccess = "Dobby.Shell.Feedback.Success";
@@ -165,10 +217,24 @@ public static class HostResourceKeys
         PluginsTitle,
         SettingsTitle,
         SettingsAppearance,
+        SettingsAppearanceTheme,
+        SettingsAppearanceThemeLight,
+        SettingsAppearanceThemeDark,
         SettingsAccount,
         SettingsSecuritySession,
+        SettingsSecuritySessionAutoLockEnabled,
+        SettingsSecuritySessionAutoLockMinutes,
+        SettingsSecuritySessionSave,
         SettingsUserManagement,
         SettingsAbout,
+        UserManagementPermissionDenied,
+        UserManagementCreateManagedUser,
+        UserManagementUpdateDisplayName,
+        UserManagementUpdateActiveState,
+        UserManagementResetPassword,
+        UserManagementGrantPermission,
+        UserManagementRevokePermission,
+        AboutOwnerStatusManaged,
         ShellBrand,
         ShellSidebarToggle,
         ShellThemeToggle,
@@ -178,6 +244,7 @@ public static class HostResourceKeys
         ShellWorkSessionStay,
         ShellWorkSessionMinimize,
         ShellWorkSessionClose,
+        ShellWorkSessionRestore,
         ShellMinimizedWorkStrip,
         ShellThirdBar,
         ShellWorkspaceNewTab,
@@ -203,6 +270,10 @@ public static class HostResourceKeys
         ShellDashboardCaseMetrics,
         ShellDiagnosticsExport,
         ShellDiagnosticsExported,
+        ShellDiagnosticsExportBusy,
+        ShellDiagnosticsExportDenied,
+        ShellDiagnosticsExportError,
+        ShellDiagnosticsExportSuccess,
         PluginsManagerHeading,
         PluginsManagerInstall,
         PluginsManagerEnable,
@@ -215,6 +286,31 @@ public static class HostResourceKeys
         PluginsManagerDisableBusy,
         PluginsManagerUninstallBusy,
         PluginsManagerOperationDenied,
+        PluginsManagerReadOnlyDenied,
+        PluginsManagerDetailDisplayName,
+        PluginsManagerDetailPluginId,
+        PluginsManagerDetailVersion,
+        PluginsManagerDetailStatus,
+        PluginsManagerDetailTrust,
+        PluginsManagerDetailLicense,
+        PluginsManagerDetailFault,
+        PluginsManagerDetailRejection,
+        PluginsManagerStatusEnabled,
+        PluginsManagerStatusDisabled,
+        PluginsManagerStatusPendingUninstall,
+        PluginsManagerStatusFaulted,
+        PluginsManagerStatusRejected,
+        PluginsManagerStatusAvailable,
+        PluginsManagerTrustTrusted,
+        PluginsManagerTrustRejected,
+        PluginsManagerTrustUnavailable,
+        PluginsManagerLicenseFullAccess,
+        PluginsManagerLicenseReadOnly,
+        PluginsManagerLicenseDenied,
+        PluginsManagerLicenseUnavailable,
+        PluginsManagerFaultNone,
+        PluginsManagerFaultDetected,
+        PluginsManagerRejectionSafe,
         PluginsManagerUninstallConfirmationTitle,
         PluginsManagerUninstallConfirmationMessage,
         LicenseHeading,
@@ -230,11 +326,26 @@ public static class HostResourceKeys
         LicenseModeFullAccess,
         LicenseModeReadOnlyExpired,
         LicenseModeDenied,
+        PrintReadOnlyConfirmationTitle,
+        PrintReadOnlyConfirmationMessage,
         ShellPasswordChanged,
         ShellProfileAccountInfo,
+        ShellProfileAnonymous,
         ShellProfileChangePassword,
+        ShellProfilePasswordChangeBusy,
+        ShellProfilePasswordChangeDenied,
+        ShellProfilePasswordChangeError,
+        ShellProfilePasswordChangeSuccess,
         ShellProfileManualLock,
+        ShellProfileManualLockBusy,
+        ShellProfileManualLockDenied,
+        ShellProfileManualLockError,
+        ShellProfileManualLockSuccess,
         ShellProfileLogout,
+        ShellProfileLogoutBusy,
+        ShellProfileLogoutDenied,
+        ShellProfileLogoutError,
+        ShellProfileLogoutSuccess,
         ShellFeedbackLoading,
         ShellFeedbackEmpty,
         ShellFeedbackSuccess,
@@ -254,6 +365,7 @@ public static class HostResourceKeys
         AboutSupportContact,
         AboutLegalLine,
         AboutOwnerIdentity,
+        AboutOwnerStatusManaged,
         AboutOwnerStatusRegistered,
         AuditRetentionSweep
     ];

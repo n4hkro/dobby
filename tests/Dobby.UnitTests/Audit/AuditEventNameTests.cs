@@ -45,6 +45,7 @@ public sealed class AuditEventNameTests
             "license.import.rejected",
             "license.enforcement.denied",
             "license.enforcement.warning",
+            "customer-deployment-context.provision",
             "diagnostics.export.created",
             "security.verification.failed"
         ]);

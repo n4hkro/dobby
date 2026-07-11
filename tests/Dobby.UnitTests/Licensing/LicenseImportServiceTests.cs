@@ -236,5 +236,10 @@ public sealed class LicenseImportServiceTests
         {
             throw new InvalidOperationException("Import path must not seed current context.");
         }
+
+        public void ProvisionContext(CurrentCustomerDeploymentContext context)
+        {
+            throw new InvalidOperationException("Import path must not provision current context.");
+        }
     }
 }

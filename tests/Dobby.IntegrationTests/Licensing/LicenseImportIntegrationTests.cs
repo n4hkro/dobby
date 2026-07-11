@@ -4,6 +4,7 @@ using System.Text.Json;
 using Dobby.Licensing;
 using Dobby.Security.CurrentContext;
 using Dobby.Security.Trust;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
 namespace Dobby.IntegrationTests.Licensing;
@@ -34,6 +35,7 @@ public sealed class LicenseImportIntegrationTests
         stateStore.Attestations.Single().Result.ShouldBe("succeeded");
         stateStore.Attestations.Single().CorrelationId.ShouldBe("corr-integration");
         contextStore.SeedDefaultCalls.ShouldBe(0);
+        contextStore.ProvisionCalls.ShouldBe(0);
     }
 
     [Fact]
@@ -54,12 +56,80 @@ public sealed class LicenseImportIntegrationTests
         stateStore.Attestations.ShouldHaveSingleItem();
         stateStore.Attestations.Single().Result.ShouldBe(LicenseRejectReasons.BindingMismatch);
         contextStore.SeedDefaultCalls.ShouldBe(0);
+        contextStore.ProvisionCalls.ShouldBe(0);
+    }
+
+    [Theory]
+    [InlineData(0, "missing-current-context")]
+    [InlineData(2, "duplicate-current-context")]
+    public void Missing_or_duplicate_context_fails_closed_before_license_state_mutation(
+        int contextCount,
+        string expectedSupportCode)
+    {
+        using var key = CreateKeyPair(out var publicKeyPem);
+        var stateStore = new RecordingLicenseStateStore();
+        var contexts = Enumerable.Range(0, contextCount)
+            .Select(_ => new CurrentCustomerDeploymentContext("default", "default"))
+            .ToArray();
+        var contextStore = new RecordingCurrentContextStore(contexts);
+        var service = CreateService(publicKeyPem, stateStore, contextStore);
+        var artifact = CreateSignedArtifact(key);
+
+        var result = service.Import(Request(artifact));
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.BindingMismatch);
+        result.SupportCode.ShouldBe(expectedSupportCode);
+        stateStore.SavedStates.ShouldBeEmpty();
+        contextStore.SeedDefaultCalls.ShouldBe(0);
+        contextStore.ProvisionCalls.ShouldBe(0);
+    }
+
+    [Fact]
+    public void License_import_and_runtime_mode_consume_the_same_security_owned_context()
+    {
+        using var key = CreateKeyPair(out var publicKeyPem);
+        var stateStore = new RecordingLicenseStateStore();
+        var contextStore = new RecordingCurrentContextStore(
+            new CurrentCustomerDeploymentContext("customer-a", "deployment-a"));
+        var contextService = new CurrentCustomerDeploymentContextService(contextStore);
+        var importService = CreateService(publicKeyPem, stateStore, contextService);
+        var artifact = CreateSignedArtifact(key, payload =>
+        {
+            payload["customerId"] = "customer-a";
+            payload["deploymentId"] = "deployment-a";
+        });
+
+        var import = importService.Import(Request(artifact));
+        var runtimeProvider = new LicenseRuntimeModeProvider(
+            stateStore,
+            contextService,
+            () => new string('a', 64),
+            new FakeTimeProvider(DateTimeOffset.Parse("2026-06-18T00:00:00Z")));
+        var mode = runtimeProvider.GetCurrentMode("plugin.sample", new string('b', 64));
+
+        import.IsSuccess.ShouldBeTrue();
+        mode.IsSuccess.ShouldBeTrue();
+        mode.Value.ShouldBe(Dobby.Contracts.Licensing.PluginRuntimeMode.FullAccess);
+        contextStore.SeedDefaultCalls.ShouldBe(0);
+        contextStore.ProvisionCalls.ShouldBe(0);
     }
 
     private static LicenseImportService CreateService(
         byte[] publicKeyPem,
         ILicenseStateStore stateStore,
         ICurrentCustomerDeploymentContextStore contextStore)
+    {
+        return CreateService(
+            publicKeyPem,
+            stateStore,
+            new CurrentCustomerDeploymentContextService(contextStore));
+    }
+
+    private static LicenseImportService CreateService(
+        byte[] publicKeyPem,
+        ILicenseStateStore stateStore,
+        CurrentCustomerDeploymentContextService contextService)
     {
         var verifier = new LicenseSignatureVerifier(new PluginTrustPublicKeyProvider(
             DobbyPluginTrustProfile.Production,
@@ -70,7 +140,7 @@ public sealed class LicenseImportIntegrationTests
 
         return new LicenseImportService(
             verifier,
-            new CurrentCustomerDeploymentContextService(contextStore),
+            contextService,
             stateStore);
     }
 
@@ -176,6 +246,8 @@ public sealed class LicenseImportIntegrationTests
     {
         public int SeedDefaultCalls { get; private set; }
 
+        public int ProvisionCalls { get; private set; }
+
         public IReadOnlyList<CurrentCustomerDeploymentContext> ReadActiveContexts()
         {
             return contexts;
@@ -184,6 +256,11 @@ public sealed class LicenseImportIntegrationTests
         public void SeedDefaultContext(CurrentCustomerDeploymentContext context)
         {
             SeedDefaultCalls++;
+        }
+
+        public void ProvisionContext(CurrentCustomerDeploymentContext context)
+        {
+            ProvisionCalls++;
         }
     }
 }

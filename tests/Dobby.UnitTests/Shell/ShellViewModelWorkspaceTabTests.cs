@@ -80,23 +80,43 @@ public sealed class ShellViewModelWorkspaceTabTests
     }
 
     [Fact]
+    public void Activating_workspace_tab_uses_the_route_resolved_by_shell_route_host()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
+        var staleRouteTabId = shell.ActiveWorkspaceTab.TabId;
+        var activeTab = shell.OpenWorkspaceTab();
+        shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
+
+        var result = shell.ActivateWorkspaceTab(staleRouteTabId, RouteRegistry.HomeRouteKey);
+
+        result.IsSuccess.ShouldBeTrue();
+        shell.ActiveWorkspaceTab.TabId.ShouldBe(staleRouteTabId);
+        shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        shell.ActiveWorkspaceTab.Title.ShouldBe("Ana səhifə");
+        shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        shell.WorkspaceTabs.Single(tab => tab.TabId == activeTab.TabId).RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+    }
+
+    [Fact]
     public void Closing_only_workspace_tab_replaces_it_with_a_fresh_active_home_tab()
     {
         var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
         shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
         var originalTabId = shell.ActiveWorkspaceTab.TabId;
+        var onlyTabBefore = shell.ActiveWorkspaceTab;
 
-        shell.CloseWorkspaceTab(originalTabId).IsSuccess.ShouldBeTrue();
+        var result = shell.CloseWorkspaceTab(originalTabId);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBe(RouteRegistry.HomeRouteKey);
 
         shell.WorkspaceTabs.Count.ShouldBe(1);
-        shell.ActiveWorkspaceTab.TabId.ShouldNotBe(originalTabId);
-        shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
-        shell.ActiveWorkspaceTab.Title.ShouldBe("Ana səhifə");
-        shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        shell.ActiveWorkspaceTab.ShouldBe(onlyTabBefore);
     }
 
     [Fact]
-    public void Closing_active_tab_when_a_left_tab_exists_activates_the_immediate_left_tab()
+    public void Closing_active_tab_when_a_left_tab_exists_returns_the_immediate_left_tab_route_for_host_activation()
     {
         var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
         shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
@@ -106,18 +126,56 @@ public sealed class ShellViewModelWorkspaceTabTests
         var middleTabId = shell.ActiveWorkspaceTab.TabId;
         shell.OpenWorkspaceTab();
         var closingTabId = shell.ActiveWorkspaceTab.TabId;
+        var before = shell.WorkspaceTabs.ToArray();
+        var activeBefore = shell.ActiveWorkspaceTab;
 
-        shell.CloseWorkspaceTab(closingTabId).IsSuccess.ShouldBeTrue();
+        var result = shell.CloseWorkspaceTab(closingTabId);
 
-        shell.WorkspaceTabs.Count.ShouldBe(2);
-        shell.ActiveWorkspaceTab.TabId.ShouldBe(middleTabId);
-        shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.PluginsRouteKey);
-        shell.ActiveWorkspaceTab.Title.ShouldBe("Pluginlər");
-        shell.ActiveRouteKey.ShouldBe(RouteRegistry.PluginsRouteKey);
-        var firstTab = shell.WorkspaceTabs.Single(tab => tab.TabId == firstTabId);
-        firstTab.RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
-        firstTab.Title.ShouldBe("Tənzimləmələr");
-        firstTab.IsActive.ShouldBeFalse();
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBe(RouteRegistry.PluginsRouteKey);
+
+        shell.WorkspaceTabs.ShouldBe(before);
+        shell.ActiveWorkspaceTab.ShouldBe(activeBefore);
+        shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+    }
+
+    [Fact]
+    public void Closing_active_leftmost_tab_returns_the_next_right_tab_route_for_host_activation()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
+        var closingTabId = shell.ActiveWorkspaceTab.TabId;
+        var rightTab = shell.OpenWorkspaceTab();
+        shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
+        shell.ActivateWorkspaceTab(closingTabId).IsSuccess.ShouldBeTrue();
+        var before = shell.WorkspaceTabs.ToArray();
+
+        var result = shell.CloseWorkspaceTab(closingTabId);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBe("plugin.sample.analytics.daily");
+        shell.WorkspaceTabs.ShouldBe(before);
+        shell.ActiveWorkspaceTab.TabId.ShouldBe(closingTabId);
+        shell.WorkspaceTabs.Single(tab => tab.TabId == rightTab.TabId).RouteKey.ShouldBe("plugin.sample.analytics.daily");
+    }
+
+    [Fact]
+    public void Committing_active_tab_close_uses_the_route_resolved_by_shell_route_host()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
+        var closingTabId = shell.ActiveWorkspaceTab.TabId;
+        var survivingTab = shell.OpenWorkspaceTab();
+        shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
+        shell.ActivateWorkspaceTab(closingTabId).IsSuccess.ShouldBeTrue();
+
+        var result = shell.CommitCloseWorkspaceTab(closingTabId, RouteRegistry.HomeRouteKey);
+
+        result.IsSuccess.ShouldBeTrue();
+        shell.WorkspaceTabs.Count.ShouldBe(1);
+        shell.ActiveWorkspaceTab.TabId.ShouldBe(survivingTab.TabId);
+        shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
     }
 
     [Fact]
@@ -127,12 +185,37 @@ public sealed class ShellViewModelWorkspaceTabTests
         var leftTabId = shell.ActiveWorkspaceTab.TabId;
         var rightTab = shell.OpenWorkspaceTab();
 
-        shell.CloseWorkspaceTab(leftTabId).IsSuccess.ShouldBeTrue();
+        var result = shell.CloseWorkspaceTab(leftTabId);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBeNull();
 
         shell.WorkspaceTabs.Count.ShouldBe(1);
         shell.ActiveWorkspaceTab.TabId.ShouldBe(rightTab.TabId);
         shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
         shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+    }
+
+    [Fact]
+    public void Closing_inactive_tab_before_active_tab_preserves_the_current_active_tab()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
+        var leftTabId = shell.ActiveWorkspaceTab.TabId;
+        shell.OpenWorkspaceTab();
+        shell.ActivateRoute(RouteRegistry.PluginsRouteKey).IsSuccess.ShouldBeTrue();
+        var middleTabId = shell.ActiveWorkspaceTab.TabId;
+        var activeTab = shell.OpenWorkspaceTab();
+        shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
+
+        var result = shell.CloseWorkspaceTab(middleTabId);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBeNull();
+        shell.WorkspaceTabs.Select(tab => tab.TabId).ShouldBe([leftTabId, activeTab.TabId]);
+        shell.ActiveWorkspaceTab.TabId.ShouldBe(activeTab.TabId);
+        shell.ActiveWorkspaceTab.RouteKey.ShouldBe("plugin.sample.analytics.daily");
+        shell.ActiveRouteKey.ShouldBe("plugin.sample.analytics.daily");
     }
 
     [Fact]
@@ -153,7 +236,7 @@ public sealed class ShellViewModelWorkspaceTabTests
     }
 
     [Fact]
-    public void Active_plugin_page_label_overrides_the_active_workspace_tab_title()
+    public void Active_plugin_page_model_keeps_host_owned_workspace_route_title()
     {
         var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
         shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
@@ -162,7 +245,7 @@ public sealed class ShellViewModelWorkspaceTabTests
 
         shell.SetActivePluginPage(new DummyPluginPageModel("Live customer case"));
 
-        shell.ActiveWorkspaceTab.Title.ShouldBe("Live customer case");
+        shell.ActiveWorkspaceTab.Title.ShouldBe("Ana səhifə");
         var firstTab = shell.WorkspaceTabs.Single(tab => tab.TabId == firstTabId);
         firstTab.Title.ShouldBe("Tənzimləmələr");
         firstTab.IsActive.ShouldBeFalse();
@@ -176,6 +259,18 @@ public sealed class ShellViewModelWorkspaceTabTests
     }
 
     [Fact]
+    public void Unapproved_plugin_page_model_label_getter_is_not_reflected_for_workspace_title()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+        shell.ActivateRoute(RouteRegistry.SettingsRouteKey).IsSuccess.ShouldBeTrue();
+
+        shell.SetActivePluginPage(new ThrowingLabelPluginPageModel());
+
+        shell.ActiveWorkspaceTab.Title.ShouldBe("Tənzimləmələr");
+        shell.HasActivePluginPage.ShouldBeTrue();
+    }
+
+    [Fact]
     public void Cancelled_pending_work_session_navigation_leaves_workspace_tabs_unchanged()
     {
         var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
@@ -183,7 +278,7 @@ public sealed class ShellViewModelWorkspaceTabTests
         var registry = new Dobby.Shell.WorkSessions.WorkSessionRegistry();
         var coordinator = new Dobby.Shell.WorkSessions.WorkSessionCloseCoordinator(registry);
         registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
-        var pending = coordinator.RequestNavigation(RouteRegistry.PluginsRouteKey);
+        var pending = coordinator.RequestNavigation("plugin.sample.work", RouteRegistry.PluginsRouteKey);
         pending.ShouldNotBeNull();
         var before = shell.WorkspaceTabs.ToArray();
 
@@ -193,6 +288,38 @@ public sealed class ShellViewModelWorkspaceTabTests
         shell.WorkspaceTabs.ShouldBe(before);
         shell.ActiveWorkspaceTab.RouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
         shell.ActiveRouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
+    }
+
+    [Fact]
+    public void Exported_preference_tracks_last_route_and_sidebar_state_without_restoring_route_on_apply()
+    {
+        var shell = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+
+        shell.ActivateRoute("plugin.sample.analytics.daily").IsSuccess.ShouldBeTrue();
+        shell.ToggleSidebarCollapsed();
+
+        var exported = shell.ExportPreference(1440, 900, 24, 36);
+        var restored = new ShellViewModel(new HostStringCatalog(), SnapshotContributions());
+
+        restored.ApplyPreference(exported);
+
+        exported.LastActiveModuleRouteKey.ShouldBe("plugin.sample.analytics.daily");
+        exported.SidebarCollapsed.ShouldBeTrue();
+        exported.SidebarOpenNodeIds.ShouldContain("sample.analytics.daily");
+        restored.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+        restored.Layout.Preference.SidebarCollapsed.ShouldBeTrue();
+        restored.Layout.Preference.SidebarOpenNodeIds.ShouldContain("sample.analytics.daily");
+    }
+
+    [Fact]
+    public void Active_workspace_tab_close_is_expected_to_reenter_shell_route_host()
+    {
+        var mainWindowCode = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var workspaceTabClose = MethodBody(mainWindowCode, "private async void WorkspaceTabClose_Click", "private void ProfileMenuButton_Click");
+
+        workspaceTabClose.ShouldContain("var continuationRoute = shellViewModel.CloseWorkspaceTab(tabId);");
+        workspaceTabClose.ShouldContain("shellRouteHost!.ActivateOrHomeAsync(continuationRoute.Value)");
+        workspaceTabClose.ShouldContain("shellViewModel.CommitCloseWorkspaceTab(tabId, activation.Value);");
     }
 
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()
@@ -224,5 +351,30 @@ public sealed class ShellViewModelWorkspaceTabTests
     private sealed class DummyPluginPageModel(string label) : Dobby.Contracts.PluginPages.IPluginPageModel
     {
         public string Label { get; } = label;
+    }
+
+    private sealed class ThrowingLabelPluginPageModel : Dobby.Contracts.PluginPages.IPluginPageModel
+    {
+        public string Label => throw new InvalidOperationException("raw label detail");
+    }
+
+    private static string MethodBody(string source, string startMarker, string endMarker)
+    {
+        var start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        start.ShouldBeGreaterThanOrEqualTo(0);
+        var end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        end.ShouldBeGreaterThan(start);
+        return source[start..end];
+    }
+
+    private static DirectoryInfo RepoRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null && !File.Exists(Path.Combine(current.FullName, "Dobby.sln")))
+        {
+            current = current.Parent;
+        }
+
+        return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
     }
 }

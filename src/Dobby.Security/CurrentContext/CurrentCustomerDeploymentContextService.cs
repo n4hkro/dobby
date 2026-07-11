@@ -33,6 +33,16 @@ public sealed class CurrentCustomerDeploymentContextService
         return EvaluateCurrentContext(store.ReadActiveContexts());
     }
 
+    internal CurrentCustomerDeploymentContextResult ProvisionContext(string customerId, string deploymentId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(customerId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deploymentId);
+
+        var context = new CurrentCustomerDeploymentContext(customerId, deploymentId);
+        store.ProvisionContext(context);
+        return EvaluateCurrentContext(store.ReadActiveContexts());
+    }
+
     public CurrentCustomerDeploymentContextResult ValidateMatches(string customerId, string deploymentId)
     {
         var current = GetCurrentContext();
@@ -61,10 +71,10 @@ public sealed class CurrentCustomerDeploymentContextService
         }
 
         var context = contexts[0];
-        if (!context.CustomerId.Equals(DefaultCustomerId, StringComparison.Ordinal) ||
-            !context.DeploymentId.Equals(DefaultDeploymentId, StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(context.CustomerId) ||
+            string.IsNullOrWhiteSpace(context.DeploymentId))
         {
-            return CurrentCustomerDeploymentContextResult.Failure("unexpected-current-context");
+            return CurrentCustomerDeploymentContextResult.Failure("invalid-current-context");
         }
 
         return CurrentCustomerDeploymentContextResult.Success(context);

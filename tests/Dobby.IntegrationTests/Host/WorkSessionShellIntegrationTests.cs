@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Dobby.Audit;
 using Dobby.Configuration;
+using Dobby.Contracts.Licensing;
 using Dobby.Contracts.Policies;
 using Dobby.Core;
 using Dobby.Contracts.Ordering;
@@ -58,7 +59,7 @@ public sealed class WorkSessionShellIntegrationTests
     }
 
     [Fact]
-    public void Route_button_click_updates_navigation_without_removed_work_session_warning_surface()
+    public void Route_button_click_with_active_session_shows_warning_and_stay_cancels_navigation()
     {
         RunOnSta(() =>
         {
@@ -67,12 +68,21 @@ public sealed class WorkSessionShellIntegrationTests
             var shell = new ShellViewModel(
                 HostStringCatalog.CreateResourceBacked(),
                 SnapshotContributions());
-            var session = registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+            var session = registry.Open("owner-1", RouteRegistry.HomeRouteKey, "Dobby.Plugin.Sample.Work");
             MainWindow? window = null;
 
             try
             {
-                window = new MainWindow(shell)
+                window = new MainWindow(
+                    shell,
+                    preferenceSource: null,
+                    themeCoordinator: null,
+                    actionOverrides: new ShellActionOverrides
+                    {
+                        SnapshotWorkSessions = registry.Snapshot,
+                        RestoreWorkSession = registry.Restore
+                    },
+                    workSessionCloseCoordinator: closeCoordinator)
                 {
                     Left = -32000,
                     Top = -32000,
@@ -84,14 +94,21 @@ public sealed class WorkSessionShellIntegrationTests
                 window.Show();
                 Pump(window);
 
-                FindNamedOrDefault<FrameworkElement>(window, "WorkSessionWarningPanel").ShouldBeNull();
-                FindNamedOrDefault<Button>(window, "WorkSessionStayButton").ShouldBeNull();
-                FindNamedOrDefault<Button>(window, "WorkSessionMinimizeButton").ShouldBeNull();
-                FindNamedOrDefault<Button>(window, "WorkSessionCloseButton").ShouldBeNull();
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
 
                 ClickRoute(window, "plugin.sample.analytics");
-                shell.ActiveRouteKey.ShouldBe("plugin.sample.analytics");
+                shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
+                shell.HasPendingWorkSessionCloseRequest.ShouldBeTrue();
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+                FindNamed<Button>(window, "WorkSessionStayButton").ShouldNotBeNull();
+                FindNamed<Button>(window, "WorkSessionMinimizeButton").Visibility.ShouldBe(Visibility.Visible);
+                FindNamed<Button>(window, "WorkSessionCloseButton").ShouldNotBeNull();
+
+                ClickNamed(window, "WorkSessionStayButton");
+
+                shell.ActiveRouteKey.ShouldBe(RouteRegistry.HomeRouteKey);
                 shell.HasPendingWorkSessionCloseRequest.ShouldBeFalse();
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
                 registry.Get(session.SessionId).ShouldNotBeNull();
             }
             finally
@@ -102,7 +119,7 @@ public sealed class WorkSessionShellIntegrationTests
     }
 
     [Fact]
-    public void Removed_logout_surface_does_not_render_work_session_warning_or_close_sessions()
+    public void Logout_surface_stay_preserves_work_and_close_returns_to_login()
     {
         RunOnSta(() =>
         {
@@ -112,11 +129,28 @@ public sealed class WorkSessionShellIntegrationTests
                 HostStringCatalog.CreateResourceBacked(),
                 SnapshotContributions());
             var session = registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+            var minimizedSession = registry.Open("owner-1", "plugin.sample.minimized", "Dobby.Plugin.Sample.Minimized");
+            registry.Minimize(minimizedSession.SessionId);
+            var logoutCount = 0;
             MainWindow? window = null;
 
             try
             {
-                window = new MainWindow(shell)
+                window = new MainWindow(
+                    shell,
+                    preferenceSource: null,
+                    themeCoordinator: null,
+                    actionOverrides: new ShellActionOverrides
+                    {
+                        Logout = _ =>
+                        {
+                            logoutCount++;
+                            return Result.Success();
+                        },
+                        SnapshotWorkSessions = registry.Snapshot,
+                        RestoreWorkSession = registry.Restore
+                    },
+                    workSessionCloseCoordinator: closeCoordinator)
                 {
                     Left = -32000,
                     Top = -32000,
@@ -128,12 +162,43 @@ public sealed class WorkSessionShellIntegrationTests
                 window.Show();
                 Pump(window);
 
-                FindNamedOrDefault<Button>(window, "LogoutButton").ShouldBeNull();
-                FindNamedOrDefault<FrameworkElement>(window, "WorkSessionWarningPanel").ShouldBeNull();
-                FindNamedOrDefault<Button>(window, "WorkSessionStayButton").ShouldBeNull();
-                FindNamedOrDefault<Button>(window, "WorkSessionCloseButton").ShouldBeNull();
+                ClickNamed(window, "LogoutButton");
+
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+                FindNamed<Button>(window, "WorkSessionMinimizeButton").Visibility.ShouldBe(Visibility.Collapsed);
+                logoutCount.ShouldBe(0);
                 window.ReturnToLoginRequested.ShouldBeFalse();
                 registry.Get(session.SessionId).ShouldNotBeNull();
+                registry.Get(minimizedSession.SessionId).ShouldNotBeNull();
+
+                ClickNamed(window, "WorkSessionStayButton");
+
+                logoutCount.ShouldBe(0);
+                window.ReturnToLoginRequested.ShouldBeFalse();
+                registry.Get(session.SessionId).ShouldNotBeNull();
+                registry.Get(minimizedSession.SessionId).ShouldNotBeNull();
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
+
+                ClickNamed(window, "LogoutButton");
+                var lateSession = registry.Open("owner-1", "plugin.sample.late", "Dobby.Plugin.Sample.Late");
+                var lateMinimizedSession = registry.Open("owner-1", "plugin.sample.late-minimized", "Dobby.Plugin.Sample.LateMinimized");
+                registry.Minimize(lateMinimizedSession.SessionId);
+                ClickNamed(window, "WorkSessionCloseButton");
+
+                logoutCount.ShouldBe(0);
+                window.ReturnToLoginRequested.ShouldBeFalse();
+                registry.Get(session.SessionId).ShouldBeNull();
+                registry.Get(minimizedSession.SessionId).ShouldBeNull();
+                registry.Get(lateSession.SessionId).ShouldNotBeNull();
+                registry.Get(lateMinimizedSession.SessionId).ShouldNotBeNull();
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+
+                ClickNamed(window, "WorkSessionCloseButton");
+
+                logoutCount.ShouldBe(1);
+                window.ReturnToLoginRequested.ShouldBeTrue();
+                registry.Get(lateSession.SessionId).ShouldBeNull();
+                registry.Get(lateMinimizedSession.SessionId).ShouldBeNull();
             }
             finally
             {
@@ -146,11 +211,11 @@ public sealed class WorkSessionShellIntegrationTests
     }
 
     [Fact]
-    public void Plugin_disable_request_uses_same_close_cancel_minimize_lifecycle_without_navigation()
+    public void Plugin_disable_request_rejects_minimize_and_preserves_the_session()
     {
         var registry = new WorkSessionRegistry();
         var closeCoordinator = new WorkSessionCloseCoordinator(registry);
-        var session = registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+        var session = registry.Open("plugin.sample.work", "plugin.sample.route", "Dobby.Plugin.Sample.Work");
 
         var pending = closeCoordinator.RequestPluginDisable("plugin.sample.work");
 
@@ -163,12 +228,15 @@ public sealed class WorkSessionShellIntegrationTests
 
         pending = closeCoordinator.RequestPluginDisable("plugin.sample.work");
         pending.ShouldNotBeNull();
-        closeCoordinator.ApplyChoice(pending.CloseRequest, WorkSessionCloseChoice.Minimize).IsSuccess.ShouldBeTrue();
-        registry.Get(session.SessionId)!.IsMinimized.ShouldBeTrue();
+        pending.CloseRequest.Choices.ShouldNotContain(WorkSessionCloseChoice.Minimize);
+        var minimize = closeCoordinator.ApplyChoice(pending.CloseRequest, WorkSessionCloseChoice.Minimize);
+        minimize.IsSuccess.ShouldBeFalse();
+        minimize.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+        registry.Get(session.SessionId)!.IsMinimized.ShouldBeFalse();
     }
 
     [Fact]
-    public void Removed_plugins_manager_disable_surface_does_not_mutate_active_plugin_work_session()
+    public void Plugins_manager_disable_waits_for_work_session_close_then_runs_lifecycle_action()
     {
         RunOnSta(() =>
         {
@@ -176,6 +244,8 @@ public sealed class WorkSessionShellIntegrationTests
             var registry = new WorkSessionRegistry();
             var closeCoordinator = new WorkSessionCloseCoordinator(registry);
             var activeSession = registry.Open(pluginId, "plugin/com.dobby.sample/greet", "Sample action");
+            var minimizedSession = registry.Open(pluginId, "plugin/com.dobby.sample/report", "Sample report");
+            registry.Minimize(minimizedSession.SessionId);
             var shell = CreatePluginManagerShell(pluginId);
             var stateStore = Substitute.For<IInstalledPluginStateStore>();
             var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
@@ -197,15 +267,45 @@ public sealed class WorkSessionShellIntegrationTests
 
             try
             {
-                window = CreatePluginManagerWindow(shell, closeCoordinator, lifecycle);
+                window = CreatePluginManagerWindow(shell, registry, closeCoordinator, lifecycle);
                 window.Show();
                 Pump(window);
 
-                FindNamedOrDefault<Button>(window, "PluginsManagerDisableButton").ShouldBeNull();
-                FindNamedOrDefault<FrameworkElement>(window, "WorkSessionWarningPanel").ShouldBeNull();
+                ClickNamed(window, "PluginsManagerDisableButton");
+
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+                FindNamed<Button>(window, "WorkSessionMinimizeButton").Visibility.ShouldBe(Visibility.Collapsed);
                 stateStore.DidNotReceive().SetEnabled(pluginId, false, "Disabled");
                 registry.Get(activeSession.SessionId).ShouldNotBeNull();
+                registry.Get(minimizedSession.SessionId).ShouldNotBeNull();
                 disabled.Task.IsCompleted.ShouldBeFalse();
+
+                ClickNamed(window, "WorkSessionStayButton");
+
+                stateStore.DidNotReceive().SetEnabled(pluginId, false, "Disabled");
+                registry.Get(activeSession.SessionId).ShouldNotBeNull();
+                registry.Get(minimizedSession.SessionId).ShouldNotBeNull();
+
+                ClickNamed(window, "PluginsManagerDisableButton");
+                var lateSession = registry.Open(pluginId, "plugin/com.dobby.sample/late", "Late action");
+                var lateMinimizedSession = registry.Open(pluginId, "plugin/com.dobby.sample/late-minimized", "Late minimized action");
+                registry.Minimize(lateMinimizedSession.SessionId);
+                ClickNamed(window, "WorkSessionCloseButton");
+
+                stateStore.DidNotReceive().SetEnabled(pluginId, false, "Disabled");
+                disabled.Task.IsCompleted.ShouldBeFalse();
+                registry.Get(activeSession.SessionId).ShouldBeNull();
+                registry.Get(minimizedSession.SessionId).ShouldBeNull();
+                registry.Get(lateSession.SessionId).ShouldNotBeNull();
+                registry.Get(lateMinimizedSession.SessionId).ShouldNotBeNull();
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+
+                ClickNamed(window, "WorkSessionCloseButton");
+                WaitForLifecycleAction(window, disabled.Task);
+
+                stateStore.Received(1).SetEnabled(pluginId, false, "Disabled");
+                registry.Get(lateSession.SessionId).ShouldBeNull();
+                registry.Get(lateMinimizedSession.SessionId).ShouldBeNull();
             }
             finally
             {
@@ -215,7 +315,7 @@ public sealed class WorkSessionShellIntegrationTests
     }
 
     [Fact]
-    public void Removed_plugins_manager_uninstall_surface_does_not_remove_active_plugin_work_session()
+    public void Plugins_manager_uninstall_confirms_before_closing_work_and_carries_the_choice_once()
     {
         RunOnSta(() =>
         {
@@ -223,6 +323,8 @@ public sealed class WorkSessionShellIntegrationTests
             var registry = new WorkSessionRegistry();
             var closeCoordinator = new WorkSessionCloseCoordinator(registry);
             var activeSession = registry.Open(pluginId, "plugin/com.dobby.sample/greet", "Sample action");
+            var minimizedSession = registry.Open(pluginId, "plugin/com.dobby.sample/report", "Sample report");
+            registry.Minimize(minimizedSession.SessionId);
             var shell = CreatePluginManagerShell(pluginId);
             var stateStore = Substitute.For<IInstalledPluginStateStore>();
             var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
@@ -244,7 +346,7 @@ public sealed class WorkSessionShellIntegrationTests
             dataRetention.DeletePluginData(pluginId).Returns(Result.Success());
             activationTracker.IsActivatedInCurrentProcess(pluginId).Returns(false);
             confirmation.Confirm(Arg.Any<PluginUninstallConfirmationRequest>())
-                .Returns(PluginUninstallConfirmationResult.Confirm(PluginUninstallDataChoice.DeleteData));
+                .Returns(PluginUninstallConfirmationResult.Cancelled);
             var lifecycle = CreateLifecycleCoordinator(
                 stateStore,
                 metadataCache,
@@ -255,16 +357,39 @@ public sealed class WorkSessionShellIntegrationTests
 
             try
             {
-                window = CreatePluginManagerWindow(shell, closeCoordinator, lifecycle, confirmation);
+                window = CreatePluginManagerWindow(shell, registry, closeCoordinator, lifecycle, confirmation);
                 window.Show();
                 Pump(window);
 
-                FindNamedOrDefault<Button>(window, "PluginsManagerUninstallButton").ShouldBeNull();
-                FindNamedOrDefault<FrameworkElement>(window, "WorkSessionWarningPanel").ShouldBeNull();
+                ClickNamed(window, "PluginsManagerUninstallButton");
+
+                confirmation.Received(1).Confirm(Arg.Any<PluginUninstallConfirmationRequest>());
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Collapsed);
+                registry.Get(activeSession.SessionId).ShouldNotBeNull();
+                registry.Get(minimizedSession.SessionId).ShouldNotBeNull();
+                stateStore.DidNotReceive().Remove(pluginId);
+
+                confirmation.Confirm(Arg.Any<PluginUninstallConfirmationRequest>())
+                    .Returns(PluginUninstallConfirmationResult.Confirm(PluginUninstallDataChoice.DeleteData));
+                ClickNamed(window, "PluginsManagerUninstallButton");
+
+                confirmation.Received(2).Confirm(Arg.Any<PluginUninstallConfirmationRequest>());
+                FindNamed<FrameworkElement>(window, "WorkSessionWarningPanel").Visibility.ShouldBe(Visibility.Visible);
+                FindNamed<Button>(window, "WorkSessionMinimizeButton").Visibility.ShouldBe(Visibility.Collapsed);
                 stateStore.DidNotReceive().Remove(pluginId);
                 registry.Get(activeSession.SessionId).ShouldNotBeNull();
+                registry.Get(minimizedSession.SessionId).ShouldNotBeNull();
                 dataRetention.DidNotReceive().DeletePluginData(pluginId);
                 removed.Task.IsCompleted.ShouldBeFalse();
+
+                ClickNamed(window, "WorkSessionCloseButton");
+                WaitForLifecycleAction(window, removed.Task);
+
+                confirmation.Received(2).Confirm(Arg.Any<PluginUninstallConfirmationRequest>());
+                stateStore.Received(1).Remove(pluginId);
+                dataRetention.Received(1).DeletePluginData(pluginId);
+                registry.Get(activeSession.SessionId).ShouldBeNull();
+                registry.Get(minimizedSession.SessionId).ShouldBeNull();
             }
             finally
             {
@@ -325,6 +450,7 @@ public sealed class WorkSessionShellIntegrationTests
 
     private static MainWindow CreatePluginManagerWindow(
         ShellViewModel shell,
+        WorkSessionRegistry registry,
         WorkSessionCloseCoordinator closeCoordinator,
         HostPluginLifecycleCoordinator lifecycle,
         IPluginUninstallConfirmation? uninstallConfirmation = null)
@@ -335,7 +461,20 @@ public sealed class WorkSessionShellIntegrationTests
             null,
             null,
             initialPreference: null,
-            session: new SessionRecord("session-1", "owner", now, now, now.AddHours(8), null, 1))
+            session: new SessionRecord("session-1", "owner", now, now, now.AddHours(8), null, 1),
+            actionOverrides: new ShellActionOverrides
+            {
+                DisablePlugin = (pluginId, correlationId) => lifecycle.DisablePlugin("owner", pluginId, correlationId),
+                UninstallPlugin = (pluginId, dataChoice, correlationId) =>
+                    lifecycle.UninstallPlugin("owner", pluginId, dataChoice, correlationId),
+                WasPluginActivatedInCurrentProcess = lifecycle.WasActivatedInCurrentProcess,
+                ConfirmPluginUninstall = uninstallConfirmation is null
+                    ? null
+                    : request => uninstallConfirmation.Confirm(request),
+                SnapshotWorkSessions = registry.Snapshot,
+                RestoreWorkSession = registry.Restore
+            },
+            workSessionCloseCoordinator: closeCoordinator)
         {
             Left = -32000,
             Top = -32000,
@@ -365,7 +504,9 @@ public sealed class WorkSessionShellIntegrationTests
                 new StaticGrantReader(new UserPermissionState("owner", IsOwner: true, IsActive: true))),
             new PluginRuntimeAuditCoordinator(
                 new InMemoryAuditTrail(),
-                new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T00:00:00Z"))));
+                new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T00:00:00Z"))),
+            new HostRuntimeModeMutationGate(_ =>
+                Result.Success(PluginRuntimeMode.FullAccess)));
     }
 
     private static InstalledPluginState CreatePluginState(string pluginId, bool isEnabled)

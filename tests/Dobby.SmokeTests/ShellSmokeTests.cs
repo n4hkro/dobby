@@ -5,6 +5,7 @@ using System.Text;
 using Dobby.Audit;
 using Dobby.Admin.Commands;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core;
 using Dobby.Core.Versioning;
@@ -198,7 +199,8 @@ public sealed class ShellSmokeTests
             staging,
             authorization,
             audit,
-            trustVerifier);
+            trustVerifier,
+            new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.FullAccess)));
 
         var install = installer.InstallPackage(
             "managed",
@@ -222,8 +224,9 @@ public sealed class ShellSmokeTests
             persistence.Migrator,
             stateStore,
             metadataCache,
+            new HostPluginActivationStatusPersistence(stateStore, metadataCache, persistence.TransactionScope),
             staging,
-            new PluginDataRetentionStore(persistence.Root),
+            new PluginDataRetentionStore(persistence.Root, persistence.TransactionScope),
             operationTargets,
             extensionRegistry,
             lifetimes,

@@ -10,13 +10,22 @@ using Dobby.Security.Authorization;
 
 namespace Dobby.Host.Plugins;
 
+public interface ILicenseImportFileCoordinator
+{
+    Task<LicenseImportResult> ImportFileAsync(
+        string actorId,
+        string path,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed class LicenseImportCoordinator(
     LicenseImportService importService,
     IInstalledPluginStateStore installedPluginStateStore,
     OperationAuthorizationPolicy authorizationPolicy,
     Func<string> currentDeviceFingerprintProvider,
     IAuditTrail auditTrail,
-    TimeProvider timeProvider) : IPostLoginLicenseImportCancellation
+    TimeProvider timeProvider) : IPostLoginLicenseImportCancellation, ILicenseImportFileCoordinator
 {
     private readonly SemaphoreSlim importGate = new(1, 1);
     private readonly object cancellationGate = new();

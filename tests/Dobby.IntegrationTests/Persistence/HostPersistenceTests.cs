@@ -4,6 +4,7 @@ using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
 using Microsoft.Data.Sqlite;
 using Shouldly;
+using System.Security.Cryptography;
 
 namespace Dobby.IntegrationTests.Persistence;
 
@@ -403,6 +404,41 @@ public sealed class HostPersistenceTests
         result.IsSuccess.ShouldBeFalse();
         result.Error.Code.ShouldBe(PersistenceError.MigrationFailed);
         result.Error.Message.ShouldContain("DeviceIdentity", Case.Sensitive);
+    }
+
+    [Fact]
+    public void Support_snapshot_truncates_wal_under_backup_root()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('snapshot.test', 'value', 'string', 'None', 'test', @UpdatedAtUtc);",
+            new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+        var backupRoot = Path.Combine(fixture.Root, "backup");
+        var snapshotPath = Path.Combine(backupRoot, "support", "host-support.db");
+        var walPath = fixture.DatabasePath + "-wal";
+        using (var openConnection = fixture.Factory.Open().Value)
+        {
+            fixture.Executor.Execute(
+                "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('snapshot.test.2', 'value', 'string', 'None', 'test', @UpdatedAtUtc);",
+                new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+            File.Exists(walPath).ShouldBeTrue();
+        }
+
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+        var checkpoint = maintenance.ForceWalCheckpoint();
+        var snapshot = maintenance.CreateSupportSnapshot(snapshotPath);
+
+        checkpoint.IsSuccess.ShouldBeTrue(checkpoint.IsSuccess ? null : checkpoint.Error.Message);
+        snapshot.IsSuccess.ShouldBeTrue(snapshot.IsSuccess ? null : snapshot.Error.Message);
+        snapshot.Value.ShouldBe(snapshotPath);
+        snapshot.Value.ShouldStartWith(backupRoot, Case.Insensitive);
+        File.Exists(snapshotPath).ShouldBeTrue();
+        new FileInfo(snapshotPath).Length.ShouldBeGreaterThan(0);
+        if (File.Exists(walPath))
+        {
+            new FileInfo(walPath).Length.ShouldBe(0);
+        }
     }
 
     private sealed class HostPersistenceFixture : IDisposable

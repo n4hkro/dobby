@@ -116,6 +116,8 @@ public sealed class PluginServiceRegistrationBridge : IAsyncDisposable
             extensionPoints.RemovePlugin(pluginId);
         }
 
+        HostServices.CleanupPluginSubscriptions(pluginId);
+
         foreach (var scope in scopes)
         {
             await scope.DisposeAsync().ConfigureAwait(false);
@@ -145,6 +147,8 @@ public sealed class PluginServiceRegistrationBridge : IAsyncDisposable
                 extensionPoints.RemovePlugin(pluginId);
             }
         }
+
+        HostServices.CleanupAllPluginSubscriptions();
 
         foreach (var scope in scopes)
         {

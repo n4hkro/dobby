@@ -10,6 +10,7 @@ using Dobby.Host.Settings;
 using Dobby.Localization;
 using Dobby.Navigation;
 using Dobby.PluginFramework.Activation;
+using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authentication;
 using Dobby.Security.Authorization;
 using Dobby.Shell;
@@ -41,6 +42,18 @@ internal static class PostLoginShellPresenter
         var strings = HostStringCatalog.CreateResourceBacked(localizationDiagnostics.RecordMissingKey);
         var shellViewModel = ShellViewModel.CreateDefault(strings);
         var themeCoordinator = new ShellThemeCoordinator(scopedPreferenceSource);
+        Action<string, string, string, Dobby.Core.ErrorCode>? pageFaultSink =
+            loginRuntime.PluginRuntimeCoordinator.DiagnosticsCoordinator is { } diagnostics
+                ? diagnostics.RecordPageFault
+                : null;
+        var pluginPageRouteCoordinator = new PluginPageRouteCoordinator(
+            loginRuntime.PluginRuntimeCoordinator.ExtensionPointRegistry,
+            shellViewModel,
+            () => authenticatedSession?.UserId,
+            pageFaultSink);
+        var routeHost = new ShellRouteHost(
+            shellViewModel.ResolveRouteOrHome,
+            routeKey => pluginPageRouteCoordinator.ActivateRouteAsync(routeKey, CancellationToken.None));
         var currentTheme = startupTheme;
         shellViewModel.SetTheme(currentTheme);
 
@@ -52,7 +65,10 @@ internal static class PostLoginShellPresenter
             authenticatedSession,
             scopedPreferenceSource,
             themeCoordinator,
-            null);
+            null,
+            routeHost,
+            preparedLoginRuntime.WorkSessionRegistry,
+            preparedLoginRuntime.WorkSessionCloseCoordinator);
         postLoginTiming?.MarkShellRuntimeAttached();
         window.ContentRendered += (_, _) =>
         {
@@ -92,7 +108,7 @@ internal static class PostLoginShellPresenter
         try
         {
             var preferenceTask = Task.Run(() => scopedPreferenceSource.Load());
-            var settingsAndAboutTask = Task.Run(() => BuildSettingsAndAbout(strings, loginRuntime, userId));
+            var settingsAndAboutTask = Task.Run(() => BuildSettingsAndAbout(strings, loginRuntime, userId, scopedPreferenceSource));
             var pluginMigrationTask = Task.Run(() => loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations());
 
             var preferences = await preferenceTask.ConfigureAwait(false);
@@ -114,7 +130,11 @@ internal static class PostLoginShellPresenter
             var settingsAndAbout = await settingsAndAboutTask.ConfigureAwait(false);
             await InvokeIfWindowAliveAsync(
                 window,
-                () => shellViewModel.SetSettingsAndAbout(settingsAndAbout.Categories, settingsAndAbout.AboutFields))
+                () => shellViewModel.SetSettingsAndAbout(
+                    settingsAndAbout.Categories,
+                    settingsAndAbout.AboutFields,
+                    settingsAndAbout.AutoLockEnabled,
+                    settingsAndAbout.AutoLockMinutes))
                 .ConfigureAwait(false);
 
             if (!pluginMigration.IsSuccess)
@@ -132,23 +152,20 @@ internal static class PostLoginShellPresenter
             var license = await licenseTask.ConfigureAwait(false);
             await InvokeIfWindowAliveAsync(window, () =>
             {
-                shellViewModel.SetPluginsManagerSurface(
-                    plugins.CanView,
-                    plugins.CanImport,
-                    plugins.CanConfigure,
-                    plugins.CanDelete,
-                    plugins.Items);
+                ApplyPluginsManagerSurface(shellViewModel, plugins);
                 shellViewModel.SetLicenseSurface(
-                    license.CanView,
-                    license.CanImport,
-                    license.Mode,
-                    license.PluginId,
-                    license.PluginName);
+                    canViewStatus: license.CanView,
+                    canImport: license.CanImport,
+                    currentMode: license.Mode,
+                    pluginId: license.PluginId,
+                    pluginName: license.PluginName);
             }).ConfigureAwait(false);
 
             var activation = await loginRuntime.PluginRuntimeCoordinator.BeginPostLoginActivation(
                 new AssemblyHostVersionProvider(typeof(PostLoginShellPresenter).Assembly).Current,
                 actor).ConfigureAwait(false);
+            await RefreshPluginsManagerSurfaceAsync(window, shellViewModel, loginRuntime, userId).ConfigureAwait(false);
+
             if (activation.IsSuccess && activation.Value.Completion == PluginActivationCompletion.Completed)
             {
                 var contributions = PluginNavigationContributionMapper.Map(activation.Value.Run.NavigationContributions);
@@ -171,6 +188,32 @@ internal static class PostLoginShellPresenter
                 () => shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.ShellFeedbackError))
                 .ConfigureAwait(false);
         }
+    }
+
+    private static async Task RefreshPluginsManagerSurfaceAsync(
+        MainWindow window,
+        ShellViewModel shellViewModel,
+        HostLoginRuntime loginRuntime,
+        string? userId)
+    {
+        var plugins = await Task.Run(() => BuildPluginsManagerSurface(loginRuntime, userId))
+            .ConfigureAwait(false);
+        await InvokeIfWindowAliveAsync(
+            window,
+            () => ApplyPluginsManagerSurface(shellViewModel, plugins))
+            .ConfigureAwait(false);
+    }
+
+    private static void ApplyPluginsManagerSurface(
+        ShellViewModel shellViewModel,
+        PluginsManagerSurfaceConfiguration plugins)
+    {
+        shellViewModel.SetPluginsManagerSurface(
+            plugins.CanView,
+            plugins.CanImport,
+            plugins.CanConfigure,
+            plugins.CanDelete,
+            plugins.Items);
     }
 
     private static async Task InvokeIfWindowAliveAsync(MainWindow window, Action action)
@@ -201,7 +244,8 @@ internal static class PostLoginShellPresenter
     private static SettingsAndAboutSnapshot BuildSettingsAndAbout(
         HostStringCatalog strings,
         HostLoginRuntime loginRuntime,
-        string? userId)
+        string? userId,
+        ISettingsPreferenceSource preferenceSource)
     {
         var actor = string.IsNullOrWhiteSpace(userId) ? "unknown" : userId;
         var categories = loginRuntime.SettingsNavigationModel
@@ -216,7 +260,12 @@ internal static class PostLoginShellPresenter
             : loginRuntime.UserPermissionStateReader(userId);
         var isOwner = permissionState is { IsSuccess: true } && permissionState.Value.IsOwner;
         var about = loginRuntime.AboutInfoProvider.GetInfo(isOwner: isOwner, ownerIdentity: actor);
-        return new SettingsAndAboutSnapshot(categories, BuildAboutFields(strings, about));
+        var security = new SecuritySessionSettingsModel(preferenceSource).BuildSection();
+        return new SettingsAndAboutSnapshot(
+            categories,
+            BuildAboutFields(strings, about),
+            security.AutoLockEnabled,
+            security.AutoLockMinutes);
     }
 
     private static LicenseSurfaceConfiguration BuildLicenseSurface(
@@ -280,8 +329,40 @@ internal static class PostLoginShellPresenter
                     plugin.IsEnabled,
                     plugin.StatusSummary,
                     plugin.IsPendingUninstall,
-                    plugin.RestartRequired)).ToArray()
+                    plugin.RestartRequired,
+                    TrustSummary: string.IsNullOrWhiteSpace(plugin.PackageFingerprint) ? "Trust unavailable" : "Trusted",
+                    LicenseSummary: PluginLicenseSummary(loginRuntime, plugin),
+                    FaultSummary: PluginFaultSummary(plugin),
+                    SafeRejectionText: SafePluginRejectionText(plugin.StatusSummary))).ToArray()
                 : []);
+    }
+
+    private static string PluginLicenseSummary(HostLoginRuntime loginRuntime, InstalledPluginMetadata plugin)
+    {
+        var mode = loginRuntime.LicenseRuntimeModeProvider.GetCurrentMode(plugin.PluginId, plugin.PackageFingerprint);
+        return mode is { IsSuccess: true }
+            ? mode.Value switch
+            {
+                PluginRuntimeMode.FullAccess => "Full access",
+                PluginRuntimeMode.ReadOnlyExpired => "Read-only license mode",
+                _ => "License denied"
+            }
+            : "License unavailable";
+    }
+
+    private static string PluginFaultSummary(InstalledPluginMetadata plugin)
+    {
+        return plugin.StatusSummary.Contains("fault", StringComparison.OrdinalIgnoreCase)
+            ? plugin.StatusSummary
+            : "No runtime fault";
+    }
+
+    private static string SafePluginRejectionText(string statusSummary)
+    {
+        return statusSummary.Contains("rejected", StringComparison.OrdinalIgnoreCase) ||
+            statusSummary.Contains("invalid", StringComparison.OrdinalIgnoreCase)
+            ? statusSummary
+            : string.Empty;
     }
 
     private static bool IsAllowed(
@@ -333,8 +414,8 @@ internal static class PostLoginShellPresenter
         var pluginText = about.Plugins.Count == 0
             ? strings.GetString(HostResourceKeys.AboutPluginsEmpty)
             : string.Join(", ", about.Plugins.Select(plugin => $"{plugin.PluginId} {plugin.Version} {plugin.Status}"));
-        var ownerText = about.OwnerIdentityText.Equals(HostResourceKeys.AboutOwnerStatusRegistered, StringComparison.Ordinal)
-            ? strings.GetString(HostResourceKeys.AboutOwnerStatusRegistered)
+        var ownerText = about.OwnerIdentityText.StartsWith("About.OwnerStatus.", StringComparison.Ordinal)
+            ? strings.GetString(about.OwnerIdentityText)
             : about.OwnerIdentityText;
 
         return
@@ -371,7 +452,9 @@ internal static class PostLoginShellPresenter
 
     private sealed record SettingsAndAboutSnapshot(
         IReadOnlyList<ShellSettingsCategoryItem> Categories,
-        IReadOnlyList<ShellAboutField> AboutFields);
+        IReadOnlyList<ShellAboutField> AboutFields,
+        bool AutoLockEnabled,
+        int AutoLockMinutes);
 
     private sealed record LicenseSurfaceConfiguration(
         bool CanView,

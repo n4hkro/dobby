@@ -280,6 +280,7 @@ public sealed class UserManagementServiceTests
                 new SessionOptions());
             LoginService = new LoginService(
                 Executor,
+                resolver,
                 CredentialStore,
                 new OwnerBootstrapCoordinator(new HostPersistenceTransactionScope(Factory), new OwnerBootstrapService(protector, resolver), new DurableAuditTrail(Executor), time),
                 new LoginThrottleService([0, 0, 10], time));

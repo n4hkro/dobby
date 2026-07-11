@@ -83,32 +83,7 @@ public sealed class HostInstalledPluginMetadataCache(
         {
             transactionScope.ExecuteInTransaction(tx =>
             {
-                tx.Execute("DELETE FROM InstalledPluginMetadataCache;");
-                foreach (var state in installedStates)
-                {
-                    tx.Execute(
-                        """
-                        INSERT INTO InstalledPluginMetadataCache (
-                            PluginId, DisplayName, Version, Description, PackageFingerprint, IsEnabled,
-                            StatusSummary, InstalledAtUtc, UpdatedAtUtc, IsPendingUninstall, RestartRequired
-                        ) VALUES (
-                            @PluginId, @DisplayName, @Version, @Description, @PackageFingerprint, @IsEnabled,
-                            @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc, @IsPendingUninstall, @RestartRequired
-                        );
-                        """,
-                        ToParameters(new InstalledPluginMetadata(
-                            state.PluginId,
-                            state.DisplayName,
-                            state.Version,
-                            state.Description,
-                            state.PackageFingerprint,
-                            state.IsEnabled,
-                            state.StatusSummary,
-                            state.InstalledAtUtc,
-                            state.UpdatedAtUtc,
-                            state.IsPendingUninstall,
-                            state.RestartRequired)));
-                }
+                RebuildFrom(tx, installedStates);
             });
 
             return Result.Success();
@@ -181,5 +156,40 @@ public sealed class HostInstalledPluginMetadataCache(
             IsPendingUninstall = metadata.IsPendingUninstall ? 1 : 0,
             RestartRequired = metadata.RestartRequired ? 1 : 0
         };
+    }
+
+    internal void RebuildFrom(
+        IHostPersistenceCommandExecutor transactionExecutor,
+        IReadOnlyList<InstalledPluginState> installedStates)
+    {
+        ArgumentNullException.ThrowIfNull(transactionExecutor);
+        ArgumentNullException.ThrowIfNull(installedStates);
+
+        transactionExecutor.Execute("DELETE FROM InstalledPluginMetadataCache;");
+        foreach (var state in installedStates)
+        {
+            transactionExecutor.Execute(
+                """
+                INSERT INTO InstalledPluginMetadataCache (
+                    PluginId, DisplayName, Version, Description, PackageFingerprint, IsEnabled,
+                    StatusSummary, InstalledAtUtc, UpdatedAtUtc, IsPendingUninstall, RestartRequired
+                ) VALUES (
+                    @PluginId, @DisplayName, @Version, @Description, @PackageFingerprint, @IsEnabled,
+                    @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc, @IsPendingUninstall, @RestartRequired
+                );
+                """,
+                ToParameters(new InstalledPluginMetadata(
+                    state.PluginId,
+                    state.DisplayName,
+                    state.Version,
+                    state.Description,
+                    state.PackageFingerprint,
+                    state.IsEnabled,
+                    state.StatusSummary,
+                    state.InstalledAtUtc,
+                    state.UpdatedAtUtc,
+                    state.IsPendingUninstall,
+                    state.RestartRequired)));
+        }
     }
 }

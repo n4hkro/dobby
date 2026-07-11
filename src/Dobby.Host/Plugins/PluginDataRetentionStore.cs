@@ -1,5 +1,7 @@
+using System.Data.Common;
 using System.IO;
 using Dobby.Core;
+using Dobby.Infrastructure.Persistence;
 
 namespace Dobby.Host.Plugins;
 
@@ -8,8 +10,12 @@ public interface IPluginDataRetentionStore
     Result DeletePluginData(string pluginId);
 }
 
-public sealed class PluginDataRetentionStore(string runtimeDataRoot) : IPluginDataRetentionStore
+public sealed class PluginDataRetentionStore(
+    string runtimeDataRoot,
+    IHostPersistenceTransactionScope transactionScope) : IPluginDataRetentionStore
 {
+    private readonly IHostPersistenceTransactionScope transactionScope = transactionScope ??
+        throw new ArgumentNullException(nameof(transactionScope));
     private readonly string storageRoot = Path.GetFullPath(Path.Combine(
         string.IsNullOrWhiteSpace(runtimeDataRoot) ? "." : runtimeDataRoot,
         "plugins",
@@ -26,6 +32,23 @@ public sealed class PluginDataRetentionStore(string runtimeDataRoot) : IPluginDa
         if (safePluginId is null)
         {
             return Result.Failure(ErrorCode.InvalidInput);
+        }
+
+        try
+        {
+            transactionScope.ExecuteInTransaction(executor =>
+            {
+                executor.Execute(
+                    "DELETE FROM PluginStorageValue WHERE PluginId = @PluginId;",
+                    new { PluginId = safePluginId });
+            });
+        }
+        catch (Exception exception) when (exception is DbException
+            or InvalidOperationException
+            or IOException
+            or UnauthorizedAccessException)
+        {
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
         }
 
         try

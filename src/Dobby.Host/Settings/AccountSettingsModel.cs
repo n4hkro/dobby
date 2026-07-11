@@ -1,5 +1,6 @@
 using Dobby.Core;
 using Dobby.Host.Login;
+using Dobby.Localization;
 
 namespace Dobby.Host.Settings;
 
@@ -22,4 +23,13 @@ public sealed class AccountSettingsModel(
         return passwordChangeShortcut(userId, sessionId, newPassword, rememberMe, correlationId);
     }
 
+    public AccountSettingsSection BuildSection()
+    {
+        return new AccountSettingsSection(
+            HostResourceKeys.ShellProfileAccountInfo,
+            HostResourceKeys.ShellProfileChangePassword,
+            HasPasswordChangeShortcut,
+            HasManualLockShortcut,
+            HasLogoutShortcut);
+    }
 }

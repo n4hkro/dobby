@@ -37,6 +37,7 @@ public static class AuditEventName
     public const string LicenseImportRejected = "license.import.rejected";
     public const string LicenseEnforcementDenied = "license.enforcement.denied";
     public const string LicenseEnforcementWarning = "license.enforcement.warning";
+    public const string CustomerDeploymentContextProvision = "customer-deployment-context.provision";
     public const string DiagnosticsExportCreated = "diagnostics.export.created";
     public const string SecurityVerificationFailed = "security.verification.failed";
 
@@ -77,6 +78,7 @@ public static class AuditEventName
         LicenseImportRejected,
         LicenseEnforcementDenied,
         LicenseEnforcementWarning,
+        CustomerDeploymentContextProvision,
         DiagnosticsExportCreated,
         SecurityVerificationFailed
     ];

@@ -1,6 +1,7 @@
 using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.Contracts.Licensing;
+using Dobby.Contracts.PluginPages;
 using Dobby.Host.Plugins;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Licensing;
@@ -28,6 +29,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
                 Substitute.For<IHostPersistenceMigrator>(),
                 Substitute.For<IInstalledPluginStateStore>(),
                 Substitute.For<IInstalledPluginMetadataCache>(),
+                Substitute.For<IHostPluginActivationStatusPersistence>(),
                 Substitute.For<IPluginInstallStagingArea>(),
                 Substitute.For<IPluginDataRetentionStore>(),
                 OperationTargetRegistry.CreateDefault(),
@@ -515,35 +517,200 @@ public sealed class HostPluginRuntimeCoordinatorTests
         result.IsSuccess.ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task Activate_installed_plugins_async_rolls_back_real_activation_when_activation_status_persistence_fails()
+    {
+        var runtimePath = CreateActivatableRuntimePackageDirectory();
+        try
+        {
+            var installedState = CreateInstalledState(runtimePath, RuntimePackageFingerprint(runtimePath)) with
+            {
+                StatusSummary = "Pending activation"
+            };
+            var stateStore = Substitute.For<IInstalledPluginStateStore>();
+            stateStore.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>([installedState]));
+            var metadataCache = CreateDefaultMetadataCache();
+            var extensionPointRegistry = new PluginExtensionPointRegistry();
+            await using var lifetimeManager = new PluginLifetimeManager();
+            var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
+            var activationStatusPersistence = Substitute.For<IHostPluginActivationStatusPersistence>();
+            activationStatusPersistence
+                .Persist(Arg.Any<IReadOnlyList<InstalledPluginState>>(), Arg.Any<IReadOnlyList<InstalledPluginState>>())
+                .Returns(_ =>
+            {
+                extensionPointRegistry.GetRegistrationsSnapshot<IPluginPage>().Count.ShouldBe(1);
+                return Result.Failure(ErrorCode.DatabaseUnavailable);
+            });
+            await using var coordinator = CreateCoordinator(
+                stateStore: stateStore,
+                metadataCache: metadataCache,
+                extensionPointRegistry: extensionPointRegistry,
+                lifetimeManager: lifetimeManager,
+                activationTracker: activationTracker,
+                activationStatusPersistence: activationStatusPersistence,
+                configureDefaultStateStoreUpsert: false);
+
+            var result = await coordinator.ActivateInstalledPluginsAsync(new HostVersion(1, 0, 0), CancellationToken.None);
+
+            result.IsSuccess.ShouldBeFalse();
+            result.ErrorCode.ShouldBe(ErrorCode.DatabaseUnavailable);
+            extensionPointRegistry.GetRegistrationsSnapshot<IPluginPage>().ShouldBeEmpty();
+            activationTracker.DidNotReceive().MarkActivatedInCurrentProcess(Arg.Any<IReadOnlyCollection<string>>());
+            stateStore.DidNotReceive().Upsert(Arg.Any<InstalledPluginState>());
+            metadataCache.DidNotReceive().RebuildFrom(Arg.Any<IReadOnlyList<InstalledPluginState>>());
+        }
+        finally
+        {
+            DeleteRuntimeDirectory(runtimePath);
+        }
+    }
+
+    [Fact]
+    public async Task Activate_installed_plugins_async_rolls_back_real_activation_and_preserves_persistence_error_code()
+    {
+        var runtimePath = CreateActivatableRuntimePackageDirectory();
+        try
+        {
+            var installedState = CreateInstalledState(runtimePath, RuntimePackageFingerprint(runtimePath)) with
+            {
+                StatusSummary = "Pending activation"
+            };
+            var stateStore = Substitute.For<IInstalledPluginStateStore>();
+            stateStore.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>([installedState]));
+            var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+            var extensionPointRegistry = new PluginExtensionPointRegistry();
+            var activationStatusPersistence = Substitute.For<IHostPluginActivationStatusPersistence>();
+            activationStatusPersistence
+                .Persist(Arg.Any<IReadOnlyList<InstalledPluginState>>(), Arg.Any<IReadOnlyList<InstalledPluginState>>())
+                .Returns(_ =>
+            {
+                extensionPointRegistry.GetRegistrationsSnapshot<IPluginPage>().Count.ShouldBe(1);
+                return Result.Failure(ErrorCode.IoFailed);
+            });
+            await using var lifetimeManager = new PluginLifetimeManager();
+            var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
+            await using var coordinator = CreateCoordinator(
+                stateStore: stateStore,
+                metadataCache: metadataCache,
+                extensionPointRegistry: extensionPointRegistry,
+                lifetimeManager: lifetimeManager,
+                activationTracker: activationTracker,
+                activationStatusPersistence: activationStatusPersistence,
+                configureDefaultStateStoreUpsert: false);
+
+            var result = await coordinator.ActivateInstalledPluginsAsync(new HostVersion(1, 0, 0), CancellationToken.None);
+
+            result.IsSuccess.ShouldBeFalse();
+            result.ErrorCode.ShouldBe(ErrorCode.IoFailed);
+            extensionPointRegistry.GetRegistrationsSnapshot<IPluginPage>().ShouldBeEmpty();
+            activationTracker.DidNotReceive().MarkActivatedInCurrentProcess(Arg.Any<IReadOnlyCollection<string>>());
+            stateStore.DidNotReceive().Upsert(Arg.Any<InstalledPluginState>());
+            metadataCache.DidNotReceive().RebuildFrom(Arg.Any<IReadOnlyList<InstalledPluginState>>());
+        }
+        finally
+        {
+            DeleteRuntimeDirectory(runtimePath);
+        }
+    }
+
+    [Fact]
+    public async Task Activate_installed_plugins_async_does_not_fallback_to_individual_writes_for_alternative_stores()
+    {
+        var runtimePath = CreateActivatableRuntimePackageDirectory();
+        try
+        {
+            var persistedState = CreateInstalledState(runtimePath, RuntimePackageFingerprint(runtimePath)) with
+            {
+                StatusSummary = "Pending activation"
+            };
+            var stateStore = Substitute.For<IInstalledPluginStateStore>();
+            stateStore.Snapshot().Returns(_ => Result.Success<IReadOnlyList<InstalledPluginState>>([persistedState]));
+            var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+            var activationStatusPersistence = Substitute.For<IHostPluginActivationStatusPersistence>();
+            activationStatusPersistence
+                .Persist(Arg.Any<IReadOnlyList<InstalledPluginState>>(), Arg.Any<IReadOnlyList<InstalledPluginState>>())
+                .Returns(Result.Failure(ErrorCode.IoFailed));
+            var extensionPointRegistry = new PluginExtensionPointRegistry();
+            await using var lifetimeManager = new PluginLifetimeManager();
+            var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
+            await using var coordinator = CreateCoordinator(
+                stateStore: stateStore,
+                metadataCache: metadataCache,
+                extensionPointRegistry: extensionPointRegistry,
+                lifetimeManager: lifetimeManager,
+                activationTracker: activationTracker,
+                activationStatusPersistence: activationStatusPersistence,
+                configureDefaultStateStoreUpsert: false);
+
+            var result = await coordinator.ActivateInstalledPluginsAsync(
+                new HostVersion(1, 0, 0),
+                CancellationToken.None);
+
+            result.IsSuccess.ShouldBeFalse();
+            result.ErrorCode.ShouldBe(ErrorCode.IoFailed);
+            persistedState.StatusSummary.ShouldBe("Pending activation");
+            activationStatusPersistence.Received(1).Persist(
+                Arg.Is<IReadOnlyList<InstalledPluginState>>(states =>
+                    states.Count == 1 &&
+                    states[0].PluginId == PluginPackageTestData.PluginId &&
+                    states[0].StatusSummary == "Enabled"),
+                Arg.Is<IReadOnlyList<InstalledPluginState>>(states =>
+                    states.Count == 1 &&
+                    states[0].PluginId == PluginPackageTestData.PluginId &&
+                    states[0].StatusSummary == "Enabled"));
+            stateStore.DidNotReceive().Upsert(Arg.Any<InstalledPluginState>());
+            metadataCache.DidNotReceive().RebuildFrom(Arg.Any<IReadOnlyList<InstalledPluginState>>());
+            extensionPointRegistry.GetRegistrationsSnapshot<IPluginPage>().ShouldBeEmpty();
+            activationTracker.DidNotReceive().MarkActivatedInCurrentProcess(Arg.Any<IReadOnlyCollection<string>>());
+        }
+        finally
+        {
+            DeleteRuntimeDirectory(runtimePath);
+        }
+    }
+
     private static HostPluginRuntimeCoordinator CreateCoordinator(
         IHostPersistenceMigrator? migrator = null,
         IInstalledPluginStateStore? stateStore = null,
         IInstalledPluginMetadataCache? metadataCache = null,
+        IHostPluginActivationStatusPersistence? activationStatusPersistence = null,
         IPluginInstallStagingArea? staging = null,
         IPluginDataRetentionStore? dataRetentionStore = null,
         OperationTargetRegistry? operationTargetRegistry = null,
         HostPluginActivationCancellation? activationCancellation = null,
         IPluginTrustVerifier? trustVerifier = null,
         IPluginCurrentProcessActivationTracker? activationTracker = null,
-        ILicenseRuntimeModeProvider? licenseRuntimeModeProvider = null)
+        ILicenseRuntimeModeProvider? licenseRuntimeModeProvider = null,
+        PluginExtensionPointRegistry? extensionPointRegistry = null,
+        PluginLifetimeManager? lifetimeManager = null,
+        PostLoginPluginActivator? postLoginPluginActivator = null,
+        bool configureDefaultStateStoreUpsert = true)
     {
         stateStore ??= CreateDefaultStateStore();
+        if (configureDefaultStateStoreUpsert)
+        {
+            stateStore.Upsert(Arg.Any<InstalledPluginState>()).Returns(Result.Success());
+        }
+
         metadataCache ??= CreateDefaultMetadataCache();
+        activationStatusPersistence ??= CreateDefaultActivationStatusPersistence();
         staging ??= CreateDefaultStagingArea();
 
-        var extensionPointRegistry = new PluginExtensionPointRegistry();
-        var lifetimeManager = new PluginLifetimeManager();
+        extensionPointRegistry ??= new PluginExtensionPointRegistry();
+        lifetimeManager ??= new PluginLifetimeManager();
+        postLoginPluginActivator ??= new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionPointRegistry, lifetimeManager));
         return new HostPluginRuntimeCoordinator(
             migrator ?? Substitute.For<IHostPersistenceMigrator>(),
             stateStore,
             metadataCache,
+            activationStatusPersistence,
             staging,
             dataRetentionStore ?? Substitute.For<IPluginDataRetentionStore>(),
             operationTargetRegistry ?? OperationTargetRegistry.CreateDefault(),
             extensionPointRegistry,
             lifetimeManager,
             activationCancellation ?? new HostPluginActivationCancellation(),
-            new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionPointRegistry, lifetimeManager)),
+            postLoginPluginActivator,
             activationTracker ?? Substitute.For<IPluginCurrentProcessActivationTracker>(),
             trustVerifier ?? new AllowAllTrustVerifier(),
             licenseRuntimeModeProvider: licenseRuntimeModeProvider ?? new AllowAllLicenseRuntimeModeProvider());
@@ -553,6 +720,7 @@ public sealed class HostPluginRuntimeCoordinatorTests
     {
         var store = Substitute.For<IInstalledPluginStateStore>();
         store.Snapshot().Returns(Result.Success<IReadOnlyList<InstalledPluginState>>([]));
+        store.Upsert(Arg.Any<InstalledPluginState>()).Returns(Result.Success());
         return store;
     }
 
@@ -561,6 +729,15 @@ public sealed class HostPluginRuntimeCoordinatorTests
         var cache = Substitute.For<IInstalledPluginMetadataCache>();
         cache.RebuildFrom(Arg.Any<IReadOnlyList<InstalledPluginState>>()).Returns(Result.Success());
         return cache;
+    }
+
+    private static IHostPluginActivationStatusPersistence CreateDefaultActivationStatusPersistence()
+    {
+        var persistence = Substitute.For<IHostPluginActivationStatusPersistence>();
+        persistence
+            .Persist(Arg.Any<IReadOnlyList<InstalledPluginState>>(), Arg.Any<IReadOnlyList<InstalledPluginState>>())
+            .Returns(Result.Success());
+        return persistence;
     }
 
     private static IPluginInstallStagingArea CreateDefaultStagingArea()

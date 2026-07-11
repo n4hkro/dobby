@@ -12,36 +12,7 @@ public sealed class HostInstalledPluginStateStore(
     {
         try
         {
-            transactionScope.ExecuteInTransaction(tx =>
-            {
-                tx.Execute(
-                    """
-                    INSERT INTO InstalledPluginState (
-                        PluginId, Version, PackageFingerprint, DisplayName, Description, IsEnabled,
-                        ValidationSummary, RuntimePath, StatusSummary, InstalledAtUtc, UpdatedAtUtc,
-                        IsPendingUninstall, DataRetentionChoice, RestartRequired, LastActivatedAtUtc
-                    ) VALUES (
-                        @PluginId, @Version, @PackageFingerprint, @DisplayName, @Description, @IsEnabled,
-                        @ValidationSummary, @RuntimePath, @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc,
-                        @IsPendingUninstall, @DataRetentionChoice, @RestartRequired, @LastActivatedAtUtc
-                    )
-                    ON CONFLICT(PluginId) DO UPDATE SET
-                        Version = excluded.Version,
-                        PackageFingerprint = excluded.PackageFingerprint,
-                        DisplayName = excluded.DisplayName,
-                        Description = excluded.Description,
-                        IsEnabled = excluded.IsEnabled,
-                        ValidationSummary = excluded.ValidationSummary,
-                        RuntimePath = excluded.RuntimePath,
-                        StatusSummary = excluded.StatusSummary,
-                        IsPendingUninstall = excluded.IsPendingUninstall,
-                        DataRetentionChoice = excluded.DataRetentionChoice,
-                        RestartRequired = excluded.RestartRequired,
-                        LastActivatedAtUtc = excluded.LastActivatedAtUtc,
-                        UpdatedAtUtc = excluded.UpdatedAtUtc;
-                    """,
-                    ToParameters(state));
-            });
+            transactionScope.ExecuteInTransaction(tx => Upsert(tx, state));
 
             return Result.Success();
         }
@@ -187,5 +158,36 @@ public sealed class HostInstalledPluginStateStore(
             RestartRequired = state.RestartRequired ? 1 : 0,
             LastActivatedAtUtc = state.LastActivatedAtUtc?.ToString("O")
         };
+    }
+
+    internal void Upsert(IHostPersistenceCommandExecutor transactionExecutor, InstalledPluginState state)
+    {
+        transactionExecutor.Execute(
+            """
+            INSERT INTO InstalledPluginState (
+                PluginId, Version, PackageFingerprint, DisplayName, Description, IsEnabled,
+                ValidationSummary, RuntimePath, StatusSummary, InstalledAtUtc, UpdatedAtUtc,
+                IsPendingUninstall, DataRetentionChoice, RestartRequired, LastActivatedAtUtc
+            ) VALUES (
+                @PluginId, @Version, @PackageFingerprint, @DisplayName, @Description, @IsEnabled,
+                @ValidationSummary, @RuntimePath, @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc,
+                @IsPendingUninstall, @DataRetentionChoice, @RestartRequired, @LastActivatedAtUtc
+            )
+            ON CONFLICT(PluginId) DO UPDATE SET
+                Version = excluded.Version,
+                PackageFingerprint = excluded.PackageFingerprint,
+                DisplayName = excluded.DisplayName,
+                Description = excluded.Description,
+                IsEnabled = excluded.IsEnabled,
+                ValidationSummary = excluded.ValidationSummary,
+                RuntimePath = excluded.RuntimePath,
+                StatusSummary = excluded.StatusSummary,
+                IsPendingUninstall = excluded.IsPendingUninstall,
+                DataRetentionChoice = excluded.DataRetentionChoice,
+                RestartRequired = excluded.RestartRequired,
+                LastActivatedAtUtc = excluded.LastActivatedAtUtc,
+                UpdatedAtUtc = excluded.UpdatedAtUtc;
+            """,
+            ToParameters(state));
     }
 }

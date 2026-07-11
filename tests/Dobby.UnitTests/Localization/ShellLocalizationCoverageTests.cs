@@ -9,9 +9,20 @@ namespace Dobby.UnitTests.Localization;
 public sealed class ShellLocalizationCoverageTests
 {
     [Fact]
+    public void Settings_about_profile_and_user_management_resources_match_across_supported_host_cultures()
+    {
+        var azAz = ResxKeys("Host.az-AZ.resx");
+        var enUs = ResxKeys("Host.en-US.resx");
+        var trTr = ResxKeys("Host.tr-TR.resx");
+
+        enUs.ShouldBe(azAz);
+        trTr.ShouldBe(azAz);
+    }
+
+    [Fact]
     public void Sprint7_visible_host_keys_have_az_az_resx_entries()
     {
-        var resourceKeys = ResxKeys();
+        var resourceKeys = ResxKeys("Host.az-AZ.resx");
 
         HostResourceKeys.Sprint7VisibleKeys.ShouldAllBe(key => resourceKeys.Contains(key));
     }
@@ -55,7 +66,7 @@ public sealed class ShellLocalizationCoverageTests
             [HostResourceKeys.ShellWorkSessionMinimize] = "Yığ",
             [HostResourceKeys.ShellWorkSessionClose] = "Bağla"
         };
-        var resourceKeys = ResxKeys();
+        var resourceKeys = ResxKeys("Host.az-AZ.resx");
         var fallbackCatalog = new HostStringCatalog();
         var resourceCatalog = HostStringCatalog.CreateResourceBacked();
         var azAz = CultureInfo.GetCultureInfo("az-AZ");
@@ -89,7 +100,7 @@ public sealed class ShellLocalizationCoverageTests
             [HostResourceKeys.PluginsManagerUninstallConfirmationTitle] = "Plugini sil",
             [HostResourceKeys.PluginsManagerUninstallConfirmationMessage] = "{0} pluginini silmək istəyirsiniz? Bəli plugin datasını silir, Xeyr plugin datasını saxlayır, Ləğv et əməliyyatı dayandırır."
         };
-        var resourceKeys = ResxKeys();
+        var resourceKeys = ResxKeys("Host.az-AZ.resx");
         var fallbackCatalog = new HostStringCatalog();
         var resourceCatalog = HostStringCatalog.CreateResourceBacked();
         var azAz = CultureInfo.GetCultureInfo("az-AZ");
@@ -119,7 +130,7 @@ public sealed class ShellLocalizationCoverageTests
             [HostResourceKeys.ShellDashboardTopDrivers] = "Top iş səbəbləri",
             [HostResourceKeys.ShellDashboardCaseMetrics] = "İş metrikaları"
         };
-        var resourceKeys = ResxKeys();
+        var resourceKeys = ResxKeys("Host.az-AZ.resx");
         var fallbackCatalog = new HostStringCatalog();
         var resourceCatalog = HostStringCatalog.CreateResourceBacked();
         var azAz = CultureInfo.GetCultureInfo("az-AZ");
@@ -133,9 +144,9 @@ public sealed class ShellLocalizationCoverageTests
         }
     }
 
-    private static HashSet<string> ResxKeys()
+    private static HashSet<string> ResxKeys(string fileName)
     {
-        var path = Path.Combine(RepoRoot().FullName, "src", "Dobby.Localization", "Resources", "Host.az-AZ.resx");
+        var path = Path.Combine(RepoRoot().FullName, "src", "Dobby.Localization", "Resources", fileName);
         return XDocument.Load(path)
             .Descendants("data")
             .Select(element => element.Attribute("name")?.Value)

@@ -15,7 +15,11 @@ public sealed class KdfPolicyResolverTests
         var result = resolver.Resolve();
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.ShouldBe(KdfPolicy.SkeletonPbkdf2Fallback);
+        result.Value.ShouldSatisfyAllConditions(
+            policy => policy.Algorithm.ShouldBe("PBKDF2-HMAC-SHA256"),
+            policy => policy.Iterations.ShouldBe(600_000),
+            policy => policy.SaltBytes.ShouldBe(16),
+            policy => policy.HashBytes.ShouldBe(32));
     }
 
     [Theory]

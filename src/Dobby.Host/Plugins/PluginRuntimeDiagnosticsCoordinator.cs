@@ -1,4 +1,5 @@
 using Dobby.Diagnostics;
+using Dobby.Core;
 using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Packaging;
 
@@ -56,6 +57,41 @@ public sealed class PluginRuntimeDiagnosticsCoordinator(
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
 
         Emit(HostRuntimePluginId, $"plugin.runtime.failed:{NormalizeReason(reason)}", reason);
+    }
+
+    public void RecordEventHandlerFault(string pluginId, Type eventType, ErrorCode errorCode)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+        ArgumentNullException.ThrowIfNull(eventType);
+
+        Emit(
+            pluginId,
+            "plugin.runtime.failed:plugin.event.handler",
+            $"event={eventType.FullName ?? eventType.Name}; error={errorCode}");
+    }
+
+    public void RecordPageFault(string pluginId, string routeKey, string operation, ErrorCode errorCode)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(routeKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(operation);
+
+        Emit(
+            pluginId,
+            $"plugin.runtime.failed:plugin.page.{NormalizeReason(operation)}",
+            $"route={routeKey}; error={errorCode}");
+    }
+
+    public void RecordPageActionFault(string pluginId, string routeKey, string actionId, ErrorCode errorCode)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(routeKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actionId);
+
+        Emit(
+            pluginId,
+            "plugin.runtime.failed:plugin.page.action",
+            $"route={routeKey}; action={actionId}; error={errorCode}");
     }
 
     public void RecordInstallRejected(string? pluginId, IReadOnlyList<PluginPackageValidationReason> reasons)

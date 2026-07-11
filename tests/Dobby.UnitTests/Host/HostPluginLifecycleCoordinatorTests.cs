@@ -1,7 +1,9 @@
 using Dobby.Audit;
+using Dobby.Contracts.Licensing;
 using Dobby.Contracts.Policies;
 using Dobby.Core;
 using Dobby.Host.Plugins;
+using Dobby.Infrastructure.Persistence;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authorization;
 using Microsoft.Extensions.Time.Testing;
@@ -12,6 +14,41 @@ namespace Dobby.UnitTests.Host;
 
 public sealed class HostPluginLifecycleCoordinatorTests
 {
+    [Fact]
+    public void ReadOnlyExpired_blocks_enable_disable_and_uninstall_before_plugin_state_mutation()
+    {
+        var stateStore = Substitute.For<IInstalledPluginStateStore>();
+        var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+        var staging = Substitute.For<IPluginInstallStagingArea>();
+        var dataRetentionStore = Substitute.For<IPluginDataRetentionStore>();
+        var coordinator = CreateCoordinator(
+            stateStore,
+            metadataCache,
+            staging,
+            dataRetentionStore,
+            mutationGate: new HostRuntimeModeMutationGate(_ =>
+                Result.Success(PluginRuntimeMode.ReadOnlyExpired)));
+
+        var enable = coordinator.EnablePlugin("owner", "com.dobby.sample", CorrelationId.New());
+        var disable = coordinator.DisablePlugin("owner", "com.dobby.sample", CorrelationId.New());
+        var uninstall = coordinator.UninstallPlugin(
+            "owner",
+            "com.dobby.sample",
+            PluginUninstallDataChoice.DeleteData,
+            CorrelationId.New());
+
+        enable.ErrorCode.ShouldBe(ErrorCode.LicenseReadOnly);
+        disable.ErrorCode.ShouldBe(ErrorCode.LicenseReadOnly);
+        uninstall.ErrorCode.ShouldBe(ErrorCode.LicenseReadOnly);
+        stateStore.DidNotReceive().Get(Arg.Any<string>());
+        stateStore.DidNotReceive().SetEnabled(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>());
+        stateStore.DidNotReceive().Remove(Arg.Any<string>());
+        metadataCache.DidNotReceive().Upsert(Arg.Any<InstalledPluginMetadata>());
+        metadataCache.DidNotReceive().Remove(Arg.Any<string>());
+        staging.DidNotReceive().Cleanup(Arg.Any<string>());
+        dataRetentionStore.DidNotReceive().DeletePluginData(Arg.Any<string>());
+    }
+
     [Fact]
     public void Enable_plugin_requires_configure_permission_before_state_mutation()
     {
@@ -305,7 +342,7 @@ public sealed class HostPluginLifecycleCoordinatorTests
     }
 
     [Fact]
-    public void File_system_plugin_data_retention_store_deletes_shared_and_user_scoped_plugin_data()
+    public void Plugin_data_retention_store_deletes_legacy_shared_and_user_scoped_plugin_data()
     {
         var root = Path.Combine(Path.GetTempPath(), "dobby-plugin-data-" + Guid.NewGuid().ToString("N"));
         try
@@ -316,7 +353,9 @@ public sealed class HostPluginLifecycleCoordinatorTests
             Directory.CreateDirectory(userPath);
             File.WriteAllText(Path.Combine(sharedPath, "record.json"), "{}");
             File.WriteAllText(Path.Combine(userPath, "draft.json"), "{}");
-            var store = new PluginDataRetentionStore(root);
+            var store = new PluginDataRetentionStore(
+                root,
+                Substitute.For<IHostPersistenceTransactionScope>());
 
             var result = store.DeletePluginData("com.dobby.sample");
 
@@ -342,7 +381,9 @@ public sealed class HostPluginLifecycleCoordinatorTests
             var unrelatedPath = Path.Combine(root, "plugins", "storage", "shared-domain", "plugin_sample");
             Directory.CreateDirectory(unrelatedPath);
             File.WriteAllText(Path.Combine(unrelatedPath, "record.json"), "{}");
-            var store = new PluginDataRetentionStore(root);
+            var store = new PluginDataRetentionStore(
+                root,
+                Substitute.For<IHostPersistenceTransactionScope>());
 
             var result = store.DeletePluginData("plugin/sample");
 
@@ -366,7 +407,8 @@ public sealed class HostPluginLifecycleCoordinatorTests
         IPluginDataRetentionStore? dataRetentionStore = null,
         IPluginCurrentProcessActivationTracker? activationTracker = null,
         OperationAuthorizationPolicy? policy = null,
-        InMemoryAuditTrail? auditTrail = null)
+        InMemoryAuditTrail? auditTrail = null,
+        HostRuntimeModeMutationGate? mutationGate = null)
     {
         activationTracker ??= Substitute.For<IPluginCurrentProcessActivationTracker>();
         return new HostPluginLifecycleCoordinator(
@@ -378,7 +420,9 @@ public sealed class HostPluginLifecycleCoordinatorTests
             policy ?? CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
             new PluginRuntimeAuditCoordinator(
                 auditTrail ?? new InMemoryAuditTrail(),
-                new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T00:00:00Z"))));
+                new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T00:00:00Z"))),
+            mutationGate ?? new HostRuntimeModeMutationGate(_ =>
+                Result.Success(PluginRuntimeMode.FullAccess)));
     }
 
     private static OperationAuthorizationPolicy CreatePolicy(UserPermissionState state)

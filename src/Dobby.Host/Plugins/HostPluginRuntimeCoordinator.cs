@@ -21,6 +21,7 @@ public sealed class HostPluginRuntimeCoordinator(
     IHostPersistenceMigrator migrator,
     IInstalledPluginStateStore stateStore,
     IInstalledPluginMetadataCache metadataCache,
+    IHostPluginActivationStatusPersistence activationStatusPersistence,
     IPluginInstallStagingArea stagingArea,
     IPluginDataRetentionStore dataRetentionStore,
     OperationTargetRegistry operationTargetRegistry,
@@ -44,6 +45,9 @@ public sealed class HostPluginRuntimeCoordinator(
     public IInstalledPluginStateStore StateStore { get; } = stateStore;
 
     public IInstalledPluginMetadataCache MetadataCache { get; } = metadataCache;
+
+    public IHostPluginActivationStatusPersistence ActivationStatusPersistence { get; } =
+        activationStatusPersistence ?? throw new ArgumentNullException(nameof(activationStatusPersistence));
 
     public IPluginInstallStagingArea StagingArea { get; } = stagingArea;
 
@@ -199,7 +203,12 @@ public sealed class HostPluginRuntimeCoordinator(
         Guid operationId,
         Guid correlationId)
     {
-        var result = await ActivateInstalledPluginsAsync(hostVersion, ActivationCancellation.Token).ConfigureAwait(false);
+        var bounded = await PluginExceptionBoundary.InvokeAsync(
+            async () => await ActivateInstalledPluginsAsync(hostVersion, ActivationCancellation.Token).ConfigureAwait(false),
+            CancellationToken.None).ConfigureAwait(false);
+        var result = bounded.IsSuccess
+            ? bounded.Value
+            : Result.Failure<PluginActivationExecutionOutcome>(bounded.ErrorCode ?? ErrorCode.PluginInternalError);
         if (result.IsSuccess)
         {
             DiagnosticsCoordinator?.RecordActivationOutcomes(result.Value.Run.Outcomes);
@@ -394,11 +403,20 @@ public sealed class HostPluginRuntimeCoordinator(
             return Result.Failure<PluginActivationExecutionOutcome>(activation.ErrorCode ?? ErrorCode.PluginInternalError);
         }
 
-        ActivationTracker.MarkActivatedInCurrentProcess(activation.Value.Run.ActivatedPluginIds);
         var outcomes = preActivationOutcomes.Values
             .Concat(activation.Value.Run.Outcomes)
             .OrderBy(outcome => outcome.PluginId, StringComparer.Ordinal)
             .ToArray();
+        var persistStatuses = PersistActivationStatusSummaries(snapshot.Value, outcomes);
+        if (!persistStatuses.IsSuccess)
+        {
+            await PostLoginPluginActivator
+                .RollbackActivatedPluginsAsync(activation.Value.Run.ActivatedPluginIds)
+                .ConfigureAwait(false);
+            return Result.Failure<PluginActivationExecutionOutcome>(persistStatuses.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        ActivationTracker.MarkActivatedInCurrentProcess(activation.Value.Run.ActivatedPluginIds);
         var navigationContributions = BuildNavigationContributions(candidateManifests, activation.Value.Run.ActivatedPluginIds);
         return Result.Success(new PluginActivationExecutionOutcome(
             activation.Value.Completion,
@@ -502,6 +520,107 @@ public sealed class HostPluginRuntimeCoordinator(
             CanCancel: false,
             correlationId,
             failureReason));
+    }
+
+    private Result PersistActivationStatusSummaries(
+        IReadOnlyList<InstalledPluginState> existingStates,
+        IReadOnlyList<PluginActivationOutcome> outcomes)
+    {
+        var byPluginId = outcomes.ToDictionary(outcome => outcome.PluginId, StringComparer.Ordinal);
+        var updatedStates = new List<InstalledPluginState>(existingStates.Count);
+        var changedStates = new List<InstalledPluginState>();
+        var updatedAtUtc = DateTimeOffset.UtcNow;
+
+        foreach (var state in existingStates)
+        {
+            if (!byPluginId.TryGetValue(state.PluginId, out var outcome))
+            {
+                updatedStates.Add(state);
+                continue;
+            }
+
+            var summary = SafeStatusSummary(state, outcome);
+            if (summary.Equals(state.StatusSummary, StringComparison.Ordinal))
+            {
+                updatedStates.Add(state);
+                continue;
+            }
+
+            var updatedState = state with
+            {
+                StatusSummary = summary,
+                UpdatedAtUtc = updatedAtUtc
+            };
+            updatedStates.Add(updatedState);
+            changedStates.Add(updatedState);
+        }
+
+        if (changedStates.Count == 0)
+        {
+            return Result.Success();
+        }
+
+        return ActivationStatusPersistence.Persist(updatedStates, changedStates);
+    }
+
+    private static string SafeStatusSummary(
+        InstalledPluginState state,
+        PluginActivationOutcome outcome)
+    {
+        return outcome.Status switch
+        {
+            PluginActivationStatus.Active => state.IsEnabled ? "Enabled" : "Disabled",
+            PluginActivationStatus.Faulted => "Faulted - Plugin activation failed",
+            PluginActivationStatus.Rejected => $"Rejected - {SafeRejectedReason(outcome.Reason)}",
+            PluginActivationStatus.Skipped => $"Skipped - {SafeSkippedReason(outcome.Reason)}",
+            _ => state.StatusSummary
+        };
+    }
+
+    private static string SafeRejectedReason(string reason)
+    {
+        if (reason.StartsWith("license-", StringComparison.Ordinal))
+        {
+            return "License denied";
+        }
+
+        if (reason.StartsWith("trust-failed", StringComparison.Ordinal) ||
+            reason.StartsWith("package-fingerprint-mismatch", StringComparison.Ordinal))
+        {
+            return "Verification failed";
+        }
+
+        if (reason.StartsWith("host-version-", StringComparison.Ordinal))
+        {
+            return "Host version unsupported";
+        }
+
+        return "Plugin rejected";
+    }
+
+    private static string SafeSkippedReason(string reason)
+    {
+        if (reason.StartsWith("dependency-activation-failed", StringComparison.Ordinal))
+        {
+            return "Dependency activation failed";
+        }
+
+        if (reason.StartsWith("missing-dependency", StringComparison.Ordinal))
+        {
+            return "Dependency missing";
+        }
+
+        if (reason.StartsWith("circular-dependency", StringComparison.Ordinal))
+        {
+            return "Dependency cycle detected";
+        }
+
+        if (reason.StartsWith("disabled", StringComparison.Ordinal))
+        {
+            return "Plugin disabled";
+        }
+
+        return "Plugin skipped";
     }
 
     private static Result<IPluginModule> CreateModule(
