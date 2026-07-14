@@ -120,23 +120,20 @@ public sealed class LoginRuntimeWorkflowTests
     }
 
     [Fact]
-    public void Submit_reuses_completed_credential_warmup_without_repeating_password_verification()
+    public async Task Submit_reuses_completed_credential_warmup_without_repeating_password_verification()
     {
         using var fixture = LoginRuntimeFixture.Create();
         fixture.InsertUser("user-1", "owner", isActive: true);
         var verifier = new CountingCredentialVerifier(succeeds: true);
         var workflow = fixture.CreateWorkflow(credentialVerifier: verifier);
 
-        workflow.WarmCredentials(new LoginCredentialWarmup(
-            "owner",
-            "correct password",
-            CorrelationId.New()));
+        await workflow.WarmCredentialsAsync(new LoginCredentialWarmup(
+                "owner",
+                "correct password",
+                CorrelationId.New()))
+            .WaitAsync(TimeSpan.FromSeconds(10));
 
-        System.Threading.SpinWait.SpinUntil(
-                () => verifier.VerifyCount == 1,
-                TimeSpan.FromSeconds(5))
-            .ShouldBeTrue();
-        WaitForCompletedCredentialWarmup(workflow);
+        verifier.VerifyCount.ShouldBe(1);
 
         var result = workflow.Submit(new LoginSubmission(
             "owner",
@@ -149,19 +146,6 @@ public sealed class LoginRuntimeWorkflowTests
         verifier.VerifyCount.ShouldBe(1);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions WHERE UserId = 'user-1' AND InvalidatedAtUtc IS NULL;").ShouldBe(1);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.login' AND ActorId = 'user-1' AND Result = 'success';").ShouldBe(1);
-    }
-
-    private static void WaitForCompletedCredentialWarmup(LoginRuntimeWorkflow workflow)
-    {
-        var warmedCredential = typeof(LoginRuntimeWorkflow).GetField(
-            "warmedCredential",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        warmedCredential.ShouldNotBeNull();
-
-        System.Threading.SpinWait.SpinUntil(
-                () => warmedCredential.GetValue(workflow) is not null,
-                TimeSpan.FromSeconds(5))
-            .ShouldBeTrue();
     }
 
     private sealed class LoginRuntimeFixture : IDisposable

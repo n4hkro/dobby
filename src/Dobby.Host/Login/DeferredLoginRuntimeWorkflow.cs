@@ -21,18 +21,18 @@ internal sealed class DeferredLoginRuntimeWorkflow(Func<Task<PreparedLoginEntryR
         }
     }
 
-    public void WarmCredentials(LoginCredentialWarmup warmup)
+    public Task WarmCredentialsAsync(LoginCredentialWarmup warmup)
     {
         ArgumentNullException.ThrowIfNull(warmup);
 
-        _ = Task.Run(() =>
+        return Task.Run(async () =>
         {
             try
             {
-                var runtime = runtimeTaskProvider().GetAwaiter().GetResult();
+                var runtime = await runtimeTaskProvider().ConfigureAwait(false);
                 if (runtime?.PreLoginRuntime.LoginWorkflow is ILoginCredentialWarmupWorkflow warmupWorkflow)
                 {
-                    warmupWorkflow.WarmCredentials(warmup);
+                    await warmupWorkflow.WarmCredentialsAsync(warmup).ConfigureAwait(false);
                 }
             }
             catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)

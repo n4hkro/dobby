@@ -1,3 +1,6 @@
+using Dobby.Core;
+using Dobby.Host;
+using Dobby.Host.Login;
 using System.IO;
 using Shouldly;
 
@@ -157,16 +160,39 @@ public sealed class LoginWindowRuntimeWiringTests
     {
         var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
         var workflow = ReadSource("src", "Dobby.Host", "Login", "LoginRuntimeWorkflow.cs");
+        var deferredWorkflow = ReadSource("src", "Dobby.Host", "Login", "DeferredLoginRuntimeWorkflow.cs");
 
         codeBehind.ShouldContain("QueueCredentialWarmup();");
         codeBehind.ShouldContain("ScheduleCredentialWarmup();");
         codeBehind.ShouldContain("ILoginCredentialWarmupWorkflow warmupWorkflow");
-        codeBehind.ShouldContain("warmupWorkflow.WarmCredentials(new LoginCredentialWarmup(");
+        codeBehind.ShouldContain("_ = warmupWorkflow.WarmCredentialsAsync(new LoginCredentialWarmup(");
         codeBehind.ShouldContain("viewModel.Password");
         workflow.ShouldContain("public interface ILoginCredentialWarmupWorkflow");
-        workflow.ShouldContain("WarmCredentials(LoginCredentialWarmup warmup)");
+        workflow.ShouldContain("Task WarmCredentialsAsync(LoginCredentialWarmup warmup)");
         workflow.ShouldContain("TryUseWarmedCredential(submission");
         workflow.ShouldContain("LoginWithValidatedCredential(");
+        deferredWorkflow.ShouldContain("public Task WarmCredentialsAsync(LoginCredentialWarmup warmup)");
+        deferredWorkflow.ShouldContain("await warmupWorkflow.WarmCredentialsAsync(warmup).ConfigureAwait(false);");
+    }
+
+    [Fact]
+    public async Task Deferred_login_warmup_task_completes_only_after_inner_warmup()
+    {
+        var inner = new BlockingCredentialWarmupWorkflow();
+        var preparedRuntime = new PreparedLoginEntryRuntime(
+            new HostPreLoginRuntime(inner, null!, null!),
+            Task.FromResult<PreparedLoginRuntime?>(null));
+        var deferred = new DeferredLoginRuntimeWorkflow(
+            () => Task.FromResult<PreparedLoginEntryRuntime?>(preparedRuntime));
+        var warmupTask = deferred.WarmCredentialsAsync(new LoginCredentialWarmup(
+            "owner",
+            "correct password",
+            CorrelationId.New()));
+
+        await inner.WarmupEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        warmupTask.IsCompleted.ShouldBeFalse();
+        inner.AllowCompletion.TrySetResult(true).ShouldBeTrue();
+        await warmupTask.WaitAsync(TimeSpan.FromSeconds(10));
     }
 
     [Fact]
@@ -370,6 +396,29 @@ public sealed class LoginWindowRuntimeWiringTests
         codeBehind.ShouldContain("viewModel.ImportResponse");
         codeBehind.ShouldContain("viewModel.OpenExportFolder");
         codeBehind.ShouldContain("viewModel.CopyExportPath");
+    }
+
+    private sealed class BlockingCredentialWarmupWorkflow :
+        ILoginRuntimeWorkflow,
+        ILoginCredentialWarmupWorkflow
+    {
+        public TaskCompletionSource<bool> WarmupEntered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource<bool> AllowCompletion { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public LoginRuntimeWorkflowResult Submit(LoginSubmission submission)
+        {
+            throw new NotSupportedException();
+        }
+
+        public async Task WarmCredentialsAsync(LoginCredentialWarmup warmup)
+        {
+            ArgumentNullException.ThrowIfNull(warmup);
+            WarmupEntered.TrySetResult(true);
+            await AllowCompletion.Task.ConfigureAwait(false);
+        }
     }
 
     private static string ReadSource(params string[] relativePath)

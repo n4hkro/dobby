@@ -292,7 +292,7 @@ public partial class LoginWindow : Window
             return;
         }
 
-        warmupWorkflow.WarmCredentials(new LoginCredentialWarmup(
+        _ = warmupWorkflow.WarmCredentialsAsync(new LoginCredentialWarmup(
             username,
             credential,
             CorrelationId.New()));

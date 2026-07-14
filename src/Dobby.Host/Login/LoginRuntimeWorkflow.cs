@@ -50,7 +50,7 @@ public sealed record LoginCredentialWarmup(
 
 public interface ILoginCredentialWarmupWorkflow
 {
-    void WarmCredentials(LoginCredentialWarmup warmup);
+    Task WarmCredentialsAsync(LoginCredentialWarmup warmup);
 }
 
 public sealed class LoginRuntimeWorkflow(
@@ -125,12 +125,12 @@ public sealed class LoginRuntimeWorkflow(
         return LoginRuntimeWorkflowResult.Authenticated(session.Value);
     }
 
-    public void WarmCredentials(LoginCredentialWarmup warmup)
+    public Task WarmCredentialsAsync(LoginCredentialWarmup warmup)
     {
         ArgumentNullException.ThrowIfNull(warmup);
 
         var version = Interlocked.Increment(ref credentialWarmupVersion);
-        _ = Task.Run(() => WarmCredentialsCore(warmup, version));
+        return Task.Run(() => WarmCredentialsCore(warmup, version));
     }
 
     private void WarmCredentialsCore(LoginCredentialWarmup warmup, int version)
