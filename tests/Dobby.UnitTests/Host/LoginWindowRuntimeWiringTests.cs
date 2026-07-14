@@ -283,11 +283,9 @@ public sealed class LoginWindowRuntimeWiringTests
         var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LockWindow.xaml.cs");
         var viewModel = ReadSource("src", "Dobby.Host", "Login", "LockViewModel.cs");
         var unlockHandler = codeBehind[
-            codeBehind.IndexOf("private void Unlock_Click", StringComparison.Ordinal)..
-            codeBehind.IndexOf("private void Logout_Click", StringComparison.Ordinal)];
+            codeBehind.IndexOf("private void Unlock_Click", StringComparison.Ordinal)..codeBehind.IndexOf("private void Logout_Click", StringComparison.Ordinal)];
         var logoutHandler = codeBehind[
-            codeBehind.IndexOf("private void Logout_Click", StringComparison.Ordinal)..
-            codeBehind.IndexOf("private void PasswordBox_PasswordChanged", StringComparison.Ordinal)];
+            codeBehind.IndexOf("private void Logout_Click", StringComparison.Ordinal)..codeBehind.IndexOf("private void PasswordBox_PasswordChanged", StringComparison.Ordinal)];
 
         unlockHandler.ShouldContain("viewModel.SubmitUnlock");
         unlockHandler.IndexOf("viewModel.SubmitUnlock", StringComparison.Ordinal)
