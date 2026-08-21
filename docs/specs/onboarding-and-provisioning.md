@@ -97,3 +97,11 @@ routing rule are sufficient.
 - **2026-05-06:** Accepted after `HD-003` and `HD-004` were resolved by human
   decision. This is documentation/spec acceptance only and does not create a
   BranchSetup implementation.
+
+## 2026-08 Provisioning Amendment (Controlling)
+
+Future BranchSetup authorization is a dedicated bounded, purpose-signed artifact
+with explicit branch/deployment identity, operation scope, nonce, issued/expiry
+times and key ID. A plugin license cannot authorize setup. Applying it is
+single-use/idempotent, audited and fails closed on replay, mismatch or expiry.
+This amendment does not open Branch Shared implementation work.

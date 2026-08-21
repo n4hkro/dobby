@@ -17,6 +17,7 @@ using Dobby.Messaging;
 using Dobby.Navigation;
 using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Packaging;
+using Dobby.Security.Authentication;
 using Dobby.Security.Authorization;
 using Dobby.Security.Trust;
 using Dobby.Shell;
@@ -26,7 +27,8 @@ namespace Dobby.SmokeTests;
 
 public sealed class ShellSmokeTests
 {
-    private const string DevQaSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_KEY_PATH";
+    private const string DevQaSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_PLUGIN_PACKAGE_KEY_PATH";
+    private const string DevQaRecoveryKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_OWNER_RECOVERY_RESPONSE_KEY_PATH";
 
     [Fact]
     public void Shell_view_model_exposes_home_plugins_settings_in_stable_order()
@@ -88,7 +90,7 @@ public sealed class ShellSmokeTests
         using var fixture = TempFixture.Create();
         var requestPath = fixture.Path("request.dobbyrecoveryrequest");
         var outputPath = fixture.Path("response.dobbyrecovery");
-        File.WriteAllText(requestPath, RecoveryRequestJson(), new UTF8Encoding(false));
+        File.WriteAllText(requestPath, "{}", new UTF8Encoding(false));
 
         var result = RunAdminProcess(
             adminExe,
@@ -97,12 +99,14 @@ public sealed class ShellSmokeTests
                 "create-recovery-response",
                 "--request-path",
                 requestPath,
+                "--device-public-key-path",
+                fixture.Path("device-public-key.der"),
                 "--signing-profile",
                 "dev-qa",
                 "--output-path",
                 outputPath
             ],
-            startInfo => startInfo.Environment.Remove(DevQaSigningKeyPathVariable));
+            startInfo => startInfo.Environment.Remove(DevQaRecoveryKeyPathVariable));
 
         result.ExitCode.ShouldBe(66, result.Output + result.Error);
         result.Error.ShouldContain("signing-material-unavailable");
@@ -117,10 +121,9 @@ public sealed class ShellSmokeTests
         using var fixture = TempFixture.Create();
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var keyPath = fixture.Path("dev-qa-private-key.pem");
-        var requestPath = fixture.Path("request.dobbyrecoveryrequest");
         var outputPath = fixture.Path("response.dobbyrecovery");
         File.WriteAllText(keyPath, key.ExportPkcs8PrivateKeyPem(), new UTF8Encoding(false));
-        File.WriteAllText(requestPath, RecoveryRequestJson(), new UTF8Encoding(false));
+        var request = WriteRecoveryRequest(fixture);
 
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo(adminExe)
@@ -130,11 +133,13 @@ public sealed class ShellSmokeTests
             RedirectStandardOutput = true,
             CreateNoWindow = true
         };
-        process.StartInfo.Environment[DevQaSigningKeyPathVariable] = keyPath;
+        process.StartInfo.Environment[DevQaRecoveryKeyPathVariable] = keyPath;
         process.StartInfo.ArgumentList.Add("--cli");
         process.StartInfo.ArgumentList.Add("create-recovery-response");
         process.StartInfo.ArgumentList.Add("--request-path");
-        process.StartInfo.ArgumentList.Add(requestPath);
+        process.StartInfo.ArgumentList.Add(request.RequestPath);
+        process.StartInfo.ArgumentList.Add("--device-public-key-path");
+        process.StartInfo.ArgumentList.Add(request.PublicKeyPath);
         process.StartInfo.ArgumentList.Add("--signing-profile");
         process.StartInfo.ArgumentList.Add("dev-qa");
         process.StartInfo.ArgumentList.Add("--output-path");
@@ -355,30 +360,29 @@ public sealed class ShellSmokeTests
         return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
     }
 
-    private static string RecoveryRequestJson()
+    private static RecoveryRequestFiles WriteRecoveryRequest(TempFixture fixture)
     {
-        return """
-            {
-              "type": "dobby.owner-recovery-request.v1",
-              "dobbyVersion": "1.0.0",
-              "requestedAt": "2026-06-20T09:00:00Z",
-              "deviceIdentity": {
-                "machineGuid": "machine",
-                "cpuId": "cpu",
-                "motherboardSerial": "board",
-                "diskSerial": "disk",
-                "macAddress": "mac"
-              },
-              "deviceDisplayName": "Owner laptop",
-              "requestId": "request-1"
-            }
-            """;
+        using var deviceKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var publicKey = deviceKey.ExportSubjectPublicKeyInfo();
+        var created = new RecoveryRequestExporter(
+            new DeviceRecoveryKeySigner(deviceKey.ExportPkcs8PrivateKey(), publicKey),
+            new RecoveryAuthorityContext("customer-1", "deployment-1", "device:smoke-1"),
+            TimeProvider.System,
+            VendorRecoveryPublicKey.DevQaKeyId).CreateRequest();
+        created.IsSuccess.ShouldBeTrue(created.ErrorCode?.ToString());
+        var requestPath = fixture.Path("request-v2.dobbyrecoveryrequest");
+        var publicKeyPath = fixture.Path("device-public-key.der");
+        File.WriteAllText(requestPath, RecoveryRequestExporter.Serialize(created.Value), new UTF8Encoding(false));
+        File.WriteAllBytes(publicKeyPath, publicKey);
+        return new RecoveryRequestFiles(requestPath, publicKeyPath);
     }
 
     private sealed record AdminProcessResult(
         int ExitCode,
         string Output,
         string Error);
+
+    private sealed record RecoveryRequestFiles(string RequestPath, string PublicKeyPath);
 
     private sealed class DevQaSigningKeyTrustVerifier(ECDsa key) : IPluginTrustVerifier
     {

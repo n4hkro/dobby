@@ -61,7 +61,7 @@ change moves an acceptance item between stages.
 | AC-026 | Login səhvləri ardıcıl simulyasiya ediləndə 1-ci və 2-ci səhvdə login button aktiv qalır, 3-cü səhvdən sonra 10 saniyə, 4-cü səhvdən sonra 30 saniyə, 5-ci və sonrakı səhvlərdən sonra 60 saniyə countdown göstərilir və login button disabled olur. Countdown aktivkən username dəyişmək cəzanı sıfırlamır; uğurlu login failed-attempt state-i təmizləyir. | integration | `FR-022`, `ADR-0038` |
 | AC-027 | Shell və built-in ekranlar keyboard-only navigation, görünən focus indicator, minimum contrast və əsas control-lar üçün accessibility role/label mapping baseline-ını saxlayır; full WCAG/screen reader polish P3-ə saxlanılsa da P1-də əsas shell workflow-ları mouse tələb etməməlidir. | integration + manual | `NFR-019` |
 | AC-028 | User A ilə login edilib work session açıldıqdan sonra logout çağırılanda active work xəbərdarlığı göstərilir; təsdiqdən sonra login ekranı görünür, User A identity/session material/cached permission decision/in-memory plugin service state-i istifadə edilmir və User B yalnız yeni uğurlu login-dən sonra fresh session alır. Remember-me aktivdirsə logout-dan sonra saved masked login qalır; slot növbəti uğurlu login zamanı remember-me OFF seçildikdə boşaldılır. | integration | `FR-023`, `ADR-0031`, `ADR-0050` |
-| AC-029 | Current user profile/account səthindən password dəyişəndə cari password soruşulmur, cari session açıq qalır və növbəti login yalnız yeni password ilə uğurlu olur. Manual lock və auto-lock eyni lock screen-i açır; lock screen cari user password-u ilə unlock edir və ya logout button-u ilə login ekranına qayıdır, amma həmin ekranda başqa user login flow-u göstərilmir. Auto-lock default passivdir və aktivləşdirildikdə minute timeout dəyəri ilə işləyir. | integration + manual | `FR-024`, `ADR-0031` |
+| AC-029 | Current user profile/account səthindən password dəyişəndə cari password və eyni new-password confirmation tələb olunur; yanlış proof non-disclosing deny və durable throttle yaradır. Uğurlu atomik commit cari session-u açıq saxlayır, başqa active session-ları invalid edir və növbəti login yalnız yeni password ilə uğurlu olur; injected write/commit failure köhnə credential/session/audit vəziyyətini saxlayır. Manual lock və auto-lock eyni lock screen-i açır; lock screen cari user password-u ilə unlock edir və ya logout button-u ilə login ekranına qayıdır, amma həmin ekranda başqa user login flow-u göstərilmir. Auto-lock default passivdir və aktivləşdirildikdə minute timeout dəyəri ilə işləyir. | integration + manual | `FR-024`, `ADR-0031`, `ADR-0058`, `ADR-0061` |
 | AC-030 | Owner yeni managed user yarada, məlumatını dəyişə, password reset edə, deactivate/reactivate edə və permission verə bilir. Uyğun permission verilmiş managed user yalnız həmin əməliyyatları icra edə bilir; Owner-i deactivate edə, Owner məlumat/status/permission-larını dəyişə, özünə permission əlavə edə və ya özündə olmayan permission-u başqasına grant edə bilmir. Managed user password reset recovery flow-a düşmür və User Management audit entry yaradır. | integration | `FR-003`, `FR-018`, `ADR-0048` |
 | AC-031 | `Plugins` list plugin name, version, status və short description göstərir. `import` permission olmayan user install edə bilmir; `configure` permission olmayan user enable/disable edə bilmir; `delete` permission olmayan user uninstall edə bilmir. Disable edilən plugin navigation-dan və runtime activation-dan çıxır. Uninstall təsdiq modalı göstərir və istifadəçi data saxla/sil seçimi etmədən uninstall davam etmir. Cari process-də aktivləşdirilmiş plugin uninstall ediləndə plugin `Pending uninstall` state-inə keçir, dərhal disabled/hidden olur, navigation/runtime activation-dan çıxır, runtime faylları növbəti app start-da fresh discovery-dən əvvəl silinir və restart tamamlanana qədər list restart-required state göstərir. Heç vaxt aktivləşdirilməmiş plugin uninstall flow-u runtime fayllarını host nəzarəti ilə dərhal silə bilər. | integration + snapshot | `FR-025`, `FR-018`, `ADR-0007`, `ADR-0048`, `docs/specs/plugins-manager.md` |
 | AC-032 | Runtime-da plugin screen/task unhandled fault verdikdə host app çökmür, həmin plugin instance/screen/task faulted/stopped vəziyyətə keçir, başqa plugin-lər və shell işləməyə davam edir, user non-technical error görür, raw exception detail diagnostics-only qalır və audit-də yalnız lifecycle/security-significant fault event + typed reason/correlation saxlanılır. | integration | `FR-026`, `NFR-006`, `NFR-008`, `ADR-0012` |
@@ -115,3 +115,33 @@ Mode-aware interpretations:
 
 Branch Shared runtime acceptance criteria are intentionally not added to P1-core
 until a later human-approved skeleton/runtime phase opens.
+
+## 2026-08 Acceptance Amendment (Controlling)
+
+The following criteria replace conflicting earlier interpretations:
+
+- **AC-001:** a behavior test proves that no shell, plugin scan/activation,
+  license maintenance, retention job or business repository starts before a
+  successful session; logout disposes the authenticated scope.
+- **AC-004/AC-014:** restart never restores a password-equivalent secret. Durable
+  account/device throttles survive restart, isolate accounts and bound concurrent
+  password verification work.
+- **AC-007:** recovery rejects replay, wrong request/nonce/device/key-purpose,
+  expired response and key rotation mismatch; no fuzzy hardware match can
+  authorize recovery.
+- **AC-015:** a valid license import commits state, attestation and audit/outbox
+  atomically; malformed/invalid input and injected commit failures preserve LKG.
+  Pending/active/grace/read-only states are derived at every evaluation.
+- **AC-025/AC-033/AC-034:** archive limit, path traversal, Windows name,
+  collision, compression-bomb, signature-purpose and key-rotation cases are
+  executable tests. In-process plugin trust is explicitly disclosed.
+- **AC-046:** install/import/verify/activate actions do not block the dispatcher,
+  expose cancellable progress and clean staging deterministically. Expected
+  validation or license rejection does not count as a plugin runtime fault.
+- Host diagnostics export succeeds in every license state while plugin/domain
+  export gates remain enforced.
+- Package/MSIX release acceptance requires actual install, installed launch,
+  upgrade and data-preservation evidence with a production-appropriate signing
+  profile; build output alone cannot close the gate.
+- Architecture/source assertions supplement but never replace end-to-end,
+  restart, crash/fault-injection and packaged-install behavior tests.

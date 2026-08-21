@@ -10,6 +10,7 @@ public sealed class HostLoginRecoveryStringCatalogTests
         HostResourceKeys.LoginTitle,
         HostResourceKeys.LoginUsername,
         HostResourceKeys.LoginPassword,
+        HostResourceKeys.LoginRememberMe,
         HostResourceKeys.LoginThrottleCountdown,
         HostResourceKeys.LoginRecoveryExport,
         HostResourceKeys.LoginRecoveryImport,
@@ -31,5 +32,21 @@ public sealed class HostLoginRecoveryStringCatalogTests
         var value = new HostStringCatalog().GetString(key);
 
         value.ShouldNotBe($"[[{key}]]");
+    }
+
+    [Theory]
+    [InlineData("az-AZ", "Bu istifadəçi adını yadda saxla")]
+    [InlineData("en-US", "Remember this username")]
+    [InlineData("tr-TR", "Bu kullanıcı adını hatırla")]
+    public void Remembered_login_label_explicitly_describes_username_only_behavior(
+        string cultureName,
+        string expected)
+    {
+        var catalog = HostStringCatalog.CreateResourceBacked();
+
+        catalog.GetString(
+                HostResourceKeys.LoginRememberMe,
+                System.Globalization.CultureInfo.GetCultureInfo(cultureName))
+            .ShouldBe(expected);
     }
 }

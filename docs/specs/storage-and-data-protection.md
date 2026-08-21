@@ -229,3 +229,13 @@ evolution must not add password, token, private key, raw connection string or
 other credential-bearing fields without an ADR/spec amendment; new secret
 material stays in protected storage and may be referenced only by non-secret
 profile keys.
+
+## 2026-08 Protected-Material Amendment (Controlling)
+
+Remembered-login storage contains no password, reversible credential,
+password-equivalent verifier or startup snapshot. Existing legacy records are
+migrated by deleting the secret while retaining only a normalized account
+selection when safe. DPAPI remains appropriate for protected key material, but
+encryption scope does not justify persisting a replayable login credential.
+Recovery private keys and purpose-separated signing/trust material have explicit
+ACL, scope, rotation and failure behavior.

@@ -1,6 +1,6 @@
 # ADR-0057: Mode-Aware Authentication Boundary
 
-**Status:** Accepted
+**Status:** Accepted (credential and BranchSetup proof details amended by ADR-0058 and ADR-0060)
 **Date:** 2026-05-06
 
 ## Context

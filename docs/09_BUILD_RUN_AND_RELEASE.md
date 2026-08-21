@@ -357,3 +357,29 @@ evidence.
 `HD-005` is resolved by `DM-092`: release docs must say "selected PostgreSQL
 setup artifact/runbook" unless Tier B customer-release work explicitly chooses
 and evidences a bundled PostgreSQL packaging model.
+
+## 2026-08 Release Evidence Amendment (Controlling)
+
+The current release track is Standalone. Branch Shared remains future work and
+cannot block Standalone hardening unless an explicit approval reopens it.
+
+Every candidate release must retain machine-readable evidence for:
+
+1. clean restore or documented offline/no-restore asset provenance;
+2. format, build, unit, integration and smoke-test results;
+3. password/throttle restart tests, atomicity fault injection, malicious archive
+   corpus and license/recovery negative cases;
+4. portable launch/smoke verification against the candidate bits;
+5. MSIX build, clean install, installed launch, upgrade, uninstall policy and
+   user-data preservation using the real package identity/storage roots;
+6. production-appropriate certificate chain/timestamp/profile, artifact hashes,
+   SBOM/dependency and vulnerability/license review;
+7. an installable, correctly signed sample plugin plus a deterministic
+   `verify-plugin-package` tool/command and negative fixtures;
+8. removal of placeholder contact strings, graphics, dummy hashes/signatures,
+   developer-only paths and test keys from customer artifacts.
+
+A self-signed RC proves packaging mechanics only. GA is blocked until installed
+behavior, upgrade/data preservation and signing/distribution evidence are
+captured. Evidence-only or source-text tests do not promote an incomplete
+feature to implemented status.

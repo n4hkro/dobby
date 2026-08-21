@@ -110,6 +110,7 @@ public sealed partial class NoPlaintextSecretContentScanTests
     [InlineData("private string submittedPassword = string.Empty;")]
     [InlineData("ChangePassword = _ => Result.Success()")]
     [InlineData("viewModel.SubmittedPassword = PasswordBox.Password;")]
+    [InlineData("public string? Password => passwordValue;")]
     public void Plaintext_secret_pattern_ignores_password_flow_identifiers_without_literal_secrets(string source)
     {
         ContainsPlaintextSecret(source, "src/Sample.cs").ShouldBeFalse();
@@ -192,7 +193,6 @@ public sealed partial class NoPlaintextSecretContentScanTests
             var (line, matchIndexInLine) = MatchLine(text, match);
             if (IsRedactedPlaceholder(match) ||
                 IsHostResourceKeyDeclaration(normalizedPath, line) ||
-                IsApprovedPasswordProtocolMarker(normalizedPath, line, match) ||
                 IsApprovedFixtureMatch(normalizedPath, line, match) ||
                 IsCSharpPasswordFlow(normalizedPath, line, matchIndexInLine, match))
             {
@@ -249,20 +249,6 @@ public sealed partial class NoPlaintextSecretContentScanTests
     {
         return path.Equals("src/Dobby.Localization/HostResourceKeys.cs", StringComparison.OrdinalIgnoreCase) &&
             HostResourcePasswordKeyDeclarationPattern().IsMatch(line);
-    }
-
-    private static bool IsApprovedPasswordProtocolMarker(string path, string line, Match match)
-    {
-        var isApprovedPath = path.Equals(
-                "src/Dobby.Host/StartupRememberMeSnapshotStore.cs",
-                StringComparison.OrdinalIgnoreCase) ||
-            path.Equals(
-                "src/Dobby.Security/Authentication/RememberMeSlotService.cs",
-                StringComparison.OrdinalIgnoreCase);
-        return isApprovedPath &&
-            RememberMePasswordProtocolMarkerPattern().IsMatch(line) &&
-            match.Groups["passwordValue"].Success &&
-            match.Groups["passwordValue"].Value.Equals(@"v1\0", StringComparison.Ordinal);
     }
 
     private static bool IsApprovedFixtureMatch(string path, string line, Match match)
@@ -326,6 +312,12 @@ public sealed partial class NoPlaintextSecretContentScanTests
         }
 
         var value = match.Groups["passwordValue"].Value;
+        if (value.Equals(">", StringComparison.Ordinal) &&
+            CSharpExpressionBodiedPasswordPropertyPattern().IsMatch(line))
+        {
+            return true;
+        }
+
         if (value.Contains('"') ||
             IsInsideCSharpString(line, matchIndexInLine) ||
             IsInsideCSharpLineComment(line, matchIndexInLine))
@@ -448,6 +440,6 @@ public sealed partial class NoPlaintextSecretContentScanTests
     [GeneratedRegex("^(?:_|[A-Za-z_][A-Za-z0-9_.]*(?:\\([^\\r\\n]*\\))?)$", RegexOptions.CultureInvariant)]
     private static partial Regex CSharpPasswordFlowValuePattern();
 
-    [GeneratedRegex("^\\s*private static readonly byte\\[\\] PasswordPayloadPrefix\\s*=\\s*\"Dobby:(?:Startup)?RememberMePassword:v1\\\\0\"u8\\.ToArray\\(\\);\\s*$", RegexOptions.CultureInvariant)]
-    private static partial Regex RememberMePasswordProtocolMarkerPattern();
+    [GeneratedRegex("^\\s*(?:public|internal|protected|private)\\s+(?:static\\s+)?[A-Za-z_][A-Za-z0-9_?.<>]*\\s+Password\\s*=>\\s*[A-Za-z_][A-Za-z0-9_.]*;\\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex CSharpExpressionBodiedPasswordPropertyPattern();
 }

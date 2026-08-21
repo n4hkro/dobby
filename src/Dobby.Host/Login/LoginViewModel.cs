@@ -1,65 +1,31 @@
 using Dobby.Security.Authentication;
+
 namespace Dobby.Host.Login;
 
 public sealed class LoginViewModel
 {
-    public const string SavedPasswordPlaceholder = "********";
-
     private readonly LoginThrottleService? throttleService;
-    private Func<string?>? passwordResolver;
+    private readonly string? throttleAccountKey;
     private string? passwordValue;
 
     public LoginViewModel(
-        RememberMeSavedLogin? savedLogin,
+        RememberedLoginAccount? rememberedAccount,
         LoginThrottleService? throttleService = null,
         bool showDisplayNameInput = false)
     {
         this.throttleService = throttleService;
         ShouldShowDisplayNameInput = showDisplayNameInput;
-        if (savedLogin is not null)
+        if (rememberedAccount is not null)
         {
-            Username = savedLogin.MaskedUsername;
-            if (savedLogin.HasMaskedPasswordPrefill)
-            {
-                passwordValue = savedLogin.Password;
-                IsPasswordPrefilled = true;
-                RememberMeSelected = true;
-            }
+            Username = rememberedAccount.UsernameNormalized;
+            RememberMeSelected = true;
+            throttleAccountKey = rememberedAccount.UserId;
         }
-    }
-
-    public static LoginViewModel CreateStartupPrefill(string username, Func<string?> resolvePassword)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(username);
-        ArgumentNullException.ThrowIfNull(resolvePassword);
-
-        return new LoginViewModel(null)
-        {
-            Username = username,
-            passwordResolver = resolvePassword,
-            IsPasswordPrefilled = true,
-            RememberMeSelected = true
-        };
     }
 
     public string? Username { get; private set; }
 
-    public string? Password
-    {
-        get
-        {
-            return passwordValue;
-        }
-    }
-
-    public bool IsPasswordPrefilled { get; private set; }
-
-    public string? InitialPasswordDisplayValue =>
-        IsPasswordPrefilled && (passwordValue is not null || passwordResolver is not null)
-            ? SavedPasswordPlaceholder
-            : passwordValue;
-
-    public bool HasStoredPasswordRevealControl => false;
+    public string? Password => passwordValue;
 
     public bool RememberMeSelected { get; private set; }
 
@@ -74,36 +40,11 @@ public sealed class LoginViewModel
     public void EditPassword(string password)
     {
         passwordValue = password;
-        passwordResolver = null;
-        IsPasswordPrefilled = false;
-    }
-
-    public string SubmittedPassword(string displayedPassword)
-    {
-        if (!IsPasswordPrefilled)
-        {
-            return displayedPassword;
-        }
-
-        if (passwordValue is not null)
-        {
-            return passwordValue;
-        }
-
-        var resolvedCredential = passwordResolver?.Invoke();
-        if (resolvedCredential is not null)
-        {
-            passwordValue = resolvedCredential;
-            passwordResolver = null;
-            return resolvedCredential;
-        }
-
-        return displayedPassword;
     }
 
     public void RefreshThrottleState()
     {
-        var state = throttleService?.Check();
+        var state = throttleService?.Check(throttleAccountKey);
         IsLoginEnabled = state is null || !state.IsThrottled;
         ThrottleCountdownText = state is { IsThrottled: true }
             ? state.RetryAfterSeconds.ToString()

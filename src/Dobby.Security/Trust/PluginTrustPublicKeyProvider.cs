@@ -6,40 +6,51 @@ namespace Dobby.Security.Trust;
 
 public sealed class PluginTrustPublicKeyProvider
 {
-    public const string ProductionResourceName = "Dobby.Security.Trust.vendor-master-public-key.pem";
-    public const string DevQaResourceName = "Dobby.Security.Trust.dev-qa-public-key.pem";
+    public const string ProductionResourceName = "Dobby.Security.Trust.vendor-plugin-package-public-key.pem";
+    public const string DevQaResourceName = "Dobby.Security.Trust.dev-qa-plugin-package-public-key.pem";
+    public const string ProductionLicenseResourceName = "Dobby.Security.Trust.vendor-plugin-license-public-key.pem";
+    public const string DevQaLicenseResourceName = "Dobby.Security.Trust.dev-qa-plugin-license-public-key.pem";
+    public const string ProductionPluginPackageKeyId = "plugin-prod-2026-01";
+    public const string DevQaPluginPackageKeyId = "plugin-test-2026-01";
+    public const string ProductionPluginLicenseKeyId = "license-prod-2026-01";
+    public const string DevQaPluginLicenseKeyId = "license-test-2026-01";
 
     private readonly DobbyPluginTrustProfile profile;
+    private readonly string purpose;
     private readonly IReadOnlyDictionary<string, byte[]>? resourceMap;
     private readonly Assembly assembly;
 
-    public PluginTrustPublicKeyProvider(DobbyPluginTrustProfile profile = DobbyPluginTrustProfile.Production)
-        : this(profile, assembly: typeof(PluginTrustPublicKeyProvider).Assembly)
+    public PluginTrustPublicKeyProvider(
+        DobbyPluginTrustProfile profile = DobbyPluginTrustProfile.Production,
+        string purpose = ArtifactSignaturePurposes.PluginPackage)
+        : this(profile, purpose, assembly: typeof(PluginTrustPublicKeyProvider).Assembly)
     {
     }
 
     internal PluginTrustPublicKeyProvider(
         DobbyPluginTrustProfile profile,
-        IReadOnlyDictionary<string, byte[]> resourceMap)
+        IReadOnlyDictionary<string, byte[]> resourceMap,
+        string purpose = ArtifactSignaturePurposes.PluginPackage)
     {
         ArgumentNullException.ThrowIfNull(resourceMap);
 
         this.profile = profile;
+        this.purpose = ValidatePurpose(purpose);
         this.resourceMap = resourceMap;
         assembly = typeof(PluginTrustPublicKeyProvider).Assembly;
     }
 
-    private PluginTrustPublicKeyProvider(DobbyPluginTrustProfile profile, Assembly assembly)
+    private PluginTrustPublicKeyProvider(DobbyPluginTrustProfile profile, string purpose, Assembly assembly)
     {
         this.profile = profile;
+        this.purpose = ValidatePurpose(purpose);
         this.assembly = assembly;
     }
 
     public PluginTrustPublicKeyResolutionResult Resolve()
     {
-        var resourceName = profile == DobbyPluginTrustProfile.Production
-            ? ProductionResourceName
-            : DevQaResourceName;
+        var descriptor = ResolveDescriptor(profile, purpose);
+        var resourceName = descriptor.ResourceName;
 
         var resources = resourceMap ?? ReadAssemblyResources();
         var keys = resources.Keys.ToArray();
@@ -49,7 +60,11 @@ public sealed class PluginTrustPublicKeyProvider
             return PluginTrustPublicKeyResolutionResult.Failure("trust-failed", $"Missing trust resource '{resourceName}'.");
         }
 
-        var forbiddenName = profile == DobbyPluginTrustProfile.Production ? DevQaResourceName : ProductionResourceName;
+        var forbiddenName = ResolveDescriptor(
+            profile == DobbyPluginTrustProfile.Production
+                ? DobbyPluginTrustProfile.DevQa
+                : DobbyPluginTrustProfile.Production,
+            purpose).ResourceName;
         if (resources.ContainsKey(forbiddenName))
         {
             return PluginTrustPublicKeyResolutionResult.Failure("trust-failed", $"Unexpected trust resource '{forbiddenName}' was found alongside the selected profile.");
@@ -68,9 +83,13 @@ public sealed class PluginTrustPublicKeyProvider
                 new PluginTrustPublicKey(
                     resourceName,
                     profile,
-                    1,
+                    purpose,
+                    descriptor.KeyId,
                     der,
-                    Sha256(der)));
+                    Sha256(der),
+                    DateTimeOffset.Parse("2026-01-01T00:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
+                    RetiredAtUtc: null,
+                    IsTestOnly: profile == DobbyPluginTrustProfile.DevQa));
         }
         catch (FormatException exception)
         {
@@ -124,4 +143,33 @@ public sealed class PluginTrustPublicKeyProvider
     {
         return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     }
+
+    private static string ValidatePurpose(string value)
+    {
+        if (!value.Equals(ArtifactSignaturePurposes.PluginPackage, StringComparison.Ordinal) &&
+            !value.Equals(ArtifactSignaturePurposes.PluginLicense, StringComparison.Ordinal))
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "Only plugin-package and plugin-license trust purposes are supported.");
+        }
+
+        return value;
+    }
+
+    private static TrustResourceDescriptor ResolveDescriptor(DobbyPluginTrustProfile profile, string purpose)
+    {
+        return (profile, purpose) switch
+        {
+            (DobbyPluginTrustProfile.Production, ArtifactSignaturePurposes.PluginPackage) =>
+                new TrustResourceDescriptor(ProductionResourceName, ProductionPluginPackageKeyId),
+            (DobbyPluginTrustProfile.DevQa, ArtifactSignaturePurposes.PluginPackage) =>
+                new TrustResourceDescriptor(DevQaResourceName, DevQaPluginPackageKeyId),
+            (DobbyPluginTrustProfile.Production, ArtifactSignaturePurposes.PluginLicense) =>
+                new TrustResourceDescriptor(ProductionLicenseResourceName, ProductionPluginLicenseKeyId),
+            (DobbyPluginTrustProfile.DevQa, ArtifactSignaturePurposes.PluginLicense) =>
+                new TrustResourceDescriptor(DevQaLicenseResourceName, DevQaPluginLicenseKeyId),
+            _ => throw new ArgumentOutOfRangeException(nameof(purpose))
+        };
+    }
+
+    private sealed record TrustResourceDescriptor(string ResourceName, string KeyId);
 }

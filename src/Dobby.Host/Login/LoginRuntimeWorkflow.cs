@@ -1,8 +1,6 @@
 using Dobby.Core;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Security.Authentication;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace Dobby.Host.Login;
 
@@ -43,54 +41,87 @@ public interface ILoginRuntimeWorkflow
     LoginRuntimeWorkflowResult Submit(LoginSubmission submission);
 }
 
-public sealed record LoginCredentialWarmup(
-    string Username,
-    string Password,
-    CorrelationId CorrelationId);
-
-public interface ILoginCredentialWarmupWorkflow
-{
-    Task WarmCredentialsAsync(LoginCredentialWarmup warmup);
-}
-
 public sealed class LoginRuntimeWorkflow(
     LoginService loginService,
     SessionLifecycleService sessionLifecycleService,
     RememberMeSlotService rememberMeSlotService,
     LoginAuditCoordinator auditCoordinator,
-    IHostPersistenceTransactionScope? transactionScope = null) : ILoginRuntimeWorkflow, ILoginCredentialWarmupWorkflow
+    IHostPersistenceTransactionScope? transactionScope = null) : ILoginRuntimeWorkflow
 {
-    private readonly byte[] credentialWarmupSecret = RandomNumberGenerator.GetBytes(32);
-    private int credentialWarmupVersion;
-    private WarmedCredential? warmedCredential;
+    private readonly object submissionGate = new();
 
     public LoginRuntimeWorkflowResult Submit(LoginSubmission submission)
     {
         ArgumentNullException.ThrowIfNull(submission);
 
-        if (transactionScope is null)
+        lock (submissionGate)
         {
-            return SubmitCore(submission);
+            if (transactionScope is null)
+            {
+                return CompleteSuccessfulThrottleReset(
+                    SubmitCore(submission, durableOnly: false, out _),
+                    submission.Username);
+            }
+
+            LoginRuntimeWorkflowResult? result = null;
+            try
+            {
+                transactionScope.ExecuteInTransaction(_ =>
+                {
+                    result = SubmitCore(submission, durableOnly: true, out var credentialsSucceeded);
+                    if (credentialsSucceeded && !result.IsAuthenticated)
+                    {
+                        throw new PostAuthenticationMutationException(
+                            result.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+                    }
+                });
+            }
+            catch (PostAuthenticationMutationException exception)
+            {
+                return LoginRuntimeWorkflowResult.InfrastructureFailure(exception.ErrorCode);
+            }
+
+            var committed = result ?? LoginRuntimeWorkflowResult.InfrastructureFailure(ErrorCode.DatabaseUnavailable);
+            if (committed.IsAuthenticated && committed.Session is not null)
+            {
+                var activated = sessionLifecycleService.ActivateExisting(committed.Session);
+                if (!activated.IsSuccess)
+                {
+                    return LoginRuntimeWorkflowResult.InfrastructureFailure(activated.ErrorCode!.Value);
+                }
+            }
+
+            return CompleteSuccessfulThrottleReset(committed, submission.Username);
         }
-
-        LoginRuntimeWorkflowResult? result = null;
-        transactionScope.ExecuteInTransaction(_ =>
-        {
-            result = SubmitCore(submission);
-        });
-
-        return result ?? LoginRuntimeWorkflowResult.InfrastructureFailure(ErrorCode.DatabaseUnavailable);
     }
 
-    private LoginRuntimeWorkflowResult SubmitCore(LoginSubmission submission)
+    private LoginRuntimeWorkflowResult CompleteSuccessfulThrottleReset(
+        LoginRuntimeWorkflowResult result,
+        string submittedUsername)
     {
-        var attempt = TryUseWarmedCredential(submission, out var warmedUserId)
-            ? loginService.LoginWithValidatedCredential(submission.Username, warmedUserId)
-            : loginService.Login(
-                submission.Username,
-                submission.Password,
-                submission.DisplayName,
-                submission.CorrelationId);
+        if (result.IsAuthenticated && result.Session is not null)
+        {
+            var normalized = UsernameCanonicalValidator.Normalize(submittedUsername);
+            if (normalized.IsSuccess)
+            {
+                _ = loginService.RecordSuccessfulSession(result.Session.UserId, normalized.Value);
+            }
+        }
+
+        return result;
+    }
+
+    private LoginRuntimeWorkflowResult SubmitCore(
+        LoginSubmission submission,
+        bool durableOnly,
+        out bool credentialsSucceeded)
+    {
+        credentialsSucceeded = false;
+        var attempt = loginService.Login(
+            submission.Username,
+            submission.Password,
+            submission.DisplayName,
+            submission.CorrelationId);
 
         if (attempt.Kind != LoginAttemptKind.Success)
         {
@@ -98,13 +129,17 @@ public sealed class LoginRuntimeWorkflow(
             return LoginRuntimeWorkflowResult.Unauthenticated(attempt);
         }
 
+        credentialsSucceeded = true;
+
         var normalized = UsernameCanonicalValidator.Normalize(submission.Username);
         if (!normalized.IsSuccess)
         {
             return LoginRuntimeWorkflowResult.InfrastructureFailure(normalized.ErrorCode!.Value);
         }
 
-        var session = sessionLifecycleService.Create(attempt.UserId!);
+        var session = durableOnly
+            ? sessionLifecycleService.CreateDurable(attempt.UserId!)
+            : sessionLifecycleService.Create(attempt.UserId!);
         if (!session.IsSuccess)
         {
             return LoginRuntimeWorkflowResult.InfrastructureFailure(session.ErrorCode!.Value);
@@ -113,11 +148,9 @@ public sealed class LoginRuntimeWorkflow(
         var remember = rememberMeSlotService.ApplySuccessfulLogin(
             attempt.UserId!,
             normalized.Value,
-            submission.Password,
             submission.RememberMe);
         if (!remember.IsSuccess)
         {
-            sessionLifecycleService.Logout("login.remember-me-failed");
             return LoginRuntimeWorkflowResult.InfrastructureFailure(remember.ErrorCode!.Value);
         }
 
@@ -125,87 +158,9 @@ public sealed class LoginRuntimeWorkflow(
         return LoginRuntimeWorkflowResult.Authenticated(session.Value);
     }
 
-    public Task WarmCredentialsAsync(LoginCredentialWarmup warmup)
+    private sealed class PostAuthenticationMutationException(ErrorCode errorCode) : Exception
     {
-        ArgumentNullException.ThrowIfNull(warmup);
-
-        var version = Interlocked.Increment(ref credentialWarmupVersion);
-        return Task.Run(() => WarmCredentialsCore(warmup, version));
+        public ErrorCode ErrorCode { get; } = errorCode;
     }
 
-    private void WarmCredentialsCore(LoginCredentialWarmup warmup, int version)
-    {
-        try
-        {
-            var validation = loginService.ValidateExistingCredentials(warmup.Username, warmup.Password);
-            if (!validation.IsAuthenticated ||
-                string.IsNullOrWhiteSpace(validation.UserId) ||
-                string.IsNullOrWhiteSpace(validation.UsernameNormalized))
-            {
-                ClearWarmedCredential(version);
-                return;
-            }
-
-            var fingerprint = ComputeCredentialFingerprint(validation.UsernameNormalized, warmup.Password);
-            if (version == Volatile.Read(ref credentialWarmupVersion))
-            {
-                Volatile.Write(
-                    ref warmedCredential,
-                    new WarmedCredential(validation.UserId, validation.UsernameNormalized, fingerprint));
-            }
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
-        {
-            ClearWarmedCredential(version);
-        }
-    }
-
-    private void ClearWarmedCredential(int version)
-    {
-        if (version == Volatile.Read(ref credentialWarmupVersion))
-        {
-            Volatile.Write(ref warmedCredential, null);
-        }
-    }
-
-    private bool TryUseWarmedCredential(LoginSubmission submission, out string userId)
-    {
-        userId = string.Empty;
-        var normalized = UsernameCanonicalValidator.Normalize(submission.Username);
-        if (!normalized.IsSuccess)
-        {
-            return false;
-        }
-
-        var cached = Volatile.Read(ref warmedCredential);
-        if (cached is null ||
-            !StringComparer.Ordinal.Equals(cached.UsernameNormalized, normalized.Value))
-        {
-            return false;
-        }
-
-        var fingerprint = ComputeCredentialFingerprint(normalized.Value, submission.Password);
-        if (!CryptographicOperations.FixedTimeEquals(fingerprint, cached.PasswordFingerprint))
-        {
-            return false;
-        }
-
-        userId = cached.UserId;
-        return true;
-    }
-
-    private byte[] ComputeCredentialFingerprint(string usernameNormalized, string password)
-    {
-        using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hasher.AppendData(credentialWarmupSecret);
-        hasher.AppendData(Encoding.UTF8.GetBytes(usernameNormalized));
-        hasher.AppendData([0]);
-        hasher.AppendData(Encoding.UTF8.GetBytes(password));
-        return hasher.GetHashAndReset();
-    }
-
-    private sealed record WarmedCredential(
-        string UserId,
-        string UsernameNormalized,
-        byte[] PasswordFingerprint);
 }

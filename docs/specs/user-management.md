@@ -170,3 +170,15 @@ Branch Shared devices do not keep local credential mirrors or stale permission
 caches. Authorization decisions for shared operations require current Branch
 Shared authority. When PostgreSQL is unavailable or validation fails, protected
 shared operations fail closed.
+
+## 2026-08 Hardening Amendment (Controlling)
+
+- Self-service password change requires the current password or a separately
+  approved reauthentication ceremony plus new-password confirmation.
+- Owner/admin reset is a distinct audited privileged operation and invalidates
+  affected sessions according to policy.
+- Create, change/reset password, deactivate/reactivate and session-invalidation
+  workflows commit the user state and mandatory audit/outbox evidence atomically.
+  Injected commit failure must preserve the prior effective state.
+- Password input and hashes never appear in audit, diagnostics, result details or
+  UI notifications.

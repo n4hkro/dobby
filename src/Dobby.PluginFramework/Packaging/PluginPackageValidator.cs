@@ -40,6 +40,10 @@ public static class PluginPackageValidator
         "AssemblyDependencyResolver"
     ];
 
+    private static readonly byte[][] ForbiddenAssemblyMarkerBytes = ForbiddenAssemblyMarkers
+        .Select(Encoding.UTF8.GetBytes)
+        .ToArray();
+
     public static PluginPackageValidationOutcome Validate(
         PluginPackageArchive archive,
         HostVersion hostVersion,
@@ -64,7 +68,7 @@ public static class PluginPackageValidator
 
         var manifestFiles = archive.Manifest.Files
             .Select(file => new PluginPackageEntry(
-                NormalizePath(file.Path),
+                file.Path,
                 Array.Empty<byte>(),
                 file.Sha256,
                 false))
@@ -116,8 +120,7 @@ public static class PluginPackageValidator
         IReadOnlyList<PluginPackageEntry> manifestFiles,
         ICollection<PluginPackageValidationReason> reasons)
     {
-        var normalizedEntryAssembly = NormalizePath(entryAssembly);
-        if (manifestFiles.Any(file => file.Path.Equals(normalizedEntryAssembly, StringComparison.Ordinal)))
+        if (manifestFiles.Any(file => file.Path.Equals(entryAssembly, StringComparison.Ordinal)))
         {
             return;
         }
@@ -132,8 +135,6 @@ public static class PluginPackageValidator
         IReadOnlyList<PluginPackageEntry> entries,
         ICollection<PluginPackageValidationReason> reasons)
     {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         foreach (var entry in entries)
         {
             if (entry.IsSymlink)
@@ -141,15 +142,25 @@ public static class PluginPackageValidator
                 reasons.Add(new PluginPackageValidationReason("forbidden-content", "Symlink package entries are forbidden.", entry.Path));
             }
 
-            if (!IsCanonicalPackageRelativePath(entry.Path))
+            if (!PluginPackagePathPolicy.TryNormalize(entry.Path, out var normalized) ||
+                !normalized.Equals(entry.Path, StringComparison.Ordinal))
             {
                 reasons.Add(new PluginPackageValidationReason("forbidden-content", "Package entry path is forbidden.", entry.Path));
             }
+        }
 
-            if (!seen.Add(entry.Path))
-            {
-                reasons.Add(new PluginPackageValidationReason("forbidden-content", "Duplicate package entry path detected.", entry.Path));
-            }
+        if (PluginPackagePathPolicy.HasCaseOrUnicodeCollision(entries.Select(entry => entry.Path)))
+        {
+            reasons.Add(new PluginPackageValidationReason(
+                "forbidden-content",
+                "Duplicate or case/Unicode-colliding package entry path detected."));
+        }
+
+        if (PluginPackagePathPolicy.HasFileDirectoryPrefixCollision(entries.Select(entry => entry.Path)))
+        {
+            reasons.Add(new PluginPackageValidationReason(
+                "forbidden-content",
+                "A package file path cannot also be the directory prefix of another file."));
         }
     }
 
@@ -235,36 +246,72 @@ public static class PluginPackageValidator
     {
         foreach (var entry in actualFiles.Where(entry => entry.Path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)))
         {
-            ValidateAssemblyMarkers(entry, reasons);
-            ValidateAssemblyReferences(entry, reasons);
-        }
-    }
-
-    private static void ValidateAssemblyMarkers(
-        PluginPackageEntry entry,
-        ICollection<PluginPackageValidationReason> reasons)
-    {
-        var text = Encoding.UTF8.GetString(entry.Content);
-        foreach (var marker in ForbiddenAssemblyMarkers)
-        {
-            if (text.Contains(marker, StringComparison.Ordinal))
+            try
+            {
+                using var stream = OpenSeekableEntry(entry);
+                ValidateAssemblyMarkers(entry.Path, stream, reasons);
+                stream.Position = 0;
+                ValidateAssemblyReferences(entry.Path, stream, reasons);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
             {
                 reasons.Add(new PluginPackageValidationReason(
-                    "forbidden-content",
-                    "Plugin assembly contains forbidden host-boundary or dynamic-load references.",
+                    "invalid-package",
+                    "Plugin assembly content could not be read consistently.",
                     entry.Path));
-                return;
             }
         }
     }
 
+    private static void ValidateAssemblyMarkers(
+        string entryPath,
+        Stream stream,
+        ICollection<PluginPackageValidationReason> reasons)
+    {
+        var maximumMarkerLength = ForbiddenAssemblyMarkerBytes.Max(marker => marker.Length);
+        var buffer = new byte[(64 * 1024) + maximumMarkerLength - 1];
+        var preserved = 0;
+        while (true)
+        {
+            var read = stream.Read(buffer, preserved, buffer.Length - preserved);
+            if (read == 0)
+            {
+                break;
+            }
+
+            var available = preserved + read;
+            var inspected = buffer.AsSpan(0, available);
+            var forbiddenMarkerFound = false;
+            foreach (var marker in ForbiddenAssemblyMarkerBytes)
+            {
+                if (inspected.IndexOf(marker) >= 0)
+                {
+                    forbiddenMarkerFound = true;
+                    break;
+                }
+            }
+
+            if (forbiddenMarkerFound)
+            {
+                reasons.Add(new PluginPackageValidationReason(
+                    "forbidden-content",
+                    "Plugin assembly contains forbidden host-boundary or dynamic-load references.",
+                    entryPath));
+                return;
+            }
+
+            preserved = Math.Min(maximumMarkerLength - 1, available);
+            inspected[^preserved..].CopyTo(buffer);
+        }
+    }
+
     private static void ValidateAssemblyReferences(
-        PluginPackageEntry entry,
+        string entryPath,
+        Stream stream,
         ICollection<PluginPackageValidationReason> reasons)
     {
         try
         {
-            using var stream = new MemoryStream(entry.Content);
             using var peReader = new PEReader(stream);
             if (!peReader.HasMetadata)
             {
@@ -281,7 +328,7 @@ public static class PluginPackageValidator
                     reasons.Add(new PluginPackageValidationReason(
                         "forbidden-content",
                         "Plugin assembly references a forbidden host implementation, reflection, or other-plugin assembly.",
-                        entry.Path));
+                        entryPath));
                     return;
                 }
             }
@@ -307,14 +354,13 @@ public static class PluginPackageValidator
 
     private static bool IsForbiddenPackageContentPath(string path)
     {
-        var normalized = NormalizePath(path);
-        var fileName = Path.GetFileName(normalized);
+        var fileName = Path.GetFileName(path);
         if (fileName.EndsWith(".dobbylicense", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        var lower = normalized.ToLowerInvariant();
+        var lower = path.ToLowerInvariant();
         if (lower.Contains("customer-data", StringComparison.Ordinal) ||
             lower.Contains("customer-specific-license", StringComparison.Ordinal) ||
             lower.Contains("device-fingerprint", StringComparison.Ordinal) ||
@@ -333,39 +379,43 @@ public static class PluginPackageValidator
              lower.Contains("/persistence/", StringComparison.Ordinal));
     }
 
-    private static string NormalizePath(string value)
+    private static Stream OpenSeekableEntry(PluginPackageEntry entry)
     {
-        return value.Replace('\\', '/').Normalize(NormalizationForm.FormC);
-    }
-
-    private static bool IsCanonicalPackageRelativePath(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
+        var source = entry.OpenRead();
+        if (source.CanSeek)
         {
-            return false;
+            return source;
         }
 
-        if (value.Contains(':', StringComparison.Ordinal) ||
-            value.StartsWith("/", StringComparison.Ordinal) ||
-            value.StartsWith("\\", StringComparison.Ordinal) ||
-            value.EndsWith("/", StringComparison.Ordinal) ||
-            value.Contains("..", StringComparison.Ordinal) ||
-            value.Contains('\\', StringComparison.Ordinal))
+        var temporaryPath = Path.Combine(Path.GetTempPath(), $"dobby-plugin-{Guid.NewGuid():N}.tmp");
+        FileStream? temporary = null;
+        try
         {
-            return false;
+            temporary = new FileStream(
+                temporaryPath,
+                FileMode.CreateNew,
+                FileAccess.ReadWrite,
+                FileShare.None,
+                64 * 1024,
+                FileOptions.DeleteOnClose | FileOptions.SequentialScan);
+            using (source)
+            {
+                source.CopyTo(temporary);
+            }
+
+            if (temporary.Length != entry.UncompressedLength)
+            {
+                throw new InvalidDataException("Plugin entry changed after package ingestion.");
+            }
+
+            temporary.Position = 0;
+            return temporary;
         }
-
-        var segments = value.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        return segments.Length > 0 && !segments.Any(IsReservedWindowsName);
-    }
-
-    private static bool IsReservedWindowsName(string segment)
-    {
-        return segment.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
-            segment.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
-            segment.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
-            segment.Equals("NUL", StringComparison.OrdinalIgnoreCase) ||
-            (segment.Length == 4 && segment.StartsWith("COM", StringComparison.OrdinalIgnoreCase) && char.IsDigit(segment[3]) && segment[3] is >= '1' and <= '9') ||
-            (segment.Length == 4 && segment.StartsWith("LPT", StringComparison.OrdinalIgnoreCase) && char.IsDigit(segment[3]) && segment[3] is >= '1' and <= '9');
+        catch
+        {
+            temporary?.Dispose();
+            source.Dispose();
+            throw;
+        }
     }
 }

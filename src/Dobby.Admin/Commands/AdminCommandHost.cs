@@ -8,6 +8,7 @@ using Dobby.Licensing;
 using Dobby.PluginFramework.Manifest;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authentication;
+using Dobby.Security.Trust;
 
 namespace Dobby.Admin.Commands;
 
@@ -54,6 +55,7 @@ public static class AdminCommandHost
         [CreateRecoveryResponse] = new(
             [
                 "--request-path",
+                "--device-public-key-path",
                 "--signing-profile",
                 "--output-path"
             ],
@@ -154,7 +156,14 @@ public static class AdminCommandHost
                 return Validation("report-conflict");
             }
 
-            var material = signingMaterialProvider.Resolve(signingProfile);
+            var signingPurpose = command switch
+            {
+                SignPluginPackage => ArtifactSignaturePurposes.PluginPackage,
+                CreatePluginLicense => ArtifactSignaturePurposes.PluginLicense,
+                CreateRecoveryResponse => ArtifactSignaturePurposes.OwnerRecoveryResponse,
+                _ => throw new InvalidOperationException("Unknown signing purpose.")
+            };
+            var material = signingMaterialProvider.Resolve(signingProfile, signingPurpose);
             if (!material.IsSuccess)
             {
                 return new AdminCommandResult(66, string.Empty, "signing-material-unavailable");
@@ -230,7 +239,8 @@ public static class AdminCommandHost
             foreach (var file in refreshedManifest.Files.OrderBy(file => file.Path, StringComparer.Ordinal))
             {
                 var entry = packageEntries[file.Path];
-                AddZipEntry(zip, entry.Path, entry.Content);
+                using var content = entry.OpenRead();
+                AddZipEntry(zip, entry.Path, content);
             }
         }
 
@@ -342,32 +352,65 @@ public static class AdminCommandHost
             return Validation("input-not-found");
         }
 
-        var request = JsonSerializer.Deserialize<RecoveryRequestPayload>(
-            File.ReadAllText(requestPath),
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        if (request is null ||
-            !request.Type.Equals("dobby.owner-recovery-request.v1", StringComparison.Ordinal) ||
-            request.DeviceIdentity is null ||
-            string.IsNullOrWhiteSpace(request.RequestId))
+        var devicePublicKeyPath = Require(options, "--device-public-key-path");
+        if (!File.Exists(devicePublicKeyPath))
+        {
+            return Validation("input-not-found");
+        }
+
+        RecoveryRequestEnvelope requestEnvelope;
+        byte[] devicePublicKey;
+        try
+        {
+            requestEnvelope = RecoveryRequestVerifier.ReadEnvelope(File.ReadAllText(requestPath));
+            devicePublicKey = RecoveryRequestVerifier.ReadPublicKey(devicePublicKeyPath);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
         {
             return Validation("invalid-recovery-request");
         }
 
-        var issuedAt = timeProvider.GetUtcNow();
+        var requestVerification = new RecoveryRequestVerifier().Verify(
+            requestEnvelope,
+            devicePublicKey,
+            timeProvider.GetUtcNow());
+        if (!requestVerification.IsSuccess ||
+            !StringComparer.Ordinal.Equals(material.Purpose, ArtifactSignaturePurposes.OwnerRecoveryResponse) ||
+            !StringComparer.Ordinal.Equals(material.KeyId, requestEnvelope.Payload.VendorKeyId))
+        {
+            return Validation("invalid-recovery-request");
+        }
+
+        var request = requestVerification.Value;
+        var issuedAt = timeProvider.GetUtcNow().ToUniversalTime();
         var payload = new RecoveryResponsePayload(
-            "dobby.owner-recovery-response.v1",
+            2,
+            ArtifactSignaturePurposes.OwnerRecoveryResponse,
+            material.KeyId,
+            Guid.CreateVersion7().ToString("D"),
             request.RequestId,
-            request.DeviceIdentity,
+            request.Nonce,
+            request.CustomerId,
+            request.DeploymentId,
+            request.DeviceId,
+            request.RecoveryPublicKeyHash,
+            "reset-owner-password",
             ToUtcZ(issuedAt),
-            ToUtcZ(issuedAt.AddHours(24)),
-            Guid.NewGuid().ToString("N"),
-            1);
+            ToUtcZ(issuedAt.AddHours(24)));
         var canonicalPayload = RecoveryCanonicalJsonWriter.WritePayload(payload);
-        var signature = Convert.ToBase64String(material.Key.SignData(
+        var signatureValue = ArtifactSignatureCodec.ToUnpaddedBase64Url(material.Key.SignData(
             canonicalPayload,
             HashAlgorithmName.SHA256,
             DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
-        var envelope = new RecoveryResponseEnvelope(payload, signature);
+        var envelope = new RecoveryResponseEnvelope(
+            payload,
+            new ArtifactSignatureEnvelope(
+                ArtifactSignaturePurposes.OwnerRecoveryResponse,
+                ArtifactSignatureProfile.Algorithm,
+                ArtifactSignatureProfile.Format,
+                material.KeyId,
+                signatureValue));
 
         EnsureParentDirectory(outputPath);
         File.WriteAllText(outputPath, JsonSerializer.Serialize(envelope, IndentedJsonOptions), new UTF8Encoding(false));
@@ -606,9 +649,15 @@ public static class AdminCommandHost
 
     private static void AddZipEntry(ZipArchive zip, string path, byte[] content)
     {
+        using var source = new MemoryStream(content, writable: false);
+        AddZipEntry(zip, path, source);
+    }
+
+    private static void AddZipEntry(ZipArchive zip, string path, Stream content)
+    {
         var entry = zip.CreateEntry(path, CompressionLevel.Optimal);
         using var entryStream = entry.Open();
-        entryStream.Write(content);
+        content.CopyTo(entryStream);
     }
 
     private static void WriteReport(string reportPath, object report, bool overwrite)
@@ -737,11 +786,13 @@ public static class AdminCommandHost
 
 public interface IAdminSigningMaterialProvider
 {
-    AdminSigningMaterialResult Resolve(string signingProfile);
+    AdminSigningMaterialResult Resolve(string signingProfile, string purpose);
 }
 
 public sealed record AdminSigningMaterial(
     string Profile,
+    string Purpose,
+    string KeyId,
     ECDsa Key);
 
 public sealed record AdminSigningMaterialResult(
@@ -762,7 +813,7 @@ public sealed record AdminSigningMaterialResult(
 
 public sealed class UnavailableAdminSigningMaterialProvider : IAdminSigningMaterialProvider
 {
-    public AdminSigningMaterialResult Resolve(string signingProfile)
+    public AdminSigningMaterialResult Resolve(string signingProfile, string purpose)
     {
         return AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
     }
@@ -770,23 +821,30 @@ public sealed class UnavailableAdminSigningMaterialProvider : IAdminSigningMater
 
 public sealed class EnvironmentAdminSigningMaterialProvider : IAdminSigningMaterialProvider
 {
-    private const string DevQaSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_KEY_PATH";
-    private const string ProductionSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_PRODUCTION_KEY_PATH";
-
-    public AdminSigningMaterialResult Resolve(string signingProfile)
+    public AdminSigningMaterialResult Resolve(string signingProfile, string purpose)
     {
-        var variable = signingProfile switch
+        var descriptor = (signingProfile, purpose) switch
         {
-            "dev-qa" => DevQaSigningKeyPathVariable,
-            "production" => ProductionSigningKeyPathVariable,
-            _ => string.Empty
+            ("dev-qa", ArtifactSignaturePurposes.PluginPackage) =>
+                ("DOBBY_ADMIN_SIGNING_DEV_QA_PLUGIN_PACKAGE_KEY_PATH", "plugin-test-2026-01"),
+            ("dev-qa", ArtifactSignaturePurposes.PluginLicense) =>
+                ("DOBBY_ADMIN_SIGNING_DEV_QA_PLUGIN_LICENSE_KEY_PATH", "license-test-2026-01"),
+            ("dev-qa", ArtifactSignaturePurposes.OwnerRecoveryResponse) =>
+                ("DOBBY_ADMIN_SIGNING_DEV_QA_OWNER_RECOVERY_RESPONSE_KEY_PATH", VendorRecoveryPublicKey.DevQaKeyId),
+            ("production", ArtifactSignaturePurposes.PluginPackage) =>
+                ("DOBBY_ADMIN_SIGNING_PRODUCTION_PLUGIN_PACKAGE_KEY_PATH", "plugin-prod-2026-01"),
+            ("production", ArtifactSignaturePurposes.PluginLicense) =>
+                ("DOBBY_ADMIN_SIGNING_PRODUCTION_PLUGIN_LICENSE_KEY_PATH", "license-prod-2026-01"),
+            ("production", ArtifactSignaturePurposes.OwnerRecoveryResponse) =>
+                ("DOBBY_ADMIN_SIGNING_PRODUCTION_OWNER_RECOVERY_RESPONSE_KEY_PATH", VendorRecoveryPublicKey.ProductionKeyId),
+            _ => (string.Empty, string.Empty)
         };
-        if (string.IsNullOrWhiteSpace(variable))
+        if (string.IsNullOrWhiteSpace(descriptor.Item1))
         {
             return AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
         }
 
-        var path = Environment.GetEnvironmentVariable(variable);
+        var path = Environment.GetEnvironmentVariable(descriptor.Item1);
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
             return AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
@@ -796,7 +854,16 @@ public sealed class EnvironmentAdminSigningMaterialProvider : IAdminSigningMater
         try
         {
             key.ImportFromPem(File.ReadAllText(path));
-            return AdminSigningMaterialResult.Success(new AdminSigningMaterial(signingProfile, key));
+            if (key.KeySize != 256)
+            {
+                throw new CryptographicException("Signing key must use P-256.");
+            }
+
+            return AdminSigningMaterialResult.Success(new AdminSigningMaterial(
+                signingProfile,
+                purpose,
+                descriptor.Item2,
+                key));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or CryptographicException)
         {

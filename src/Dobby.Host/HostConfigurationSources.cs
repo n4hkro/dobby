@@ -82,7 +82,14 @@ public static class HostConfigurationSources
             Runtime = options.Runtime,
             Storage = options.Storage,
             Auth = options.Auth.LoginThrottleStepsSeconds.Length == 0
-                ? new AuthOptions { PasswordKdfMode = options.Auth.PasswordKdfMode }
+                ? new AuthOptions
+                {
+                    PasswordKdfMode = options.Auth.PasswordKdfMode,
+                    LoginThrottleFailureWindowSeconds = options.Auth.LoginThrottleFailureWindowSeconds,
+                    LoginGlobalFailureThreshold = options.Auth.LoginGlobalFailureThreshold,
+                    LoginGlobalBackoffSeconds = options.Auth.LoginGlobalBackoffSeconds,
+                    MaxConcurrentPasswordVerifications = options.Auth.MaxConcurrentPasswordVerifications
+                }
                 : options.Auth,
             Session = options.Session,
             Diagnostics = options.Diagnostics,

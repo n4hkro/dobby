@@ -1,6 +1,6 @@
 # ADR-0039: Owner Password Recovery via Vendor-Signed Device-Bound Artefakt
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0058
 **Date:** 2026-04-23
 
 ## Context

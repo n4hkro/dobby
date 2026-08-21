@@ -1,6 +1,6 @@
 # ADR-0055: Protected Storage Scope and Key Wrapping
 
-**Status:** Accepted
+**Status:** Accepted (remembered-login material amended by ADR-0058)
 **Date:** 2026-04-28
 
 ## Context

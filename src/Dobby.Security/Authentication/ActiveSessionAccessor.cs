@@ -4,29 +4,50 @@ namespace Dobby.Security.Authentication;
 
 public sealed class ActiveSessionAccessor
 {
-    public SessionRecord? Current { get; private set; }
+    private readonly object gate = new();
+    private SessionRecord? current;
+
+    public SessionRecord? Current
+    {
+        get
+        {
+            lock (gate)
+            {
+                return current;
+            }
+        }
+    }
 
     public Result SetActive(SessionRecord session)
     {
         ArgumentNullException.ThrowIfNull(session);
 
-        if (Current is not null)
+        lock (gate)
         {
-            return Result.Failure(ErrorCode.AlreadyExists);
-        }
+            if (current is not null)
+            {
+                return Result.Failure(ErrorCode.AlreadyExists);
+            }
 
-        Current = session;
-        return Result.Success();
+            current = session;
+            return Result.Success();
+        }
     }
 
     public void Replace(SessionRecord session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        Current = session;
+        lock (gate)
+        {
+            current = session;
+        }
     }
 
     public void Clear()
     {
-        Current = null;
+        lock (gate)
+        {
+            current = null;
+        }
     }
 }

@@ -8,8 +8,89 @@ namespace Dobby.Host.Settings;
 public sealed class UserManagementAuditCoordinator(
     IHostTransactionAuditTrail auditTrail,
     IHostPersistenceCommandExecutor executor,
-    TimeProvider timeProvider) : IManagedUserAuditSink
+    TimeProvider timeProvider,
+    IHostMutationUnitOfWork? mutationUnitOfWork = null) : IManagedUserAuditSink
 {
+    public Result<T> ExecuteUserMutation<T>(
+        string actorId,
+        string targetUserId,
+        ManagedUserAuditAction action,
+        CorrelationId correlationId,
+        Func<IHostPersistenceCommandExecutor, Result<T>> mutation)
+    {
+        return RequireMutationUnitOfWork().ExecuteResult(context =>
+        {
+            var result = mutation(context.Commands);
+            if (!result.IsSuccess)
+            {
+                return result;
+            }
+
+            context.AppendAudit(CreateUserMutationEvent(actorId, targetUserId, action, correlationId));
+            context.EnqueueOutbox(CreateUserMutationMessage(actorId, targetUserId, action, correlationId));
+            return result;
+        });
+    }
+
+    public Result ExecuteUserMutation(
+        string actorId,
+        string targetUserId,
+        ManagedUserAuditAction action,
+        CorrelationId correlationId,
+        Func<IHostPersistenceCommandExecutor, Result> mutation)
+    {
+        return RequireMutationUnitOfWork().ExecuteResult(context =>
+        {
+            var result = mutation(context.Commands);
+            if (!result.IsSuccess)
+            {
+                return result;
+            }
+
+            context.AppendAudit(CreateUserMutationEvent(actorId, targetUserId, action, correlationId));
+            context.EnqueueOutbox(CreateUserMutationMessage(actorId, targetUserId, action, correlationId));
+            return result;
+        });
+    }
+
+    public Result ExecutePermissionMutation(
+        string actorId,
+        string targetUserId,
+        string permissionKey,
+        bool grant,
+        CorrelationId correlationId,
+        Func<IHostPersistenceCommandExecutor, Result> mutation)
+    {
+        return RequireMutationUnitOfWork().ExecuteResult(context =>
+        {
+            var result = mutation(context.Commands);
+            if (!result.IsSuccess)
+            {
+                return result;
+            }
+
+            context.AppendAudit(new AuditEvent(
+                grant ? AuditEventName.PermissionGrant : AuditEventName.PermissionRevoke,
+                actorId,
+                targetUserId,
+                AuditResult.Success,
+                correlationId,
+                timeProvider.GetUtcNow(),
+                new Dictionary<string, string> { ["permissionKey"] = permissionKey }));
+            context.EnqueueOutbox(new HostOutboxMessage(
+                $"permission-mutation:{correlationId}",
+                "security.authorization",
+                grant ? "permission.granted" : "permission.revoked",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["actorId"] = actorId,
+                    ["permissionKey"] = permissionKey,
+                    ["targetUserId"] = targetUserId
+                }));
+            return result;
+        });
+    }
+
     public void AppendUserMutation(
         string actorId,
         string targetUserId,
@@ -69,6 +150,52 @@ public sealed class UserManagementAuditCoordinator(
     private void Append(AuditEvent auditEvent)
     {
         auditTrail.AppendInScope(executor, auditEvent);
+    }
+
+    private IHostMutationUnitOfWork RequireMutationUnitOfWork()
+    {
+        return mutationUnitOfWork ?? throw new InvalidOperationException(
+            "Atomic User Management mutation support was not configured.");
+    }
+
+    private AuditEvent CreateUserMutationEvent(
+        string actorId,
+        string targetUserId,
+        ManagedUserAuditAction action,
+        CorrelationId correlationId)
+    {
+        return new AuditEvent(
+            ToEventName(action),
+            actorId,
+            targetUserId,
+            AuditResult.Success,
+            correlationId,
+            timeProvider.GetUtcNow());
+    }
+
+    private static HostOutboxMessage CreateUserMutationMessage(
+        string actorId,
+        string targetUserId,
+        ManagedUserAuditAction action,
+        CorrelationId correlationId)
+    {
+        return new HostOutboxMessage(
+            $"user-mutation:{correlationId}",
+            "security.user",
+            action switch
+            {
+                ManagedUserAuditAction.Create => "user.created",
+                ManagedUserAuditAction.Update => "user.updated",
+                ManagedUserAuditAction.PasswordReset => "credential.reset",
+                ManagedUserAuditAction.Activate => "user.activated",
+                ManagedUserAuditAction.Deactivate => "user.deactivated",
+                _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unsupported User Management outbox action.")
+            },
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["actorId"] = actorId,
+                ["targetUserId"] = targetUserId
+            });
     }
 
     private static string ToEventName(ManagedUserAuditAction action)

@@ -30,7 +30,6 @@ public sealed class HostLoginRuntimeFactoryTests
         var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
-            new RecordingProtector(),
             new RecordingProtector());
 
         SpinWait.SpinUntil(
@@ -51,7 +50,6 @@ public sealed class HostLoginRuntimeFactoryTests
             fixture.Options,
             TimeProvider.System,
             new RecordingProtector(),
-            new RecordingProtector(),
             reporter);
 
         SpinWait.SpinUntil(
@@ -64,7 +62,7 @@ public sealed class HostLoginRuntimeFactoryTests
         final.OwnerKind.ShouldBe(BackgroundOperationOwnerKind.Host);
         final.DisplayNameKey.ShouldBe("Dobby.Host.AuditRetentionSweep");
         final.Progress.IsIndeterminate.ShouldBeTrue();
-        final.CanCancel.ShouldBeFalse();
+        final.CanCancel.ShouldBeTrue();
         final.FailureReason.ShouldBeNull();
     }
 
@@ -76,7 +74,6 @@ public sealed class HostLoginRuntimeFactoryTests
         var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
-            new RecordingProtector(),
             new RecordingProtector());
 
         runtime.OperationAuthorizationPolicy.ShouldNotBeNull();
@@ -112,7 +109,6 @@ public sealed class HostLoginRuntimeFactoryTests
         var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
-            new RecordingProtector(),
             new RecordingProtector());
 
         var result = runtime.ProvisionCustomerDeploymentContext(
@@ -145,7 +141,6 @@ public sealed class HostLoginRuntimeFactoryTests
         var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
-            new RecordingProtector(),
             new RecordingProtector());
         runtime.LicenseStateStore.Save(new LicenseStateRecord(
             new RevisionSeriesKey("plugin.sample", "default", "default"),
@@ -199,7 +194,6 @@ public sealed class HostLoginRuntimeFactoryTests
             fixture.Options,
             TimeProvider.System,
             new RecordingProtector(),
-            new RecordingProtector(),
             reporter);
         var scopedPreferenceSource = runtime.SettingsPreferenceSourceFactory("owner@example.local");
         var preferences = SettingsPreferences.Default with
@@ -232,7 +226,6 @@ public sealed class HostLoginRuntimeFactoryTests
         var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
-            new RecordingProtector(),
             new RecordingProtector());
 
         var info = runtime.AboutInfoProvider.GetInfo(isOwner: true, ownerIdentity: "owner");

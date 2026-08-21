@@ -1,16 +1,9 @@
 using System.IO.Compression;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Dobby.Audit;
 using Dobby.Admin.Commands;
-using Dobby.Configuration;
-using Dobby.Core;
 using Dobby.Core.Versioning;
-using Dobby.Host.Login;
-using Dobby.Infrastructure.Persistence;
-using Dobby.Infrastructure.ProtectedStorage;
 using Dobby.Licensing;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authentication;
@@ -22,8 +15,12 @@ namespace Dobby.UnitTests.Admin;
 
 public sealed class AdminCommandHostTests
 {
-    private const string DevQaSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_KEY_PATH";
-    private const string ProductionSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_PRODUCTION_KEY_PATH";
+    private const string DevQaSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_PLUGIN_PACKAGE_KEY_PATH";
+    private const string DevQaLicenseKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_PLUGIN_LICENSE_KEY_PATH";
+    private const string DevQaRecoveryKeyPathVariable = "DOBBY_ADMIN_SIGNING_DEV_QA_OWNER_RECOVERY_RESPONSE_KEY_PATH";
+    private const string ProductionSigningKeyPathVariable = "DOBBY_ADMIN_SIGNING_PRODUCTION_PLUGIN_PACKAGE_KEY_PATH";
+    private const string ProductionLicenseKeyPathVariable = "DOBBY_ADMIN_SIGNING_PRODUCTION_PLUGIN_LICENSE_KEY_PATH";
+    private const string ProductionRecoveryKeyPathVariable = "DOBBY_ADMIN_SIGNING_PRODUCTION_OWNER_RECOVERY_RESPONSE_KEY_PATH";
 
     [Theory]
     [MemberData(nameof(InvalidOptionShapes))]
@@ -94,11 +91,12 @@ public sealed class AdminCommandHostTests
     {
         using var environment = SigningKeyEnvironmentScope.Clear();
         using var fixture = TempFixture.Create();
-        File.WriteAllText(fixture.Path("request.dobbyrecoveryrequest"), RecoveryRequestJson());
+        File.WriteAllText(fixture.Path("request.dobbyrecoveryrequest"), "{}");
 
         var result = AdminCommandHost.Run([
             "--cli", "create-recovery-response",
             "--request-path", fixture.Path("request.dobbyrecoveryrequest"),
+            "--device-public-key-path", fixture.Path("device-public-key.der"),
             "--signing-profile", "dev-qa",
             "--output-path", fixture.Path("response.dobbyrecovery")
         ]);
@@ -106,6 +104,25 @@ public sealed class AdminCommandHostTests
         result.ExitCode.ShouldBe(66);
         result.StandardError.ShouldContain("signing-material-unavailable");
         result.StandardError.ShouldNotContain(fixture.Root);
+    }
+
+    [Fact]
+    public void Recovery_command_never_falls_back_to_plugin_or_license_signing_material()
+    {
+        using var fixture = TempFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var environment = SigningKeyEnvironmentScope.ForPluginOnly(fixture, key);
+
+        var result = AdminCommandHost.Run([
+            "--cli", "create-recovery-response",
+            "--request-path", fixture.Path("request.dobbyrecoveryrequest"),
+            "--device-public-key-path", fixture.Path("device-public-key.der"),
+            "--signing-profile", "dev-qa",
+            "--output-path", fixture.Path("response.dobbyrecovery")
+        ]);
+
+        result.ExitCode.ShouldBe(66);
+        result.StandardError.ShouldContain("signing-material-unavailable");
     }
 
     [Fact]
@@ -117,18 +134,22 @@ public sealed class AdminCommandHostTests
         var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T10:00:00Z"));
         var requestPath = fixture.Path("request.dobbyrecoveryrequest");
         var outputPath = fixture.Path("response.dobbyrecovery");
-        File.WriteAllText(requestPath, RecoveryRequestJson());
+        var request = WriteRecoveryRequest(fixture, time);
 
         var result = AdminCommandHost.Run([
             "--cli", "create-recovery-response",
-            "--request-path", requestPath,
+            "--request-path", request.RequestPath,
+            "--device-public-key-path", request.PublicKeyPath,
             "--signing-profile", "dev-qa",
             "--output-path", outputPath
         ], timeProvider: time);
 
         result.ExitCode.ShouldBe(0, result.StandardError);
         File.Exists(outputPath).ShouldBeTrue();
-        RecoveryResponseImporter.ReadEnvelope(File.ReadAllText(outputPath)).Signature.ShouldContain("=");
+        var envelope = RecoveryResponseImporter.ReadEnvelope(File.ReadAllText(outputPath));
+        envelope.Signature.Value.ShouldNotContain("=");
+        new RecoveryResponseImporter(new EcdsaVendorPublicKey(key))
+            .Verify(envelope, time.GetUtcNow()).IsSuccess.ShouldBeTrue();
     }
 
     [Fact]
@@ -252,26 +273,21 @@ public sealed class AdminCommandHostTests
     [Fact]
     public void Create_recovery_response_writes_host_compatible_envelope_through_concrete_verifier()
     {
-        if (!IsDevQaTrustProfileBuild())
-        {
-            return;
-        }
-
         using var fixture = TempFixture.Create();
-        using var environment = SigningKeyEnvironmentScope.ForDevQaPath(ApprovedDevQaBootstrapSigningKeyPath());
+        using var signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T10:00:00Z"));
-        var requestPath = fixture.Path("request.dobbyrecoveryrequest");
+        var request = WriteRecoveryRequest(fixture, time);
         var outputPath = fixture.Path("response.dobbyrecovery");
         var reportPath = fixture.Path("response.report.json");
-        File.WriteAllText(requestPath, RecoveryRequestJson());
 
         var result = AdminCommandHost.Run([
             "--cli", "create-recovery-response",
-            "--request-path", requestPath,
+            "--request-path", request.RequestPath,
+            "--device-public-key-path", request.PublicKeyPath,
             "--signing-profile", "dev-qa",
             "--output-path", outputPath,
             "--report-path", reportPath
-        ], timeProvider: time);
+        ], new InMemorySigningMaterialProvider("dev-qa", signingKey), time);
 
         result.ExitCode.ShouldBe(0, result.StandardError);
         result.StandardOutput.ShouldContain("create-recovery-response");
@@ -283,13 +299,9 @@ public sealed class AdminCommandHostTests
         responseJson.ShouldNotContain("targetUserId");
         File.ReadAllText(reportPath).ShouldNotContain("machine", Case.Insensitive);
         var envelope = RecoveryResponseImporter.ReadEnvelope(responseJson);
-        envelope.Signature.ShouldContain("=");
-        envelope.Signature.ShouldNotContain("-");
-        envelope.Signature.ShouldNotContain("_");
-
-        var importer = new RecoveryResponseImporter(
-            new VendorRecoveryPublicKey(new PluginTrustPublicKeyProvider(DobbyPluginTrustProfile.DevQa)),
-            new StaticDeviceFingerprint(new DeviceFingerprint("machine", "cpu", "board", "disk", "mac")));
+        envelope.Signature.Value.ShouldNotContain("=");
+        envelope.Signature.Purpose.ShouldBe(ArtifactSignaturePurposes.OwnerRecoveryResponse);
+        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(signingKey));
 
         var verify = importer.Verify(envelope, time.GetUtcNow());
 
@@ -297,42 +309,28 @@ public sealed class AdminCommandHostTests
     }
 
     [Fact]
-    public void Create_recovery_response_verifies_through_host_import_coordinator_with_concrete_verifier()
+    public void Create_recovery_response_rejects_unprovisioned_device_key_and_wrong_purpose_key_id()
     {
-        if (!IsDevQaTrustProfileBuild())
-        {
-            return;
-        }
-
         using var fixture = TempFixture.Create();
-        using var environment = SigningKeyEnvironmentScope.ForDevQaPath(ApprovedDevQaBootstrapSigningKeyPath());
+        using var signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var wrongDeviceKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T10:00:00Z"));
-        var requestPath = fixture.Path("request.dobbyrecoveryrequest");
+        var request = WriteRecoveryRequest(fixture, time);
+        var wrongPublicKeyPath = fixture.Path("wrong-device-public-key.der");
+        File.WriteAllBytes(wrongPublicKeyPath, wrongDeviceKey.ExportSubjectPublicKeyInfo());
         var outputPath = fixture.Path("response.dobbyrecovery");
-        File.WriteAllText(requestPath, RecoveryRequestJson());
+
         var result = AdminCommandHost.Run([
             "--cli", "create-recovery-response",
-            "--request-path", requestPath,
+            "--request-path", request.RequestPath,
+            "--device-public-key-path", wrongPublicKeyPath,
             "--signing-profile", "dev-qa",
             "--output-path", outputPath
-        ], timeProvider: time);
-        result.ExitCode.ShouldBe(0, result.StandardError);
-        var importer = new RecoveryResponseImporter(
-            new VendorRecoveryPublicKey(new PluginTrustPublicKeyProvider(DobbyPluginTrustProfile.DevQa)),
-            new StaticDeviceFingerprint(new DeviceFingerprint("machine", "cpu", "board", "disk", "mac")));
-        var coordinator = new RecoveryResponseImportCoordinator(
-            new NoopTransactionScope(),
-            new RecoveryVerificationExecutor(),
-            importer,
-            new NoopProtectedDataProtector(),
-            new KdfPolicyResolver(new AuthOptions { PasswordKdfMode = "Pbkdf2Sha256" }),
-            new NoopHostTransactionAuditTrail(),
-            time);
+        ], new InMemorySigningMaterialProvider("dev-qa", signingKey), time);
 
-        var challenge = coordinator.VerifyFile(outputPath);
-
-        challenge.IsSuccess.ShouldBeTrue(challenge.ErrorCode?.ToString());
-        challenge.Value.Payload.RequestId.ShouldBe("request-1");
+        result.ExitCode.ShouldBe(65);
+        result.StandardError.ShouldContain("invalid-recovery-request");
+        File.Exists(outputPath).ShouldBeFalse();
     }
 
     [Fact]
@@ -388,49 +386,26 @@ public sealed class AdminCommandHostTests
         yield return [new[] { "--cli", "create-recovery-response", "--request-path", "a", "--signing-profile", "dev-qa", "--output-path", "out", "--overwrite", "true" }];
     }
 
-    private static bool IsDevQaTrustProfileBuild()
+    private static RecoveryRequestFiles WriteRecoveryRequest(
+        TempFixture fixture,
+        TimeProvider timeProvider)
     {
-        var profile = typeof(PluginTrustPublicKeyProvider).Assembly
-            .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .Single(attribute => attribute.Key == "DobbyPluginTrustProfile")
-            .Value;
-        return string.Equals(profile, "DevQa", StringComparison.Ordinal);
-    }
-
-    private static string ApprovedDevQaBootstrapSigningKeyPath()
-    {
-        var path = Environment.GetEnvironmentVariable(DevQaSigningKeyPathVariable);
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            path = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".dobby-signing-keys",
-                "sprint8-bootstrap",
-                "dev-qa-bootstrap-private-key.pem");
-        }
-
-        File.Exists(path).ShouldBeTrue("Approved dev/QA bootstrap signing material is required for DevQa-profile recovery proof.");
-        return path;
-    }
-
-    private static string RecoveryRequestJson()
-    {
-        return """
-            {
-              "type": "dobby.owner-recovery-request.v1",
-              "dobbyVersion": "1.0.0",
-              "requestedAt": "2026-06-20T09:00:00Z",
-              "deviceIdentity": {
-                "machineGuid": "machine",
-                "cpuId": "cpu",
-                "motherboardSerial": "board",
-                "diskSerial": "disk",
-                "macAddress": "mac"
-              },
-              "deviceDisplayName": "Owner laptop",
-              "requestId": "request-1"
-            }
-            """;
+        using var deviceKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var publicKey = deviceKey.ExportSubjectPublicKeyInfo();
+        var signer = new DeviceRecoveryKeySigner(
+            deviceKey.ExportPkcs8PrivateKey(),
+            publicKey);
+        var created = new RecoveryRequestExporter(
+            signer,
+            new RecoveryAuthorityContext("customer-1", "deployment-1", "device:stable-1"),
+            timeProvider,
+            VendorRecoveryPublicKey.DevQaKeyId).CreateRequest();
+        created.IsSuccess.ShouldBeTrue(created.ErrorCode?.ToString());
+        var requestPath = fixture.Path("request-" + Guid.NewGuid().ToString("N") + ".dobbyrecoveryrequest");
+        var publicKeyPath = fixture.Path("device-public-" + Guid.NewGuid().ToString("N") + ".der");
+        File.WriteAllText(requestPath, RecoveryRequestExporter.Serialize(created.Value), new UTF8Encoding(false));
+        File.WriteAllBytes(publicKeyPath, publicKey);
+        return new RecoveryRequestFiles(requestPath, publicKeyPath);
     }
 
     private static byte[] EncodePem(byte[] der)
@@ -503,85 +478,69 @@ public sealed class AdminCommandHostTests
 
     private sealed class InMemorySigningMaterialProvider(string profile, ECDsa key) : IAdminSigningMaterialProvider
     {
-        public AdminSigningMaterialResult Resolve(string signingProfile)
+        public AdminSigningMaterialResult Resolve(string signingProfile, string purpose)
         {
             return signingProfile.Equals(profile, StringComparison.Ordinal)
-                ? AdminSigningMaterialResult.Success(new AdminSigningMaterial(signingProfile, key))
+                ? AdminSigningMaterialResult.Success(new AdminSigningMaterial(
+                    signingProfile,
+                    purpose,
+                    purpose == ArtifactSignaturePurposes.OwnerRecoveryResponse
+                        ? VendorRecoveryPublicKey.DevQaKeyId
+                        : purpose == ArtifactSignaturePurposes.PluginLicense
+                            ? "license-test-2026-01"
+                            : "plugin-test-2026-01",
+                    key))
                 : AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
         }
     }
 
-    private sealed class StaticDeviceFingerprint(DeviceFingerprint fingerprint) : IDeviceFingerprintSource
+    private sealed class EcdsaVendorPublicKey(ECDsa key) : IVendorRecoveryPublicKey
     {
-        public Result<DeviceFingerprint> Current() => Result.Success(fingerprint);
-    }
-
-    private sealed class RecoveryVerificationExecutor : IHostPersistenceCommandExecutor
-    {
-        public int Execute(string sql, object? parameters = null)
+        public bool Verify(
+            string keyId,
+            string purpose,
+            byte[] canonicalPayload,
+            byte[] signature,
+            DateTimeOffset now)
         {
-            return 0;
-        }
-
-        public IReadOnlyList<T> Query<T>(string sql, object? parameters = null)
-        {
-            if (typeof(T) == typeof(string) && sql.Contains("FROM Users", StringComparison.Ordinal))
-            {
-                return (IReadOnlyList<T>)(object)new[] { "owner-id" };
-            }
-
-            return [];
-        }
-
-        public T QueryScalar<T>(string sql, object? parameters = null)
-        {
-            if (typeof(T) == typeof(int) && sql.Contains("ConsumedRecoveryNonces", StringComparison.Ordinal))
-            {
-                return (T)(object)0;
-            }
-
-            return default!;
-        }
-    }
-
-    private sealed class NoopTransactionScope : IHostPersistenceTransactionScope
-    {
-        public void ExecuteInTransaction(Action<IHostPersistenceCommandExecutor> action)
-        {
-            action(new RecoveryVerificationExecutor());
-        }
-    }
-
-    private sealed class NoopProtectedDataProtector : IProtectedDataProtector
-    {
-        public byte[] Protect(byte[] plaintext, byte[] entropy) => plaintext;
-
-        public byte[] Unprotect(byte[] protectedBlob, byte[] entropy) => protectedBlob;
-    }
-
-    private sealed class NoopHostTransactionAuditTrail : IHostTransactionAuditTrail
-    {
-        public void AppendInScope(IHostPersistenceCommandExecutor executor, AuditEvent auditEvent)
-        {
+            return keyId == VendorRecoveryPublicKey.DevQaKeyId &&
+                purpose == ArtifactSignaturePurposes.OwnerRecoveryResponse &&
+                key.VerifyData(
+                    canonicalPayload,
+                    signature,
+                    HashAlgorithmName.SHA256,
+                    DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         }
     }
 
     private sealed class SigningKeyEnvironmentScope : IDisposable
     {
         private readonly string? previousDevQa;
+        private readonly string? previousDevQaLicense;
+        private readonly string? previousDevQaRecovery;
         private readonly string? previousProduction;
+        private readonly string? previousProductionLicense;
+        private readonly string? previousProductionRecovery;
 
         private SigningKeyEnvironmentScope()
         {
             previousDevQa = Environment.GetEnvironmentVariable(DevQaSigningKeyPathVariable);
+            previousDevQaLicense = Environment.GetEnvironmentVariable(DevQaLicenseKeyPathVariable);
+            previousDevQaRecovery = Environment.GetEnvironmentVariable(DevQaRecoveryKeyPathVariable);
             previousProduction = Environment.GetEnvironmentVariable(ProductionSigningKeyPathVariable);
+            previousProductionLicense = Environment.GetEnvironmentVariable(ProductionLicenseKeyPathVariable);
+            previousProductionRecovery = Environment.GetEnvironmentVariable(ProductionRecoveryKeyPathVariable);
         }
 
         public static SigningKeyEnvironmentScope Clear()
         {
             var scope = new SigningKeyEnvironmentScope();
             Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, null);
+            Environment.SetEnvironmentVariable(DevQaLicenseKeyPathVariable, null);
+            Environment.SetEnvironmentVariable(DevQaRecoveryKeyPathVariable, null);
             Environment.SetEnvironmentVariable(ProductionSigningKeyPathVariable, null);
+            Environment.SetEnvironmentVariable(ProductionLicenseKeyPathVariable, null);
+            Environment.SetEnvironmentVariable(ProductionRecoveryKeyPathVariable, null);
             return scope;
         }
 
@@ -589,6 +548,17 @@ public sealed class AdminCommandHostTests
         {
             var scope = Clear();
             var keyPath = fixture.Path("dev-qa-private-key.pem");
+            File.WriteAllText(keyPath, key.ExportPkcs8PrivateKeyPem(), new UTF8Encoding(false));
+            Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, keyPath);
+            Environment.SetEnvironmentVariable(DevQaLicenseKeyPathVariable, keyPath);
+            Environment.SetEnvironmentVariable(DevQaRecoveryKeyPathVariable, keyPath);
+            return scope;
+        }
+
+        public static SigningKeyEnvironmentScope ForPluginOnly(TempFixture fixture, ECDsa key)
+        {
+            var scope = Clear();
+            var keyPath = fixture.Path("plugin-only-private-key.pem");
             File.WriteAllText(keyPath, key.ExportPkcs8PrivateKeyPem(), new UTF8Encoding(false));
             Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, keyPath);
             return scope;
@@ -600,15 +570,23 @@ public sealed class AdminCommandHostTests
 
             var scope = Clear();
             Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, keyPath);
+            Environment.SetEnvironmentVariable(DevQaLicenseKeyPathVariable, keyPath);
+            Environment.SetEnvironmentVariable(DevQaRecoveryKeyPathVariable, keyPath);
             return scope;
         }
 
         public void Dispose()
         {
             Environment.SetEnvironmentVariable(DevQaSigningKeyPathVariable, previousDevQa);
+            Environment.SetEnvironmentVariable(DevQaLicenseKeyPathVariable, previousDevQaLicense);
+            Environment.SetEnvironmentVariable(DevQaRecoveryKeyPathVariable, previousDevQaRecovery);
             Environment.SetEnvironmentVariable(ProductionSigningKeyPathVariable, previousProduction);
+            Environment.SetEnvironmentVariable(ProductionLicenseKeyPathVariable, previousProductionLicense);
+            Environment.SetEnvironmentVariable(ProductionRecoveryKeyPathVariable, previousProductionRecovery);
         }
     }
+
+    private sealed record RecoveryRequestFiles(string RequestPath, string PublicKeyPath);
 
     private sealed class TempFixture : IDisposable
     {

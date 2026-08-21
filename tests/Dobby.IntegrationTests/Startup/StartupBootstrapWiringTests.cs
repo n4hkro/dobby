@@ -87,7 +87,7 @@ public sealed class StartupBootstrapWiringTests
     }
 
     [Fact]
-    public void Login_startup_snapshot_loader_reads_only_theme_and_remember_me_prefill_before_first_paint()
+    public void Login_startup_snapshot_loader_reads_only_theme_and_removes_legacy_remember_me_files_before_first_paint()
     {
         var root = RepoRoot();
         var loaderPath = Path.Combine(root.FullName, "src", "Dobby.Host", "Login", "LoginStartupSnapshotLoader.cs");
@@ -95,8 +95,9 @@ public sealed class StartupBootstrapWiringTests
         var loaderSource = File.ReadAllText(loaderPath);
 
         loaderSource.ShouldContain("StartupThemeSnapshotStore.LoadTheme(");
-        loaderSource.ShouldContain("StartupRememberMeSnapshotStore.LoadSavedLoginPrefill(");
-        loaderSource.ShouldNotContain("StartupRememberMeSnapshotStore.LoadSavedLogin()");
+        loaderSource.ShouldContain("StartupRememberMeLegacyCleaner.Clear(");
+        loaderSource.ShouldNotContain("LoadRememberedAccount(");
+        loaderSource.ShouldNotContain("LoadSavedLogin");
         loaderSource.ShouldNotContain("HostConfigurationSources");
         loaderSource.ShouldNotContain("DobbyOptions");
         loaderSource.ShouldNotContain("ProtectedMaterialAvailabilityProbe");
@@ -113,21 +114,23 @@ public sealed class StartupBootstrapWiringTests
     }
 
     [Fact]
-    public void Login_startup_snapshot_stores_use_source_generated_json_metadata()
+    public void Login_startup_snapshot_serializes_only_theme_and_legacy_remember_me_cleanup_writes_no_replacement()
     {
         var root = RepoRoot();
-        var rememberStore = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "StartupRememberMeSnapshotStore.cs"));
+        var rememberCleaner = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "StartupRememberMeLegacyCleaner.cs"));
         var themeStore = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "StartupThemeSnapshotStore.cs"));
         var context = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "HostStartupJsonSerializerContext.cs"));
 
-        rememberStore.ShouldContain("File.ReadAllBytes(path)");
-        rememberStore.ShouldContain("HostStartupJsonSerializerContext.Default.StartupRememberMeSnapshot");
-        rememberStore.ShouldContain("JsonSerializer.SerializeToUtf8Bytes(");
+        rememberCleaner.ShouldContain("File.Delete(path)");
+        rememberCleaner.ShouldContain("startup-remember-me.json");
+        rememberCleaner.ShouldContain("startup-remembered-account.json");
+        rememberCleaner.ShouldNotContain("File.Write");
+        rememberCleaner.ShouldNotContain("JsonSerializer");
         themeStore.ShouldContain("File.ReadAllBytes(path)");
         themeStore.ShouldContain("HostStartupJsonSerializerContext.Default.StartupThemeSnapshot");
         themeStore.ShouldContain("JsonSerializer.SerializeToUtf8Bytes(");
         context.ShouldContain("[JsonSerializable(typeof(StartupThemeSnapshot))]");
-        context.ShouldContain("[JsonSerializable(typeof(StartupRememberMeSnapshot))]");
+        context.ShouldNotContain("Remember");
     }
 
     [Fact]
@@ -150,7 +153,7 @@ public sealed class StartupBootstrapWiringTests
     }
 
     [Fact]
-    public void App_attaches_pre_login_runtime_before_background_shell_runtime_is_needed()
+    public void App_attaches_only_pre_login_runtime_before_authentication_and_composes_full_runtime_after_success()
     {
         var root = RepoRoot();
         var appSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
@@ -158,13 +161,14 @@ public sealed class StartupBootstrapWiringTests
 
         appSource.ShouldContain("loginWindow.ContentRendered += (_, _) =>");
         appSource.ShouldContain("preparedLoginEntryRuntimeTask ??= LoginRuntimePreparer.InitializeLoginEntryRuntimeAsync(loginWindow);");
-        appSource.ShouldContain("preparedLoginEntryRuntime.ShellRuntimeTask");
-        appSource.ShouldContain("ActivateExisting(authenticatedSession)");
+        appSource.ShouldNotContain("ShellRuntimeTask");
+        appSource.ShouldNotContain("ActivateExisting(authenticatedSession)");
+        appSource.ShouldContain("LoginRuntimePreparer.InitializeAuthenticatedRuntimeAsync(");
         appSource.ShouldContain("loginWindow.AttachDeferredWorkflow(new DeferredLoginRuntimeWorkflow(EnsureLoginEntryRuntimeAsync));");
         runtimeSource.ShouldContain("HostLoginRuntimeFactory.CreatePreLogin(");
         runtimeSource.ShouldContain("loginWindow.AttachRuntime(preLoginRuntime)");
         runtimeSource.ShouldContain("PreLoginRuntime");
-        runtimeSource.ShouldContain("HostLoginRuntimeFactory.Create(");
+        runtimeSource.ShouldContain("HostLoginRuntimeFactory.CreateAuthenticated(");
         runtimeSource.ShouldContain("new WorkSessionRegistry()");
 
         var loginShow = appSource.IndexOf("loginWindow.ShowDialog()", StringComparison.Ordinal);
@@ -173,12 +177,16 @@ public sealed class StartupBootstrapWiringTests
         deferred.ShouldBeGreaterThanOrEqualTo(0);
         deferred.ShouldBeLessThan(loginShow);
         var afterLoginBeforeShell = appSource[loginShow..shellPresenter];
-        afterLoginBeforeShell.ShouldNotContain("HostLoginRuntimeFactory.Create(");
-        afterLoginBeforeShell.ShouldContain("await preparedLoginEntryRuntime.ShellRuntimeTask");
+        afterLoginBeforeShell.ShouldContain("await LoginRuntimePreparer.InitializeAuthenticatedRuntimeAsync(");
+
+        var preAuthMethodEnd = runtimeSource.IndexOf(
+            "public static Task<PreparedLoginRuntime?> InitializeAuthenticatedRuntimeAsync",
+            StringComparison.Ordinal);
+        runtimeSource[..preAuthMethodEnd].ShouldNotContain("CreateAuthenticated(");
     }
 
     [Fact]
-    public void App_starts_login_runtime_warmup_immediately_after_login_first_paint_is_recorded()
+    public void App_starts_only_pre_auth_runtime_initialization_after_login_first_paint_is_recorded()
     {
         var root = RepoRoot();
         var appSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
@@ -194,6 +202,7 @@ public sealed class StartupBootstrapWiringTests
         showDialog.ShouldBeGreaterThan(contentRendered);
         warmup.ShouldBeLessThan(showDialog);
         appSource.ShouldNotContain("var loginEntryRuntimeWarmupTask = EnsureLoginEntryRuntimeAsync();");
+        appSource[..showDialog].ShouldNotContain("InitializeAuthenticatedRuntimeAsync");
         appSource.ShouldNotContain("DispatcherPriority.ContextIdle");
     }
 
@@ -210,15 +219,15 @@ public sealed class StartupBootstrapWiringTests
     }
 
     [Fact]
-    public void App_login_cancel_schedules_runtime_cleanup_without_blocking_shutdown()
+    public void App_login_cancel_observes_pre_auth_initialization_without_constructing_cleanup_runtime()
     {
         var root = RepoRoot();
         var appSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
         var runtimeSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Login", "LoginRuntimePreparer.cs"));
 
-        appSource.ShouldContain("LoginRuntimePreparer.DisposeWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask);");
-        runtimeSource.ShouldContain("public static void DisposeWhenReadyWithoutBlockingShutdown(Task<PreparedLoginEntryRuntime?>? preparedRuntimeTask)");
-        runtimeSource.ShouldContain("_ = DisposeWhenReadyAsync(preparedRuntimeTask)");
+        appSource.ShouldContain("LoginRuntimePreparer.ObserveWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask);");
+        runtimeSource.ShouldContain("public static void ObserveWhenReadyWithoutBlockingShutdown(");
+        runtimeSource.ShouldContain("_ = ObserveWhenReadyAsync(preparedRuntimeTask)");
 
         var cancelBlockStart = appSource.IndexOf("if (loginWindow.ShowDialog() != true)", StringComparison.Ordinal);
         var cancelBlockEnd = appSource.IndexOf("var preparedLoginEntryRuntime = await", cancelBlockStart, StringComparison.Ordinal);
@@ -226,9 +235,9 @@ public sealed class StartupBootstrapWiringTests
         cancelBlockEnd.ShouldBeGreaterThan(cancelBlockStart);
 
         var cancelBlock = appSource[cancelBlockStart..cancelBlockEnd];
-        cancelBlock.ShouldNotContain("await LoginRuntimePreparer.DisposeWhenReadyAsync(preparedLoginEntryRuntimeTask)");
+        cancelBlock.ShouldNotContain("InitializeAuthenticatedRuntimeAsync");
         cancelBlock.IndexOf(
-                "LoginRuntimePreparer.DisposeWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask);",
+                "LoginRuntimePreparer.ObserveWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask);",
                 StringComparison.Ordinal)
             .ShouldBeLessThan(cancelBlock.IndexOf("ShutdownHostProcess();", StringComparison.Ordinal));
         appSource.ShouldContain("ProcessExitEscalation.Begin();");
@@ -364,9 +373,10 @@ public sealed class StartupBootstrapWiringTests
         var shellPresenterSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "PostLoginShellPresenter.cs"));
 
         shellPresenterSource.ShouldContain("window.ContentRendered += (_, _) =>");
-        shellPresenterSource.ShouldContain("_ = RunPostLoginShellWarmupAsync(");
-        shellPresenterSource.ShouldContain("Task.Run(() => loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations())");
-        shellPresenterSource.ShouldContain("Task.Run(() => BuildSettingsAndAbout(");
+        shellPresenterSource.ShouldContain("warmupTask = RunPostLoginShellWarmupAsync(");
+        shellPresenterSource.ShouldContain("() => loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations(),");
+        shellPresenterSource.ShouldContain("var settingsAndAboutTask = Task.Run(");
+        shellPresenterSource.ShouldContain("() => BuildSettingsAndAbout(");
         shellPresenterSource.ShouldContain("Dispatcher.InvokeAsync");
         shellPresenterSource.ShouldContain("BeginPostLoginActivation");
         shellPresenterSource.ShouldNotContain("window.ContentRendered += async");
@@ -444,15 +454,15 @@ public sealed class StartupBootstrapWiringTests
     }
 
     [Fact]
-    public void Host_login_runtime_factory_backfills_startup_remember_me_snapshot_after_runtime_load()
+    public void Host_login_runtime_factory_loads_username_only_remember_me_slot_from_database()
     {
         var root = RepoRoot();
         var factorySource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Login", "HostLoginRuntimeFactory.cs"));
         var compactFactorySource = string.Concat(factorySource.Where(character => !char.IsWhiteSpace(character)));
 
-        factorySource.ShouldContain("StartupRememberMeSnapshotSink.Instance");
-        compactFactorySource.ShouldContain(
-            "newRememberMeSlotService(executor,rememberScopeProtector,applicationEntropy,StartupRememberMeSnapshotSink.Instance)");
+        compactFactorySource.ShouldContain("newRememberMeSlotService(executor)");
+        factorySource.ShouldContain("rememberMeSlotService.LoadRememberedAccount()");
+        factorySource.ShouldNotContain("StartupRememberMeSnapshotSink");
     }
 
     [Fact]
@@ -504,21 +514,22 @@ public sealed class StartupBootstrapWiringTests
     }
 
     [Fact]
-    public void App_shows_shell_without_creating_post_login_runtime_after_success()
+    public void App_composes_authenticated_runtime_only_after_success_and_before_shell()
     {
         var root = RepoRoot();
         var appSource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "App.xaml.cs"));
 
         var loginShowDialog = appSource.IndexOf("loginWindow.ShowDialog()", StringComparison.Ordinal);
-        var fullRuntime = appSource.IndexOf("HostLoginRuntimeFactory.Create(", loginShowDialog, StringComparison.Ordinal);
+        var fullRuntime = appSource.IndexOf("LoginRuntimePreparer.InitializeAuthenticatedRuntimeAsync(", loginShowDialog, StringComparison.Ordinal);
         var shellPresenter = appSource.IndexOf("PostLoginShellPresenter.ShowAsync(", loginShowDialog, StringComparison.Ordinal);
 
         loginShowDialog.ShouldBeGreaterThanOrEqualTo(0);
         shellPresenter.ShouldBeGreaterThan(loginShowDialog);
-        fullRuntime.ShouldBe(-1);
+        fullRuntime.ShouldBeGreaterThan(loginShowDialog);
+        fullRuntime.ShouldBeLessThan(shellPresenter);
 
         var afterLoginBeforeShell = appSource[loginShowDialog..shellPresenter];
-        afterLoginBeforeShell.ShouldNotContain("HostLoginRuntimeFactory.Create(");
+        afterLoginBeforeShell.ShouldContain("LoginRuntimePreparer.InitializeAuthenticatedRuntimeAsync(");
         afterLoginBeforeShell.ShouldNotContain("SettingsPreferenceSourceFactory");
         afterLoginBeforeShell.ShouldNotContain("PluginPageRouteCoordinator");
         afterLoginBeforeShell.ShouldNotContain("BuildSettingsAndAbout(");

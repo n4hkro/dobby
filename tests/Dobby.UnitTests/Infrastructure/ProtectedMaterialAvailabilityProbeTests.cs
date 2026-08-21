@@ -1,6 +1,7 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Dobby.Infrastructure.ProtectedStorage;
 using Shouldly;
 
@@ -23,21 +24,70 @@ public sealed class ProtectedMaterialAvailabilityProbeTests
         material.StableDeviceId.ShouldNotBeEmpty();
         material.DbOpenSecret.ShouldNotBeEmpty();
         material.ProtectedStableDeviceIdBlob.ShouldNotBeEmpty();
+        material.DeviceRecoveryPrivateKeyPkcs8.ShouldNotBeNull();
+        material.DeviceRecoveryPublicKeySpki.ShouldNotBeNull();
         material.StableDeviceId.ShouldBe(secondLoad.StableDeviceId);
         material.DbOpenSecret.ShouldBe(secondLoad.DbOpenSecret);
+        material.DeviceRecoveryPublicKeySpki.ShouldBe(secondLoad.DeviceRecoveryPublicKeySpki);
 
         var protectedDirectory = Path.Combine(temp.Path, "data", "protected");
         File.Exists(Path.Combine(protectedDirectory, "app-entropy.v1.dpapi")).ShouldBeTrue();
         File.Exists(Path.Combine(protectedDirectory, "stable-device-id.v1.dpapi")).ShouldBeTrue();
         File.Exists(Path.Combine(protectedDirectory, "db-open-secret.v1.dpapi")).ShouldBeTrue();
+        File.Exists(Path.Combine(protectedDirectory, "device-recovery-private-key.p256.v1.dpapi")).ShouldBeTrue();
 
         var marker = File.ReadAllText(Path.Combine(protectedDirectory, "protected-material.initialized.json"));
         marker.ShouldContain("protectionVersion");
         marker.ShouldContain("algorithmVersion");
         marker.ShouldContain("createdAtUtc");
+        marker.ShouldContain("recoveryKeyVersion");
         marker.ShouldNotContain(temp.Path);
         marker.ShouldNotContain("entropy", Case.Insensitive);
         marker.ShouldNotContain("secret", Case.Insensitive);
+    }
+
+    [Fact]
+    public void Legacy_initialized_material_is_upgraded_once_with_a_stable_protected_recovery_key()
+    {
+        using var temp = new TempRoot();
+        var probe = CreateProbe(temp.Path);
+        probe.IsAvailable().ShouldBeTrue();
+        var before = probe.LoadRequired();
+        var protectedDirectory = Path.Combine(temp.Path, "data", "protected");
+        var keyPath = Path.Combine(protectedDirectory, "device-recovery-private-key.p256.v1.dpapi");
+        var markerPath = Path.Combine(protectedDirectory, "protected-material.initialized.json");
+        File.Delete(keyPath);
+        var marker = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(markerPath))!;
+        marker.Remove("recoveryKeyVersion");
+        File.WriteAllText(markerPath, JsonSerializer.Serialize(marker));
+
+        probe.IsAvailable().ShouldBeTrue();
+        var upgraded = probe.LoadRequired();
+        var repeated = probe.LoadRequired();
+
+        upgraded.ApplicationEntropy.ShouldBe(before.ApplicationEntropy);
+        upgraded.StableDeviceId.ShouldBe(before.StableDeviceId);
+        upgraded.DbOpenSecret.ShouldBe(before.DbOpenSecret);
+        upgraded.DeviceRecoveryPrivateKeyPkcs8.ShouldNotBe(before.DeviceRecoveryPrivateKeyPkcs8);
+        upgraded.DeviceRecoveryPublicKeySpki.ShouldBe(repeated.DeviceRecoveryPublicKeySpki);
+        File.ReadAllText(markerPath).ShouldContain("ecdsa-p256-pkcs8-v1");
+    }
+
+    [Fact]
+    public void Declared_recovery_key_loss_fails_closed_without_regenerating_identity()
+    {
+        using var temp = new TempRoot();
+        var probe = CreateProbe(temp.Path);
+        probe.IsAvailable().ShouldBeTrue();
+        var keyPath = Path.Combine(
+            temp.Path,
+            "data",
+            "protected",
+            "device-recovery-private-key.p256.v1.dpapi");
+        File.Delete(keyPath);
+
+        probe.IsAvailable().ShouldBeFalse();
+        File.Exists(keyPath).ShouldBeFalse();
     }
 
     [Fact]
@@ -84,10 +134,12 @@ public sealed class ProtectedMaterialAvailabilityProbeTests
         var protectedEntropy = File.ReadAllBytes(Path.Combine(protectedDirectory, "app-entropy.v1.dpapi"));
         var protectedStableDeviceId = File.ReadAllBytes(Path.Combine(protectedDirectory, "stable-device-id.v1.dpapi"));
         var protectedDbSecret = File.ReadAllBytes(Path.Combine(protectedDirectory, "db-open-secret.v1.dpapi"));
+        var protectedRecoveryKey = File.ReadAllBytes(Path.Combine(protectedDirectory, "device-recovery-private-key.p256.v1.dpapi"));
 
         protectedEntropy.ShouldNotBe(material.ApplicationEntropy);
         protectedStableDeviceId.ShouldNotBe(material.StableDeviceId);
         protectedDbSecret.ShouldNotBe(material.DbOpenSecret);
+        protectedRecoveryKey.ShouldNotBe(material.DeviceRecoveryPrivateKeyPkcs8);
     }
 
     [Fact]

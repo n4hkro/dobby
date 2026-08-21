@@ -35,6 +35,12 @@ public sealed class OwnerBootstrapService(
             return Result.Failure<string>(passwordValidation.ErrorCode!.Value);
         }
 
+        var normalizedDisplayName = DisplayNameValidator.Normalize(displayName);
+        if (!normalizedDisplayName.IsSuccess)
+        {
+            return Result.Failure<string>(normalizedDisplayName.ErrorCode!.Value);
+        }
+
         var userId = Guid.CreateVersion7().ToString("D");
         var timestamp = now.ToUniversalTime().ToString("O");
         executor.Execute(
@@ -43,7 +49,7 @@ public sealed class OwnerBootstrapService(
             {
                 UserId = userId,
                 UsernameNormalized = normalizedUsername.Value,
-                DisplayName = DisplayNameValidator.Normalize(displayName),
+                DisplayName = normalizedDisplayName.Value,
                 CreatedAtUtc = timestamp,
                 UpdatedAtUtc = timestamp
             });

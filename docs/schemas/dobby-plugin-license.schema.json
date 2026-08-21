@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://dobby.local/schemas/dobby-plugin-license.schema.json",
-  "title": "Dobby Plugin License Artifact",
-  "description": "Phase 1 machine-readable schema for detached .dobbylicense v2 artifacts. ADR-0051 owns license lifecycle and canonical payload semantics; ADR-0033 owns key-version and signing-key ownership semantics.",
+  "title": "Dobby Plugin License Artifact v2 (Legacy)",
+  "description": "Frozen legacy v2 schema for detached .dobbylicense artifacts. New imports after the v3 activation gate require dobby-plugin-license-v3.schema.json; see artifact-compatibility-matrix.md.",
   "type": "object",
   "additionalProperties": false,
   "required": [

@@ -105,17 +105,19 @@ Self-service password change profile/account səthindən cari authenticated user
 
 Uğurlu self-service password change:
 
-- cari password tələb etmir;
+- cari password və eyni new-password confirmation tələb edir;
 - cari session-u invalid etmir;
+- həmin user-in başqa active session-larını `password-change` səbəbi ilə invalid edir;
 - current user-i login ekranına məcburi qaytarmır;
 - növbəti login üçün yeni password tələb edir;
 - active authenticated session tələb edir; login/pre-auth səthindən self-service
   password change yoxdur;
-- remember-me saved credential material köhnə password ilə silent auto-relogin
-  yaratmır; slot yeni credential ilə replace edilir və ya clear olunur;
+- remember-me slot yalnız username/account metadata saxlayır və seçimə görə həmin
+  account ilə replace edilir və ya clear olunur; password materialı saxlanmır;
 - session material yeni credential version metadata ilə rebind olunur;
 - failure mesajları non-disclosing qalır və raw password/hash detail göstərmir;
-- audit event yaradır.
+- credential, current/other session, remembered-account, audit və outbox state-i
+  bir atomik commit sərhədində dəyişir.
 
 User Management daxilində başqa managed user üçün password reset recovery deyil. Əgər target user-in active session-ı varsa, həmin session invalid edilir.
 
@@ -178,3 +180,18 @@ authorize new shared writes.
 Initial reconnect policy values are owned by `ADR-0056` /
 `docs/specs/postgres-deployment-ops.md` and remain Tier B placeholders until
 runtime implementation opens.
+
+## 2026-08 Hardening Amendment (Controlling)
+
+- Remembered login persists only the normalized username/account selection. It
+  never persists or reconstructs a password or password-equivalent proof.
+- Process restart requires fresh authentication. A masked placeholder must not
+  conceal a retained credential.
+- Throttle state is durable and separately accounts for normalized-account and
+  device/global abuse. Successful authentication clears only the policy-owned
+  buckets; one account cannot reset or lock every other account.
+- Credential warm-up, if retained, is cancellable, concurrency-bounded,
+  short-lived and charged to the same attempt policy as final verification.
+- The authenticated runtime is created only after session creation commits and
+  is disposed on logout/expiry. Pre-auth work follows the closed boundary in
+  `ADR-0061`.

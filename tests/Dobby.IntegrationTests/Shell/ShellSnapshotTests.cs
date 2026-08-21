@@ -78,7 +78,9 @@ public sealed class ShellSnapshotTests
         settingsEvidence.SurfaceNames.ShouldContain("AppearanceThemeSelector");
         settingsEvidence.SurfaceNames.ShouldContain("AccountSettingsSurface");
         settingsEvidence.SurfaceNames.ShouldContain("SettingsAccountProfileText");
+        settingsEvidence.SurfaceNames.ShouldContain("SettingsCurrentPasswordBox");
         settingsEvidence.SurfaceNames.ShouldContain("SettingsNewPasswordBox");
+        settingsEvidence.SurfaceNames.ShouldContain("SettingsConfirmNewPasswordBox");
         settingsEvidence.SurfaceNames.ShouldContain("SecuritySessionSettingsSurface");
         settingsEvidence.SurfaceNames.ShouldContain("SecurityAutoLockEnabledCheckBox");
         settingsEvidence.SurfaceNames.ShouldContain("SecurityAutoLockMinutesInput");

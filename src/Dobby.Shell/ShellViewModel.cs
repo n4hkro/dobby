@@ -154,6 +154,12 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string ChangePasswordLabel => strings.GetString(HostResourceKeys.ShellProfileChangePassword);
 
+    public string CurrentPasswordLabel => strings.GetString(HostResourceKeys.ShellProfileCurrentPassword);
+
+    public string NewPasswordLabel => strings.GetString(HostResourceKeys.ShellProfileNewPassword);
+
+    public string ConfirmNewPasswordLabel => strings.GetString(HostResourceKeys.ShellProfileConfirmNewPassword);
+
     public string ManualLockLabel => strings.GetString(HostResourceKeys.ShellProfileManualLock);
 
     public string LogoutLabel => strings.GetString(HostResourceKeys.ShellProfileLogout);

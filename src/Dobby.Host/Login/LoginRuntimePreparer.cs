@@ -1,5 +1,6 @@
 using Dobby.Host.Login;
 using Dobby.Host.Plugins;
+using Dobby.Security.Authentication;
 using Dobby.Shell.WorkSessions;
 
 namespace Dobby.Host;
@@ -16,8 +17,7 @@ public sealed record PreparedLoginRuntime(
 }
 
 public sealed record PreparedLoginEntryRuntime(
-    HostPreLoginRuntime PreLoginRuntime,
-    Task<PreparedLoginRuntime?> ShellRuntimeTask);
+    HostPreLoginRuntime PreLoginRuntime);
 
 internal static class LoginRuntimePreparer
 {
@@ -40,7 +40,7 @@ internal static class LoginRuntimePreparer
             }).Task.ConfigureAwait(false);
 
             return attached
-                ? new PreparedLoginEntryRuntime(preLoginRuntime, InitializeShellRuntimeAsync())
+                ? new PreparedLoginEntryRuntime(preLoginRuntime)
                 : null;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
@@ -66,66 +66,15 @@ internal static class LoginRuntimePreparer
         }
     }
 
-    public static async Task<PreparedLoginRuntime?> InitializeLoginRuntimeAsync(LoginWindow loginWindow)
+    public static Task<PreparedLoginRuntime?> InitializeAuthenticatedRuntimeAsync(
+        SessionRecord authenticatedSession)
     {
-        PreparedLoginRuntime? preparedRuntime = null;
-        try
-        {
-            preparedRuntime = await InitializeShellRuntimeAsync().ConfigureAwait(false);
-            if (preparedRuntime is null)
-            {
-                return null;
-            }
-
-            var attached = false;
-            await loginWindow.Dispatcher.InvokeAsync(() =>
-            {
-                if (!loginWindow.IsVisible)
-                {
-                    return;
-                }
-
-                loginWindow.AttachRuntime(preparedRuntime.LoginRuntime);
-                attached = true;
-            }).Task.ConfigureAwait(false);
-
-            if (attached)
-            {
-                return preparedRuntime;
-            }
-
-            await preparedRuntime.DisposeAsync().ConfigureAwait(false);
-            return null;
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
-        {
-            if (preparedRuntime is not null)
-            {
-                await preparedRuntime.DisposeAsync().ConfigureAwait(false);
-            }
-
-            try
-            {
-                await loginWindow.Dispatcher.InvokeAsync(() =>
-                {
-                    if (loginWindow.IsVisible)
-                    {
-                        loginWindow.ShowRuntimeInitializationFailure();
-                    }
-                }).Task.ConfigureAwait(false);
-            }
-            catch (InvalidOperationException) when (loginWindow.Dispatcher.HasShutdownStarted)
-            {
-            }
-            catch (TaskCanceledException)
-            {
-            }
-
-            return null;
-        }
+        ArgumentNullException.ThrowIfNull(authenticatedSession);
+        return InitializeAuthenticatedRuntimeCoreAsync(authenticatedSession);
     }
 
-    private static async Task<PreparedLoginRuntime?> InitializeShellRuntimeAsync()
+    private static async Task<PreparedLoginRuntime?> InitializeAuthenticatedRuntimeCoreAsync(
+        SessionRecord authenticatedSession)
     {
         PreparedLoginRuntime? preparedRuntime = null;
         try
@@ -133,7 +82,8 @@ internal static class LoginRuntimePreparer
             preparedRuntime = await Task.Run(() =>
             {
                 var workSessionRegistry = new WorkSessionRegistry();
-                var loginRuntime = HostLoginRuntimeFactory.Create(
+                var loginRuntime = HostLoginRuntimeFactory.CreateAuthenticated(
+                    authenticatedSession,
                     pluginWorkSessions: new ShellPluginWorkSessionService(workSessionRegistry),
                     applyPreLoginMigrations: false);
                 return new PreparedLoginRuntime(
@@ -154,7 +104,7 @@ internal static class LoginRuntimePreparer
         }
     }
 
-    public static async Task DisposeWhenReadyAsync(Task<PreparedLoginRuntime?>? preparedRuntimeTask)
+    public static async Task ObserveWhenReadyAsync(Task<PreparedLoginEntryRuntime?>? preparedRuntimeTask)
     {
         if (preparedRuntimeTask is null)
         {
@@ -163,54 +113,21 @@ internal static class LoginRuntimePreparer
 
         try
         {
-            var preparedRuntime = await preparedRuntimeTask.ConfigureAwait(false);
-            if (preparedRuntime is not null)
-            {
-                await preparedRuntime.DisposeAsync().ConfigureAwait(false);
-            }
+            _ = await preparedRuntimeTask.ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
         }
     }
 
-    public static async Task DisposeWhenReadyAsync(Task<PreparedLoginEntryRuntime?>? preparedRuntimeTask)
+    public static void ObserveWhenReadyWithoutBlockingShutdown(
+        Task<PreparedLoginEntryRuntime?>? preparedRuntimeTask)
     {
         if (preparedRuntimeTask is null)
         {
             return;
         }
 
-        try
-        {
-            var preparedRuntime = await preparedRuntimeTask.ConfigureAwait(false);
-            if (preparedRuntime is not null)
-            {
-                await DisposeWhenReadyAsync(preparedRuntime.ShellRuntimeTask).ConfigureAwait(false);
-            }
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
-        {
-        }
-    }
-
-    public static void DisposeWhenReadyWithoutBlockingShutdown(Task<PreparedLoginRuntime?>? preparedRuntimeTask)
-    {
-        if (preparedRuntimeTask is null)
-        {
-            return;
-        }
-
-        _ = DisposeWhenReadyAsync(preparedRuntimeTask);
-    }
-
-    public static void DisposeWhenReadyWithoutBlockingShutdown(Task<PreparedLoginEntryRuntime?>? preparedRuntimeTask)
-    {
-        if (preparedRuntimeTask is null)
-        {
-            return;
-        }
-
-        _ = DisposeWhenReadyAsync(preparedRuntimeTask);
+        _ = ObserveWhenReadyAsync(preparedRuntimeTask);
     }
 }

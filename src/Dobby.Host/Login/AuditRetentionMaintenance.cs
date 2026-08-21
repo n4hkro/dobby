@@ -8,10 +8,11 @@ namespace Dobby.Host.Login;
 
 internal static class AuditRetentionMaintenance
 {
-    public static void StartOneShot(
+    public static Task StartOneShot(
         IHostPersistenceCommandExecutor executor,
         int retentionDays,
-        IBackgroundOperationReporter backgroundOperations)
+        IBackgroundOperationReporter backgroundOperations,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(executor);
         ArgumentNullException.ThrowIfNull(backgroundOperations);
@@ -19,12 +20,13 @@ internal static class AuditRetentionMaintenance
         var operationId = Guid.CreateVersion7();
         var correlationId = Guid.NewGuid();
         Report(backgroundOperations, operationId, correlationId, BackgroundOperationStatus.Running, null);
-        _ = Task.Factory.StartNew(
+        return Task.Run(
             () =>
             {
                 var started = Stopwatch.GetTimestamp();
                 try
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var deleted = new AuditRetentionSweeper(executor, retentionDays).Sweep();
                     Trace.TraceInformation(
                         "Audit retention sweep completed in {0} ms; rows deleted: {1}.",
@@ -32,15 +34,18 @@ internal static class AuditRetentionMaintenance
                         deleted);
                     Report(backgroundOperations, operationId, correlationId, BackgroundOperationStatus.Completed, null);
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    Report(backgroundOperations, operationId, correlationId, BackgroundOperationStatus.Cancelled, null);
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     Trace.TraceWarning("Audit retention sweep failed closed: {0}.", ex.GetType().Name);
                     Report(backgroundOperations, operationId, correlationId, BackgroundOperationStatus.Failed, ErrorCode.DatabaseUnavailable);
                 }
             },
-            CancellationToken.None,
-            TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
-            TaskScheduler.Default);
+            cancellationToken);
     }
 
     private static void Report(
@@ -58,7 +63,7 @@ internal static class AuditRetentionMaintenance
             ShortDetailKey: null,
             status,
             BackgroundOperationProgress.Indeterminate(),
-            CanCancel: false,
+            CanCancel: true,
             correlationId,
             failureReason));
     }

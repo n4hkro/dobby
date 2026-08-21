@@ -47,3 +47,11 @@ storage/deployment close-out.
   chosen by `HD-007` / `DM-094`.
 - This file does not authorize code skeleton work. Implementation phases remain
   governed by the accepted ADR/spec set and explicit human approval.
+
+## 2026-08 Authority Note
+
+Conflicting feature wording is controlled by the amendment sections dated
+2026-08 and `ADR-0058` through `ADR-0061`. Completion status and executable work
+ordering are maintained in `docs/implementation-plan/00_MASTER_EXECUTION_PLAN.md`
+and its traceability companion; historical sprint plans are evidence, not
+current authority.

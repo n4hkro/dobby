@@ -23,12 +23,13 @@ public sealed class LoginWindowRuntimeWiringTests
         preparer.ShouldContain("PreparedLoginEntryRuntime");
         preparer.ShouldContain("PreLoginRuntime");
         preparer.ShouldContain("HostLoginRuntimeFactory.CreatePreLogin(");
-        preparer.ShouldContain("HostLoginRuntimeFactory.Create(");
+        preparer.ShouldContain("HostLoginRuntimeFactory.CreateAuthenticated(");
         preparer.ShouldContain("new ShellPluginWorkSessionService(workSessionRegistry)");
         preparer.ShouldContain("loginWindow.AttachRuntime(preLoginRuntime)");
         presenter.ShouldContain("new MainWindow(shellViewModel)");
         presenter.ShouldContain("window.AttachRuntime(");
         app.ShouldContain("loginWindow.AuthenticatedSession");
+        app.ShouldContain("LoginRuntimePreparer.InitializeAuthenticatedRuntimeAsync(");
         mainWindow.ShouldContain("loginRuntime.PostLoginSessionRuntime");
         mainWindow.ShouldNotContain("loginRuntime.SelfServicePasswordChangeCoordinator");
 
@@ -64,10 +65,12 @@ public sealed class LoginWindowRuntimeWiringTests
 
         app.ShouldContain("protected override async void OnStartup");
         app.ShouldContain("await RunLoginLoopAsync(firstLoginStartupTiming)");
-        app.ShouldContain("LoginRuntimePreparer.DisposeWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask)");
+        app.ShouldContain("LoginRuntimePreparer.ObserveWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask)");
         preparer.ShouldContain("await preparedRuntime.DisposeAsync()");
-        preparer.ShouldContain("_ = DisposeWhenReadyAsync(preparedRuntimeTask)");
+        preparer.ShouldContain("_ = ObserveWhenReadyAsync(preparedRuntimeTask)");
         presenter.ShouldContain("await using var preparedRuntimeLease = preparedLoginRuntime.ConfigureAwait(false)");
+        presenter.ShouldContain("authenticatedLifetime.Cancel()");
+        presenter.ShouldContain("await warmupTask.ConfigureAwait(false)");
         runtime.ShouldContain("IAsyncDisposable");
         runtime.ShouldContain("PostLoginSessionRuntime.Dispose();");
         runtime.ShouldContain("await PluginRuntimeCoordinator.DisposeAsync()");
@@ -108,8 +111,12 @@ public sealed class LoginWindowRuntimeWiringTests
         var xaml = ReadSource("src", "Dobby.Host", "MainWindow.xaml");
         var codeBehind = ReadSource("src", "Dobby.Host", "MainWindow.xaml.cs");
 
+        xaml.ShouldContain("CurrentPasswordBox");
         xaml.ShouldContain("NewPasswordBox");
+        xaml.ShouldContain("ConfirmNewPasswordBox");
+        xaml.ShouldContain("SettingsCurrentPasswordBox");
         xaml.ShouldContain("SettingsNewPasswordBox");
+        xaml.ShouldContain("SettingsConfirmNewPasswordBox");
         xaml.ShouldContain("PasswordChangeRememberMeCheckBox");
         xaml.ShouldContain("SettingsPasswordChangeRememberMeCheckBox");
         xaml.ShouldContain("ChangePasswordButton");
@@ -118,6 +125,8 @@ public sealed class LoginWindowRuntimeWiringTests
         codeBehind.ShouldContain("ChangePassword_Click");
         codeBehind.ShouldContain("SettingsChangePassword_Click");
         codeBehind.ShouldContain("loginRuntime.AccountSettingsModel.ChangePassword");
+        codeBehind.ShouldContain("currentPasswordBox.Password");
+        codeBehind.ShouldContain("confirmationBox.Password");
         codeBehind.ShouldContain("ManualLock_Click");
         codeBehind.ShouldContain("sessionRuntime.LockNow");
     }
@@ -156,43 +165,20 @@ public sealed class LoginWindowRuntimeWiringTests
     }
 
     [Fact]
-    public void Login_window_warms_available_credentials_before_submit()
+    public void Login_window_does_not_start_input_driven_credential_verification()
     {
         var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
         var workflow = ReadSource("src", "Dobby.Host", "Login", "LoginRuntimeWorkflow.cs");
         var deferredWorkflow = ReadSource("src", "Dobby.Host", "Login", "DeferredLoginRuntimeWorkflow.cs");
 
-        codeBehind.ShouldContain("QueueCredentialWarmup();");
-        codeBehind.ShouldContain("ScheduleCredentialWarmup();");
-        codeBehind.ShouldContain("ILoginCredentialWarmupWorkflow warmupWorkflow");
-        codeBehind.ShouldContain("_ = warmupWorkflow.WarmCredentialsAsync(new LoginCredentialWarmup(");
-        codeBehind.ShouldContain("viewModel.Password");
-        workflow.ShouldContain("public interface ILoginCredentialWarmupWorkflow");
-        workflow.ShouldContain("Task WarmCredentialsAsync(LoginCredentialWarmup warmup)");
-        workflow.ShouldContain("TryUseWarmedCredential(submission");
-        workflow.ShouldContain("LoginWithValidatedCredential(");
-        deferredWorkflow.ShouldContain("public Task WarmCredentialsAsync(LoginCredentialWarmup warmup)");
-        deferredWorkflow.ShouldContain("await warmupWorkflow.WarmCredentialsAsync(warmup).ConfigureAwait(false);");
-    }
-
-    [Fact]
-    public async Task Deferred_login_warmup_task_completes_only_after_inner_warmup()
-    {
-        var inner = new BlockingCredentialWarmupWorkflow();
-        var preparedRuntime = new PreparedLoginEntryRuntime(
-            new HostPreLoginRuntime(inner, null!, null!),
-            Task.FromResult<PreparedLoginRuntime?>(null));
-        var deferred = new DeferredLoginRuntimeWorkflow(
-            () => Task.FromResult<PreparedLoginEntryRuntime?>(preparedRuntime));
-        var warmupTask = deferred.WarmCredentialsAsync(new LoginCredentialWarmup(
-            "owner",
-            "correct password",
-            CorrelationId.New()));
-
-        await inner.WarmupEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        warmupTask.IsCompleted.ShouldBeFalse();
-        inner.AllowCompletion.TrySetResult(true).ShouldBeTrue();
-        await warmupTask.WaitAsync(TimeSpan.FromSeconds(10));
+        codeBehind.ShouldNotContain("CredentialWarmup");
+        codeBehind.ShouldNotContain("ScheduleCredentialWarmup");
+        codeBehind.ShouldNotContain("QueueCredentialWarmup");
+        codeBehind.ShouldNotContain("viewModel.Password");
+        workflow.ShouldNotContain("CredentialWarmup");
+        workflow.ShouldNotContain("WarmedCredential");
+        workflow.ShouldNotContain("LoginWithValidatedCredential(");
+        deferredWorkflow.ShouldNotContain("CredentialWarmup");
     }
 
     [Fact]
@@ -213,16 +199,17 @@ public sealed class LoginWindowRuntimeWiringTests
     }
 
     [Fact]
-    public void Login_window_first_paint_path_avoids_unused_binding_and_instance_reflection_work()
+    public void Login_window_first_paint_path_never_restores_or_resolves_a_password()
     {
         var codeBehind = ReadSource("src", "Dobby.Host", "Login", "LoginWindow.xaml.cs");
 
         codeBehind.ShouldNotContain("DataContext = viewModel");
         codeBehind.ShouldNotContain("PasswordBox.GetType()");
-        codeBehind.ShouldContain("viewModel.InitialPasswordDisplayValue");
-        codeBehind.ShouldContain("viewModel.SubmittedPassword(PasswordBox.Password)");
-        codeBehind.ShouldNotContain("ApplyInitialPassword(viewModel.Password)");
-        codeBehind.ShouldContain("static readonly PropertyInfo PasswordBoxPasswordProperty");
+        codeBehind.ShouldNotContain("InitialPasswordDisplayValue");
+        codeBehind.ShouldNotContain("SubmittedPassword(");
+        codeBehind.ShouldNotContain("ApplyInitialPassword");
+        codeBehind.ShouldNotContain("PasswordBoxPasswordProperty");
+        codeBehind.ShouldContain("PasswordBox.Password");
     }
 
     [Fact]
@@ -233,8 +220,8 @@ public sealed class LoginWindowRuntimeWiringTests
         codeBehind.ShouldContain("ShouldKeepRenderedLoginFields(runtimeViewModel)");
         codeBehind.ShouldContain("ApplyRuntimeStateWithoutLoginFieldReset()");
         codeBehind.ShouldContain("StringComparer.Ordinal.Equals(viewModel.Username, runtimeViewModel.Username)");
-        codeBehind.ShouldContain("viewModel.IsPasswordPrefilled");
-        codeBehind.ShouldContain("runtimeViewModel.IsPasswordPrefilled");
+        codeBehind.ShouldContain("viewModel.RememberMeSelected == runtimeViewModel.RememberMeSelected");
+        codeBehind.ShouldNotContain("IsPasswordPrefilled");
         codeBehind.ShouldContain("if (shouldKeepRenderedLoginFields)");
     }
 
@@ -394,29 +381,6 @@ public sealed class LoginWindowRuntimeWiringTests
         codeBehind.ShouldContain("viewModel.ImportResponse");
         codeBehind.ShouldContain("viewModel.OpenExportFolder");
         codeBehind.ShouldContain("viewModel.CopyExportPath");
-    }
-
-    private sealed class BlockingCredentialWarmupWorkflow :
-        ILoginRuntimeWorkflow,
-        ILoginCredentialWarmupWorkflow
-    {
-        public TaskCompletionSource<bool> WarmupEntered { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public TaskCompletionSource<bool> AllowCompletion { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public LoginRuntimeWorkflowResult Submit(LoginSubmission submission)
-        {
-            throw new NotSupportedException();
-        }
-
-        public async Task WarmCredentialsAsync(LoginCredentialWarmup warmup)
-        {
-            ArgumentNullException.ThrowIfNull(warmup);
-            WarmupEntered.TrySetResult(true);
-            await AllowCompletion.Task.ConfigureAwait(false);
-        }
     }
 
     private static string ReadSource(params string[] relativePath)

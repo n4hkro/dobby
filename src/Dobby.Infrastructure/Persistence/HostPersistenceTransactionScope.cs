@@ -3,10 +3,14 @@ namespace Dobby.Infrastructure.Persistence;
 public sealed class HostPersistenceTransactionScope : IHostPersistenceTransactionScope
 {
     private readonly IHostPersistenceConnectionFactory factory;
+    private readonly IHostPersistenceTransactionFaultInjector? faultInjector;
 
-    public HostPersistenceTransactionScope(IHostPersistenceConnectionFactory factory)
+    public HostPersistenceTransactionScope(
+        IHostPersistenceConnectionFactory factory,
+        IHostPersistenceTransactionFaultInjector? faultInjector = null)
     {
         this.factory = factory;
+        this.faultInjector = faultInjector;
     }
 
     public void ExecuteInTransaction(Action<IHostPersistenceCommandExecutor> action)
@@ -34,7 +38,8 @@ public sealed class HostPersistenceTransactionScope : IHostPersistenceTransactio
 
         try
         {
-            action(executor);
+            action(CreateExecutor(executor));
+            faultInjector?.BeforeCommit();
             transaction.Commit();
         }
         catch
@@ -44,7 +49,7 @@ public sealed class HostPersistenceTransactionScope : IHostPersistenceTransactio
         }
     }
 
-    private static void ExecuteInSavepoint(
+    private void ExecuteInSavepoint(
         HostPersistenceConnection connection,
         Action<IHostPersistenceCommandExecutor> action)
     {
@@ -53,7 +58,7 @@ public sealed class HostPersistenceTransactionScope : IHostPersistenceTransactio
 
         try
         {
-            action(new HostPersistenceCommandExecutor(connection));
+            action(CreateExecutor(new HostPersistenceCommandExecutor(connection)));
             ExecuteControlCommand(connection, $"RELEASE SAVEPOINT {savepointName};");
         }
         catch
@@ -70,5 +75,42 @@ public sealed class HostPersistenceTransactionScope : IHostPersistenceTransactio
         command.Transaction = connection.Transaction;
         command.CommandText = sql;
         command.ExecuteNonQuery();
+    }
+
+    private IHostPersistenceCommandExecutor CreateExecutor(IHostPersistenceCommandExecutor executor)
+    {
+        return faultInjector is null
+            ? executor
+            : new FaultInjectingExecutor(executor, faultInjector);
+    }
+
+    private sealed class FaultInjectingExecutor(
+        IHostPersistenceCommandExecutor inner,
+        IHostPersistenceTransactionFaultInjector injector) : IHostPersistenceCommandExecutor
+    {
+        private int commandNumber;
+
+        public int Execute(string sql, object? parameters = null)
+        {
+            Before(HostPersistenceCommandKind.Execute, sql);
+            return inner.Execute(sql, parameters);
+        }
+
+        public IReadOnlyList<T> Query<T>(string sql, object? parameters = null)
+        {
+            Before(HostPersistenceCommandKind.Query, sql);
+            return inner.Query<T>(sql, parameters);
+        }
+
+        public T QueryScalar<T>(string sql, object? parameters = null)
+        {
+            Before(HostPersistenceCommandKind.QueryScalar, sql);
+            return inner.QueryScalar<T>(sql, parameters);
+        }
+
+        private void Before(HostPersistenceCommandKind kind, string commandText)
+        {
+            injector.BeforeCommand(Interlocked.Increment(ref commandNumber), kind, commandText);
+        }
     }
 }

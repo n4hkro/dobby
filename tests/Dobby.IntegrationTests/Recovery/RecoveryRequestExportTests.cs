@@ -1,11 +1,12 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using Dobby.Audit;
 using Dobby.Core;
-using Dobby.Core.Versioning;
 using Dobby.Host.Login;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
 using Dobby.Security.Authentication;
+using Dobby.Security.Trust;
 using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
@@ -14,43 +15,71 @@ namespace Dobby.IntegrationTests.Recovery;
 public sealed class RecoveryRequestExportTests
 {
     [Fact]
-    public void Export_writes_unsigned_recovery_request_and_appends_audit_row()
+    public void Export_signs_v2_request_persists_binding_and_appends_audit_and_outbox_atomically()
     {
         using var fixture = RecoveryRequestFixture.Create();
-        var device = new DeviceFingerprint("machine", "cpu", "board", "disk", "mac");
-        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-18T00:00:00Z"));
+        using var deviceKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-21T00:00:00Z"));
+        var signer = new DeviceRecoveryKeySigner(
+            deviceKey.ExportPkcs8PrivateKey(),
+            deviceKey.ExportSubjectPublicKeyInfo());
         var exporter = new RecoveryRequestExportCoordinator(
             new RecoveryRequestExporter(
-                new StaticDeviceFingerprint(device),
-                new FixedHostVersionProvider(new HostVersion(1, 2, 3)),
+                signer,
+                new RecoveryAuthorityContext("customer-1", "deployment-1", "device:stable-1"),
                 time,
-                "Owner laptop"),
-            new DurableAuditTrail(fixture.Executor));
+                VendorRecoveryPublicKey.DevQaKeyId),
+            new HostMutationUnitOfWork(
+                fixture.TransactionScope,
+                new DurableAuditTrail(fixture.Executor),
+                new HostTransactionOutbox(time)),
+            time);
 
         var result = exporter.Export(fixture.Root, CorrelationId.New());
 
-        result.IsSuccess.ShouldBeTrue(result.IsSuccess ? null : result.ErrorCode.ToString());
-        Path.GetExtension(result.Value.FilePath).ShouldBe(".dobbyrecoveryrequest");
+        result.IsSuccess.ShouldBeTrue(result.ErrorCode?.ToString());
         var json = File.ReadAllText(result.Value.FilePath);
-        json.ShouldNotContain("signature", Case.Insensitive);
-        using var document = JsonDocument.Parse(json);
-        var root = document.RootElement;
-        root.GetProperty("type").GetString().ShouldBe("dobby.owner-recovery-request.v1");
-        root.GetProperty("dobbyVersion").GetString().ShouldBe("1.2.3");
-        root.GetProperty("requestedAt").GetString().ShouldBe(time.GetUtcNow().ToString("O"));
-        root.GetProperty("deviceDisplayName").GetString().ShouldBe("Owner laptop");
-        Guid.TryParse(root.GetProperty("requestId").GetString(), out _).ShouldBeTrue();
-        root.GetProperty("deviceIdentity").GetProperty("machineGuid").GetString().ShouldBe("machine");
-        root.GetProperty("deviceIdentity").GetProperty("cpuId").GetString().ShouldBe("cpu");
-        root.GetProperty("deviceIdentity").GetProperty("motherboardSerial").GetString().ShouldBe("board");
-        root.GetProperty("deviceIdentity").GetProperty("diskSerial").GetString().ShouldBe("disk");
-        root.GetProperty("deviceIdentity").GetProperty("macAddress").GetString().ShouldBe("mac");
+        json.ShouldNotContain("machineGuid", Case.Insensitive);
+        json.ShouldNotContain("private", Case.Insensitive);
+        var envelope = RecoveryRequestVerifier.ReadEnvelope(json);
+        new RecoveryRequestVerifier().Verify(
+            envelope,
+            deviceKey.ExportSubjectPublicKeyInfo(),
+            time.GetUtcNow()).IsSuccess.ShouldBeTrue();
+        envelope.Payload.SchemaVersion.ShouldBe(2);
+        envelope.Payload.RecoveryPublicKeyHash.ShouldBe(signer.PublicKeyHash);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RecoveryRequests WHERE RequestId = @RequestId;", new { envelope.Payload.RequestId }).ShouldBe(1);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'recovery.export' AND Result = 'success';").ShouldBe(1);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM HostOutbox WHERE MessageType = 'recovery.requested';").ShouldBe(1);
     }
 
-    private sealed class StaticDeviceFingerprint(DeviceFingerprint fingerprint) : IDeviceFingerprintSource
+    [Fact]
+    public void Export_commit_failure_removes_artifact_and_rolls_back_request_audit_and_outbox()
     {
-        public Result<DeviceFingerprint> Current() => Result.Success(fingerprint);
+        using var fixture = RecoveryRequestFixture.Create();
+        using var deviceKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-21T00:00:00Z"));
+        var coordinator = new RecoveryRequestExportCoordinator(
+            new RecoveryRequestExporter(
+                new DeviceRecoveryKeySigner(
+                    deviceKey.ExportPkcs8PrivateKey(),
+                    deviceKey.ExportSubjectPublicKeyInfo()),
+                new RecoveryAuthorityContext("customer-1", "deployment-1", "device:stable-1"),
+                time,
+                VendorRecoveryPublicKey.DevQaKeyId),
+            new HostMutationUnitOfWork(
+                new HostPersistenceTransactionScope(fixture.Factory, new CommitFailureInjector()),
+                new DurableAuditTrail(fixture.Executor),
+                new HostTransactionOutbox(time)),
+            time);
+
+        var result = coordinator.Export(fixture.Root, CorrelationId.New());
+
+        result.ErrorCode.ShouldBe(ErrorCode.DatabaseUnavailable);
+        Directory.EnumerateFiles(fixture.Root, "*.dobbyrecoveryrequest").ShouldBeEmpty();
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RecoveryRequests;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'recovery.export';").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM HostOutbox;").ShouldBe(0);
     }
 
     private sealed class RecoveryRequestFixture : IDisposable
@@ -61,14 +90,16 @@ public sealed class RecoveryRequestExportTests
             var options = new HostPersistenceOptions(root, "SQLite3MultipleCiphers", true, 5000);
             var probe = ProtectedMaterialAvailabilityProbe.CreateForDataRoot(root);
             probe.IsAvailable().ShouldBeTrue();
-            var factory = new EncryptedSqliteConnectionFactory(options, probe);
-            new HostPersistenceMigrator(factory, probe).ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
-            Executor = new HostPersistenceCommandExecutor(factory);
+            Factory = new EncryptedSqliteConnectionFactory(options, probe);
+            new HostPersistenceMigrator(Factory, probe).ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+            Executor = new HostPersistenceCommandExecutor(Factory);
+            TransactionScope = new HostPersistenceTransactionScope(Factory);
         }
 
         public string Root { get; }
-
+        public EncryptedSqliteConnectionFactory Factory { get; }
         public HostPersistenceCommandExecutor Executor { get; }
+        public HostPersistenceTransactionScope TransactionScope { get; }
 
         public static RecoveryRequestFixture Create()
         {
@@ -83,6 +114,18 @@ public sealed class RecoveryRequestExportTests
             {
                 Directory.Delete(Root, recursive: true);
             }
+        }
+    }
+
+    private sealed class CommitFailureInjector : IHostPersistenceTransactionFaultInjector
+    {
+        public void BeforeCommand(int commandNumber, HostPersistenceCommandKind kind, string commandText)
+        {
+        }
+
+        public void BeforeCommit()
+        {
+            throw new InvalidOperationException("Synthetic recovery request commit failure.");
         }
     }
 }

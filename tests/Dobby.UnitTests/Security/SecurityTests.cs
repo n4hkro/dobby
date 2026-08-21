@@ -27,7 +27,7 @@ public sealed class SecurityTests
     [Fact]
     public void Pbkdf2_password_hasher_uses_floor_policy_and_verifies_password()
     {
-        var hasher = new Pbkdf2PasswordHasher(KdfPolicy.SkeletonPbkdf2Fallback);
+        var hasher = new Pbkdf2PasswordHasher(KdfPolicy.Pbkdf2Sha256V1);
 
         var hash = hasher.Hash("correct horse battery staple");
 

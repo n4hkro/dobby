@@ -24,6 +24,10 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
             var executor = new HostPersistenceCommandExecutor(factory);
             executor.Execute(PreLoginMigrationV1.Sql);
             RecordMigration(executor, PreLoginMigrationV1.MigrationId, Checksum(PreLoginMigrationV1.Sql));
+            ApplyRememberedAccountMigration(executor);
+            ApplyLoginThrottleMigration(executor);
+            ApplyOutboxMigration(executor);
+            ApplyRecoveryRequestMigration(executor);
             MirrorDeviceIdentity(executor);
             return PersistenceResult.Success();
         }
@@ -33,6 +37,84 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
                 PersistenceError.MigrationFailed,
                 $"Pre-login persistence migration failed: {ex.GetType().Name}: {ex.Message}"));
         }
+    }
+
+    private void ApplyLoginThrottleMigration(IHostPersistenceCommandExecutor executor)
+    {
+        var checksum = Checksum(PreLoginThrottleMigrationV8.Sql);
+        if (MigrationAlreadyRecorded(
+            executor,
+            PreLoginThrottleMigrationV8.MigrationId,
+            checksum))
+        {
+            return;
+        }
+
+        new HostPersistenceTransactionScope(factory).ExecuteInTransaction(transactionExecutor =>
+        {
+            transactionExecutor.Execute(PreLoginThrottleMigrationV8.Sql);
+            RecordMigration(
+                transactionExecutor,
+                PreLoginThrottleMigrationV8.MigrationId,
+                checksum);
+        });
+    }
+
+    private void ApplyOutboxMigration(IHostPersistenceCommandExecutor executor)
+    {
+        var checksum = Checksum(PreLoginOutboxMigrationV9.Sql);
+        if (MigrationAlreadyRecorded(executor, PreLoginOutboxMigrationV9.MigrationId, checksum))
+        {
+            return;
+        }
+
+        new HostPersistenceTransactionScope(factory).ExecuteInTransaction(transactionExecutor =>
+        {
+            transactionExecutor.Execute(PreLoginOutboxMigrationV9.Sql);
+            RecordMigration(transactionExecutor, PreLoginOutboxMigrationV9.MigrationId, checksum);
+        });
+    }
+
+    private void ApplyRecoveryRequestMigration(IHostPersistenceCommandExecutor executor)
+    {
+        var checksum = Checksum(PreLoginRecoveryRequestMigrationV10.Sql);
+        if (MigrationAlreadyRecorded(executor, PreLoginRecoveryRequestMigrationV10.MigrationId, checksum))
+        {
+            return;
+        }
+
+        new HostPersistenceTransactionScope(factory).ExecuteInTransaction(transactionExecutor =>
+        {
+            transactionExecutor.Execute(PreLoginRecoveryRequestMigrationV10.Sql);
+            RecordMigration(
+                transactionExecutor,
+                PreLoginRecoveryRequestMigrationV10.MigrationId,
+                checksum);
+        });
+    }
+
+    private void ApplyRememberedAccountMigration(IHostPersistenceCommandExecutor executor)
+    {
+        var checksum = Checksum(PreLoginRememberedAccountMigrationV7.Sql);
+        if (MigrationAlreadyRecorded(
+            executor,
+            PreLoginRememberedAccountMigrationV7.MigrationId,
+            checksum))
+        {
+            return;
+        }
+
+        new HostPersistenceTransactionScope(factory).ExecuteInTransaction(transactionExecutor =>
+        {
+            transactionExecutor.Execute("PRAGMA secure_delete=ON;");
+            transactionExecutor.Execute(
+                PreLoginRememberedAccountMigrationV7.Sql,
+                new { MigratedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+            RecordMigration(
+                transactionExecutor,
+                PreLoginRememberedAccountMigrationV7.MigrationId,
+                checksum);
+        });
     }
 
     public PersistenceResult ApplyPostLoginMigrations(IReadOnlyDictionary<string, string> migrations)

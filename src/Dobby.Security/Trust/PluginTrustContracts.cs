@@ -2,17 +2,23 @@ namespace Dobby.Security.Trust;
 
 public sealed record PluginTrustPayload(
     string VendorId,
-    int KeyVersion,
+    string Purpose,
     string Algorithm,
+    string Format,
+    string KeyId,
     byte[] CanonicalPayload,
     string SignatureValue);
 
 public sealed record PluginTrustPublicKey(
     string ResourceName,
     DobbyPluginTrustProfile Profile,
-    int KeyVersion,
+    string Purpose,
+    string KeyId,
     byte[] PublicKeyBytes,
-    string Sha256);
+    string Sha256,
+    DateTimeOffset NotBeforeUtc,
+    DateTimeOffset? RetiredAtUtc,
+    bool IsTestOnly);
 
 public sealed record PluginTrustVerificationResult(
     bool IsSuccess,

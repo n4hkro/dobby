@@ -5,11 +5,11 @@ namespace Dobby.Configuration;
 public sealed class DobbyOptionsValidator : IValidateOptions<DobbyOptions>
 {
     private static readonly int[] LoginThrottleFloor = [0, 0, 10, 30, 60];
-    private static readonly HashSet<string> AllowedKdfModes = new(StringComparer.Ordinal)
-    {
-        "Argon2id",
-        "Pbkdf2Sha256"
-    };
+    public static IReadOnlyList<string> SupportedPasswordKdfModes { get; } =
+        Array.AsReadOnly(["Pbkdf2Sha256"]);
+    private static readonly HashSet<string> AllowedKdfModes = new(
+        SupportedPasswordKdfModes,
+        StringComparer.Ordinal);
 
     public ValidateOptionsResult Validate(string? name, DobbyOptions options)
     {
@@ -87,7 +87,7 @@ public sealed class DobbyOptionsValidator : IValidateOptions<DobbyOptions>
     {
         if (!AllowedKdfModes.Contains(options.PasswordKdfMode))
         {
-            failures.Add("Auth.PasswordKdfMode must be Argon2id or Pbkdf2Sha256; HumanApprovedPinRequired is a fail-closed stop condition after the recorded PBKDF2 selection.");
+            failures.Add("Auth.PasswordKdfMode must be Pbkdf2Sha256; Argon2id is not selectable until an approved implementation and parameter contract exist.");
         }
 
         var throttleSteps = options.LoginThrottleStepsSeconds.Length == 0
@@ -107,6 +107,26 @@ public sealed class DobbyOptionsValidator : IValidateOptions<DobbyOptions>
                 failures.Add("Auth.LoginThrottleStepsSeconds cannot be lowered below [0,0,10,30,60].");
                 break;
             }
+        }
+
+        if (options.LoginThrottleFailureWindowSeconds is < 60 or > 86400)
+        {
+            failures.Add("Auth.LoginThrottleFailureWindowSeconds must be between 60 and 86400.");
+        }
+
+        if (options.LoginGlobalFailureThreshold is < 5 or > 100)
+        {
+            failures.Add("Auth.LoginGlobalFailureThreshold must be between 5 and 100.");
+        }
+
+        if (options.LoginGlobalBackoffSeconds is < 10 or > 3600)
+        {
+            failures.Add("Auth.LoginGlobalBackoffSeconds must be between 10 and 3600.");
+        }
+
+        if (options.MaxConcurrentPasswordVerifications is < 1 or > 8)
+        {
+            failures.Add("Auth.MaxConcurrentPasswordVerifications must be between 1 and 8.");
         }
     }
 
@@ -165,7 +185,18 @@ public sealed class DobbyOptionsValidator : IValidateOptions<DobbyOptions>
     {
         if (options.AllowPreLoginDiscovery)
         {
-            failures.Add("Plugins.AllowPreLoginDiscovery cannot be true in P1.");
+            failures.Add("Plugins.AllowPreLoginDiscovery cannot be true in Standalone mode.");
+        }
+
+        if (options.MaximumCompressedPackageMegabytes is < 1 or > 512 ||
+            options.MaximumManifestKilobytes is < 1 or > 1024 ||
+            options.MaximumEntryCount is < 1 or > 2048 ||
+            options.MaximumEntryUncompressedMegabytes is < 1 or > 512 ||
+            options.MaximumAggregateUncompressedMegabytes is < 1 or > 2048 ||
+            options.MaximumAggregateUncompressedMegabytes < options.MaximumEntryUncompressedMegabytes ||
+            options.MaximumExpansionRatio is < 1 or > 200)
+        {
+            failures.Add("Plugins package limits must be positive, internally consistent, and within hard safety ceilings.");
         }
     }
 

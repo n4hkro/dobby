@@ -9,7 +9,7 @@ public sealed class KdfPolicyResolver(AuthOptions authOptions)
     {
         return authOptions.PasswordKdfMode switch
         {
-            "Pbkdf2Sha256" => Result.Success(KdfPolicy.SkeletonPbkdf2Fallback),
+            KdfPolicy.Pbkdf2Sha256Mode => Result.Success(KdfPolicy.Pbkdf2Sha256V1),
             _ => Result.Failure<KdfPolicy>(ErrorCode.Unauthorized)
         };
     }

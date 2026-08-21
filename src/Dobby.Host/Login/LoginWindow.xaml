@@ -47,7 +47,7 @@
       <CheckBox
           x:Name="RememberMeCheckBox"
           Margin="0,0,0,12"
-          Content="Remember me"
+          Content="Remember this username"
           Tag="{x:Static loc:HostResourceKeys.LoginRememberMe}" />
       <TextBlock
           x:Name="ThrottleCountdownText"

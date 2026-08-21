@@ -4,7 +4,7 @@ using Dobby.Host.Login;
 namespace Dobby.Host;
 
 internal sealed class DeferredLoginRuntimeWorkflow(Func<Task<PreparedLoginEntryRuntime?>> runtimeTaskProvider)
-    : ILoginRuntimeWorkflow, ILoginCredentialWarmupWorkflow
+    : ILoginRuntimeWorkflow
 {
     public LoginRuntimeWorkflowResult Submit(LoginSubmission submission)
     {
@@ -19,25 +19,5 @@ internal sealed class DeferredLoginRuntimeWorkflow(Func<Task<PreparedLoginEntryR
         {
             return LoginRuntimeWorkflowResult.InfrastructureFailure(ErrorCode.DatabaseUnavailable);
         }
-    }
-
-    public Task WarmCredentialsAsync(LoginCredentialWarmup warmup)
-    {
-        ArgumentNullException.ThrowIfNull(warmup);
-
-        return Task.Run(async () =>
-        {
-            try
-            {
-                var runtime = await runtimeTaskProvider().ConfigureAwait(false);
-                if (runtime?.PreLoginRuntime.LoginWorkflow is ILoginCredentialWarmupWorkflow warmupWorkflow)
-                {
-                    await warmupWorkflow.WarmCredentialsAsync(warmup).ConfigureAwait(false);
-                }
-            }
-            catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
-            {
-            }
-        });
     }
 }

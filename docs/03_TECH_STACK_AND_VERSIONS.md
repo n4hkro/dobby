@@ -541,3 +541,29 @@ qalır.
 `docs/schemas/branchshared.schema.json` Branch Shared connection profile üçün
 JSON Schema owner-dir. `serverIdentityPinMaterial` lowercase 64-character
 SHA-256 hex formatında saxlanır.
+
+## 2026-08 Security Profile Amendment (Controlling)
+
+- Password storage keeps the accepted Argon2id/PBKDF2 floors, unique salts and
+  versioned parameters, but no arbitrary composition rule is added. Password
+  length, breached/common-value screening where an offline maintained list is
+  available, paste/password-manager support and durable throttling are the
+  controlling controls.
+- Every ECDSA wire format explicitly names curve, hash and
+  `IeeeP1363FixedFieldConcatenation`; signatures use unpadded base64url and a
+  versioned, domain-separated canonical payload. Default library encodings are
+  never relied on.
+- Key material is selected from purpose-separated, versioned key rings. The
+  package, license, recovery-response and BranchSetup-authorization purposes do
+  not reuse one leaf key.
+- ZIP verification enforces limits before allocation and while streaming:
+  manifest size, entry count, per-entry uncompressed bytes, aggregate
+  uncompressed bytes and compression ratio. Extraction uses normalized relative
+  paths, Windows-name validation, collision detection, final full-path
+  containment and no-overwrite semantics.
+- In-process plugin loading is restricted to trusted signed product code.
+  Untrusted execution requires a separately versioned IPC contract and an OS
+  process boundary; `AssemblyLoadContext` remains a load/unload mechanism only.
+- Production MSIX validation must execute installed launch, upgrade and data
+  preservation tests with the actual package identity and storage paths. A
+  self-signed package build alone is development evidence, not GA evidence.

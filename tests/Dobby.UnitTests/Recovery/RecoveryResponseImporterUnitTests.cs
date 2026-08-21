@@ -1,133 +1,158 @@
 using System.Security.Cryptography;
 using Dobby.Core;
 using Dobby.Security.Authentication;
+using Dobby.Security.Trust;
 using Shouldly;
 
 namespace Dobby.UnitTests.Recovery;
 
 public sealed class RecoveryResponseImporterUnitTests
 {
+    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-08-21T10:00:00Z");
+    private const string VendorKeyId = "recovery-test-2026-01";
+
     [Fact]
-    public void Verify_accepts_standard_base64_padded_ieee_signature()
+    public void Verify_accepts_strict_v2_purpose_bound_p1363_envelope()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var payload = Payload(expiresAt: "2026-05-19T00:00:00Z");
-        var signature = key.SignData(RecoveryCanonicalJsonWriter.WritePayload(payload), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key), new StaticDeviceFingerprint(Device(payload.DeviceIdentity)));
+        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key));
+        var envelope = Envelope(key, Payload());
 
-        var result = importer.Verify(new RecoveryResponseEnvelope(payload, Convert.ToBase64String(signature)), DateTimeOffset.Parse("2026-05-18T00:00:00Z"));
+        var result = importer.Verify(envelope, Now);
 
-        result.IsSuccess.ShouldBeTrue(result.IsSuccess ? null : result.ErrorCode.ToString());
-        result.Value.Payload.RequestId.ShouldBe("request-1");
+        result.IsSuccess.ShouldBeTrue(result.ErrorCode?.ToString());
+        result.Value.Payload.Action.ShouldBe("reset-owner-password");
     }
 
     [Fact]
-    public void Verify_rejects_signature_fail_der_signature_base64url_no_padding_expired_and_device_mismatch()
+    public void Verify_rejects_wrong_key_signature_format_purpose_and_key_id()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var payload = Payload(expiresAt: "2026-05-19T00:00:00Z");
-        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key), new StaticDeviceFingerprint(Device(payload.DeviceIdentity)));
+        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key));
+        var payload = Payload();
         var canonical = RecoveryCanonicalJsonWriter.WritePayload(payload);
-        var otherSignature = other.SignData(canonical, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        var derSignature = key.SignData(canonical, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
-        var goodSignature = key.SignData(canonical, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        var base64Url = Convert.ToBase64String(goodSignature).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-        var expiredPayload = Payload(expiresAt: "2026-05-17T00:00:00Z");
-        var expiredSignature = key.SignData(RecoveryCanonicalJsonWriter.WritePayload(expiredPayload), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        var mismatchImporter = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key), new StaticDeviceFingerprint(new DeviceFingerprint("x", "y", "z", "d", "e")));
+        var otherSignature = other.SignData(
+            canonical,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        var derSignature = key.SignData(
+            canonical,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.Rfc3279DerSequence);
 
-        importer.Verify(new RecoveryResponseEnvelope(payload, Convert.ToBase64String(otherSignature)), DateTimeOffset.Parse("2026-05-18T00:00:00Z")).ErrorCode.ShouldBe(ErrorCode.Forbidden);
-        importer.Verify(new RecoveryResponseEnvelope(payload, Convert.ToBase64String(derSignature)), DateTimeOffset.Parse("2026-05-18T00:00:00Z")).ErrorCode.ShouldBe(ErrorCode.Forbidden);
-        importer.Verify(new RecoveryResponseEnvelope(payload, base64Url), DateTimeOffset.Parse("2026-05-18T00:00:00Z")).ErrorCode.ShouldBe(ErrorCode.Forbidden);
-        importer.Verify(new RecoveryResponseEnvelope(expiredPayload, Convert.ToBase64String(expiredSignature)), DateTimeOffset.Parse("2026-05-18T00:00:00Z")).ErrorCode.ShouldBe(ErrorCode.Forbidden);
-        mismatchImporter.Verify(new RecoveryResponseEnvelope(payload, Convert.ToBase64String(goodSignature)), DateTimeOffset.Parse("2026-05-18T00:00:00Z")).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        importer.Verify(SignatureEnvelope(payload, otherSignature), Now).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        importer.Verify(SignatureEnvelope(payload, derSignature), Now).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        var wrongPurpose = Envelope(key, payload);
+        wrongPurpose = wrongPurpose with
+        {
+            Signature = wrongPurpose.Signature with { Purpose = ArtifactSignaturePurposes.PluginPackage }
+        };
+        importer.Verify(wrongPurpose, Now).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        importer.Verify(
+            Envelope(key, payload with { KeyId = "recovery-test-2026-02" }),
+            Now).ErrorCode.ShouldBe(ErrorCode.Forbidden);
     }
 
     [Fact]
-    public void Verify_rejects_unsupported_payload_type_and_key_version_even_when_signature_matches()
+    public void Verify_rejects_expired_future_and_overlong_validity_windows()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var wrongType = Payload(expiresAt: "2026-05-19T00:00:00Z", type: "dobby.owner-recovery-response.v2");
-        var wrongKeyVersion = Payload(expiresAt: "2026-05-19T00:00:00Z", keyVersion: 2);
-        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key), new StaticDeviceFingerprint(Device(wrongType.DeviceIdentity)));
+        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key));
 
-        importer.Verify(Envelope(key, wrongType), DateTimeOffset.Parse("2026-05-18T00:00:00Z")).ErrorCode.ShouldBe(ErrorCode.Forbidden);
-        importer.Verify(Envelope(key, wrongKeyVersion), DateTimeOffset.Parse("2026-05-18T00:00:00Z")).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        importer.Verify(
+            Envelope(key, Payload(issuedAt: "2026-08-20T09:00:00.0000000Z", expiresAt: "2026-08-21T10:00:00.0000000Z")),
+            Now).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        importer.Verify(
+            Envelope(key, Payload(issuedAt: "2026-08-21T10:06:00.0000000Z", expiresAt: "2026-08-22T10:00:00.0000000Z")),
+            Now).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        importer.Verify(
+            Envelope(key, Payload(issuedAt: "2026-08-21T09:00:00.0000000Z", expiresAt: "2026-08-22T09:00:01.0000000Z")),
+            Now).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"Payload\":{},\"Signature\":{}}")]
+    [InlineData("{\"payload\":{},\"payload\":{},\"signature\":{}}")]
+    [InlineData("{\"payload\":{\"targetUserId\":\"user-2\"},\"signature\":{}}")]
+    [InlineData("{\"payload\":{},\"signature\":{},\"legacy\":1}")]
+    public void Read_envelope_rejects_missing_noncanonical_duplicate_and_unknown_members(string json)
+    {
+        Should.Throw<InvalidOperationException>(() => RecoveryResponseImporter.ReadEnvelope(json));
     }
 
     [Fact]
-    public void Verify_rejects_signed_response_with_validity_window_longer_than_24_hours()
+    public void Read_envelope_round_trips_only_lower_camel_signature_members()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var payload = Payload(expiresAt: "2026-05-20T00:00:01Z");
-        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key), new StaticDeviceFingerprint(Device(payload.DeviceIdentity)));
+        var json = System.Text.Json.JsonSerializer.Serialize(Envelope(key, Payload()));
 
-        var result = importer.Verify(Envelope(key, payload), DateTimeOffset.Parse("2026-05-18T00:00:00Z"));
-
-        result.ErrorCode.ShouldBe(ErrorCode.Forbidden);
-    }
-
-    [Fact]
-    public void Read_envelope_rejects_missing_required_payload_and_signature_members()
-    {
-        Should.Throw<InvalidOperationException>(() => RecoveryResponseImporter.ReadEnvelope("{}"));
-        Should.Throw<InvalidOperationException>(() => RecoveryResponseImporter.ReadEnvelope("""{"payload":null,"signature":"abc="}"""));
-        Should.Throw<InvalidOperationException>(() => RecoveryResponseImporter.ReadEnvelope("""{"payload":{"type":"dobby.owner-recovery-response.v1"},"signature":null}"""));
-    }
-
-    [Fact]
-    public void Read_envelope_rejects_non_canonical_property_casing()
-    {
-        Should.Throw<InvalidOperationException>(() => RecoveryResponseImporter.ReadEnvelope("""
-            {"Payload":{"Type":"dobby.owner-recovery-response.v1","RequestId":"request-1","DeviceIdentity":{"MachineGuid":"a","CpuId":"b","MotherboardSerial":"c","DiskSerial":"d","MacAddress":"e"},"IssuedAt":"2026-05-18T00:00:00Z","ExpiresAt":"2026-05-19T00:00:00Z","Nonce":"nonce-1","KeyVersion":1},"Signature":"abc="}
-            """));
-    }
-
-    [Fact]
-    public void Read_envelope_rejects_managed_user_target_fields()
-    {
-        Should.Throw<InvalidOperationException>(() => RecoveryResponseImporter.ReadEnvelope("""
-            {"payload":{"type":"dobby.owner-recovery-response.v1","requestId":"request-1","deviceIdentity":{"machineGuid":"a","cpuId":"b","motherboardSerial":"c","diskSerial":"d","macAddress":"e"},"issuedAt":"2026-05-18T00:00:00Z","expiresAt":"2026-05-19T00:00:00Z","nonce":"nonce-1","keyVersion":1,"targetUserId":"user-2"},"signature":"abc="}
-            """));
+        json.ShouldContain("\"signature\"");
+        json.ShouldContain("\"keyId\"");
+        json.ShouldNotContain("\"KeyId\"", Case.Sensitive);
+        RecoveryResponseImporter.ReadEnvelope(json).Payload.SchemaVersion.ShouldBe(2);
     }
 
     private static RecoveryResponsePayload Payload(
-        string expiresAt,
-        string type = "dobby.owner-recovery-response.v1",
-        int keyVersion = 1)
+        string issuedAt = "2026-08-21T09:00:00.0000000Z",
+        string expiresAt = "2026-08-22T09:00:00.0000000Z")
     {
         return new RecoveryResponsePayload(
-            type,
-            "request-1",
-            new RecoveryDeviceIdentity("a", "b", "c", "d", "e"),
-            "2026-05-18T00:00:00Z",
-            expiresAt,
-            "nonce-1",
-            keyVersion);
+            2,
+            ArtifactSignaturePurposes.OwnerRecoveryResponse,
+            VendorKeyId,
+            "018e51be-7f65-7bcd-8000-000000000001",
+            "018e51be-7f65-7bcd-8000-000000000002",
+            ArtifactSignatureCodec.ToUnpaddedBase64Url(Enumerable.Range(0, 32).Select(value => (byte)value).ToArray()),
+            "customer-1",
+            "deployment-1",
+            "device:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            new string('a', 64),
+            "reset-owner-password",
+            issuedAt,
+            expiresAt);
     }
 
     private static RecoveryResponseEnvelope Envelope(ECDsa key, RecoveryResponsePayload payload)
     {
-        var signature = key.SignData(RecoveryCanonicalJsonWriter.WritePayload(payload), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        return new RecoveryResponseEnvelope(payload, Convert.ToBase64String(signature));
+        var signature = key.SignData(
+            RecoveryCanonicalJsonWriter.WritePayload(payload),
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        return SignatureEnvelope(payload, signature);
     }
 
-    private static DeviceFingerprint Device(RecoveryDeviceIdentity identity)
+    private static RecoveryResponseEnvelope SignatureEnvelope(
+        RecoveryResponsePayload payload,
+        byte[] signature)
     {
-        return new DeviceFingerprint(identity.MachineGuid, identity.CpuId, identity.MotherboardSerial, identity.DiskSerial, identity.MacAddress);
-    }
-
-    private sealed class StaticDeviceFingerprint(DeviceFingerprint fingerprint) : IDeviceFingerprintSource
-    {
-        public Result<DeviceFingerprint> Current() => Result.Success(fingerprint);
+        return new RecoveryResponseEnvelope(
+            payload,
+            new ArtifactSignatureEnvelope(
+                ArtifactSignaturePurposes.OwnerRecoveryResponse,
+                ArtifactSignatureProfile.Algorithm,
+                ArtifactSignatureProfile.Format,
+                payload.KeyId,
+                ArtifactSignatureCodec.ToUnpaddedBase64Url(signature)));
     }
 
     private sealed class EcdsaVendorPublicKey(ECDsa key) : IVendorRecoveryPublicKey
     {
-        public bool Verify(byte[] canonicalPayload, byte[] signature)
+        public bool Verify(
+            string keyId,
+            string purpose,
+            byte[] canonicalPayload,
+            byte[] signature,
+            DateTimeOffset now)
         {
-            return key.VerifyData(canonicalPayload, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+            return keyId == VendorKeyId &&
+                purpose == ArtifactSignaturePurposes.OwnerRecoveryResponse &&
+                key.VerifyData(
+                    canonicalPayload,
+                    signature,
+                    HashAlgorithmName.SHA256,
+                    DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         }
     }
 }

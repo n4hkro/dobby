@@ -10,6 +10,9 @@
     <EmbeddedResource Include="..\..\docs\schemas\dobby-plugin-manifest.schema.json">
       <LogicalName>Dobby.PluginFramework.Schemas.dobby-plugin-manifest.schema.json</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="..\..\docs\schemas\dobby-plugin-manifest-v2.schema.json">
+      <LogicalName>Dobby.PluginFramework.Schemas.dobby-plugin-manifest-v2.schema.json</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dobby.Contracts\Dobby.Contracts.csproj" />

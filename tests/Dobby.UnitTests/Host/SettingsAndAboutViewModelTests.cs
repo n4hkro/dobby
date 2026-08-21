@@ -44,11 +44,13 @@ public sealed class SettingsAndAboutViewModelTests
         var passwordChangeCalls = 0;
         var correlationId = CorrelationId.New();
         var account = new AccountSettingsModel(
-            (userId, sessionId, newPassword, rememberMe, actualCorrelationId) =>
+            (userId, sessionId, currentPassword, newPassword, confirmation, rememberMe, actualCorrelationId) =>
             {
                 userId.ShouldBe("user-1");
                 sessionId.ShouldBe("session-1");
+                currentPassword.ShouldBe("old password");
                 newPassword.ShouldBe("new password");
+                confirmation.ShouldBe("new password");
                 rememberMe.ShouldBeTrue();
                 actualCorrelationId.ShouldBe(correlationId);
                 passwordChangeCalls++;
@@ -59,7 +61,14 @@ public sealed class SettingsAndAboutViewModelTests
         account.HasManualLockShortcut.ShouldBeFalse();
         account.HasLogoutShortcut.ShouldBeFalse();
 
-        account.ChangePassword("user-1", "session-1", "new password", rememberMe: true, correlationId)
+        account.ChangePassword(
+                "user-1",
+                "session-1",
+                "old password",
+                "new password",
+                "new password",
+                rememberMe: true,
+                correlationId)
             .IsSuccess.ShouldBeTrue();
         passwordChangeCalls.ShouldBe(1);
         var source = File.ReadAllText(Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "Settings", "AccountSettingsModel.cs"));
@@ -103,7 +112,7 @@ public sealed class SettingsAndAboutViewModelTests
     public void Settings_source_exposes_required_rendered_sections_and_user_management_actions()
     {
         var appearance = new AppearanceSettingsModel(new MemoryPreferenceSource());
-        var account = new AccountSettingsModel((_, _, _, _, _) => Result.Success());
+        var account = new AccountSettingsModel((_, _, _, _, _, _, _) => Result.Success());
         var security = new SecuritySessionSettingsModel(new MemoryPreferenceSource());
         var about = new AboutSettingsModel(new AboutInfo(
             "0.1.0",

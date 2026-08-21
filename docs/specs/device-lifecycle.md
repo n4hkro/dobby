@@ -86,3 +86,12 @@ operators.
 - **2026-05-06:** Accepted after `HD-003` and `HD-004` were resolved by human
   decision. This is documentation/spec acceptance only and does not open device
   lifecycle implementation work.
+
+## 2026-08 Device Identity Amendment (Controlling)
+
+Recovery authority is a device-generated protected asymmetric key, not a fuzzy
+score over MachineGuid, CPU, board, disk or MAC values. Hardware observations may
+be bounded risk/support signals only. Recovery request/response binds a nonce,
+request ID, device/deployment identity and recovery public-key hash; replay and
+wrong-key/purpose responses fail closed. User-visible support codes are derived
+with a keyed/versioned digest and never expose raw MachineGuid material.

@@ -367,7 +367,12 @@
           <TextBlock FontWeight="SemiBold" Text="{Binding ProfileAccountInfoLabel}" />
           <TextBlock x:Name="ProfileAccountText" Margin="{StaticResource Shell.Spacing.BottomMedium}" TextWrapping="Wrap" />
           <Button x:Name="ProfileAccountInfoButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="ProfileAccountInfo_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ProfileAccountInfoLabel}" />
-          <PasswordBox x:Name="NewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" />
+          <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding CurrentPasswordLabel}" />
+          <PasswordBox x:Name="CurrentPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding CurrentPasswordLabel}" />
+          <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding NewPasswordLabel}" />
+          <PasswordBox x:Name="NewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding NewPasswordLabel}" />
+          <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding ConfirmNewPasswordLabel}" />
+          <PasswordBox x:Name="ConfirmNewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding ConfirmNewPasswordLabel}" />
           <CheckBox x:Name="PasswordChangeRememberMeCheckBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" Content="{Binding RememberMeLabel}" />
           <Button x:Name="ChangePasswordButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="ChangePassword_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ChangePasswordLabel}" />
           <Button x:Name="ManualLockButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="ManualLock_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ManualLockLabel}" />
@@ -534,7 +539,12 @@
               <StackPanel x:Name="AccountSettingsSurface" Margin="{StaticResource Shell.Spacing.BottomLarge}">
                 <TextBlock Margin="{StaticResource Shell.Spacing.BottomSmall}" FontWeight="SemiBold" Text="{Binding SettingsAccountLabel}" />
                 <TextBlock x:Name="SettingsAccountProfileText" Margin="{StaticResource Shell.Spacing.BottomMedium}" TextWrapping="Wrap" />
-                <PasswordBox x:Name="SettingsNewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" />
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding CurrentPasswordLabel}" />
+                <PasswordBox x:Name="SettingsCurrentPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding CurrentPasswordLabel}" />
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding NewPasswordLabel}" />
+                <PasswordBox x:Name="SettingsNewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding NewPasswordLabel}" />
+                <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding ConfirmNewPasswordLabel}" />
+                <PasswordBox x:Name="SettingsConfirmNewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding ConfirmNewPasswordLabel}" />
                 <CheckBox x:Name="SettingsPasswordChangeRememberMeCheckBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" Content="{Binding RememberMeLabel}" />
                 <Button x:Name="SettingsChangePasswordButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="SettingsChangePassword_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ChangePasswordLabel}" />
               </StackPanel>

@@ -31,16 +31,18 @@ public sealed class LoginServiceTests
     {
         using var fixture = LoginServiceFixture.Create();
         var service = fixture.CreateLoginService();
-        service.Login("owner", "first owner password", null, CorrelationId.New()).Kind.ShouldBe(LoginAttemptKind.Success);
-        fixture.Throttle.RecordFailure("owner");
-        fixture.Throttle.RecordFailure("owner");
-        fixture.Throttle.RecordFailure("owner").RetryAfterSeconds.ShouldBe(10);
+        var bootstrap = service.Login("owner", "first owner password", null, CorrelationId.New());
+        bootstrap.Kind.ShouldBe(LoginAttemptKind.Success);
+        fixture.Throttle.RecordFailure(bootstrap.UserId);
+        fixture.Throttle.RecordFailure(bootstrap.UserId);
+        fixture.Throttle.RecordFailure(bootstrap.UserId).RetryAfterSeconds.ShouldBe(10);
         fixture.Time.Advance(TimeSpan.FromSeconds(10));
 
         var result = service.Login("OWNER", "first owner password", null, CorrelationId.New());
+        service.RecordSuccessfulSession(result.UserId!, "owner").IsAvailable.ShouldBeTrue();
 
         result.Kind.ShouldBe(LoginAttemptKind.Success);
-        fixture.Throttle.Check().RetryAfterSeconds.ShouldBe(0);
+        fixture.Throttle.Check(result.UserId).RetryAfterSeconds.ShouldBe(0);
     }
 
     [Fact]
@@ -53,11 +55,14 @@ public sealed class LoginServiceTests
         var first = service.Login("owner", "wrong", null, CorrelationId.New());
         var second = service.Login("other", "wrong", null, CorrelationId.New());
         var third = service.Login("owner", "wrong", null, CorrelationId.New());
+        var fourth = service.Login("owner", "wrong", null, CorrelationId.New());
 
         first.Kind.ShouldBe(LoginAttemptKind.InvalidCredentials);
         second.Kind.ShouldBe(LoginAttemptKind.InvalidCredentials);
         third.Kind.ShouldBe(LoginAttemptKind.InvalidCredentials);
-        third.RetryAfterSeconds.ShouldBe(10);
+        third.RetryAfterSeconds.ShouldBe(0);
+        fourth.Kind.ShouldBe(LoginAttemptKind.InvalidCredentials);
+        fourth.RetryAfterSeconds.ShouldBe(10);
     }
 
     [Fact]
@@ -89,7 +94,7 @@ public sealed class LoginServiceTests
 
         var result = service.Login("owner", "first owner password", null, CorrelationId.New());
 
-        result.Kind.ShouldBe(LoginAttemptKind.Deactivated);
+        result.Kind.ShouldBe(LoginAttemptKind.InvalidCredentials);
     }
 
     [Fact]
@@ -115,6 +120,25 @@ public sealed class LoginServiceTests
         var result = service.Login("owner", "first owner password", null, CorrelationId.New());
 
         result.Kind.ShouldBe(LoginAttemptKind.ValidationFailed);
+    }
+
+    [Fact]
+    public void Unavailable_throttle_store_returns_busy_before_bootstrap_or_password_verification()
+    {
+        using var fixture = LoginServiceFixture.Create();
+        var verifier = new CountingCredentialVerifier();
+        var unavailableThrottle = new LoginThrottleService(
+            [0, 0, 10, 30, 60],
+            fixture.Time,
+            new FailingLoginThrottleStore());
+        var service = fixture.CreateLoginService(verifier, unavailableThrottle);
+
+        var result = service.Login("owner", "first owner password", null, CorrelationId.New());
+
+        result.Kind.ShouldBe(LoginAttemptKind.Busy);
+        verifier.VerifyCount.ShouldBe(0);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Users;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Credentials;").ShouldBe(0);
     }
 
     private sealed class LoginServiceFixture : IDisposable
@@ -146,7 +170,9 @@ public sealed class LoginServiceTests
 
         public LoginThrottleService Throttle { get; }
 
-        public LoginService CreateLoginService(IUserCredentialVerifier? credentialVerifier = null)
+        public LoginService CreateLoginService(
+            IUserCredentialVerifier? credentialVerifier = null,
+            LoginThrottleService? throttleService = null)
         {
             var authOptions = new AuthOptions { PasswordKdfMode = passwordKdfMode };
             var resolver = new KdfPolicyResolver(authOptions);
@@ -156,7 +182,12 @@ public sealed class LoginServiceTests
                 new OwnerBootstrapService(protector, resolver),
                 new DurableAuditTrail(Executor),
                 Time);
-            return new LoginService(Executor, resolver, credentialVerifier ?? credentialStore, bootstrap, Throttle);
+            return new LoginService(
+                Executor,
+                resolver,
+                credentialVerifier ?? credentialStore,
+                bootstrap,
+                throttleService ?? Throttle);
         }
 
         public static LoginServiceFixture Create(string passwordKdfMode = "Pbkdf2Sha256")
@@ -195,6 +226,27 @@ public sealed class LoginServiceTests
         public Result<bool> VerifyPassword(string userId, string password)
         {
             return Result.Failure<bool>(ErrorCode.Unauthorized);
+        }
+    }
+
+    private sealed class CountingCredentialVerifier : IUserCredentialVerifier
+    {
+        private int verifyCount;
+
+        public int VerifyCount => Volatile.Read(ref verifyCount);
+
+        public Result<bool> VerifyPassword(string userId, string password)
+        {
+            Interlocked.Increment(ref verifyCount);
+            return Result.Success(true);
+        }
+    }
+
+    private sealed class FailingLoginThrottleStore : ILoginThrottleStore
+    {
+        public T ExecuteAtomically<T>(Func<ILoginThrottleBucketSession, T> action)
+        {
+            throw new IOException("Synthetic durable throttle failure.");
         }
     }
 }

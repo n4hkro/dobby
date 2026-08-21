@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dobby.local/schemas/dobby-recovery-response-v2.schema.json",
+  "title": "Dobby Owner Recovery Response v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "signature"],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "purpose", "keyId", "responseId", "requestId", "nonce", "customerId", "deploymentId", "deviceId", "recoveryPublicKeyHash", "action", "issuedAt", "expiresAt"],
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 2 },
+        "purpose": { "type": "string", "const": "dobby.owner-recovery-response" },
+        "keyId": { "$ref": "#/$defs/keyId" },
+        "responseId": { "$ref": "#/$defs/uuid" },
+        "requestId": { "$ref": "#/$defs/uuid" },
+        "nonce": { "$ref": "#/$defs/nonce" },
+        "customerId": { "$ref": "#/$defs/id" },
+        "deploymentId": { "$ref": "#/$defs/id" },
+        "deviceId": { "$ref": "#/$defs/id" },
+        "recoveryPublicKeyHash": { "$ref": "#/$defs/sha256" },
+        "action": { "type": "string", "const": "reset-owner-password" },
+        "issuedAt": { "$ref": "#/$defs/utc" },
+        "expiresAt": { "$ref": "#/$defs/utc" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose", "algorithm", "format", "keyId", "value"],
+      "properties": {
+        "purpose": { "type": "string", "const": "dobby.owner-recovery-response" },
+        "algorithm": { "type": "string", "const": "ECDSA-P256-SHA256" },
+        "format": { "type": "string", "const": "IeeeP1363FixedFieldConcatenation" },
+        "keyId": { "$ref": "#/$defs/keyId" },
+        "value": { "$ref": "#/$defs/signatureValue" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "keyId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "nonce": { "type": "string", "minLength": 43, "maxLength": 43, "pattern": "^[A-Za-z0-9_-]+$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "utc": { "type": "string", "maxLength": 35, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,7})?Z$" },
+    "signatureValue": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" }
+  }
+}

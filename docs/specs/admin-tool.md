@@ -85,7 +85,7 @@ once.
 |---|---|---|---|
 | `sign-plugin-package` | `--input-path`, `--signing-profile`, `--output-path` | `--trust-profile`, `--report-path`, `--overwrite` | `--trust-profile` defaults from `--signing-profile`; `--report-path` defaults to `<output-path>.report.json`; if both profiles are supplied they must map to the same trust profile or exit `65`. |
 | `create-plugin-license` | `--plugin-package-path`, `--signing-profile`, `--customer-id`, `--deployment-id`, `--device-binding-fixture-path`, `--valid-from`, `--valid-until`, `--revision`, `--output-path` | `--report-path`, `--overwrite` | `--report-path` defaults to `<output-path>.report.json`; `--valid-from` and `--valid-until` are ISO-8601 UTC values with `Z` suffix and `valid-until > valid-from`; `--revision` is a positive integer. |
-| `create-recovery-response` | `--request-path`, `--signing-profile`, `--output-path` | `--report-path`, `--overwrite` | `--report-path` defaults to `<output-path>.report.json`; production signing material remains governed by `HD-S10-002` and `ADR-0033`. |
+| `create-recovery-response` | `--request-path`, `--device-public-key-path`, `--signing-profile`, `--output-path` | `--report-path`, `--overwrite` | The provisioned P-256 public key must hash to the request binding and verify its possession proof. `--report-path` defaults to `<output-path>.report.json`; production signing material remains governed by `HD-S10-002` and `ADR-0033`. |
 | `verify-plugin-package` (optional) | `--plugin-package-path`, `--report-path` | `--trust-profile`, `--overwrite` | Optional command only; not a Sprint 10 release gate. `--trust-profile` defaults to `production`. |
 
 Approved profile values are `dev-qa` and `production`. Parsing is
@@ -96,9 +96,11 @@ canonical lowercase values. Internal trust-profile mapping is fixed:
 unknown mappings, invalid profile combinations, invalid timestamps, invalid
 revision values, validation failures and output/report path conflicts exit `65`.
 Known profiles whose signing material is missing or unavailable exit `66`.
-The default CLI signing-material provider reads private-key PEM paths only from
-operator-supplied environment variables: `DOBBY_ADMIN_SIGNING_DEV_QA_KEY_PATH`
-for `dev-qa` and `DOBBY_ADMIN_SIGNING_PRODUCTION_KEY_PATH` for `production`.
+The default CLI signing-material provider reads purpose-separated private-key PEM
+paths only from operator-supplied environment variables. The supported suffixes
+are `PLUGIN_PACKAGE_KEY_PATH`, `PLUGIN_LICENSE_KEY_PATH`, and
+`OWNER_RECOVERY_RESPONSE_KEY_PATH`, each prefixed by either
+`DOBBY_ADMIN_SIGNING_DEV_QA_` or `DOBBY_ADMIN_SIGNING_PRODUCTION_`.
 These values are never emitted to stdout/stderr or reports; absent, unreadable
 or malformed material still exits `66`.
 
@@ -156,3 +158,21 @@ Branch Shared setup is owned by `Dobby.BranchSetup.exe` in `ADR-0057` and
 `docs/specs/onboarding-and-provisioning.md`. Admin may generate or sign support
 artifacts that BranchSetup later applies, but Admin does not connect to customer
 PostgreSQL as the branch setup operator.
+
+## 2026-08 Signing and Recovery Amendment (Controlling)
+
+Admin tooling selects a versioned key ring by explicit artifact purpose. Plugin,
+license, recovery-response and setup-authorization leaf purposes are not
+interchangeable. It emits canonical versioned payloads and explicit
+ECDSA/P1363/base64url signatures, supports verification-only dry runs, and never
+prints private material. Recovery responses bind the original request ID, nonce,
+device/deployment identity and recovery public-key hash. Setup authorization is
+a distinct artifact and command, not a license-generator option.
+
+Recovery request and response wire compatibility is strict v2. The Admin command
+does not silently accept v1 recovery artifacts. The request exports only the
+recovery public-key hash; `--device-public-key-path` supplies the separately
+provisioned public key used to validate request possession. A missing key, a hash
+mismatch, a failed possession proof, an expired request, or a request vendor key
+ID that does not match the selected recovery-response key fails closed with exit
+code `65` and produces no response artifact.

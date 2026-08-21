@@ -30,10 +30,16 @@ public sealed class PermissionGrantStore(IHostPersistenceCommandExecutor executo
 
     public Result Grant(string userId, OperationKey key)
     {
+        return Grant(executor, userId, key);
+    }
+
+    public Result Grant(IHostPersistenceCommandExecutor commands, string userId, OperationKey key)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
         var timestamp = DateTimeOffset.UtcNow.ToString("O");
-        executor.Execute(
+        commands.Execute(
             "INSERT OR IGNORE INTO Permissions(PermissionId, UserId, PermissionKey, CreatedAtUtc, UpdatedAtUtc) VALUES (@PermissionId, @UserId, @PermissionKey, @CreatedAtUtc, @UpdatedAtUtc);",
             new
             {
@@ -49,9 +55,15 @@ public sealed class PermissionGrantStore(IHostPersistenceCommandExecutor executo
 
     public Result Revoke(string userId, OperationKey key)
     {
+        return Revoke(executor, userId, key);
+    }
+
+    public Result Revoke(IHostPersistenceCommandExecutor commands, string userId, OperationKey key)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
-        executor.Execute(
+        commands.Execute(
             "DELETE FROM Permissions WHERE UserId = @UserId AND PermissionKey = @PermissionKey;",
             new { UserId = userId, PermissionKey = key.ToString() });
         return Result.Success();

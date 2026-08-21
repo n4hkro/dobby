@@ -351,6 +351,15 @@
   <data name="Dobby.Shell.Profile.ChangePassword" xml:space="preserve">
     <value>Şifrəni dəyiş</value>
   </data>
+  <data name="Dobby.Shell.Profile.PasswordChange.CurrentPassword" xml:space="preserve">
+    <value>Cari şifrə</value>
+  </data>
+  <data name="Dobby.Shell.Profile.PasswordChange.NewPassword" xml:space="preserve">
+    <value>Yeni şifrə</value>
+  </data>
+  <data name="Dobby.Shell.Profile.PasswordChange.ConfirmNewPassword" xml:space="preserve">
+    <value>Yeni şifrəni təsdiqlə</value>
+  </data>
   <data name="Dobby.Shell.Profile.ManualLock" xml:space="preserve">
     <value>Kilidlə</value>
   </data>
@@ -419,6 +428,9 @@
   </data>
   <data name="About.OwnerStatus.Registered" xml:space="preserve">
     <value>Owner qeydiyyatdadır</value>
+  </data>
+  <data name="Dobby.Host.Login.RememberMe" xml:space="preserve">
+    <value>Bu istifadəçi adını yadda saxla</value>
   </data>
   <data name="Dobby.Host.AuditRetentionSweep" xml:space="preserve">
     <value>Audit saxlanma təmizliyi</value>

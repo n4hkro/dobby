@@ -103,3 +103,11 @@ connection health when future runtime implementation opens.
 It must not show PostgreSQL passwords, protected credential values, raw license
 payloads, raw hardware identifiers, full local paths or raw TLS pin secret
 material. License import/status remains under `Plugins > License`, not About.
+
+## 2026-08 Support-Safety Amendment (Controlling)
+
+About/Support shows a configured real support contact and a versioned,
+support-safe device code derived without revealing raw hardware identifiers.
+Placeholder domains, raw MachineGuid prefixes and full local paths are forbidden
+in customer builds. Host diagnostics export remains reachable even when plugin
+licenses are pending, expired, read-only or denied.

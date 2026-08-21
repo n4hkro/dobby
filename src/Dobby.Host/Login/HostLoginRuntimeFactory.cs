@@ -70,7 +70,6 @@ public static class HostLoginRuntimeFactory
             options,
             TimeProvider.System,
             null,
-            null,
             applyPreLoginMigrations: applyPreLoginMigrations);
     }
 
@@ -78,8 +77,8 @@ public static class HostLoginRuntimeFactory
         DobbyOptions options,
         TimeProvider timeProvider,
         IProtectedDataProtector? credentialProtector = null,
-        IProtectedDataProtector? rememberMeProtector = null,
-        bool applyPreLoginMigrations = true)
+        bool applyPreLoginMigrations = true,
+        ILoginRuntimeCompositionProbe? compositionProbe = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -112,16 +111,21 @@ public static class HostLoginRuntimeFactory
         var executor = new HostPersistenceCommandExecutor(factory);
         var transactionScope = new HostPersistenceTransactionScope(factory);
         var credentialScopeProtector = credentialProtector ?? new DpapiLocalMachineProtector();
-        var rememberScopeProtector = rememberMeProtector ?? new DpapiCurrentUserProtector();
         var kdfPolicyResolver = new KdfPolicyResolver(options.Auth);
-        var credentialStore = new CredentialStore(executor, credentialScopeProtector, kdfPolicyResolver, applicationEntropy);
+        var credentialStore = new CredentialStore(
+            executor,
+            credentialScopeProtector,
+            kdfPolicyResolver,
+            applicationEntropy,
+            verificationGate: new CredentialVerificationGate(options.Auth.MaxConcurrentPasswordVerifications));
         var auditTrail = new DurableAuditTrail(executor);
         var ownerBootstrapCoordinator = new OwnerBootstrapCoordinator(
             transactionScope,
             new OwnerBootstrapService(credentialScopeProtector, kdfPolicyResolver, applicationEntropy),
             auditTrail,
             timeProvider);
-        var throttleService = new LoginThrottleService(options.Auth.LoginThrottleStepsSeconds, timeProvider);
+        var throttleStore = new HostLoginThrottleStore(transactionScope);
+        var throttleService = CreateLoginThrottleService(options.Auth, timeProvider, throttleStore);
         var loginService = new LoginService(executor, kdfPolicyResolver, credentialStore, ownerBootstrapCoordinator, throttleService);
         var sessionLifecycleService = new SessionLifecycleService(
             new SessionStore(executor),
@@ -129,13 +133,9 @@ public static class HostLoginRuntimeFactory
             credentialStore,
             timeProvider,
             options.Session);
-        var rememberMeSlotService = new RememberMeSlotService(
-            executor,
-            rememberScopeProtector,
-            applicationEntropy,
-            StartupRememberMeSnapshotSink.Instance);
+        var rememberMeSlotService = new RememberMeSlotService(executor);
         var showDisplayNameInput = executor.QueryScalar<int>("SELECT COUNT(*) FROM Users;") == 0;
-        var savedLogin = rememberMeSlotService.LoadSavedLogin();
+        var savedLogin = rememberMeSlotService.LoadRememberedAccount();
         if (!savedLogin.IsSuccess)
         {
             throw new InvalidOperationException("Remember-me slot could not be loaded.");
@@ -148,24 +148,37 @@ public static class HostLoginRuntimeFactory
             new LoginAuditCoordinator(auditTrail, timeProvider),
             transactionScope);
 
-        var fingerprintSource = new HostDeviceFingerprintSource();
+        var mutationUnitOfWork = new HostMutationUnitOfWork(
+            transactionScope,
+            auditTrail,
+            new HostTransactionOutbox(timeProvider));
+        var deviceRecoveryKey = new DeviceRecoveryKeySigner(
+            protectedMaterial.DeviceRecoveryPrivateKeyPkcs8
+                ?? throw new InvalidOperationException("Device recovery private key is unavailable."),
+            protectedMaterial.DeviceRecoveryPublicKeySpki
+                ?? throw new InvalidOperationException("Device recovery public key is unavailable."));
+        var recoveryAuthority = ResolvePreAuthRecoveryAuthority(
+            executor,
+            protectedMaterial.StableDeviceId);
         var recoveryRequestExporter = new RecoveryRequestExporter(
-            fingerprintSource,
-            new FixedHostVersionProvider(new HostVersion(0, 1, 0)),
-            timeProvider);
-        var recoveryImporter = new RecoveryResponseImporter(new VendorRecoveryPublicKey(), fingerprintSource);
+            deviceRecoveryKey,
+            recoveryAuthority,
+            timeProvider,
+            VendorRecoveryPublicKey.ProductionKeyId);
+        var recoveryImporter = new RecoveryResponseImporter(new VendorRecoveryPublicKey());
         var recoveryRequestExportCoordinator = new RecoveryRequestExportCoordinator(
             recoveryRequestExporter,
-            auditTrail);
+            mutationUnitOfWork,
+            timeProvider);
         var recoveryResponseImportCoordinator = new RecoveryResponseImportCoordinator(
-            transactionScope,
             executor,
             recoveryImporter,
-            credentialScopeProtector,
-            kdfPolicyResolver,
+            credentialStore,
+            mutationUnitOfWork,
             auditTrail,
             timeProvider,
-            applicationEntropy);
+            recoveryAuthority,
+            deviceRecoveryKey.PublicKeyHash);
         var recoveryViewModel = new RecoveryViewModel(
             new WindowsRecoveryFilePicker(),
             new WindowsRecoveryExportFolderOpener(),
@@ -174,28 +187,75 @@ public static class HostLoginRuntimeFactory
             recoveryResponseImportCoordinator,
             new RecoveryPasswordResetPrompt());
 
-        return new HostPreLoginRuntime(
+        var runtime = new HostPreLoginRuntime(
             loginWorkflow,
             new LoginViewModel(
                 savedLogin.Value,
                 throttleService,
                 showDisplayNameInput),
             recoveryViewModel);
+        compositionProbe?.Record(LoginRuntimeCompositionEvents.PreAuthRuntimeConstructed);
+        return runtime;
+    }
+
+    public static HostLoginRuntime CreateAuthenticated(
+        SessionRecord authenticatedSession,
+        IPluginWorkSessionService? pluginWorkSessions = null,
+        bool applyPreLoginMigrations = true)
+    {
+        ArgumentNullException.ThrowIfNull(authenticatedSession);
+
+        var configuration = HostConfigurationSources.Build(new HostConfigurationSourceOptions(
+            Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
+            DefaultRuntimeConfigDirectory(),
+            "Production",
+            null));
+        var options = HostConfigurationSources.BindDobbyOptions(configuration);
+        ValidateOptions(options);
+        return CreateAuthenticated(
+            options,
+            TimeProvider.System,
+            authenticatedSession,
+            pluginWorkSessions: pluginWorkSessions,
+            applyPreLoginMigrations: applyPreLoginMigrations);
+    }
+
+    public static HostLoginRuntime CreateAuthenticated(
+        DobbyOptions options,
+        TimeProvider timeProvider,
+        SessionRecord authenticatedSession,
+        IProtectedDataProtector? credentialProtector = null,
+        IBackgroundOperationReporter? backgroundOperations = null,
+        IPluginWorkSessionService? pluginWorkSessions = null,
+        bool applyPreLoginMigrations = true,
+        ILoginRuntimeCompositionProbe? compositionProbe = null)
+    {
+        ArgumentNullException.ThrowIfNull(authenticatedSession);
+        return Create(
+            options,
+            timeProvider,
+            credentialProtector,
+            backgroundOperations,
+            pluginWorkSessions,
+            applyPreLoginMigrations,
+            authenticatedSession,
+            compositionProbe);
     }
 
     public static HostLoginRuntime Create(
         DobbyOptions options,
         TimeProvider timeProvider,
         IProtectedDataProtector? credentialProtector = null,
-        IProtectedDataProtector? rememberMeProtector = null,
         IBackgroundOperationReporter? backgroundOperations = null,
         IPluginWorkSessionService? pluginWorkSessions = null,
         bool applyPreLoginMigrations = true,
-        SessionRecord? activeSession = null)
+        SessionRecord? activeSession = null,
+        ILoginRuntimeCompositionProbe? compositionProbe = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ValidateOptions(options);
+        compositionProbe?.Record(LoginRuntimeCompositionEvents.AuthenticatedRuntimeConstructionStarted);
 
         var protectedMaterialProbe = ProtectedMaterialAvailabilityProbe.CreateForDataRoot(options.Runtime.DataRoot);
         if (!protectedMaterialProbe.IsAvailable())
@@ -223,6 +283,7 @@ public static class HostLoginRuntimeFactory
 
         var executor = new HostPersistenceCommandExecutor(factory);
         var transactionScope = new HostPersistenceTransactionScope(factory);
+        compositionProbe?.Record(LoginRuntimeCompositionEvents.BusinessRepositoriesConstructed);
         var currentContextStore = new HostCustomerDeploymentContextStore(executor, transactionScope);
         var currentContextService = new CurrentCustomerDeploymentContextService(currentContextStore);
         var currentContext = currentContextService.EnsureDefaultContext();
@@ -231,27 +292,33 @@ public static class HostLoginRuntimeFactory
             throw new InvalidOperationException("Current customer/deployment context could not be materialized.");
         }
         var licenseStateStore = new HostLicenseStateStore(executor, transactionScope);
+        compositionProbe?.Record(LoginRuntimeCompositionEvents.LicensingConstructed);
         var currentLicenseDeviceFingerprint = new Lazy<string>(() => CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId));
         var licenseRuntimeModeProvider = new LicenseRuntimeModeProvider(
             licenseStateStore,
             currentContextService,
             () => currentLicenseDeviceFingerprint.Value);
         var credentialScopeProtector = credentialProtector ?? new DpapiLocalMachineProtector();
-        var rememberScopeProtector = rememberMeProtector ?? new DpapiCurrentUserProtector();
         var kdfPolicyResolver = new KdfPolicyResolver(options.Auth);
-        var credentialStore = new CredentialStore(executor, credentialScopeProtector, kdfPolicyResolver, applicationEntropy);
-        var auditTrail = new DurableAuditTrail(executor);
-        var operationReporter = backgroundOperations ?? new BackgroundOperationReporter();
-        AuditRetentionMaintenance.StartOneShot(
+        var credentialStore = new CredentialStore(
             executor,
-            options.Audit.RetentionDays,
-            operationReporter);
+            credentialScopeProtector,
+            kdfPolicyResolver,
+            applicationEntropy,
+            verificationGate: new CredentialVerificationGate(options.Auth.MaxConcurrentPasswordVerifications));
+        var auditTrail = new DurableAuditTrail(executor);
+        var mutationUnitOfWork = new HostMutationUnitOfWork(
+            transactionScope,
+            auditTrail,
+            new HostTransactionOutbox(timeProvider));
+        var operationReporter = backgroundOperations ?? new BackgroundOperationReporter();
         var ownerBootstrapCoordinator = new OwnerBootstrapCoordinator(
             transactionScope,
             new OwnerBootstrapService(credentialScopeProtector, kdfPolicyResolver, applicationEntropy),
             auditTrail,
             timeProvider);
-        var throttleService = new LoginThrottleService(options.Auth.LoginThrottleStepsSeconds, timeProvider);
+        var throttleStore = new HostLoginThrottleStore(transactionScope);
+        var throttleService = CreateLoginThrottleService(options.Auth, timeProvider, throttleStore);
         var loginService = new LoginService(executor, kdfPolicyResolver, credentialStore, ownerBootstrapCoordinator, throttleService);
         var activeSessionAccessor = new ActiveSessionAccessor();
         if (activeSession is not null)
@@ -264,22 +331,27 @@ public static class HostLoginRuntimeFactory
         }
 
         var sessionOptions = ResolveSessionOptions(options.Session, executor, activeSession?.UserId);
+        var sessionAuditCoordinator = new SessionLifecycleAuditCoordinator(
+            auditTrail,
+            timeProvider,
+            mutationUnitOfWork);
         var sessionLifecycleService = new SessionLifecycleService(
             new SessionStore(executor),
             activeSessionAccessor,
             credentialStore,
             timeProvider,
-            sessionOptions);
-        var sessionAuditCoordinator = new SessionLifecycleAuditCoordinator(auditTrail, timeProvider);
-        var lockThrottleService = new LoginThrottleService(options.Auth.LoginThrottleStepsSeconds, timeProvider);
+            sessionOptions,
+            sessionAuditCoordinator);
+        var lockThrottleService = CreateLoginThrottleService(options.Auth, timeProvider, throttleStore);
+        var passwordChangeThrottleService = CreateLoginThrottleService(options.Auth, timeProvider, throttleStore);
         var lockRuntimeWorkflow = new LockRuntimeWorkflow(
             sessionLifecycleService,
             sessionAuditCoordinator,
             lockThrottleService);
         var pluginActivationCancellation = new HostPluginActivationCancellation();
-        var rememberMeSlotService = new RememberMeSlotService(executor, rememberScopeProtector, applicationEntropy, StartupRememberMeSnapshotSink.Instance);
+        var rememberMeSlotService = new RememberMeSlotService(executor);
         var showDisplayNameInput = executor.QueryScalar<int>("SELECT COUNT(*) FROM Users;") == 0;
-        var savedLogin = rememberMeSlotService.LoadSavedLogin();
+        var savedLogin = rememberMeSlotService.LoadRememberedAccount();
         if (!savedLogin.IsSuccess)
         {
             throw new InvalidOperationException("Remember-me slot could not be loaded.");
@@ -292,29 +364,42 @@ public static class HostLoginRuntimeFactory
             new LoginAuditCoordinator(auditTrail, timeProvider),
             transactionScope);
 
-        var fingerprintSource = new HostDeviceFingerprintSource();
+        var deviceRecoveryKey = new DeviceRecoveryKeySigner(
+            protectedMaterial.DeviceRecoveryPrivateKeyPkcs8
+                ?? throw new InvalidOperationException("Device recovery private key is unavailable."),
+            protectedMaterial.DeviceRecoveryPublicKeySpki
+                ?? throw new InvalidOperationException("Device recovery public key is unavailable."));
+        var recoveryAuthority = new RecoveryAuthorityContext(
+            currentContext.Context!.CustomerId,
+            currentContext.Context.DeploymentId,
+            DeviceRecoveryIdentity.ComputeDeviceId(protectedMaterial.StableDeviceId));
         var recoveryRequestExporter = new RecoveryRequestExporter(
-            fingerprintSource,
-            new FixedHostVersionProvider(new HostVersion(0, 1, 0)),
-            timeProvider);
-        var recoveryImporter = new RecoveryResponseImporter(new VendorRecoveryPublicKey(), fingerprintSource);
+            deviceRecoveryKey,
+            recoveryAuthority,
+            timeProvider,
+            VendorRecoveryPublicKey.ProductionKeyId);
+        var recoveryImporter = new RecoveryResponseImporter(new VendorRecoveryPublicKey());
         var recoveryRequestExportCoordinator = new RecoveryRequestExportCoordinator(
             recoveryRequestExporter,
-            auditTrail);
+            mutationUnitOfWork,
+            timeProvider);
         var recoveryResponseImportCoordinator = new RecoveryResponseImportCoordinator(
-            transactionScope,
             executor,
             recoveryImporter,
-            credentialScopeProtector,
-            kdfPolicyResolver,
+            credentialStore,
+            mutationUnitOfWork,
             auditTrail,
             timeProvider,
-            applicationEntropy);
+            recoveryAuthority,
+            deviceRecoveryKey.PublicKeyHash);
         var passwordChangeCoordinator = new SelfServicePasswordChangeCoordinator(
             executor,
             credentialStore,
             rememberMeSlotService,
-            auditTrail);
+            passwordChangeThrottleService,
+            mutationUnitOfWork,
+            auditTrail,
+            timeProvider);
         var operationTargetRegistry = OperationTargetRegistry.CreateDefault();
         var permissionGrantStore = new PermissionGrantStore(executor);
         var operationAuthorizationPolicy = new OperationAuthorizationPolicy(operationTargetRegistry, permissionGrantStore);
@@ -324,8 +409,13 @@ public static class HostLoginRuntimeFactory
             auditTrail,
             timeProvider);
         var userManagementGuard = new UserManagementAuthorizationGuard(operationAuthorizationPolicy, permissionGrantStore, operationTargetRegistry);
-        var userManagementAuditCoordinator = new UserManagementAuditCoordinator(auditTrail, executor, timeProvider);
+        var userManagementAuditCoordinator = new UserManagementAuditCoordinator(
+            auditTrail,
+            executor,
+            timeProvider,
+            mutationUnitOfWork);
         var pluginExtensionPointRegistry = new PluginExtensionPointRegistry();
+        compositionProbe?.Record(LoginRuntimeCompositionEvents.PluginRuntimeConstructed);
         var pluginLifetimeManager = new PluginLifetimeManager();
         var installedPluginStateStore = new HostInstalledPluginStateStore(executor, transactionScope);
         var installedPluginMetadataCache = new HostInstalledPluginMetadataCache(executor, transactionScope);
@@ -387,7 +477,14 @@ public static class HostLoginRuntimeFactory
             pluginRuntimeAuditCoordinator,
             pluginTrustVerifier,
             runtimeModeMutationGate,
-            pluginRuntimeDiagnosticsCoordinator);
+            pluginRuntimeDiagnosticsCoordinator,
+            new PluginPackageLimits(
+                options.Plugins.MaximumCompressedPackageMegabytes * 1024L * 1024,
+                options.Plugins.MaximumManifestKilobytes * 1024,
+                options.Plugins.MaximumEntryCount,
+                options.Plugins.MaximumEntryUncompressedMegabytes * 1024L * 1024,
+                options.Plugins.MaximumAggregateUncompressedMegabytes * 1024L * 1024,
+                options.Plugins.MaximumExpansionRatio));
         var pluginLifecycleCoordinator = new HostPluginLifecycleCoordinator(
             installedPluginStateStore,
             installedPluginMetadataCache,
@@ -431,7 +528,9 @@ public static class HostLoginRuntimeFactory
         var settingsNavigationModel = new SettingsNavigationModel(operationAuthorizationPolicy, settingsPreferenceSource);
         var aboutInfoProvider = new AboutInfoProvider(
             new AssemblyHostVersionProvider(typeof(HostLoginRuntimeFactory).Assembly),
-            new HostSupportDeviceCodeProvider(fingerprintSource),
+            new HostSupportDeviceCodeProvider(
+                protectedMaterial.StableDeviceId,
+                protectedMaterial.ApplicationEntropy),
             "support@example.invalid",
             "Copyright Dobby",
             new AssemblyHostBuildMetadataProvider(typeof(HostLoginRuntimeFactory).Assembly));
@@ -455,8 +554,15 @@ public static class HostLoginRuntimeFactory
         var printOutputService = new HostPrintOutputService(
             licenseRuntimeModeProvider,
             printOutputCoordinator);
+        var authenticatedLifetime = new CancellationTokenSource();
+        var auditRetentionTask = AuditRetentionMaintenance.StartOneShot(
+            executor,
+            options.Audit.RetentionDays,
+            operationReporter,
+            authenticatedLifetime.Token);
+        compositionProbe?.Record(LoginRuntimeCompositionEvents.AuditRetentionStarted);
 
-        return new HostLoginRuntime(
+        var runtime = new HostLoginRuntime(
             loginWorkflow,
             new LoginViewModel(
                 savedLogin.Value,
@@ -491,7 +597,13 @@ public static class HostLoginRuntimeFactory
             printOutputService,
             operationReporter,
             options.Runtime.DataRoot,
-            diagnosticsOutputZipPath);
+            diagnosticsOutputZipPath)
+        {
+            AuthenticatedLifetime = authenticatedLifetime,
+            AuditRetentionTask = auditRetentionTask
+        };
+        compositionProbe?.Record(LoginRuntimeCompositionEvents.AuthenticatedRuntimeConstructed);
+        return runtime;
     }
 
     private static string CreateCurrentLicenseDeviceFingerprint(byte[] stableDeviceId)
@@ -587,6 +699,55 @@ public static class HostLoginRuntimeFactory
         };
     }
 
+    private static RecoveryAuthorityContext ResolvePreAuthRecoveryAuthority(
+        IHostPersistenceCommandExecutor executor,
+        byte[] stableDeviceId)
+    {
+        var contexts = executor.Query<RecoveryAuthorityRow>(
+            "SELECT CustomerId, DeploymentId FROM CustomerDeploymentContext;");
+        if (contexts.Count > 1)
+        {
+            throw new InvalidOperationException("Recovery authority context is ambiguous.");
+        }
+
+        var customerId = contexts.Count == 0
+            ? CurrentCustomerDeploymentContextService.DefaultCustomerId
+            : contexts[0].CustomerId;
+        var deploymentId = contexts.Count == 0
+            ? CurrentCustomerDeploymentContextService.DefaultDeploymentId
+            : contexts[0].DeploymentId;
+        if (string.IsNullOrWhiteSpace(customerId) || string.IsNullOrWhiteSpace(deploymentId))
+        {
+            throw new InvalidOperationException("Recovery authority context is invalid.");
+        }
+
+        return new RecoveryAuthorityContext(
+            customerId,
+            deploymentId,
+            DeviceRecoveryIdentity.ComputeDeviceId(stableDeviceId));
+    }
+
+    private sealed class RecoveryAuthorityRow
+    {
+        public string CustomerId { get; init; } = string.Empty;
+
+        public string DeploymentId { get; init; } = string.Empty;
+    }
+
+    private static LoginThrottleService CreateLoginThrottleService(
+        AuthOptions options,
+        TimeProvider timeProvider,
+        ILoginThrottleStore store)
+    {
+        return new LoginThrottleService(
+            options.LoginThrottleStepsSeconds,
+            timeProvider,
+            store,
+            options.LoginThrottleFailureWindowSeconds,
+            options.LoginGlobalFailureThreshold,
+            options.LoginGlobalBackoffSeconds);
+    }
+
     private static void ValidateOptions(DobbyOptions options)
     {
         var result = new DobbyOptionsValidator().Validate(Options.DefaultName, options);
@@ -603,25 +764,12 @@ public static class HostLoginRuntimeFactory
     }
 }
 
-internal sealed class HostDeviceFingerprintSource : IDeviceFingerprintSource
-{
-    public Result<DeviceFingerprint> Current()
-    {
-        return new DeviceFingerprintComposer(new WindowsHardwareIdentityProvider()).Compose();
-    }
-}
-
-internal sealed class HostSupportDeviceCodeProvider(IDeviceFingerprintSource fingerprintSource) : ISupportDeviceCodeProvider
+internal sealed class HostSupportDeviceCodeProvider(
+    byte[] stableDeviceId,
+    byte[] supportCodeKey) : ISupportDeviceCodeProvider
 {
     public string CurrentRedactedCode()
     {
-        var fingerprint = fingerprintSource.Current();
-        if (!fingerprint.IsSuccess)
-        {
-            return "device-unavailable";
-        }
-
-        var machine = fingerprint.Value.MachineGuid;
-        return machine.Length <= 12 ? machine : machine[..12];
+        return SupportDeviceCodeV2.Compute(stableDeviceId, supportCodeKey);
     }
 }

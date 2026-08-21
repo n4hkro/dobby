@@ -1,6 +1,6 @@
 # ADR-0041: Login-First Startup Policy
 
-**Status:** Accepted
+**Status:** Accepted (runtime boundary and atomicity amended by ADR-0061)
 **Date:** 2026-04-24
 
 ## Context

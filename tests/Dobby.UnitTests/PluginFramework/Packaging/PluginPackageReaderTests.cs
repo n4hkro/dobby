@@ -71,6 +71,162 @@ public sealed class PluginPackageReaderTests
     }
 
     [Fact]
+    public void Read_zip_keeps_payload_stream_backed_instead_of_retaining_it_in_memory()
+    {
+        using var temp = new TempDirectory();
+        var zipPath = CreateZip(temp.Path,
+            (PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson())),
+            (PluginPackageTestData.FilePath, PluginPackageTestData.FileContent));
+
+        var result = PluginPackageReader.Read(zipPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var payload = result.Value.Entries.Single(entry => entry.Path == PluginPackageTestData.FilePath);
+        payload.Content.ShouldBeEmpty();
+        using var stream = payload.OpenRead();
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        copy.ToArray().ShouldBe(PluginPackageTestData.FileContent);
+    }
+
+    [Fact]
+    public void Read_enforces_manifest_limit_at_the_exact_byte_boundary()
+    {
+        using var temp = new TempDirectory();
+        var manifest = Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson());
+        var zipPath = CreateZip(temp.Path, (PluginPackageReader.ManifestFileName, manifest));
+
+        PluginPackageReader.Read(zipPath, Limits(manifestBytes: manifest.Length)).IsSuccess.ShouldBeTrue();
+        PluginPackageReader.Read(zipPath, Limits(manifestBytes: manifest.Length - 1)).ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+    }
+
+    [Fact]
+    public void Read_enforces_entry_count_at_the_exact_boundary()
+    {
+        using var temp = new TempDirectory();
+        var zipPath = CreateZip(temp.Path,
+            (PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson())),
+            (PluginPackageTestData.FilePath, PluginPackageTestData.FileContent));
+
+        PluginPackageReader.Read(zipPath, Limits(entryCount: 2)).IsSuccess.ShouldBeTrue();
+        PluginPackageReader.Read(zipPath, Limits(entryCount: 1)).ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+    }
+
+    [Fact]
+    public void Read_enforces_per_entry_and_aggregate_limits_at_exact_boundaries()
+    {
+        using var temp = new TempDirectory();
+        var manifest = Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson());
+        var payload = new byte[2048];
+        new Random(1234).NextBytes(payload);
+        var zipPath = CreateZip(temp.Path,
+            (PluginPackageReader.ManifestFileName, manifest),
+            (PluginPackageTestData.FilePath, payload));
+        var aggregate = manifest.LongLength + payload.LongLength;
+
+        PluginPackageReader.Read(zipPath, Limits(perEntryBytes: payload.Length, aggregateBytes: aggregate)).IsSuccess.ShouldBeTrue();
+        PluginPackageReader.Read(zipPath, Limits(perEntryBytes: payload.Length - 1, aggregateBytes: aggregate)).ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+        PluginPackageReader.Read(zipPath, Limits(perEntryBytes: payload.Length, aggregateBytes: aggregate - 1)).ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+    }
+
+    [Fact]
+    public void Read_enforces_compressed_package_limit_at_the_exact_boundary()
+    {
+        using var temp = new TempDirectory();
+        var zipPath = CreateZip(temp.Path,
+            (PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson())));
+        var compressedBytes = new FileInfo(zipPath).Length;
+
+        PluginPackageReader.Read(zipPath, Limits(compressedBytes: compressedBytes)).IsSuccess.ShouldBeTrue();
+        PluginPackageReader.Read(zipPath, Limits(compressedBytes: compressedBytes - 1)).ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+    }
+
+    [Fact]
+    public void Read_rejects_high_expansion_ratio_from_central_directory_metadata()
+    {
+        using var temp = new TempDirectory();
+        var zipPath = CreateZip(temp.Path,
+            (PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson())),
+            (PluginPackageTestData.FilePath, new byte[64 * 1024]));
+
+        var result = PluginPackageReader.Read(zipPath, Limits(perEntryBytes: 128 * 1024, aggregateBytes: 256 * 1024, ratio: 10));
+
+        result.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+    }
+
+    [Theory]
+    [InlineData("../escape.txt")]
+    [InlineData("/rooted.txt")]
+    [InlineData("C:/drive.txt")]
+    [InlineData("folder\\backslash.txt")]
+    [InlineData("folder//empty.txt")]
+    [InlineData("folder/./dot.txt")]
+    [InlineData("folder/../parent.txt")]
+    [InlineData("folder/trailing-dot.")]
+    [InlineData("folder/trailing-space ")]
+    [InlineData("CON.txt")]
+    [InlineData("folder/aux.json")]
+    [InlineData("folder/ads:name.txt")]
+    public void Read_rejects_hostile_archive_paths(string hostilePath)
+    {
+        using var temp = new TempDirectory();
+        var zipPath = CreateZip(temp.Path,
+            (PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson())),
+            (hostilePath, [1]));
+
+        PluginPackageReader.Read(zipPath).ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+    }
+
+    [Theory]
+    [InlineData("content/File.txt", "content/file.txt")]
+    [InlineData("content/caf\u00e9.txt", "content/cafe\u0301.txt")]
+    [InlineData("content/payload", "content/payload/child.txt")]
+    public void Read_rejects_case_unicode_and_file_directory_prefix_collisions(string first, string second)
+    {
+        using var temp = new TempDirectory();
+        var zipPath = CreateZip(temp.Path,
+            (PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson())),
+            (first, [1]),
+            (second, [2]));
+
+        PluginPackageReader.Read(zipPath).ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+    }
+
+    [Fact]
+    public void Read_honors_pre_cancelled_ingestion_without_reporting_progress()
+    {
+        using var temp = new TempDirectory();
+        var zipPath = CreateZip(temp.Path,
+            (PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson())));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var progress = new ImmediateProgress();
+
+        Should.Throw<OperationCanceledException>(() =>
+            PluginPackageReader.Read(zipPath, cancellationToken: cancellation.Token, progress: progress));
+        progress.Values.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Read_reports_deterministic_monotonic_entry_and_byte_progress()
+    {
+        using var temp = new TempDirectory();
+        var manifest = Encoding.UTF8.GetBytes(PluginPackageTestData.CreateManifestJson());
+        var zipPath = CreateZip(temp.Path,
+            (PluginPackageReader.ManifestFileName, manifest),
+            (PluginPackageTestData.FilePath, PluginPackageTestData.FileContent));
+        var progress = new ImmediateProgress();
+
+        PluginPackageReader.Read(zipPath, progress: progress).IsSuccess.ShouldBeTrue();
+
+        progress.Values.Count.ShouldBe(2);
+        progress.Values.Select(value => value.EntriesCompleted).ShouldBe([1, 2]);
+        progress.Values.Select(value => value.UncompressedBytesRead).ShouldBeInOrder(SortDirection.Ascending);
+        progress.Values[^1].UncompressedBytesRead.ShouldBe(manifest.LongLength + PluginPackageTestData.FileContent.LongLength);
+        progress.Values[^1].TotalUncompressedBytes.ShouldBe(progress.Values[^1].UncompressedBytesRead);
+    }
+
+    [Fact]
     public void Read_valid_manifests_concurrently_through_embedded_schema()
     {
         var failures = new ConcurrentBag<string>();
@@ -166,6 +322,44 @@ public sealed class PluginPackageReaderTests
         var root = JsonNode.Parse(PluginPackageTestData.CreateManifestJson())!.AsObject();
         root[propertyName] = JsonValue.Create(value);
         return root.ToJsonString();
+    }
+
+    private static string CreateZip(string root, params (string Path, byte[] Content)[] entries)
+    {
+        var zipPath = Path.Combine(root, $"{Guid.NewGuid():N}.dobbyplugin");
+        using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create);
+        foreach (var (path, content) in entries)
+        {
+            var entry = archive.CreateEntry(path, CompressionLevel.Optimal);
+            using var stream = entry.Open();
+            stream.Write(content);
+        }
+
+        return zipPath;
+    }
+
+    private static PluginPackageLimits Limits(
+        long compressedBytes = 1024 * 1024,
+        int manifestBytes = 128 * 1024,
+        int entryCount = 16,
+        long perEntryBytes = 128 * 1024,
+        long aggregateBytes = 256 * 1024,
+        int ratio = 200)
+    {
+        return new PluginPackageLimits(
+            compressedBytes,
+            manifestBytes,
+            entryCount,
+            perEntryBytes,
+            Math.Max(aggregateBytes, perEntryBytes),
+            ratio);
+    }
+
+    private sealed class ImmediateProgress : IProgress<PluginPackageReadProgress>
+    {
+        public List<PluginPackageReadProgress> Values { get; } = [];
+
+        public void Report(PluginPackageReadProgress value) => Values.Add(value);
     }
 
     private sealed class TempDirectory : IDisposable

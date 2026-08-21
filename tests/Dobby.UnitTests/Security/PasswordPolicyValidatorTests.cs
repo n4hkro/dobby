@@ -21,6 +21,7 @@ public sealed class PasswordPolicyValidatorTests
     [Theory]
     [InlineData("a")]
     [InlineData("correct horse battery staple")]
+    [InlineData("Şifrə 密碼 🔐")]
     public void Validate_accepts_non_empty_passwords_up_to_policy_limit(string password)
     {
         PasswordPolicyValidator.Validate(password).IsSuccess.ShouldBeTrue();

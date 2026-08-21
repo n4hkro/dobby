@@ -44,7 +44,14 @@ public sealed class LockRuntimeWorkflow(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
-        var throttle = unlockThrottleService?.Check();
+        var throttle = unlockThrottleService?.Check(userId);
+        if (throttle is { IsAvailable: false })
+        {
+            var busy = Result.Failure(ErrorCode.ResourceBusy);
+            auditCoordinator.AppendUnlock(userId, busy, correlationId);
+            return LockRuntimeWorkflowActionResult.Failure(ErrorCode.ResourceBusy);
+        }
+
         if (throttle is { IsThrottled: true })
         {
             var blocked = Result.Failure(ErrorCode.Unauthorized);
@@ -58,7 +65,7 @@ public sealed class LockRuntimeWorkflow(
         auditCoordinator.AppendUnlock(userId, result, correlationId);
         if (result.IsSuccess)
         {
-            unlockThrottleService?.RecordSuccess();
+            unlockThrottleService?.RecordSuccess(userId);
             return LockRuntimeWorkflowActionResult.Success();
         }
 
@@ -78,8 +85,6 @@ public sealed class LockRuntimeWorkflow(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
-        var result = sessionLifecycleService.Logout("user-logout");
-        auditCoordinator.AppendLogout(userId, result, correlationId);
-        return result;
+        return sessionLifecycleService.Logout("user-logout", correlationId);
     }
 }

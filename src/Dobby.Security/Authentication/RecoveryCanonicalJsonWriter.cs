@@ -1,71 +1,72 @@
-using System.Text;
+using Dobby.Security.Trust;
 
 namespace Dobby.Security.Authentication;
 
 public static class RecoveryCanonicalJsonWriter
 {
+    public static byte[] WriteRequestPayload(RecoveryRequestPayload payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        return ArtifactCanonicalJson.Write(payload);
+    }
+
     public static byte[] WritePayload(RecoveryResponsePayload payload)
     {
         ArgumentNullException.ThrowIfNull(payload);
+        return ArtifactCanonicalJson.Write(payload);
+    }
+}
 
-        var builder = new StringBuilder();
-        builder.Append('{');
-        AppendPropertyName(builder, "deviceIdentity");
-        builder.Append('{');
-        AppendStringProperty(builder, "cpuId", payload.DeviceIdentity.CpuId, first: true);
-        AppendStringProperty(builder, "diskSerial", payload.DeviceIdentity.DiskSerial);
-        AppendStringProperty(builder, "macAddress", payload.DeviceIdentity.MacAddress);
-        AppendStringProperty(builder, "machineGuid", payload.DeviceIdentity.MachineGuid);
-        AppendStringProperty(builder, "motherboardSerial", payload.DeviceIdentity.MotherboardSerial);
-        builder.Append('}');
-        AppendStringProperty(builder, "expiresAt", payload.ExpiresAt);
-        AppendStringProperty(builder, "issuedAt", payload.IssuedAt);
-        builder.Append(',');
-        AppendPropertyName(builder, "keyVersion");
-        builder.Append(payload.KeyVersion);
-        AppendStringProperty(builder, "nonce", payload.Nonce);
-        AppendStringProperty(builder, "requestId", payload.RequestId);
-        AppendStringProperty(builder, "type", payload.Type);
-        builder.Append('}');
-        return Encoding.UTF8.GetBytes(builder.ToString());
+internal static class RecoveryContractValidation
+{
+    public static bool IsBoundedIdentifier(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+            value.Length <= 128 &&
+            char.IsAsciiLetterOrDigit(value[0]) &&
+            value.All(character =>
+                char.IsAsciiLetterOrDigit(character) ||
+                character is '.' or '_' or ':' or '-');
     }
 
-    private static void AppendStringProperty(StringBuilder builder, string name, string value, bool first = false)
+    public static bool IsKeyId(string? value)
     {
-        if (!first)
-        {
-            builder.Append(',');
-        }
-
-        AppendPropertyName(builder, name);
-        AppendStringValue(builder, value);
+        return !string.IsNullOrWhiteSpace(value) &&
+            value.Length is >= 3 and <= 64 &&
+            char.IsAsciiLetterOrDigit(value[0]) &&
+            value.All(character =>
+                char.IsAsciiLetterOrDigit(character) ||
+                character is '.' or '_' or '-');
     }
 
-    private static void AppendPropertyName(StringBuilder builder, string name)
+    public static bool IsLowercaseSha256(string? value)
     {
-        AppendStringValue(builder, name);
-        builder.Append(':');
+        return value is { Length: 64 } &&
+            value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
     }
 
-    private static void AppendStringValue(StringBuilder builder, string value)
+    public static bool IsUuid(string? value)
     {
-        builder.Append('"');
-        foreach (var character in value)
-        {
-            builder.Append(character switch
-            {
-                '"' => "\\\"",
-                '\\' => "\\\\",
-                '\b' => "\\b",
-                '\f' => "\\f",
-                '\n' => "\\n",
-                '\r' => "\\r",
-                '\t' => "\\t",
-                < ' ' => $"\\u{(int)character:x4}",
-                _ => character
-            });
-        }
+        return Guid.TryParseExact(value, "D", out var parsed) &&
+            StringComparer.Ordinal.Equals(parsed.ToString("D"), value);
+    }
 
-        builder.Append('"');
+    public static bool TryParseUtcZ(string? value, out DateTimeOffset timestamp)
+    {
+        timestamp = default;
+        return value is { Length: <= 35 } &&
+            value.EndsWith('Z') &&
+            DateTimeOffset.TryParseExact(
+                value,
+                ["yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"],
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal |
+                System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out timestamp);
+    }
+
+    public static string ToUtcZ(DateTimeOffset value)
+    {
+        return value.UtcDateTime.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
     }
 }

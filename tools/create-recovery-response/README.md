@@ -11,6 +11,7 @@ Dobby.Admin.exe --cli create-recovery-response
 Required options:
 
 - `--request-path`
+- `--device-public-key-path`
 - `--signing-profile`
 - `--output-path`
 

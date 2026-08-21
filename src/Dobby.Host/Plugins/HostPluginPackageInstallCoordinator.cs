@@ -17,11 +17,13 @@ public sealed class HostPluginPackageInstallCoordinator(
     PluginRuntimeAuditCoordinator auditCoordinator,
     IPluginTrustVerifier pluginTrustVerifier,
     HostRuntimeModeMutationGate mutationGate,
-    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null)
+    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
+    PluginPackageLimits? packageLimits = null)
 {
     private readonly OperationAuthorizationPolicy authorization = authorizationPolicy ?? throw new ArgumentNullException(nameof(authorizationPolicy));
     private readonly IPluginTrustVerifier trustVerifier = pluginTrustVerifier ?? throw new ArgumentNullException(nameof(pluginTrustVerifier));
     private readonly PluginRuntimeDiagnosticsCoordinator? diagnostics = diagnosticsCoordinator;
+    private readonly PluginPackageLimits limits = packageLimits ?? PluginPackageLimits.Default;
     private readonly HostRuntimeModeMutationGate runtimeModeMutationGate = mutationGate ??
         throw new ArgumentNullException(nameof(mutationGate));
 
@@ -29,7 +31,9 @@ public sealed class HostPluginPackageInstallCoordinator(
         string actorId,
         string packagePath,
         HostVersion hostVersion,
-        CorrelationId correlationId)
+        CorrelationId correlationId,
+        CancellationToken cancellationToken = default,
+        IProgress<PluginPackageReadProgress>? progress = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         ArgumentException.ThrowIfNullOrWhiteSpace(packagePath);
@@ -61,7 +65,7 @@ public sealed class HostPluginPackageInstallCoordinator(
             return Result.Failure<InstalledPluginState>(ErrorCode.InvalidInput);
         }
 
-        var archive = PluginPackageReader.Read(packagePath);
+        var archive = PluginPackageReader.Read(packagePath, limits, cancellationToken, progress);
         if (!archive.IsSuccess)
         {
             var reasons = new[]

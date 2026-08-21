@@ -136,10 +136,10 @@ public sealed class RemainingProductWorkAuthorityTests
         localizationEvent.EventName.ShouldBe("localization.missing-key");
         localizationEvent.Severity.ShouldBe("Warning");
 
-        DisplayNameValidator.Normalize(null).ShouldBeNull();
-        DisplayNameValidator.Normalize("   ").ShouldBeNull();
-        DisplayNameValidator.Normalize("  Əli Məmmədov  ").ShouldBe("Əli Məmmədov");
-        DisplayNameValidator.Normalize("  OWNER Şəxs  ").ShouldBe("OWNER Şəxs");
+        DisplayNameValidator.Normalize(null).Value.ShouldBeNull();
+        DisplayNameValidator.Normalize("   ").Value.ShouldBeNull();
+        DisplayNameValidator.Normalize("  Əli Məmmədov  ").Value.ShouldBe("Əli Məmmədov");
+        DisplayNameValidator.Normalize("  OWNER Şəxs  ").Value.ShouldBe("OWNER Şəxs");
         persistence.Executor.Execute(
             "INSERT INTO Users(UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc) VALUES ('user-1', 'user.one', 'Əli Məmmədov', 0, 1, @Now, @Now);",
             new { Now = DateTimeOffset.UtcNow.ToString("O") });
@@ -177,7 +177,7 @@ public sealed class RemainingProductWorkAuthorityTests
         validator.Validate(Options.DefaultName, new DobbyOptions
         {
             Auth = new AuthOptions { PasswordKdfMode = "Argon2id" }
-        }).Succeeded.ShouldBeTrue();
+        }).Failed.ShouldBeTrue();
 
         var pbkdf2Resolver = new KdfPolicyResolver(new AuthOptions { PasswordKdfMode = "Pbkdf2Sha256" });
         pbkdf2Resolver.Resolve().Value.ShouldBe(new KdfPolicy("PBKDF2-HMAC-SHA256", 600_000, 16, 32));

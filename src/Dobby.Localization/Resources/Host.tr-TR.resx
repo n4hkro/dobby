@@ -238,6 +238,12 @@
     <value>Anonim kullanici</value>
   </data><data name="Dobby.Shell.Profile.ChangePassword" xml:space="preserve">
     <value>Parolayı değiştir</value>
+  </data><data name="Dobby.Shell.Profile.PasswordChange.CurrentPassword" xml:space="preserve">
+    <value>Mevcut parola</value>
+  </data><data name="Dobby.Shell.Profile.PasswordChange.NewPassword" xml:space="preserve">
+    <value>Yeni parola</value>
+  </data><data name="Dobby.Shell.Profile.PasswordChange.ConfirmNewPassword" xml:space="preserve">
+    <value>Yeni parolayı doğrula</value>
   </data><data name="Dobby.Shell.Profile.ManualLock" xml:space="preserve">
     <value>Kilitle</value>
   </data><data name="Dobby.Shell.Profile.Logout" xml:space="preserve">
@@ -284,6 +290,9 @@
     <value>Yonetilen kullanici</value>
   </data><data name="About.OwnerStatus.Registered" xml:space="preserve">
     <value>Owner kayıtlı</value>
+  </data>
+  <data name="Dobby.Host.Login.RememberMe" xml:space="preserve">
+    <value>Bu kullanıcı adını hatırla</value>
   </data><data name="Dobby.Host.AuditRetentionSweep" xml:space="preserve">
     <value>Denetim saklama temizliği</value>
   </data><data name="Dobby.Shell.Diagnostics.Export.Denied" xml:space="preserve"><value>Tanılamayı dışa aktarma izniniz yok</value></data><data name="Dobby.Shell.Profile.ManualLock.Denied" xml:space="preserve"><value>Oturumu kilitleme izniniz yok</value></data><data name="Dobby.Shell.Profile.PasswordChange.Denied" xml:space="preserve"><value>Parolayı değiştirme izniniz yok</value></data><data name="Dobby.Host.Settings.SecuritySession.Save" xml:space="preserve"><value>Kaydet</value></data><data name="Dobby.Shell.Diagnostics.Export.Success" xml:space="preserve"><value>Tanılama dışa aktarıldı</value></data><data name="Dobby.Shell.Profile.PasswordChange.Error" xml:space="preserve"><value>Parola değiştirilemedi</value></data><data name="Dobby.Shell.Profile.Logout.Busy" xml:space="preserve"><value>Çıkış yapılıyor</value></data><data name="Dobby.Shell.Profile.Logout.Error" xml:space="preserve"><value>Çıkış yapılamadı</value></data><data name="Dobby.Shell.Profile.ManualLock.Busy" xml:space="preserve"><value>Oturum kilitleniyor</value></data><data name="Dobby.Shell.Profile.PasswordChange.Success" xml:space="preserve"><value>Parola değiştirildi</value></data><data name="Dobby.Shell.Profile.Logout.Success" xml:space="preserve"><value>Çıkış yapıldı</value></data><data name="Dobby.Shell.Diagnostics.Export.Busy" xml:space="preserve"><value>Tanılama dışa aktarılıyor</value></data><data name="Dobby.Shell.Profile.ManualLock.Success" xml:space="preserve"><value>Oturum kilitlendi</value></data><data name="Dobby.Shell.Profile.Logout.Denied" xml:space="preserve"><value>Çıkış yapma izniniz yok</value></data><data name="Dobby.Shell.Profile.ManualLock.Error" xml:space="preserve"><value>Oturum kilitlenemedi</value></data><data name="Dobby.Shell.Profile.PasswordChange.Busy" xml:space="preserve"><value>Parola değiştiriliyor</value></data><data name="Dobby.Shell.Diagnostics.Export.Error" xml:space="preserve"><value>Tanılama dışa aktarılamadı</value></data><data name="Dobby.Shell.WorkSession.Restore" xml:space="preserve"><value>Geri yükle</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Title" xml:space="preserve"><value>Fiziksel yazdırmayı onaylayın</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Message" xml:space="preserve"><value>Lisans salt okunur modda. Bu fiziksel yazıcıda yazdırmaya devam edilsin mi?</value></data></root>

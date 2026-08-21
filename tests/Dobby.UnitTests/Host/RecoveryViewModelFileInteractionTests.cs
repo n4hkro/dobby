@@ -139,12 +139,18 @@ public sealed class RecoveryViewModelFileInteractionTests
     private static RecoveryVerifiedChallenge Challenge(string nonce)
     {
         return new RecoveryVerifiedChallenge(new RecoveryResponsePayload(
-            "dobby.recovery.response",
-            "request-id",
-            new RecoveryDeviceIdentity("machine", "cpu", "board", "disk", "mac"),
-            "2026-05-18T00:00:00Z",
-            "2026-05-19T00:00:00Z",
+            2,
+            "dobby.owner-recovery-response",
+            "recovery-test-2026-01",
+            "018e51be-7f65-7bcd-8000-000000000001",
+            "018e51be-7f65-7bcd-8000-000000000002",
             nonce,
-            1));
+            "customer-1",
+            "deployment-1",
+            "device:abc",
+            new string('a', 64),
+            "reset-owner-password",
+            "2026-08-21T00:00:00.0000000Z",
+            "2026-08-22T00:00:00.0000000Z"));
     }
 }

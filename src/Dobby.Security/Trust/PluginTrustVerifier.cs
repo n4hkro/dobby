@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-
 namespace Dobby.Security.Trust;
 
 public interface IPluginTrustVerifier
@@ -12,117 +9,95 @@ public sealed class PluginTrustVerifier : IPluginTrustVerifier
 {
     private const string DevQaVendorId = "dobby.dev-qa";
 
-    private readonly PluginTrustPublicKeyProvider publicKeyProvider;
+    private readonly PluginTrustPublicKeyProvider? publicKeyProvider;
+    private readonly ArtifactPublicKeyRing? injectedKeyRing;
+    private readonly DobbyPluginTrustProfile profile;
+    private readonly TimeProvider timeProvider;
 
     public PluginTrustVerifier(DobbyPluginTrustProfile profile = DobbyPluginTrustProfile.Production)
-        : this(new PluginTrustPublicKeyProvider(profile))
+        : this(new PluginTrustPublicKeyProvider(profile), profile, TimeProvider.System)
     {
     }
 
-    public PluginTrustVerifier(PluginTrustPublicKeyProvider publicKeyProvider)
+    public PluginTrustVerifier(
+        PluginTrustPublicKeyProvider publicKeyProvider,
+        DobbyPluginTrustProfile profile = DobbyPluginTrustProfile.Production,
+        TimeProvider? timeProvider = null)
     {
         this.publicKeyProvider = publicKeyProvider ?? throw new ArgumentNullException(nameof(publicKeyProvider));
+        this.profile = profile;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
+    }
+
+    public PluginTrustVerifier(
+        ArtifactPublicKeyRing keyRing,
+        DobbyPluginTrustProfile profile,
+        TimeProvider? timeProvider = null)
+    {
+        injectedKeyRing = keyRing ?? throw new ArgumentNullException(nameof(keyRing));
+        this.profile = profile;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public PluginTrustVerificationResult Verify(PluginTrustPayload payload)
     {
         ArgumentNullException.ThrowIfNull(payload);
 
-        if (!payload.Algorithm.Equals("ECDSA-P256-SHA256", StringComparison.Ordinal))
+        if (!payload.Purpose.Equals(ArtifactSignaturePurposes.PluginPackage, StringComparison.Ordinal) ||
+            !payload.Algorithm.Equals(ArtifactSignatureProfile.Algorithm, StringComparison.Ordinal) ||
+            !payload.Format.Equals(ArtifactSignatureProfile.Format, StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(payload.KeyId) ||
+            payload.CanonicalPayload.Length == 0 ||
+            !ArtifactSignatureCodec.TryDecodeUnpaddedBase64Url(
+                payload.SignatureValue,
+                ArtifactSignatureProfile.P256SignatureLength,
+                out var signature))
         {
-            return PluginTrustVerificationResult.Failure("signature-failed", "Unsupported signature algorithm.");
+            return PluginTrustVerificationResult.Failure("signature-failed", "Plugin signature profile is malformed or unsupported.");
         }
 
-        if (payload.KeyVersion != 1)
+        if (!IsVendorAllowed(payload.VendorId, profile))
         {
-            return PluginTrustVerificationResult.Failure("signature-failed", "Unsupported signature key version.");
+            return PluginTrustVerificationResult.Failure("trust-failed", $"Vendor '{payload.VendorId}' is not approved for profile '{profile}'.");
         }
 
-        if (payload.CanonicalPayload.Length == 0)
+        var ring = injectedKeyRing;
+        if (ring is null)
         {
-            return PluginTrustVerificationResult.Failure("signature-failed", "Canonical payload is empty.");
+            var keyResult = publicKeyProvider!.Resolve();
+            if (!keyResult.IsSuccess)
+            {
+                return PluginTrustVerificationResult.Failure(keyResult.Code, keyResult.Message);
+            }
+
+            var key = keyResult.Value!;
+            ring = new ArtifactPublicKeyRing(
+                [
+                    new ArtifactVerificationKey(
+                        key.KeyId,
+                        key.Purpose,
+                        key.PublicKeyBytes,
+                        key.NotBeforeUtc,
+                        key.RetiredAtUtc,
+                        key.IsTestOnly)
+                ],
+                productionProfile: profile == DobbyPluginTrustProfile.Production);
         }
 
-        var keyResult = publicKeyProvider.Resolve();
-        if (!keyResult.IsSuccess)
-        {
-            return PluginTrustVerificationResult.Failure(keyResult.Code, keyResult.Message);
-        }
-
-        var publicKey = keyResult.Value!;
-
-        if (!IsVendorAllowed(payload.VendorId, publicKey.Profile))
-        {
-            return PluginTrustVerificationResult.Failure("trust-failed", $"Vendor '{payload.VendorId}' is not approved for profile '{publicKey.Profile}'.");
-        }
-
-        if (!TryDecodeSignature(payload.SignatureValue, out var signature))
-        {
-            return PluginTrustVerificationResult.Failure("signature-failed", "Signature value is malformed.");
-        }
-
-        try
-        {
-            using var ecdsa = ECDsa.Create();
-            ecdsa.ImportSubjectPublicKeyInfo(publicKey.PublicKeyBytes, out _);
-            var verified = ecdsa.VerifyData(
+        return ring.Verify(
+                payload.KeyId,
+                payload.Purpose,
                 payload.CanonicalPayload,
                 signature,
-                HashAlgorithmName.SHA256,
-                DSASignatureFormat.Rfc3279DerSequence);
-
-            return verified
-                ? PluginTrustVerificationResult.Success()
-                : PluginTrustVerificationResult.Failure("signature-failed", "Signature verification failed.");
-        }
-        catch (CryptographicException exception)
-        {
-            return PluginTrustVerificationResult.Failure("trust-failed", exception.Message);
-        }
+                timeProvider.GetUtcNow())
+            ? PluginTrustVerificationResult.Success()
+            : PluginTrustVerificationResult.Failure("signature-failed", "Plugin signature key is unknown, inactive, retired, purpose-mismatched, or verification failed.");
     }
 
     private static bool IsVendorAllowed(string vendorId, DobbyPluginTrustProfile profile)
     {
-        if (profile == DobbyPluginTrustProfile.DevQa)
-        {
-            return vendorId.Equals(DevQaVendorId, StringComparison.Ordinal);
-        }
-
-        return !vendorId.Equals(DevQaVendorId, StringComparison.Ordinal);
-    }
-
-    private static bool TryDecodeSignature(string signatureValue, out byte[] signature)
-    {
-        try
-        {
-            signature = Base64UrlDecode(signatureValue);
-            return signature.Length > 0;
-        }
-        catch
-        {
-            signature = [];
-            return false;
-        }
-    }
-
-    private static byte[] Base64UrlDecode(string value)
-    {
-        var padded = value
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        switch (padded.Length % 4)
-        {
-            case 2:
-                padded += "==";
-                break;
-            case 3:
-                padded += "=";
-                break;
-            case 1:
-                throw new FormatException("Invalid base64url value.");
-        }
-
-        return Convert.FromBase64String(padded);
+        return profile == DobbyPluginTrustProfile.DevQa
+            ? vendorId.Equals(DevQaVendorId, StringComparison.Ordinal)
+            : !vendorId.Equals(DevQaVendorId, StringComparison.Ordinal);
     }
 }

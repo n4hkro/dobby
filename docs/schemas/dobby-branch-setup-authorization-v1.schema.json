@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dobby.local/schemas/dobby-branch-setup-authorization-v1.schema.json",
+  "title": "Dobby Branch Setup Authorization v1",
+  "description": "Future Branch Shared contract only. Standalone has no runtime handler for this artifact.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "signature"],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "purpose", "keyId", "authorizationId", "operation", "branchId", "deploymentId", "nonce", "issuedAt", "expiresAt"],
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "purpose": { "type": "string", "const": "dobby.branch-setup-authorization" },
+        "keyId": { "$ref": "#/$defs/keyId" },
+        "authorizationId": { "$ref": "#/$defs/id" },
+        "operation": { "type": "string", "enum": ["provision-branch", "join-branch", "rotate-deployment"] },
+        "branchId": { "$ref": "#/$defs/id" },
+        "deploymentId": { "$ref": "#/$defs/id" },
+        "nonce": { "$ref": "#/$defs/nonce" },
+        "issuedAt": { "$ref": "#/$defs/utc" },
+        "expiresAt": { "$ref": "#/$defs/utc" }
+      }
+    },
+    "signature": { "$ref": "#/$defs/signature" }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "keyId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "nonce": { "type": "string", "minLength": 22, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" },
+    "utc": { "type": "string", "maxLength": 35, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,7})?Z$" },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose", "algorithm", "format", "keyId", "value"],
+      "properties": {
+        "purpose": { "type": "string", "const": "dobby.branch-setup-authorization" },
+        "algorithm": { "type": "string", "const": "ECDSA-P256-SHA256" },
+        "format": { "type": "string", "const": "IeeeP1363FixedFieldConcatenation" },
+        "keyId": { "$ref": "#/$defs/keyId" },
+        "value": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" }
+      }
+    }
+  }
+}

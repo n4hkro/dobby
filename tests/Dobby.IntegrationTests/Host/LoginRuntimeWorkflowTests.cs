@@ -31,11 +31,9 @@ public sealed class LoginRuntimeWorkflowTests
         result.Session.UserId.ShouldNotBeNullOrWhiteSpace();
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions WHERE UserId = @UserId AND InvalidatedAtUtc IS NULL;", new { result.Session.UserId }).ShouldBe(1);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RememberMeSlot WHERE UserId = @UserId;", new { result.Session.UserId }).ShouldBe(1);
-        fixture.LoadSavedLogin().ShouldBe(new RememberMeSavedLogin(
+        fixture.LoadRememberedAccount().ShouldBe(new RememberedLoginAccount(
             result.Session.UserId,
-            "owner",
-            "first owner password",
-            HasMaskedPasswordPrefill: true));
+            "owner"));
         fixture.Executor.QueryScalar<string>("SELECT DisplayName FROM Users WHERE UserId = @UserId;", new { result.Session.UserId }).ShouldBe("Əli Məmmədov");
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.login' AND ActorId = @UserId AND Result = 'success';", new { result.Session.UserId }).ShouldBe(1);
     }
@@ -104,6 +102,10 @@ public sealed class LoginRuntimeWorkflowTests
     {
         using var fixture = LoginRuntimeFixture.Create();
         fixture.BootstrapOwner("owner", "correct password");
+        var ownerUserId = fixture.Executor.QueryScalar<string>(
+            "SELECT UserId FROM Users WHERE UsernameNormalized = 'owner';");
+        fixture.Throttle.RecordFailure(ownerUserId);
+        fixture.Throttle.RecordFailure(ownerUserId);
         fixture.SetExistingActiveSession("other-user");
         var workflow = fixture.CreateWorkflow();
 
@@ -117,23 +119,16 @@ public sealed class LoginRuntimeWorkflowTests
         result.IsAuthenticated.ShouldBeFalse();
         result.ErrorCode.ShouldBe(ErrorCode.AlreadyExists);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RememberMeSlot;").ShouldBe(0);
+        fixture.Throttle.RecordFailure(ownerUserId).RetryAfterSeconds.ShouldBe(10);
     }
 
     [Fact]
-    public async Task Submit_reuses_completed_credential_warmup_without_repeating_password_verification()
+    public void Submit_verifies_credentials_exactly_once_without_input_driven_warmup()
     {
         using var fixture = LoginRuntimeFixture.Create();
         fixture.InsertUser("user-1", "owner", isActive: true);
         var verifier = new CountingCredentialVerifier(succeeds: true);
         var workflow = fixture.CreateWorkflow(credentialVerifier: verifier);
-
-        await workflow.WarmCredentialsAsync(new LoginCredentialWarmup(
-                "owner",
-                "correct password",
-                CorrelationId.New()))
-            .WaitAsync(TimeSpan.FromSeconds(10));
-
-        verifier.VerifyCount.ShouldBe(1);
 
         var result = workflow.Submit(new LoginSubmission(
             "owner",
@@ -148,10 +143,51 @@ public sealed class LoginRuntimeWorkflowTests
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.login' AND ActorId = 'user-1' AND Result = 'success';").ShouldBe(1);
     }
 
+    [Fact]
+    public void Successful_first_owner_session_clears_provisional_username_throttle_only_after_commit()
+    {
+        using var fixture = LoginRuntimeFixture.Create();
+        fixture.Throttle.RecordFailure("username:owner");
+        fixture.Throttle.RecordFailure("username:owner");
+        var workflow = fixture.CreateWorkflow(new HostPersistenceTransactionScope(fixture.Factory));
+
+        var result = workflow.Submit(new LoginSubmission(
+            " Owner ",
+            "first owner password",
+            DisplayName: null,
+            RememberMe: false,
+            CorrelationId.New()));
+
+        result.IsAuthenticated.ShouldBeTrue();
+        fixture.Throttle.RecordFailure("username:owner").RetryAfterSeconds.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Login_commit_failure_leaves_no_durable_or_in_memory_active_session()
+    {
+        using var fixture = LoginRuntimeFixture.Create();
+        fixture.BootstrapOwner("owner", "owner password");
+        var workflow = fixture.CreateWorkflow(new HostPersistenceTransactionScope(
+            fixture.Factory,
+            new CommitFailureInjector()));
+
+        Should.Throw<SyntheticLoginCommitFailure>(() => workflow.Submit(new LoginSubmission(
+            "owner",
+            "owner password",
+            DisplayName: null,
+            RememberMe: true,
+            CorrelationId.New())));
+
+        fixture.ActiveSession.ShouldBeNull();
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RememberMeSlot;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.login';").ShouldBe(0);
+    }
+
     private sealed class LoginRuntimeFixture : IDisposable
     {
         private readonly RecordingProtector credentialProtector = new();
-        private readonly RecordingProtector rememberMeProtector = new();
         private readonly KdfPolicyResolver kdfPolicyResolver = new(new AuthOptions { PasswordKdfMode = "Pbkdf2Sha256" });
         private readonly ActiveSessionAccessor activeSessionAccessor = new();
 
@@ -178,6 +214,8 @@ public sealed class LoginRuntimeWorkflowTests
 
         public LoginThrottleService Throttle { get; }
 
+        public SessionRecord? ActiveSession => activeSessionAccessor.Current;
+
         public LoginRuntimeWorkflow CreateWorkflow(
             IHostPersistenceTransactionScope? transactionScope = null,
             IUserCredentialVerifier? credentialVerifier = null)
@@ -191,14 +229,14 @@ public sealed class LoginRuntimeWorkflowTests
                 verifier,
                 Time,
                 new SessionOptions { AbsoluteTimeoutMinutes = 480, IdleTimeoutMinutes = 30 });
-            var rememberMeSlot = new RememberMeSlotService(Executor, rememberMeProtector);
+            var rememberMeSlot = new RememberMeSlotService(Executor);
             var audit = new LoginAuditCoordinator(new DurableAuditTrail(Executor), Time);
             return new LoginRuntimeWorkflow(loginService, sessionService, rememberMeSlot, audit, transactionScope);
         }
 
-        public RememberMeSavedLogin? LoadSavedLogin()
+        public RememberedLoginAccount? LoadRememberedAccount()
         {
-            return new RememberMeSlotService(Executor, rememberMeProtector).LoadSavedLogin().Value;
+            return new RememberMeSlotService(Executor).LoadRememberedAccount().Value;
         }
 
         public void BootstrapOwner(string username, string password)
@@ -286,6 +324,22 @@ public sealed class LoginRuntimeWorkflowTests
             Interlocked.Increment(ref verifyCount);
             return Result.Success(succeeds);
         }
+    }
+
+    private sealed class CommitFailureInjector : IHostPersistenceTransactionFaultInjector
+    {
+        public void BeforeCommand(int commandNumber, HostPersistenceCommandKind kind, string commandText)
+        {
+        }
+
+        public void BeforeCommit()
+        {
+            throw new SyntheticLoginCommitFailure();
+        }
+    }
+
+    private sealed class SyntheticLoginCommitFailure : Exception
+    {
     }
 
     private sealed class RecordingTransactionScope(IHostPersistenceCommandExecutor executor) : IHostPersistenceTransactionScope

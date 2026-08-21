@@ -173,6 +173,9 @@ public static class HostResourceKeys
     public const string ShellProfileAccountInfo = "Dobby.Shell.Profile.AccountInfo";
     public const string ShellProfileAnonymous = "Dobby.Shell.Profile.Anonymous";
     public const string ShellProfileChangePassword = "Dobby.Shell.Profile.ChangePassword";
+    public const string ShellProfileCurrentPassword = "Dobby.Shell.Profile.PasswordChange.CurrentPassword";
+    public const string ShellProfileNewPassword = "Dobby.Shell.Profile.PasswordChange.NewPassword";
+    public const string ShellProfileConfirmNewPassword = "Dobby.Shell.Profile.PasswordChange.ConfirmNewPassword";
     public const string ShellProfilePasswordChangeBusy = "Dobby.Shell.Profile.PasswordChange.Busy";
     public const string ShellProfilePasswordChangeDenied = "Dobby.Shell.Profile.PasswordChange.Denied";
     public const string ShellProfilePasswordChangeError = "Dobby.Shell.Profile.PasswordChange.Error";
@@ -332,6 +335,9 @@ public static class HostResourceKeys
         ShellProfileAccountInfo,
         ShellProfileAnonymous,
         ShellProfileChangePassword,
+        ShellProfileCurrentPassword,
+        ShellProfileNewPassword,
+        ShellProfileConfirmNewPassword,
         ShellProfilePasswordChangeBusy,
         ShellProfilePasswordChangeDenied,
         ShellProfilePasswordChangeError,

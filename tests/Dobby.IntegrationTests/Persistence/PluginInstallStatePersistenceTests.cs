@@ -203,6 +203,52 @@ public sealed class PluginInstallStatePersistenceTests
     }
 
     [Fact]
+    public void Staging_area_rejects_hostile_paths_before_any_payload_can_escape_the_stage()
+    {
+        using var fixture = PluginPersistenceFixture.Create();
+        fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All).IsSuccess.ShouldBeTrue();
+        var package = CreatePackage();
+        var content = Encoding.UTF8.GetBytes("escape");
+        var hostile = package with
+        {
+            Entries =
+            [
+                .. package.Entries,
+                new PluginPackageEntry(
+                    "../outside.txt",
+                    content,
+                    Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant(),
+                    false)
+            ]
+        };
+        var staging = new PluginInstallStagingArea(fixture.Root, fixture.Executor);
+
+        var result = staging.Stage(hostile);
+
+        result.IsSuccess.ShouldBeFalse();
+        File.Exists(Path.Combine(fixture.Root, "plugins", "outside.txt")).ShouldBeFalse();
+        Directory.EnumerateDirectories(Path.Combine(fixture.Root, "plugins", "staging")).ShouldBeEmpty();
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+    }
+
+    [Fact]
+    public void Staging_area_rehashes_streamed_bytes_and_cleans_up_when_content_changes_after_validation()
+    {
+        using var fixture = PluginPersistenceFixture.Create();
+        fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All).IsSuccess.ShouldBeTrue();
+        var package = CreatePackage();
+        var payload = package.Entries.Single(entry => entry.Path == "content/hello.txt");
+        payload.Content[0] ^= 0xff;
+        var staging = new PluginInstallStagingArea(fixture.Root, fixture.Executor);
+
+        var result = staging.Stage(package);
+
+        result.IsSuccess.ShouldBeFalse();
+        Directory.EnumerateDirectories(Path.Combine(fixture.Root, "plugins", "staging")).ShouldBeEmpty();
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+    }
+
+    [Fact]
     public void Staging_area_removes_promoted_runtime_when_staging_row_update_fails()
     {
         using var fixture = PluginPersistenceFixture.Create();

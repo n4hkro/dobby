@@ -11,9 +11,9 @@ public sealed class ManagedUserService(
     PermissionGrantStore permissionGrants,
     UserManagementAuthorizationGuard guard,
     TimeProvider timeProvider,
-    IManagedUserAuditSink? auditSink = null)
+    IManagedUserAuditSink auditSink)
 {
-    private readonly IManagedUserAuditSink audit = auditSink ?? NoOpManagedUserAuditSink.Instance;
+    private readonly IManagedUserAuditSink audit = auditSink ?? throw new ArgumentNullException(nameof(auditSink));
 
     public Result<IReadOnlyList<ManagedUserSummary>> ListUsers(string actorUserId, CorrelationId correlationId)
     {
@@ -85,34 +85,54 @@ public sealed class ManagedUserService(
             return Result.Failure<string>(passwordValidation.ErrorCode!.Value);
         }
 
+        var normalizedDisplayName = DisplayNameValidator.Normalize(displayName);
+        if (!normalizedDisplayName.IsSuccess)
+        {
+            return Result.Failure<string>(normalizedDisplayName.ErrorCode!.Value);
+        }
+
         var userId = Guid.CreateVersion7().ToString("D");
-        var timestamp = timeProvider.GetUtcNow().ToString("O");
+        var now = timeProvider.GetUtcNow();
+        var timestamp = now.ToString("O");
+        var preparedCredential = credentialStore.PrepareCreateCredential(userId, password, now);
+        if (!preparedCredential.IsSuccess)
+        {
+            return Result.Failure<string>(preparedCredential.ErrorCode!.Value);
+        }
+
         try
         {
-            executor.Execute(
-                "INSERT INTO Users(UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc) VALUES (@UserId, @UsernameNormalized, @DisplayName, 0, 1, @CreatedAtUtc, @UpdatedAtUtc);",
-                new
+            return audit.ExecuteUserMutation(
+                actorUserId,
+                userId,
+                ManagedUserAuditAction.Create,
+                correlationId,
+                commands =>
                 {
-                    UserId = userId,
-                    UsernameNormalized = normalizedUsername.Value,
-                    DisplayName = DisplayNameValidator.Normalize(displayName),
-                    CreatedAtUtc = timestamp,
-                    UpdatedAtUtc = timestamp
+                    commands.Execute(
+                        "INSERT INTO Users(UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc) VALUES (@UserId, @UsernameNormalized, @DisplayName, 0, 1, @CreatedAtUtc, @UpdatedAtUtc);",
+                        new
+                        {
+                            UserId = userId,
+                            UsernameNormalized = normalizedUsername.Value,
+                            DisplayName = normalizedDisplayName.Value,
+                            CreatedAtUtc = timestamp,
+                            UpdatedAtUtc = timestamp
+                        });
+                    var credential = credentialStore.ApplyPreparedCredential(commands, preparedCredential.Value);
+                    return credential.IsSuccess
+                        ? Result.Success(userId)
+                        : Result.Failure<string>(credential.ErrorCode!.Value);
                 });
         }
         catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
         {
             return Result.Failure<string>(ErrorCode.AlreadyExists);
         }
-
-        var credential = credentialStore.CreateCredential(userId, password, timeProvider.GetUtcNow());
-        if (!credential.IsSuccess)
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
-            return Result.Failure<string>(credential.ErrorCode!.Value);
+            return Result.Failure<string>(ErrorCode.DatabaseUnavailable);
         }
-
-        audit.AppendUserMutation(actorUserId, userId, ManagedUserAuditAction.Create, succeeded: true, correlationId);
-        return Result.Success(userId);
     }
 
     public Result UpdateManagedUser(
@@ -128,21 +148,36 @@ public sealed class ManagedUserService(
             return allowed;
         }
 
-        var affected = executor.Execute(
-            "UPDATE Users SET DisplayName = @DisplayName, UpdatedAtUtc = @UpdatedAtUtc WHERE UserId = @UserId AND IsOwner = 0;",
-            new
-            {
-                UserId = targetUserId,
-                DisplayName = DisplayNameValidator.Normalize(displayName),
-                UpdatedAtUtc = timeProvider.GetUtcNow().ToString("O")
-            });
-        if (affected == 0)
+        var normalizedDisplayName = DisplayNameValidator.Normalize(displayName);
+        if (!normalizedDisplayName.IsSuccess)
         {
-            return Result.Failure(ErrorCode.NotFound);
+            return Result.Failure(normalizedDisplayName.ErrorCode!.Value);
         }
 
-        audit.AppendUserMutation(actorUserId, targetUserId, ManagedUserAuditAction.Update, succeeded: true, correlationId);
-        return Result.Success();
+        try
+        {
+            return audit.ExecuteUserMutation(
+                actorUserId,
+                targetUserId,
+                ManagedUserAuditAction.Update,
+                correlationId,
+                commands =>
+                {
+                    var affected = commands.Execute(
+                        "UPDATE Users SET DisplayName = @DisplayName, UpdatedAtUtc = @UpdatedAtUtc WHERE UserId = @UserId AND IsOwner = 0;",
+                        new
+                        {
+                            UserId = targetUserId,
+                            DisplayName = normalizedDisplayName.Value,
+                            UpdatedAtUtc = timeProvider.GetUtcNow().ToString("O")
+                        });
+                    return affected == 0 ? Result.Failure(ErrorCode.NotFound) : Result.Success();
+                });
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
+        }
     }
 
     public Result DeactivateUser(string actorUserId, string targetUserId, CorrelationId correlationId)
@@ -168,15 +203,36 @@ public sealed class ManagedUserService(
             return allowed;
         }
 
-        var reset = credentialStore.RebindPassword(targetUserId, newPassword, timeProvider.GetUtcNow());
-        if (!reset.IsSuccess)
+        var now = timeProvider.GetUtcNow();
+        var preparedCredential = credentialStore.PreparePasswordRebind(targetUserId, newPassword, now);
+        if (!preparedCredential.IsSuccess)
         {
-            return reset;
+            return Result.Failure(preparedCredential.ErrorCode!.Value);
         }
 
-        InvalidateSessions(targetUserId, "password-reset");
-        audit.AppendUserMutation(actorUserId, targetUserId, ManagedUserAuditAction.PasswordReset, succeeded: true, correlationId);
-        return Result.Success();
+        try
+        {
+            return audit.ExecuteUserMutation(
+                actorUserId,
+                targetUserId,
+                ManagedUserAuditAction.PasswordReset,
+                correlationId,
+                commands =>
+                {
+                    var reset = credentialStore.ApplyPreparedCredential(commands, preparedCredential.Value);
+                    if (!reset.IsSuccess)
+                    {
+                        return reset;
+                    }
+
+                    InvalidateSessions(commands, targetUserId, "password-reset", now);
+                    return Result.Success();
+                });
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
+        }
     }
 
     public Result GrantPermission(
@@ -199,13 +255,20 @@ public sealed class ManagedUserService(
             return allowed;
         }
 
-        var grant = permissionGrants.Grant(targetUserId, parsed.Value);
-        if (grant.IsSuccess)
+        try
         {
-            audit.AppendPermissionMutation(actorUserId, targetUserId, parsed.Value.ToString(), grant: true, succeeded: true, correlationId);
+            return audit.ExecutePermissionMutation(
+                actorUserId,
+                targetUserId,
+                parsed.Value.ToString(),
+                grant: true,
+                correlationId,
+                commands => permissionGrants.Grant(commands, targetUserId, parsed.Value));
         }
-
-        return grant;
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
+        }
     }
 
     public Result RevokePermission(
@@ -228,13 +291,20 @@ public sealed class ManagedUserService(
             return allowed;
         }
 
-        var revoke = permissionGrants.Revoke(targetUserId, parsed.Value);
-        if (revoke.IsSuccess)
+        try
         {
-            audit.AppendPermissionMutation(actorUserId, targetUserId, parsed.Value.ToString(), grant: false, succeeded: true, correlationId);
+            return audit.ExecutePermissionMutation(
+                actorUserId,
+                targetUserId,
+                parsed.Value.ToString(),
+                grant: false,
+                correlationId,
+                commands => permissionGrants.Revoke(commands, targetUserId, parsed.Value));
         }
-
-        return revoke;
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
+        }
     }
 
     private Result SetActiveState(
@@ -252,26 +322,41 @@ public sealed class ManagedUserService(
             return allowed;
         }
 
-        var affected = executor.Execute(
-            "UPDATE Users SET IsActive = @IsActive, UpdatedAtUtc = @UpdatedAtUtc WHERE UserId = @UserId AND IsOwner = 0;",
-            new
-            {
-                UserId = targetUserId,
-                IsActive = isActive ? 1 : 0,
-                UpdatedAtUtc = timeProvider.GetUtcNow().ToString("O")
-            });
-        if (affected == 0)
+        try
         {
-            return Result.Failure(ErrorCode.NotFound);
-        }
+            var now = timeProvider.GetUtcNow();
+            return audit.ExecuteUserMutation(
+                actorUserId,
+                targetUserId,
+                auditAction,
+                correlationId,
+                commands =>
+                {
+                    var affected = commands.Execute(
+                        "UPDATE Users SET IsActive = @IsActive, UpdatedAtUtc = @UpdatedAtUtc WHERE UserId = @UserId AND IsOwner = 0;",
+                        new
+                        {
+                            UserId = targetUserId,
+                            IsActive = isActive ? 1 : 0,
+                            UpdatedAtUtc = now.ToString("O")
+                        });
+                    if (affected == 0)
+                    {
+                        return Result.Failure(ErrorCode.NotFound);
+                    }
 
-        if (!isActive)
+                    if (!isActive)
+                    {
+                        InvalidateSessions(commands, targetUserId, reason, now);
+                    }
+
+                    return Result.Success();
+                });
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
-            InvalidateSessions(targetUserId, reason);
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
         }
-
-        audit.AppendUserMutation(actorUserId, targetUserId, auditAction, succeeded: true, correlationId);
-        return Result.Success();
     }
 
     private void AuditDeniedForTarget(string actorUserId, string targetUserId, OperationVerb verb, CorrelationId correlationId)
@@ -308,15 +393,19 @@ public sealed class ManagedUserService(
         return new OperationKey(BuiltInOperationTargets.UserManagementTargetId, verb).ToString();
     }
 
-    private void InvalidateSessions(string userId, string reason)
+    private static void InvalidateSessions(
+        IHostPersistenceCommandExecutor commands,
+        string userId,
+        string reason,
+        DateTimeOffset invalidatedAtUtc)
     {
-        executor.Execute(
+        commands.Execute(
             "UPDATE Sessions SET InvalidatedAtUtc = @InvalidatedAtUtc, InvalidationReason = @Reason WHERE UserId = @UserId AND InvalidatedAtUtc IS NULL;",
             new
             {
                 UserId = userId,
                 Reason = reason,
-                InvalidatedAtUtc = timeProvider.GetUtcNow().ToString("O")
+                InvalidatedAtUtc = invalidatedAtUtc.ToString("O")
             });
     }
 

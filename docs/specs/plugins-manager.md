@@ -241,3 +241,24 @@ PostgreSQL, but the plugin contract remains `SharedDomainStorage` /
 semantics. Plugin-owned relational schemas, plugin migrations, CAS/versioned
 writes and cross-device plugin package delivery are Phase 2/future topics unless
 a later ADR opens them.
+
+## 2026-08 Hardening Amendment (Controlling)
+
+- In-process plugins are reviewed, trusted, purpose-signed product code.
+  `AssemblyLoadContext`, capability wrappers and binary marker scanning are not
+  represented as a sandbox for hostile code.
+- Package validation is streaming and bounded by manifest bytes, entry count,
+  per-entry and aggregate uncompressed bytes and compression ratio. Canonical
+  Windows-safe paths, collision checks, final-root containment and no-overwrite
+  extraction are mandatory before promotion.
+- Install promotion, installed-state/LKG and metadata-cache projection are
+  crash-consistent. Startup recovery deterministically completes or rolls back a
+  transaction and reconstructs projections from authoritative state.
+- Manifest v2 carries `hostApiVersion` in addition to package/host compatibility.
+  Canonical signatures use explicit P1363/base64url, domain separation, purpose
+  and key ID.
+- Lifecycle operations and package I/O are asynchronous, cancellable and
+  timeout-governed at the UI boundary. Expected validation/license/capability
+  results do not increment runtime fault/quarantine counters.
+- Plugin pages use localizable declarative form/table/validation/command models;
+  they do not pass WPF controls, service providers or arbitrary delegates.

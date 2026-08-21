@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://dobby.local/schemas/dobby-plugin-manifest.schema.json",
-  "title": "Dobby Plugin Manifest",
-  "description": "Phase 1 machine-readable schema for signed .dobbyplugin manifest.json files. ADR-0036 owns prose semantics; ADR-0045 owns package signature, file hash and fingerprint verification semantics.",
+  "title": "Dobby Plugin Manifest v1 (Legacy)",
+  "description": "Frozen legacy v1 schema for signed .dobbyplugin manifest.json files. New GA installs require dobby-plugin-manifest-v2.schema.json; see artifact-compatibility-matrix.md.",
   "type": "object",
   "additionalProperties": false,
   "required": [

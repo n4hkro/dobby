@@ -7,6 +7,7 @@ public enum LoginAttemptKind
     Throttled,
     Deactivated,
     KdfUnsupported,
+    Busy,
     ValidationFailed
 }
 

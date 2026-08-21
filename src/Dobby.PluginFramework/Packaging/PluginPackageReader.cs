@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
@@ -11,7 +12,11 @@ public static class PluginPackageReader
 {
     public const string ManifestFileName = "dobby-plugin.manifest.json";
 
-    public static Result<PluginPackageArchive> Read(string packagePath)
+    public static Result<PluginPackageArchive> Read(
+        string packagePath,
+        PluginPackageLimits? limits = null,
+        CancellationToken cancellationToken = default,
+        IProgress<PluginPackageReadProgress>? progress = null)
     {
         if (string.IsNullOrWhiteSpace(packagePath) || (!File.Exists(packagePath) && !Directory.Exists(packagePath)))
         {
@@ -20,12 +25,14 @@ public static class PluginPackageReader
 
         try
         {
+            var effectiveLimits = limits ?? PluginPackageLimits.Default;
+            effectiveLimits.Validate();
             if (Directory.Exists(packagePath))
             {
-                return ReadDirectory(packagePath);
+                return ReadDirectory(packagePath, effectiveLimits, cancellationToken, progress);
             }
 
-            return ReadArchive(packagePath);
+            return ReadArchive(packagePath, effectiveLimits, cancellationToken, progress);
         }
         catch (InvalidDataException)
         {
@@ -35,43 +42,211 @@ public static class PluginPackageReader
         {
             return Result.Failure<PluginPackageArchive>(ErrorCode.SerializationFailed);
         }
+        catch (DecoderFallbackException)
+        {
+            return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+        }
         catch (IOException)
         {
             return Result.Failure<PluginPackageArchive>(ErrorCode.IoFailed);
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Result.Failure<PluginPackageArchive>(ErrorCode.IoFailed);
+        }
+        catch (OverflowException)
+        {
+            return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+        }
     }
 
-    private static Result<PluginPackageArchive> ReadArchive(string packagePath)
-    {
-        using var stream = File.OpenRead(packagePath);
-        using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
-        return ReadEntries(packagePath, archive.Entries.Select(ReadEntry).ToArray());
-    }
-
-    private static Result<PluginPackageArchive> ReadDirectory(string packagePath)
-    {
-        var entries = Directory
-            .EnumerateFiles(packagePath, "*", SearchOption.AllDirectories)
-            .Select(path => ReadEntry(path, Path.GetRelativePath(packagePath, path).Replace('\\', '/')))
-            .ToArray();
-
-        return ReadEntries(packagePath, entries);
-    }
-
-    private static Result<PluginPackageArchive> ReadEntries(
+    private static Result<PluginPackageArchive> ReadArchive(
         string packagePath,
-        IReadOnlyList<PluginPackageEntryRecord> entries)
+        PluginPackageLimits limits,
+        CancellationToken cancellationToken,
+        IProgress<PluginPackageReadProgress>? progress)
     {
-        var manifestEntries = entries
-            .Where(entry => entry.NormalizedPath.Equals(ManifestFileName, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-
-        if (manifestEntries.Length != 1)
+        var packageInfo = new FileInfo(packagePath);
+        if (packageInfo.Length > limits.MaximumCompressedPackageBytes)
         {
             return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
         }
 
-        var manifestJson = Encoding.UTF8.GetString(manifestEntries[0].Content).TrimStart('\uFEFF');
+        using var stream = new FileStream(packagePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+        if (archive.Entries.Count is 0 || archive.Entries.Count > limits.MaximumEntryCount)
+        {
+            return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+        }
+
+        var pending = new List<PendingEntry>(archive.Entries.Count);
+        foreach (var entry in archive.Entries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!PluginPackagePathPolicy.TryNormalize(entry.FullName, out var normalizedPath))
+            {
+                return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+            }
+
+            var rawPath = entry.FullName;
+            pending.Add(new PendingEntry(
+                normalizedPath,
+                entry.Length,
+                entry.CompressedLength,
+                IsSymlink(entry),
+                () => OpenArchiveEntry(packagePath, rawPath)));
+        }
+
+        return ReadEntries(packagePath, pending, limits, cancellationToken, progress);
+    }
+
+    private static Result<PluginPackageArchive> ReadDirectory(
+        string packagePath,
+        PluginPackageLimits limits,
+        CancellationToken cancellationToken,
+        IProgress<PluginPackageReadProgress>? progress)
+    {
+        if ((File.GetAttributes(packagePath) & FileAttributes.ReparsePoint) != 0)
+        {
+            return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+        }
+
+        var pending = new List<PendingEntry>();
+        var directories = new Stack<string>();
+        directories.Push(packagePath);
+        while (directories.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var current = directories.Pop();
+            foreach (var directory in Directory.EnumerateDirectories(current))
+            {
+                if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                {
+                    return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+                }
+
+                directories.Push(directory);
+            }
+
+            foreach (var path in Directory.EnumerateFiles(current))
+            {
+                if (pending.Count >= limits.MaximumEntryCount)
+                {
+                    return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+                }
+
+                var relativePath = Path.GetRelativePath(packagePath, path).Replace('\\', '/');
+                if (!PluginPackagePathPolicy.TryNormalize(relativePath, out var normalizedPath))
+                {
+                    return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+                }
+
+                var fileInfo = new FileInfo(path);
+                var sourcePath = path;
+                pending.Add(new PendingEntry(
+                    normalizedPath,
+                    fileInfo.Length,
+                    fileInfo.Length,
+                    (fileInfo.Attributes & FileAttributes.ReparsePoint) != 0,
+                    () => new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read)));
+            }
+        }
+
+        return pending.Count == 0
+            ? Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput)
+            : ReadEntries(packagePath, pending, limits, cancellationToken, progress);
+    }
+
+    private static Result<PluginPackageArchive> ReadEntries(
+        string packagePath,
+        IReadOnlyList<PendingEntry> pending,
+        PluginPackageLimits limits,
+        CancellationToken cancellationToken,
+        IProgress<PluginPackageReadProgress>? progress)
+    {
+        if (pending.Any(entry => entry.IsSymlink) ||
+            PluginPackagePathPolicy.HasCaseOrUnicodeCollision(pending.Select(entry => entry.Path)) ||
+            PluginPackagePathPolicy.HasFileDirectoryPrefixCollision(pending.Select(entry => entry.Path)))
+        {
+            return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+        }
+
+        long aggregateUncompressed = 0;
+        long aggregateCompressed = 0;
+        foreach (var entry in pending)
+        {
+            aggregateUncompressed = checked(aggregateUncompressed + entry.UncompressedLength);
+            aggregateCompressed = checked(aggregateCompressed + entry.CompressedLength);
+            if (entry.UncompressedLength < 0 ||
+                entry.CompressedLength < 0 ||
+                entry.UncompressedLength > limits.MaximumEntryUncompressedBytes ||
+                ExpansionRatioExceeded(entry.UncompressedLength, entry.CompressedLength, limits.MaximumExpansionRatio))
+            {
+                return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+            }
+        }
+
+        if (aggregateUncompressed > limits.MaximumAggregateUncompressedBytes ||
+            ExpansionRatioExceeded(aggregateUncompressed, aggregateCompressed, limits.MaximumExpansionRatio))
+        {
+            return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+        }
+
+        var manifestEntries = pending
+            .Where(entry => entry.Path.Equals(ManifestFileName, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (manifestEntries.Length != 1 ||
+            !manifestEntries[0].Path.Equals(ManifestFileName, StringComparison.Ordinal) ||
+            manifestEntries[0].UncompressedLength > limits.MaximumManifestBytes)
+        {
+            return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+        }
+
+        var entries = new List<PluginPackageEntry>(pending.Count);
+        byte[]? manifestBytes = null;
+        long bytesRead = 0;
+        for (var index = 0; index < pending.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var entry = pending[index];
+            var capture = entry.Path.Equals(ManifestFileName, StringComparison.Ordinal);
+            var read = ReadAndHashEntry(
+                entry,
+                capture ? limits.MaximumManifestBytes : limits.MaximumEntryUncompressedBytes,
+                capture,
+                cancellationToken);
+            bytesRead = checked(bytesRead + read.BytesRead);
+            if (bytesRead > limits.MaximumAggregateUncompressedBytes)
+            {
+                return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+            }
+
+            if (capture)
+            {
+                manifestBytes = read.Content;
+            }
+
+            entries.Add(new PluginPackageEntry(
+                entry.Path,
+                read.Sha256,
+                entry.IsSymlink,
+                entry.UncompressedLength,
+                entry.CompressedLength,
+                entry.OpenRead));
+            progress?.Report(new PluginPackageReadProgress(
+                index + 1,
+                pending.Count,
+                bytesRead,
+                aggregateUncompressed));
+        }
+
+        if (manifestBytes is null)
+        {
+            return Result.Failure<PluginPackageArchive>(ErrorCode.InvalidInput);
+        }
+
+        var manifestJson = new UTF8Encoding(false, true).GetString(manifestBytes).TrimStart('\uFEFF');
         var manifest = ParseManifest(manifestJson);
         if (!manifest.IsSuccess)
         {
@@ -82,39 +257,85 @@ public static class PluginPackageReader
             packagePath,
             ManifestFileName,
             manifest.Manifest!,
-            entries.Select(entry => new PluginPackageEntry(
-                    entry.NormalizedPath,
-                    entry.Content,
-                    entry.Sha256,
-                    entry.IsSymlink))
-                .ToArray(),
+            entries,
             manifestJson);
 
         return Result.Success(archive);
     }
 
-    private static PluginPackageEntryRecord ReadEntry(ZipArchiveEntry entry)
+    private static EntryReadResult ReadAndHashEntry(
+        PendingEntry entry,
+        long maximumBytes,
+        bool captureContent,
+        CancellationToken cancellationToken)
     {
-        using var stream = entry.Open();
-        using var memory = new MemoryStream();
-        stream.CopyTo(memory);
-        var bytes = memory.ToArray();
+        using var source = entry.OpenRead();
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using var content = captureContent ? new MemoryStream((int)entry.UncompressedLength) : null;
+        var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
+        long total = 0;
+        try
+        {
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var read = source.Read(buffer, 0, buffer.Length);
+                if (read == 0)
+                {
+                    break;
+                }
 
-        return new PluginPackageEntryRecord(
-            NormalizePath(entry.FullName),
-            bytes,
-            Sha256(bytes),
-            IsSymlink(entry));
+                total = checked(total + read);
+                if (total > maximumBytes || total > entry.UncompressedLength)
+                {
+                    throw new InvalidDataException("Plugin package entry exceeds its declared or configured bound.");
+                }
+
+                hash.AppendData(buffer, 0, read);
+                content?.Write(buffer, 0, read);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
+        }
+
+        if (total != entry.UncompressedLength)
+        {
+            throw new InvalidDataException("Plugin package entry length differs from central-directory metadata.");
+        }
+
+        return new EntryReadResult(
+            Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant(),
+            total,
+            content?.ToArray());
     }
 
-    private static PluginPackageEntryRecord ReadEntry(string path, string relativePath)
+    private static bool ExpansionRatioExceeded(long uncompressed, long compressed, int ratio)
     {
-        var bytes = File.ReadAllBytes(path);
-        return new PluginPackageEntryRecord(
-            NormalizePath(relativePath),
-            bytes,
-            Sha256(bytes),
-            (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0);
+        return uncompressed > 0 && (compressed == 0 || uncompressed > checked(compressed * ratio));
+    }
+
+    private static Stream OpenArchiveEntry(string packagePath, string entryPath)
+    {
+        var file = new FileStream(packagePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        ZipArchive? archive = null;
+        try
+        {
+            archive = new ZipArchive(file, ZipArchiveMode.Read, leaveOpen: false);
+            var entry = archive.Entries.Single(candidate => candidate.FullName.Equals(entryPath, StringComparison.Ordinal));
+            return new OwnedArchiveEntryStream(entry.Open(), archive);
+        }
+        catch
+        {
+            archive?.Dispose();
+            if (archive is null)
+            {
+                file.Dispose();
+            }
+
+            throw;
+        }
     }
 
     private static PluginManifestValidationOutcome ParseManifest(string json)
@@ -385,11 +606,6 @@ public static class PluginPackageReader
         }
     }
 
-    private static string NormalizePath(string value)
-    {
-        return value.Replace('\\', '/').Normalize(NormalizationForm.FormC);
-    }
-
     private static bool IsSymlink(ZipArchiveEntry entry)
     {
         var externalAttributes = entry.ExternalAttributes >> 16;
@@ -397,14 +613,63 @@ public static class PluginPackageReader
         return fileType == 0xA000;
     }
 
-    private static string Sha256(byte[] bytes)
-    {
-        return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-    }
+    private sealed record PendingEntry(
+        string Path,
+        long UncompressedLength,
+        long CompressedLength,
+        bool IsSymlink,
+        Func<Stream> OpenRead);
 
-    private sealed record PluginPackageEntryRecord(
-        string NormalizedPath,
-        byte[] Content,
+    private sealed record EntryReadResult(
         string Sha256,
-        bool IsSymlink);
+        long BytesRead,
+        byte[]? Content);
+
+    private sealed class OwnedArchiveEntryStream : Stream
+    {
+        private readonly Stream inner;
+        private readonly ZipArchive owner;
+        private bool disposed;
+
+        public OwnedArchiveEntryStream(Stream inner, ZipArchive owner)
+        {
+            this.inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
+        }
+
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => inner.CanSeek;
+        public override bool CanWrite => false;
+        public override long Length => inner.Length;
+        public override long Position
+        {
+            get => inner.Position;
+            set => inner.Position = value;
+        }
+
+        public override void Flush() => inner.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+        public override int Read(Span<byte> buffer) => inner.Read(buffer);
+        public override long Seek(long offset, SeekOrigin origin) => inner.Seek(offset, origin);
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && !disposed)
+            {
+                disposed = true;
+                try
+                {
+                    inner.Dispose();
+                }
+                finally
+                {
+                    owner.Dispose();
+                }
+            }
+
+            base.Dispose(disposing);
+        }
+    }
 }

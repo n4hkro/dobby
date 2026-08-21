@@ -277,3 +277,22 @@ future Tier B/runtime pass-da, Branch Shared adapter/runtime scope explicit
 açılanda public-contract freeze ilə birlikdə əlavə olunur. Bu deferral
 `docs/09_BUILD_RUN_AND_RELEASE.md` `Initial P1 Skeleton Exclusions` siyahısı ilə
 birlikdə oxunmalıdır.
+
+## 2026-08 Error and Atomicity Amendment (Controlling)
+
+- Expected validation, authorization, compatibility, lifecycle, cancellation
+  and user-correctable package failures return typed `Result` failures. They do
+  not increment plugin runtime-fault counters or trigger quarantine unless the
+  failure is an actual plugin defect/fault.
+- Persistence and infrastructure exceptions are translated at the owning
+  boundary into stable typed codes plus a correlation ID. UI, audit and exported
+  support material do not expose raw database paths, SQL, secrets, stack traces
+  or exception messages.
+- Security/domain state and the required audit/outbox record commit in one unit
+  of work. A failed commit returns failure and leaves neither side logically
+  applied. Post-commit external delivery is retryable and idempotent.
+- Cancellation remains cancellation; it is not converted to an error or runtime
+  fault. Cleanup failures may be logged under a separate correlation ID without
+  masking the original outcome.
+- Cryptographic, archive-limit, containment, malformed-persisted-state and
+  overflow failures are typed fail-closed results at trust boundaries.

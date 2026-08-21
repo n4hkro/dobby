@@ -1,6 +1,6 @@
 # ADR-0038: Local-First Authentication
 
-**Status:** Accepted (revised 2026-04-28)
+**Status:** Accepted (credential-storage and throttle details amended by ADR-0058)
 **Date:** 2026-04-23
 
 ## Context

@@ -66,3 +66,26 @@ the LAN authority cannot be reached or validated.
 
 Privacy default-local remains unchanged: diagnostics are not uploaded
 automatically, and Branch Shared does not introduce vendor telemetry.
+
+## 2026-08 Non-Functional Hardening Amendment (Controlling)
+
+- All attacker-controlled archives and signed JSON artifacts have explicit
+  byte/count/depth/range limits and are processed with bounded memory.
+- The login screen must not wait for or start full shell/plugin/license
+  composition. Measurements distinguish first paint, interactive login and
+  post-authenticated readiness.
+- CPU-intensive credential work is concurrency-bounded and cancellation-aware;
+  repeated input cannot create unbounded background PBKDF jobs.
+- File, database and cryptographic work initiated from WPF is asynchronous at
+  the UI boundary. Progress is real and cancellation has deterministic cleanup.
+- Durable mutations are crash-consistent. State plus mandatory audit/outbox
+  evidence is atomic; recovery and retry are idempotent.
+- Security telemetry and diagnostics use structured allow-list redaction. Raw
+  secrets, artifact bodies, SQL, exception messages and stack traces never enter
+  the durable audit log.
+- Acceptance evidence prioritizes executable behavior and fault-injection tests.
+  Source-text/regex assertions may enforce architecture shape but cannot prove
+  runtime behavior, security or release readiness.
+- Trusted in-process plugins receive no sandbox claim. Any future untrusted tier
+  must demonstrate OS/process isolation, resource governance and an authenticated
+  versioned IPC protocol before product scope expands.

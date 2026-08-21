@@ -127,6 +127,19 @@ These ADRs were accepted after `HD-001..HD-007` were resolved by human decision.
 This is documentation lifecycle acceptance only; Tier A skeleton implementation
 still requires separate explicit approval.
 
+## 2026-08 Hardening ADRs
+
+The repository audit completed against the 2026-08-16 cutoff introduced the
+following controlling decisions. They override conflicting older wording while
+preserving unaffected parts of the earlier ADRs.
+
+| ADR | Status | Canonical responsibility |
+|---|---|---|
+| `ADR-0058-credential-and-recovery-hardening-v2.md` | Accepted | Username-only remembered login, durable account/device throttling, password-change proof, device-generated recovery keys and support-safe device codes |
+| `ADR-0059-plugin-trust-package-and-ui-contract-v2.md` | Accepted | Trusted in-process plugin posture, bounded package validation, signature/key profiles, host API compatibility and declarative plugin UI |
+| `ADR-0060-license-lifecycle-and-import-v3.md` | Accepted | Signed grant/revocation intent, derived runtime lifecycle, atomic import/LKG rules and dedicated BranchSetup authorization |
+| `ADR-0061-login-first-runtime-and-atomic-mutation-boundary.md` | Accepted | Strict pre-auth runtime boundary, atomic state/audit mutation contract, asynchronous UI work and behavior-first verification |
+
 ## Resolved Human Decision Index
 
 Resolved `HD-*` / `DM-*` identifiers are indexed here so later audits can trace

@@ -5,7 +5,7 @@ using Dobby.Localization;
 namespace Dobby.Host.Settings;
 
 public sealed class AccountSettingsModel(
-    Func<string, string, string, bool, CorrelationId, Result> passwordChangeShortcut)
+    Func<string, string, string, string, string, bool, CorrelationId, Result> passwordChangeShortcut)
 {
     public bool HasPasswordChangeShortcut => true;
 
@@ -16,11 +16,20 @@ public sealed class AccountSettingsModel(
     public Result ChangePassword(
         string userId,
         string sessionId,
+        string currentPassword,
         string newPassword,
+        string newPasswordConfirmation,
         bool rememberMe,
         CorrelationId correlationId)
     {
-        return passwordChangeShortcut(userId, sessionId, newPassword, rememberMe, correlationId);
+        return passwordChangeShortcut(
+            userId,
+            sessionId,
+            currentPassword,
+            newPassword,
+            newPasswordConfirmation,
+            rememberMe,
+            correlationId);
     }
 
     public AccountSettingsSection BuildSection()

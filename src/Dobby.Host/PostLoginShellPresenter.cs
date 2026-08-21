@@ -51,9 +51,10 @@ internal static class PostLoginShellPresenter
             shellViewModel,
             () => authenticatedSession?.UserId,
             pageFaultSink);
+        using var authenticatedLifetime = new CancellationTokenSource();
         var routeHost = new ShellRouteHost(
             shellViewModel.ResolveRouteOrHome,
-            routeKey => pluginPageRouteCoordinator.ActivateRouteAsync(routeKey, CancellationToken.None));
+            routeKey => pluginPageRouteCoordinator.ActivateRouteAsync(routeKey, authenticatedLifetime.Token));
         var currentTheme = startupTheme;
         shellViewModel.SetTheme(currentTheme);
 
@@ -70,6 +71,7 @@ internal static class PostLoginShellPresenter
             preparedLoginRuntime.WorkSessionRegistry,
             preparedLoginRuntime.WorkSessionCloseCoordinator);
         postLoginTiming?.MarkShellRuntimeAttached();
+        Task warmupTask = Task.CompletedTask;
         window.ContentRendered += (_, _) =>
         {
             postLoginTiming?.MarkShellFirstPaint();
@@ -78,7 +80,7 @@ internal static class PostLoginShellPresenter
                 _ = postLoginTiming.FlushAfterShellFirstPaintAsync();
             }
 
-            _ = RunPostLoginShellWarmupAsync(
+            warmupTask = RunPostLoginShellWarmupAsync(
                 application,
                 window,
                 shellViewModel,
@@ -86,11 +88,22 @@ internal static class PostLoginShellPresenter
                 scopedPreferenceSource,
                 currentTheme,
                 loginRuntime,
-                authenticatedSession?.UserId);
+                authenticatedSession?.UserId,
+                authenticatedLifetime.Token);
         };
         application.MainWindow = window;
         window.MaximizeForShellStartup();
         window.ShowDialog();
+        loginRuntime.PostLoginSessionRuntime.Dispose();
+        authenticatedLifetime.Cancel();
+        try
+        {
+            await warmupTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
         return window.ReturnToLoginRequested;
     }
 
@@ -102,14 +115,20 @@ internal static class PostLoginShellPresenter
         ISettingsPreferenceSource scopedPreferenceSource,
         AppThemePreference currentTheme,
         HostLoginRuntime loginRuntime,
-        string? userId)
+        string? userId,
+        CancellationToken cancellationToken)
     {
         var actor = string.IsNullOrWhiteSpace(userId) ? "unknown" : userId;
         try
         {
-            var preferenceTask = Task.Run(() => scopedPreferenceSource.Load());
-            var settingsAndAboutTask = Task.Run(() => BuildSettingsAndAbout(strings, loginRuntime, userId, scopedPreferenceSource));
-            var pluginMigrationTask = Task.Run(() => loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations());
+            cancellationToken.ThrowIfCancellationRequested();
+            var preferenceTask = Task.Run(() => scopedPreferenceSource.Load(), cancellationToken);
+            var settingsAndAboutTask = Task.Run(
+                () => BuildSettingsAndAbout(strings, loginRuntime, userId, scopedPreferenceSource),
+                cancellationToken);
+            var pluginMigrationTask = Task.Run(
+                () => loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations(),
+                cancellationToken);
 
             var preferences = await preferenceTask.ConfigureAwait(false);
             if (preferences.IsSuccess)
@@ -121,10 +140,11 @@ internal static class PostLoginShellPresenter
                     shellViewModel.SetTheme(currentTheme);
                     ShellThemeCoordinator.ApplyTheme(application, currentTheme);
                     window.ApplyRuntimeShellPreference(runtimePreference);
-                }).ConfigureAwait(false);
+                }, cancellationToken).ConfigureAwait(false);
             }
 
-            _ = Task.Run(() => StartupThemeSnapshotStore.SaveTheme(currentTheme));
+            cancellationToken.ThrowIfCancellationRequested();
+            _ = Task.Run(() => StartupThemeSnapshotStore.SaveTheme(currentTheme), cancellationToken);
             var pluginMigration = await pluginMigrationTask.ConfigureAwait(false);
 
             var settingsAndAbout = await settingsAndAboutTask.ConfigureAwait(false);
@@ -134,20 +154,22 @@ internal static class PostLoginShellPresenter
                     settingsAndAbout.Categories,
                     settingsAndAbout.AboutFields,
                     settingsAndAbout.AutoLockEnabled,
-                    settingsAndAbout.AutoLockMinutes))
+                    settingsAndAbout.AutoLockMinutes),
+                cancellationToken)
                 .ConfigureAwait(false);
 
             if (!pluginMigration.IsSuccess)
             {
                 await InvokeIfWindowAliveAsync(
                     window,
-                    () => shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.ShellFeedbackError))
+                    () => shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.ShellFeedbackError),
+                    cancellationToken)
                     .ConfigureAwait(false);
                 return;
             }
 
-            var pluginsTask = Task.Run(() => BuildPluginsManagerSurface(loginRuntime, userId));
-            var licenseTask = Task.Run(() => BuildLicenseSurface(loginRuntime, actor));
+            var pluginsTask = Task.Run(() => BuildPluginsManagerSurface(loginRuntime, userId), cancellationToken);
+            var licenseTask = Task.Run(() => BuildLicenseSurface(loginRuntime, actor), cancellationToken);
             var plugins = await pluginsTask.ConfigureAwait(false);
             var license = await licenseTask.ConfigureAwait(false);
             await InvokeIfWindowAliveAsync(window, () =>
@@ -159,19 +181,27 @@ internal static class PostLoginShellPresenter
                     currentMode: license.Mode,
                     pluginId: license.PluginId,
                     pluginName: license.PluginName);
-            }).ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
 
+            cancellationToken.ThrowIfCancellationRequested();
             var activation = await loginRuntime.PluginRuntimeCoordinator.BeginPostLoginActivation(
                 new AssemblyHostVersionProvider(typeof(PostLoginShellPresenter).Assembly).Current,
                 actor).ConfigureAwait(false);
-            await RefreshPluginsManagerSurfaceAsync(window, shellViewModel, loginRuntime, userId).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            await RefreshPluginsManagerSurfaceAsync(
+                window,
+                shellViewModel,
+                loginRuntime,
+                userId,
+                cancellationToken).ConfigureAwait(false);
 
             if (activation.IsSuccess && activation.Value.Completion == PluginActivationCompletion.Completed)
             {
                 var contributions = PluginNavigationContributionMapper.Map(activation.Value.Run.NavigationContributions);
                 await InvokeIfWindowAliveAsync(
                     window,
-                    () => shellViewModel.ApplyPluginNavigationContributions(contributions))
+                    () => shellViewModel.ApplyPluginNavigationContributions(contributions),
+                    cancellationToken)
                     .ConfigureAwait(false);
             }
         }
@@ -185,7 +215,8 @@ internal static class PostLoginShellPresenter
         {
             await InvokeIfWindowAliveAsync(
                 window,
-                () => shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.ShellFeedbackError))
+                () => shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.ShellFeedbackError),
+                cancellationToken)
                 .ConfigureAwait(false);
         }
     }
@@ -194,13 +225,17 @@ internal static class PostLoginShellPresenter
         MainWindow window,
         ShellViewModel shellViewModel,
         HostLoginRuntime loginRuntime,
-        string? userId)
+        string? userId,
+        CancellationToken cancellationToken)
     {
-        var plugins = await Task.Run(() => BuildPluginsManagerSurface(loginRuntime, userId))
+        var plugins = await Task.Run(
+                () => BuildPluginsManagerSurface(loginRuntime, userId),
+                cancellationToken)
             .ConfigureAwait(false);
         await InvokeIfWindowAliveAsync(
             window,
-            () => ApplyPluginsManagerSurface(shellViewModel, plugins))
+            () => ApplyPluginsManagerSurface(shellViewModel, plugins),
+            cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -216,8 +251,12 @@ internal static class PostLoginShellPresenter
             plugins.Items);
     }
 
-    private static async Task InvokeIfWindowAliveAsync(MainWindow window, Action action)
+    private static async Task InvokeIfWindowAliveAsync(
+        MainWindow window,
+        Action action,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (window.Dispatcher.HasShutdownStarted)
         {
             return;
@@ -227,6 +266,7 @@ internal static class PostLoginShellPresenter
         {
             await window.Dispatcher.InvokeAsync(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (window.IsVisible)
                 {
                     action();

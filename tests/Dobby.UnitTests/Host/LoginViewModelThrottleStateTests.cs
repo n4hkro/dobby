@@ -31,4 +31,24 @@ public sealed class LoginViewModelThrottleStateTests
         viewModel.IsLoginEnabled.ShouldBeTrue();
         viewModel.ThrottleCountdownText.ShouldBeNull();
     }
+
+    [Fact]
+    public void Remembered_account_reads_its_durable_throttle_bucket_after_restart()
+    {
+        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-18T00:00:00Z"));
+        var store = new InMemoryLoginThrottleStore();
+        var firstRuntime = new LoginThrottleService([0, 0, 10, 30, 60], time, store);
+        firstRuntime.RecordFailure("user-1");
+        firstRuntime.RecordFailure("user-1");
+        firstRuntime.RecordFailure("user-1");
+        var restartedRuntime = new LoginThrottleService([0, 0, 10, 30, 60], time, store);
+        var viewModel = new LoginViewModel(
+            new RememberedLoginAccount("user-1", "owner"),
+            restartedRuntime);
+
+        viewModel.RefreshThrottleState();
+
+        viewModel.IsLoginEnabled.ShouldBeFalse();
+        viewModel.ThrottleCountdownText.ShouldBe("10");
+    }
 }

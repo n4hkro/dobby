@@ -69,20 +69,22 @@ persistent olaraq dəyişmir.
 ### Password change semantics
 
 Self-service password change current authenticated user-in profile/account
-səthindən aparılır, cari password tələb etmir və uğurlu dəyişiklik cari session-u
-invalid etmir. Növbəti login yeni password tələb edir.
+səthindən aparılır, cari password və yeni-password confirmation tələb edir.
+Uğurlu dəyişiklik cari session-u invalid etmir, həmin user-in başqa active
+session-larını invalid edir və növbəti login yeni password tələb edir.
 
 Bu qərar yalnız active authenticated session daxilində keçərlidir; login/pre-auth
-səthindən self-service password change yoxdur. Cari password tələb edilməməsinin
-kompensasiya nəzarətləri:
+səthindən self-service password change yoxdur. `ADR-0058` və `ADR-0061`-in
+controlling hardening qaydaları tətbiq olunur:
 
 - operation current authenticated user identity-si ilə bind olunur;
 - action `user.password.change` audit event-i yaradır;
-- stored remember-me material köhnə password materialı ilə silent auto-relogin
-  yaratmamalıdır; saved credential slot yeni credential ilə replace edilir və ya
-  clear olunur;
+- remembered-login slot password saxlamır; yalnız account/username metadata-sı
+  seçimə görə replace edilir və ya clear olunur;
 - current session davam edir, amma session material yeni credential version metadata
   ilə rebind olunur;
+- credential, session, remembered-account, audit və outbox yazıları atomik commit
+  olunur;
 - error-lar non-disclosing qalır və raw password/hash detail diagnostics/audit-ə
   yazılmır.
 

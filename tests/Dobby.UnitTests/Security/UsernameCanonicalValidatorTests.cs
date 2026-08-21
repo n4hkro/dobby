@@ -44,6 +44,8 @@ public sealed class UsernameCanonicalValidatorTests
     [InlineData("şah")]
     [InlineData("owner name")]
     [InlineData("owner@example")]
+    [InlineData("own\u202Eer")]
+    [InlineData("own\u0000er")]
     public void Normalize_rejects_unicode_whitespace_and_symbols_outside_allowed_set(string input)
     {
         var result = UsernameCanonicalValidator.Normalize(input);

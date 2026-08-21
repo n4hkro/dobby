@@ -1,6 +1,6 @@
 # ADR-0051: License Lifecycle v2
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0060
 **Date:** 2026-04-25
 **Supersedes:** ADR-0026
 

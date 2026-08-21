@@ -10,6 +10,45 @@ namespace Dobby.UnitTests.Sessions;
 public sealed class SessionLifecycleServiceTests
 {
     [Fact]
+    public void Create_persists_session_before_publishing_active_memory_state()
+    {
+        var store = Substitute.For<ISessionStore>();
+        var accessor = new ActiveSessionAccessor();
+        store.When(candidate => candidate.Create(Arg.Any<SessionRecord>()))
+            .Do(_ => accessor.Current.ShouldBeNull());
+        var service = new SessionLifecycleService(
+            store,
+            accessor,
+            Substitute.For<IUserCredentialVerifier>(),
+            TimeProvider.System,
+            new SessionOptions());
+
+        var result = service.Create("user-1");
+
+        result.IsSuccess.ShouldBeTrue();
+        accessor.Current.ShouldBe(result.Value);
+    }
+
+    [Fact]
+    public void Create_store_failure_does_not_publish_active_memory_state()
+    {
+        var store = Substitute.For<ISessionStore>();
+        var accessor = new ActiveSessionAccessor();
+        store.When(candidate => candidate.Create(Arg.Any<SessionRecord>()))
+            .Do(_ => throw new InvalidOperationException("Synthetic durable session failure."));
+        var service = new SessionLifecycleService(
+            store,
+            accessor,
+            Substitute.For<IUserCredentialVerifier>(),
+            TimeProvider.System,
+            new SessionOptions());
+
+        Should.Throw<InvalidOperationException>(() => service.Create("user-1"));
+
+        accessor.Current.ShouldBeNull();
+    }
+
+    [Fact]
     public void Create_lock_unlock_and_logout_manage_active_session_state()
     {
         var store = Substitute.For<ISessionStore>();

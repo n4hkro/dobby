@@ -186,3 +186,21 @@ identity and is not embedded into `.dobbylicense`.
 It must not be treated as interchangeable with license `customerId` /
 `deploymentId` unless a future provisioning flow signs an explicit canonical
 mapping and an ADR/spec amendment accepts that mapping.
+
+## 2026-08 License v3 Amendment (Controlling)
+
+- The signed authoritative intent is `Granted` or `Revoked`. `Pending`, `Active`,
+  `Grace` and `ReadOnlyExpired` are derived from intent, binding, trusted time and
+  policy whenever evaluated; a persisted lifecycle label is not authority.
+- Import validates bounded artifact bytes/string lengths/ranges before parsing,
+  then canonical signature purpose/key ID, customer/deployment/device/package
+  binding, policy and anti-rollback/trusted-time rules.
+- Any malformed, invalid, mismatched, revoked or failed import preserves the
+  previous last-known-good grant. A valid import atomically commits grant state,
+  attestation/trusted-time state and audit/outbox evidence.
+- Date arithmetic is checked and policy bounds cap grace duration and identifiers.
+  Malformed persisted enum/value data becomes a typed fail-closed result.
+- Host support diagnostics are license-state independent. Plugin/domain data
+  mutations and exports remain gated.
+- BranchSetup uses a separate purpose-signed setup authorization artifact; an
+  ordinary `.dobbylicense` is not setup proof.

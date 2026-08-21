@@ -1,7 +1,9 @@
 using Dobby.Core;
 using Dobby.Infrastructure.Persistence;
 using Dobby.PluginFramework.Packaging;
+using System.Buffers;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Dobby.Host.Plugins;
@@ -250,7 +252,31 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
 
     private static void MaterializePackage(string stagedPath, PluginPackageDescriptor package)
     {
-        File.WriteAllText(Path.Combine(stagedPath, PluginPackageReader.ManifestFileName), package.ManifestJson, new UTF8Encoding(false));
+        var stagedRoot = NormalizeDirectoryPath(stagedPath);
+        EnsurePathHasNoReparsePoints(stagedRoot);
+        var paths = package.Entries.Select(entry => entry.Path).ToArray();
+        if (PluginPackagePathPolicy.HasCaseOrUnicodeCollision(paths) ||
+            PluginPackagePathPolicy.HasFileDirectoryPrefixCollision(paths))
+        {
+            throw new InvalidDataException("Plugin package contains colliding paths.");
+        }
+
+        var manifestEntries = package.Entries
+            .Where(entry => entry.Path.Equals(PluginPackageReader.ManifestFileName, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (manifestEntries.Length > 1 ||
+            (manifestEntries.Length == 1 &&
+             !manifestEntries[0].Path.Equals(PluginPackageReader.ManifestFileName, StringComparison.Ordinal)))
+        {
+            throw new InvalidDataException("Plugin package manifest path is not canonical.");
+        }
+
+        var manifestPath = ResolveDestinationPath(stagedRoot, PluginPackageReader.ManifestFileName);
+        using (var manifestStream = new FileStream(manifestPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        using (var writer = new StreamWriter(manifestStream, new UTF8Encoding(false)))
+        {
+            writer.Write(package.ManifestJson);
+        }
 
         foreach (var entry in package.Entries)
         {
@@ -259,9 +285,106 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
                 continue;
             }
 
-            var fullPath = Path.Combine(stagedPath, entry.Path);
-            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-            File.WriteAllBytes(fullPath, entry.Content);
+            if (!PluginPackagePathPolicy.TryNormalize(entry.Path, out var normalizedPath) ||
+                !normalizedPath.Equals(entry.Path, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Plugin package entry path is not canonical.");
+            }
+
+            var fullPath = ResolveDestinationPath(stagedRoot, normalizedPath);
+            EnsureSafeParentDirectories(stagedRoot, normalizedPath);
+            CopyAndVerifyEntry(entry, fullPath);
+        }
+    }
+
+    private static void CopyAndVerifyEntry(PluginPackageEntry entry, string fullPath)
+    {
+        using var source = entry.OpenRead();
+        using var destination = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
+        long written = 0;
+        try
+        {
+            while (true)
+            {
+                var read = source.Read(buffer, 0, buffer.Length);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                written = checked(written + read);
+                if (written > entry.UncompressedLength)
+                {
+                    throw new InvalidDataException("Plugin entry exceeds its verified length.");
+                }
+
+                hash.AppendData(buffer, 0, read);
+                destination.Write(buffer, 0, read);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
+        }
+
+        var actualHash = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+        if (written != entry.UncompressedLength ||
+            !actualHash.Equals(entry.Sha256, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException("Plugin entry changed after package validation.");
+        }
+    }
+
+    private static string ResolveDestinationPath(string stagedRoot, string normalizedPath)
+    {
+        var platformPath = normalizedPath.Replace('/', Path.DirectorySeparatorChar);
+        var destination = Path.GetFullPath(Path.Combine(stagedRoot, platformPath));
+        if (!IsSameOrUnder(stagedRoot, destination) || destination.Equals(stagedRoot, PathComparison))
+        {
+            throw new InvalidDataException("Plugin package entry escapes the staging root.");
+        }
+
+        return destination;
+    }
+
+    private static void EnsureSafeParentDirectories(string stagedRoot, string normalizedPath)
+    {
+        var segments = normalizedPath.Split('/');
+        var current = stagedRoot;
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            current = Path.Combine(current, segments[index]);
+            Directory.CreateDirectory(current);
+            EnsureDirectoryIsNotReparsePoint(current);
+        }
+    }
+
+    private static void EnsureDirectoryIsNotReparsePoint(string path)
+    {
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new InvalidDataException("Plugin staging directories cannot be reparse points.");
+        }
+    }
+
+    private static void EnsurePathHasNoReparsePoints(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var pathRoot = Path.GetPathRoot(fullPath) ??
+            throw new InvalidDataException("Plugin staging root is malformed.");
+        var relative = Path.GetRelativePath(pathRoot, fullPath);
+        var current = pathRoot;
+        foreach (var segment in relative.Split(
+                     [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            if (Directory.Exists(current))
+            {
+                EnsureDirectoryIsNotReparsePoint(current);
+            }
         }
     }
 

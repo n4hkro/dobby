@@ -111,7 +111,7 @@ Kombinasiyalar (məs. `contract + integration`) eyni anda bir neçə strategiya 
 | 36 | Current Context | namespace | Dobby.Security | Current user, single active customer/deployment context və `default` tenant storage primitive-i təqdim edir (`ADR-0052`). Multi-customer runtime switching və storage migration P2-yə saxlanılır, amma customer/deployment license binding Phase 1-də enforce olunur. | no | P1-core | agreed |
 | 37 | Permissions / Policy | namespace | Dobby.Security | Registry-based operation authorization, Owner all-grants/protected-principal behavior, managed-user default deny, grant-only/on-off permission data, built-in target registration, plugin target registration from validated signed manifest `operationTargets` metadata before plugin activation, User Management create/update/reset/deactivate/reactivate/grant guard-ları və audited deny decisions typed `ICapabilityPolicy<OperationPermissionCapability>` pattern-i (`ADR-0004`) ilə enforce olunur. Verb set host-defined closed list-dir; plugin yalnız canonical verb-lərdən dəstəklədiyini elan edə bilər. | no | P1-core | agreed |
 | 38 | Plugin Trust Verification | namespace | Dobby.Security | Plugin signature və vendor trust doğrulamasını edir. | no | P1-core | agreed |
-| 39 | Plugin Isolation / Sandbox | namespace | Dobby.Security | Plugin-in nəyə çata biləcəyini host sərhədi ilə məhdudlaşdırır; wrapper özü deyil, enforcement əsasdır. | no | P1-core | agreed |
+| 39 | Plugin Trust / Policy Enforcement | namespace | Dobby.Security | Yalnız reviewed və imzalanmış tam etibarlı in-process plugin qəbul edilir; capability/policy wrapper-ları məhsul qaydalarını enforce edir, hostile-code sandbox yaratmır. | no | P1-core | agreed |
 | 40 | Secrets / Secure Storage | namespace | Dobby.Security | Password, token, key, remember-me secret, recovery secret, session material və protected config üçün field-level/protected-storage qoruması verir; protected-storage scope mapping `ADR-0055` ilə bağlanır. | no | P1-core | agreed |
 | 41 | Plugin Capability Boundary | namespace | Dobby.Security | Plugin-ə görünən host capability surface-ni müəyyən edir; plugin page hosting yalnız official Contracts/SDK surface ilə gedir, runtime fault plugin boundary-də isolate edilir və licensing üçün non-disclosing runtime mode surface-i (`FullAccess`, `ReadOnlyExpired`, `Denied`) `ADR-0053` ilə bağlanır. | no | P1-core | agreed |
 | 42 | Dobby.Licensing | project | self | Plugin entitlement, activation period və expiry məntiqinin evidir. | no | P1-core | agreed |
@@ -208,7 +208,7 @@ Kombinasiyalar (məs. `contract + integration`) eyni anda bir neçə strategiya 
 | Deferred Plugin Activation | Login ekranı görünənə qədər plugin discovery/manifest scan yoxdur; login-visible pre-auth mərhələdə yalnız cached metadata oxuna bilər; post-login explicit discovery/activation phase (dependency-sort + per-plugin activation loop), per-plugin failure isolation; hot-reload P2-yə saxlanıldı. | no | none | [ADR-0008 Deferred plugin activation](adr/ADR-0008-deferred-plugin-activation.md) | integration |
 | Plugin Dependency Resolution | `dependsOn`, circular dependency, missing dependency və activation failure davranışı bağlanıb; skipped/failure semantics canonical-dir. | no | none | [ADR-0009 Plugin dependency graph](adr/ADR-0009-plugin-dependency-graph.md) | unit + integration |
 | Plugin-to-Plugin Communication Policy | Pluginlər bir-biri ilə yalnız public contract/event üzərindən danışmalıdır; birbaşa reference qadağandır. | no | none | [ADR-0010 Plugin communication policy](adr/ADR-0010-plugin-communication-policy.md) | contract + integration |
-| Plugin Isolation / Sandbox | Wrapper təkbaşına sandbox deyil; permission + scope + policy enforcement mütləq wrapper daxilində olmalıdır. P1 sandbox OS/process hard isolation deyil, host-controlled enforcement qatlarının birlikdə işləməsidir. | no | none | [ADR-0011 Sandbox enforcement principle](adr/ADR-0011-plugin-sandbox-enforcement-principle.md) | integration |
+| Plugin Trust / Policy Enforcement | Yalnız reviewed, signed və fully trusted in-process kod dəstəklənir. Permission/scope/policy enforcement məhsul authorization sərhədidir; hostile-code isolation deyil. | no | none | [ADR-0011 Trust and policy enforcement principle](adr/ADR-0011-plugin-sandbox-enforcement-principle.md) | integration |
 | Plugin Capability Boundary | Plugin-ə hansı host API surface göründüyü explicit capability boundary ilə bağlanıb; plugin host implementation service-lərinə birbaşa çıxmır, plugin page hosting official Contracts/SDK surface-lə məhdudlaşır və runtime fault plugin boundary-də isolate edilir. | no | none | [ADR-0012 Plugin capability boundary](adr/ADR-0012-plugin-capability-boundary.md) | contract + integration |
 | Routing / Deep Link Handling | P1 navigation minimal route-to-view mapping shell və plugin pages üçün bağlanıb; external deep links P2/future qala bilər. Mapping `Dobby.Navigation`-dadır; hosting/gating `Dobby.Shell`-də, authorization decision `Dobby.Security`-də qalır. | no | none | [ADR-0013 Routing and deep links](adr/ADR-0013-routing-and-deep-link-model.md) | integration |
 | Messaging UI Bridge | UI thread dispatch və notification routing public plugin API deyil; event visibility ADR-0010-da, UI-local dispatch/render davranışı shell UI spec-də bağlanır. Ayrıca ADR-0014 yaradılmır. | no | none | [ADR-0010 Plugin communication policy](adr/ADR-0010-plugin-communication-policy.md), [Shell UI spec](specs/shell-ui.md) | integration |
@@ -319,8 +319,8 @@ Yalnız konkret səhvin, yanlış dependency-nin, təhlükəsizlik boşluğunun,
 - **Correlation ID Ownership:** Correlation ID `Dobby.Core` içində mövcud `ID / Key Generation` altında qalır; ayrıca correlation namespace-i açılmır.
 - **Correlation Context Lifecycle:** Correlation generator mövcud id-ni overwrite etmir; context async-flow uyğun daşınır, background task-a explicit ötürülür və scope bitəndə təmizlənir.
 - **Session Lifecycle Minimumu:** Phase 1-də session refresh yoxdur; invalid/expired session user-i login flow-a qaytarır. Logout current authenticated context və in-memory user state-i təmizləyir, lock isə current session-u saxlayıb unlock/logout seçimi verir. Remember-me session refresh deyil, ADR-0038-də pre-auth masked-fill rahatlığı kimi tənzimlənir.
-- **Sandbox Enforcement:** Wrapper obyekti təkbaşına sandbox deyil; sandbox həmin wrapper daxilindəki permission və policy enforcement-dir.
-- **Capability Boundary vs Sandbox:** Capability Boundary nəyin görünəcəyini müəyyən edir; Sandbox isə görünənin necə istifadə ediləcəyini enforce edir.
+- **Plugin Trust Enforcement:** Signature/review hansı tam etibarlı kodun prosesə daxil ola biləcəyini müəyyən edir; capability/policy boundary isə məhsul icazələrini enforce edir və hostile-code containment iddiası daşımır.
+- **Capability Boundary:** Capability boundary supported host API-ni daraldır, lakin in-process plugin üçün təhlükəsizlik sandbox-u deyil.
 - **Capability Access Sərhədi:** Capability access yalnız host-controlled boundary üzərindən verilir.
 - **Plugin Runtime Fault Isolation:** Plugin screen/task/lifecycle hook fault-u host process failure deyil; fault həmin plugin instance/screen/task sərhədində isolate edilir, user non-technical error görür və raw detail diagnostics/audit boundary-də qalır.
 - **Sample Plugin Verification Artifact:** Sample plugin platform release gate-lərini (manifest, signed install, Main Content hosting, permission, Result boundary, fault isolation, work session) yoxlamaq üçün QA/dev test artifact-ıdır; production trust model-i ilə qarışmır.
@@ -373,3 +373,33 @@ Plugin storage contracts deployment topology-dən asılı deyil. Branch Shared
 mode-da plugin-visible `StorageScope` manifest/API field-i əlavə edilmir; host
 provider seçimini və DeviceLocal/BranchShared mapping-i öz boundary-sində
 saxlayır.
+
+## 2026-08 Architecture Amendment (Controlling)
+
+The following boundaries supersede conflicting rows or narrative in this map:
+
+1. `PreAuthRuntime` owns only configuration needed to render login, the selected
+   deployment/auth adapter, protected credential metadata, durable throttle
+   state, recovery verification and the closed pre-auth audit set. It must not
+   resolve or start the shell, plugin catalog/runtime, licensing maintenance,
+   retention jobs or business repositories.
+2. `AuthenticatedRuntime` is a session-scoped composition root created after
+   successful authentication and disposed on logout. It owns shell composition,
+   plugin discovery/activation, licensing, background work and business data.
+3. Application mutations that combine domain/security state and audit evidence
+   use a provider-owned unit of work. External side effects are represented by a
+   transactional outbox and are delivered only after commit.
+4. Plugin loading is an extension/composition boundary, not a security sandbox.
+   The supported in-process trust tier is reviewed and purpose-signed code.
+5. Cryptographic verification uses purpose-separated, versioned key rings and
+   an explicit canonical byte/signature profile. Plugin, license, recovery and
+   setup artifacts cannot share an interchangeable signing purpose.
+6. Plugin UI contributions cross the SDK boundary as declarative, localizable
+   component models. Plugins do not pass WPF controls, arbitrary delegates or
+   host service-provider access across the boundary.
+7. License runtime state is derived from signed grant/revocation intent, binding,
+   trusted-time state and policy. Persisted `Pending/Active/Grace/ReadOnlyExpired`
+   labels are not an independent authority.
+
+Physical decomposition is an implementation choice, but dependency tests must
+prove these direction rules and behavior tests must prove the runtime boundary.

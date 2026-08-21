@@ -20,7 +20,10 @@ public sealed class HostPersistenceTests
         "CustomerDeploymentContext",
         "DeviceIdentity",
         "HostConfiguration",
+        "HostOutbox",
+        "LoginThrottleBuckets",
         "Permissions",
+        "RecoveryRequests",
         "RememberMeSlot",
         "Sessions",
         "StorageMetadata",
@@ -43,10 +46,95 @@ public sealed class HostPersistenceTests
         fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0001_prelogin_bootstrap';")
             .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0007_prelogin_remembered_account';")
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0008_prelogin_login_throttle';")
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0009_prelogin_host_outbox';")
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0010_prelogin_recovery_requests';")
+            .ShouldBe(1);
+
+        fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('RememberMeSlot') ORDER BY cid;")
+            .ShouldBe([
+                "SlotId",
+                "UserId",
+                "UsernameNormalized",
+                "Version",
+                "CreatedAtUtc",
+                "UpdatedAtUtc"
+            ]);
 
         var permissionColumns = fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('Permissions');")
             .ToArray();
         permissionColumns.ShouldNotContain("GrantState");
+    }
+
+    [Fact]
+    public void Pre_login_migration_preserves_valid_username_and_physically_removes_legacy_password_columns()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        fixture.Executor.Execute(
+            """
+            CREATE TABLE Users (
+                UserId TEXT PRIMARY KEY,
+                UsernameNormalized TEXT NOT NULL,
+                DisplayName TEXT,
+                IsOwner INTEGER NOT NULL CHECK (IsOwner IN (0,1)),
+                IsActive INTEGER NOT NULL CHECK (IsActive IN (0,1)),
+                CreatedAtUtc TEXT NOT NULL,
+                UpdatedAtUtc TEXT NOT NULL
+            );
+            CREATE TABLE RememberMeSlot (
+                SlotId TEXT PRIMARY KEY,
+                UserId TEXT,
+                MaskedUsername TEXT,
+                ProtectedRememberMeBlob BLOB,
+                ProtectionVersion TEXT,
+                CreatedAtUtc TEXT,
+                UpdatedAtUtc TEXT,
+                ExpiresAtUtc TEXT,
+                FOREIGN KEY (UserId) REFERENCES Users(UserId)
+            );
+            INSERT INTO Users(
+                UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc)
+            VALUES ('user-1', 'owner', 'Owner', 1, 1, @Now, @Now);
+            INSERT INTO RememberMeSlot(
+                SlotId, UserId, MaskedUsername, ProtectedRememberMeBlob, ProtectionVersion,
+                CreatedAtUtc, UpdatedAtUtc, ExpiresAtUtc)
+            VALUES ('single', 'user-1', 'owner', @LegacyBlob, 'dpapi-current-user-v2',
+                @Now, @Now, NULL);
+            """,
+            new { Now = now, LegacyBlob = new byte[] { 1, 2, 3, 4 } });
+
+        var first = fixture.Migrator.ApplyPreLoginMigrations();
+        var second = fixture.Migrator.ApplyPreLoginMigrations();
+
+        first.IsSuccess.ShouldBeTrue(first.IsSuccess ? null : first.Error.Message);
+        second.IsSuccess.ShouldBeTrue(second.IsSuccess ? null : second.Error.Message);
+        fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('RememberMeSlot') ORDER BY cid;")
+            .ShouldBe([
+                "SlotId",
+                "UserId",
+                "UsernameNormalized",
+                "Version",
+                "CreatedAtUtc",
+                "UpdatedAtUtc"
+            ]);
+        fixture.Executor.QueryScalar<string>(
+            "SELECT UsernameNormalized FROM RememberMeSlot WHERE SlotId = 'single';")
+            .ShouldBe("owner");
+        fixture.Executor.QueryScalar<string>(
+            "SELECT Version FROM RememberMeSlot WHERE SlotId = 'single';")
+            .ShouldBe("username-only-v1");
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0007_prelogin_remembered_account';")
+            .ShouldBe(1);
     }
 
     [Fact]
@@ -130,6 +218,7 @@ public sealed class HostPersistenceTests
             fixture.Executor.QueryScalar<int>("PRAGMA foreign_keys;").ShouldBe(1);
             fixture.Executor.QueryScalar<int>("PRAGMA busy_timeout;").ShouldBe(5000);
             fixture.Executor.QueryScalar<string>("PRAGMA journal_mode;").ShouldBe("wal");
+            fixture.Executor.QueryScalar<int>("PRAGMA secure_delete;").ShouldBe(1);
         }
 
         var rawDatabase = File.ReadAllBytes(fixture.DatabasePath);
@@ -357,7 +446,12 @@ public sealed class HostPersistenceTests
         var migration = fixture.Migrator.ApplyPreLoginMigrations();
         migration.IsSuccess.ShouldBeTrue(migration.IsSuccess ? null : migration.Error.Message);
         fixture.Executor.Query<string>("SELECT MigrationId FROM StorageMetadata ORDER BY MigrationId;")
-            .ShouldBe(["0001_prelogin_bootstrap"]);
+            .ShouldBe([
+                "0001_prelogin_bootstrap",
+                "0007_prelogin_remembered_account",
+                "0008_prelogin_login_throttle",
+                "0009_prelogin_host_outbox"
+            ]);
         fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='PostLoginOnly';")
             .ShouldBe(0);

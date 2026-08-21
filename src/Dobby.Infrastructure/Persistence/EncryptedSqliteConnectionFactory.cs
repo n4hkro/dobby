@@ -112,6 +112,7 @@ public sealed class EncryptedSqliteConnectionFactory : IHostPersistenceConnectio
         Execute(connection, string.Create(CultureInfo.InvariantCulture, $"PRAGMA busy_timeout={options.BusyTimeoutMilliseconds};"));
         Execute(connection, "PRAGMA journal_mode=WAL;");
         Execute(connection, "PRAGMA temp_store=MEMORY;");
+        Execute(connection, "PRAGMA secure_delete=ON;");
 
         if (QueryPragmaInt(connection, "PRAGMA foreign_keys;") != 1)
         {
@@ -131,6 +132,11 @@ public sealed class EncryptedSqliteConnectionFactory : IHostPersistenceConnectio
         if (QueryPragmaInt(connection, "PRAGMA temp_store;") != 2)
         {
             throw new InvalidOperationException("SQLite temp_store memory guardrail was not applied.");
+        }
+
+        if (QueryPragmaInt(connection, "PRAGMA secure_delete;") != 1)
+        {
+            throw new InvalidOperationException("SQLite secure_delete guardrail was not applied.");
         }
     }
 

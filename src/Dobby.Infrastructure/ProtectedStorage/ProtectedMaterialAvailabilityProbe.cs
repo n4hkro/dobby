@@ -10,6 +10,7 @@ public sealed class ProtectedMaterialAvailabilityProbe : IProtectedMaterialSourc
 {
     private static readonly byte[] NoAdditionalEntropy = [];
     private static readonly byte[] StableDeviceEntropy = "Dobby.StableDeviceId.v1"u8.ToArray();
+    private static readonly byte[] DeviceRecoveryKeyEntropy = "Dobby.DeviceRecoveryKey.P256.v1"u8.ToArray();
 
     private readonly ProtectedMaterialPaths paths;
     private readonly IProtectedDataProtector localMachineProtector;
@@ -39,6 +40,7 @@ public sealed class ProtectedMaterialAvailabilityProbe : IProtectedMaterialSourc
         {
             if (File.Exists(paths.InitializedMarkerPath))
             {
+                EnsureDeviceRecoveryKeyMaterial();
                 _ = LoadRequired();
                 return true;
             }
@@ -86,9 +88,32 @@ public sealed class ProtectedMaterialAvailabilityProbe : IProtectedMaterialSourc
         var applicationEntropy = LoadProtected(paths.ApplicationEntropyPath, NoAdditionalEntropy);
         var stableDeviceId = LoadProtected(paths.StableDeviceIdPath, StableDeviceEntropy);
         var dbOpenSecret = LoadProtected(paths.DbOpenSecretPath, applicationEntropy);
+        var recoveryPrivateKey = LoadProtected(paths.DeviceRecoveryPrivateKeyPath, DeviceRecoveryKeyEntropy);
+        byte[] recoveryPublicKey;
+        try
+        {
+            using var recoveryKey = ECDsa.Create();
+            recoveryKey.ImportPkcs8PrivateKey(recoveryPrivateKey, out var bytesRead);
+            if (bytesRead != recoveryPrivateKey.Length || recoveryKey.KeySize != 256)
+            {
+                throw new InvalidOperationException("Device recovery private key is malformed.");
+            }
+
+            recoveryPublicKey = recoveryKey.ExportSubjectPublicKeyInfo();
+        }
+        catch (CryptographicException exception)
+        {
+            throw new InvalidOperationException("Device recovery private key is unavailable.", exception);
+        }
         var protectedStableBlob = File.ReadAllBytes(paths.StableDeviceIdPath);
 
-        return new ProtectedMaterialSet(applicationEntropy, stableDeviceId, dbOpenSecret, protectedStableBlob);
+        return new ProtectedMaterialSet(
+            applicationEntropy,
+            stableDeviceId,
+            dbOpenSecret,
+            protectedStableBlob,
+            recoveryPrivateKey,
+            recoveryPublicKey);
     }
 
     private void CreateInitialMaterial()
@@ -100,12 +125,14 @@ public sealed class ProtectedMaterialAvailabilityProbe : IProtectedMaterialSourc
         CreateProtectedFile(paths.ApplicationEntropyPath, applicationEntropy, NoAdditionalEntropy);
         CreateProtectedFile(paths.StableDeviceIdPath, RandomBytes(32), StableDeviceEntropy);
         CreateProtectedFile(paths.DbOpenSecretPath, RandomBytes(32), applicationEntropy);
+        CreateDeviceRecoveryPrivateKey();
 
         var marker = new SortedDictionary<string, string>(StringComparer.Ordinal)
         {
             ["algorithmVersion"] = "random-32-v1",
             ["createdAtUtc"] = DateTimeOffset.UtcNow.ToString("O"),
-            ["protectionVersion"] = "dpapi-local-machine-v1"
+            ["protectionVersion"] = "dpapi-local-machine-v1",
+            ["recoveryKeyVersion"] = "ecdsa-p256-pkcs8-v1"
         };
 
         File.WriteAllText(
@@ -117,7 +144,65 @@ public sealed class ProtectedMaterialAvailabilityProbe : IProtectedMaterialSourc
     {
         return File.Exists(paths.ApplicationEntropyPath) ||
             File.Exists(paths.StableDeviceIdPath) ||
-            File.Exists(paths.DbOpenSecretPath);
+            File.Exists(paths.DbOpenSecretPath) ||
+            File.Exists(paths.DeviceRecoveryPrivateKeyPath);
+    }
+
+    private void EnsureDeviceRecoveryKeyMaterial()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(paths.InitializedMarkerPath));
+        var recoveryKeyDeclared = document.RootElement.TryGetProperty(
+            "recoveryKeyVersion",
+            out var recoveryKeyVersion) &&
+            recoveryKeyVersion.ValueKind == JsonValueKind.String;
+        if (recoveryKeyDeclared)
+        {
+            if (!StringComparer.Ordinal.Equals(
+                    recoveryKeyVersion.GetString(),
+                    "ecdsa-p256-pkcs8-v1") ||
+                !File.Exists(paths.DeviceRecoveryPrivateKeyPath))
+            {
+                throw new InvalidOperationException("Declared device recovery key material is unavailable.");
+            }
+
+            return;
+        }
+
+        if (!File.Exists(paths.DeviceRecoveryPrivateKeyPath))
+        {
+            CreateDeviceRecoveryPrivateKey();
+        }
+
+        var marker = document.RootElement.EnumerateObject()
+            .ToDictionary(
+                property => property.Name,
+                property => property.Value.GetString() ?? string.Empty,
+                StringComparer.Ordinal);
+        marker["recoveryKeyVersion"] = "ecdsa-p256-pkcs8-v1";
+        var temporaryPath = paths.InitializedMarkerPath + ".upgrade-" + Guid.NewGuid().ToString("N");
+        File.WriteAllText(
+            temporaryPath,
+            JsonSerializer.Serialize(
+                new SortedDictionary<string, string>(marker, StringComparer.Ordinal),
+                new JsonSerializerOptions { WriteIndented = true }));
+        File.Move(temporaryPath, paths.InitializedMarkerPath, overwrite: true);
+    }
+
+    private void CreateDeviceRecoveryPrivateKey()
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var privateKey = key.ExportPkcs8PrivateKey();
+        try
+        {
+            CreateProtectedFile(
+                paths.DeviceRecoveryPrivateKeyPath,
+                privateKey,
+                DeviceRecoveryKeyEntropy);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(privateKey);
+        }
     }
 
     private void CreateProtectedFile(string path, byte[] plaintext, byte[] entropy)

@@ -2,5 +2,10 @@ namespace Dobby.Security.Authentication;
 
 public interface IVendorRecoveryPublicKey
 {
-    bool Verify(byte[] canonicalPayload, byte[] signature);
+    bool Verify(
+        string keyId,
+        string purpose,
+        byte[] canonicalPayload,
+        byte[] signature,
+        DateTimeOffset now);
 }

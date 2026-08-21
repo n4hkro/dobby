@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dobby.local/schemas/dobby-plugin-manifest-v2.schema.json",
+  "title": "Dobby Trusted In-Process Plugin Manifest v2",
+  "description": "Manifest for reviewed, signed and fully trusted in-process plugins. It is a compatibility and integrity contract, not a hostile-code sandbox boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "purpose",
+    "pluginId",
+    "version",
+    "vendorId",
+    "hostApiVersion",
+    "minHostVersion",
+    "entryAssembly",
+    "displayName",
+    "description",
+    "dependsOn",
+    "capabilities",
+    "operationTargets",
+    "extensionPoints",
+    "files",
+    "signature"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 2 },
+    "purpose": { "type": "string", "const": "dobby.plugin-package" },
+    "pluginId": { "$ref": "#/$defs/pluginIdentifier" },
+    "version": { "$ref": "#/$defs/semanticVersion" },
+    "vendorId": { "$ref": "#/$defs/identifier" },
+    "hostApiVersion": { "$ref": "#/$defs/apiVersion" },
+    "minHostVersion": { "$ref": "#/$defs/semanticVersion" },
+    "entryAssembly": { "$ref": "#/$defs/packageRelativePath" },
+    "displayName": { "$ref": "#/$defs/displayText" },
+    "description": { "$ref": "#/$defs/descriptionText" },
+    "icon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": { "path": { "$ref": "#/$defs/packageRelativePath" } }
+    },
+    "nativeLibraries": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/packageRelativePath" },
+      "default": []
+    },
+    "dependsOn": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pluginId", "minVersion"],
+        "properties": {
+          "pluginId": { "$ref": "#/$defs/pluginIdentifier" },
+          "minVersion": { "$ref": "#/$defs/semanticVersion" }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "scope"],
+        "properties": {
+          "name": { "$ref": "#/$defs/identifier" },
+          "scope": { "type": "string", "enum": ["shell", "plugin-page", "background-task"] }
+        }
+      }
+    },
+    "operationTargets": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "verbs", "labelKey"],
+        "properties": {
+          "id": { "$ref": "#/$defs/operationTargetId" },
+          "verbs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": { "type": "string", "enum": ["view", "create", "update", "delete", "execute", "import", "export", "print", "configure", "grant"] }
+          },
+          "labelKey": { "$ref": "#/$defs/resourceKey" }
+        }
+      }
+    },
+    "extensionPoints": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "target", "routeKey"],
+        "properties": {
+          "id": { "$ref": "#/$defs/identifier" },
+          "target": { "type": "string", "enum": ["top-toolbar", "sidebar", "third-bar", "plugin-page-region"] },
+          "routeKey": { "$ref": "#/$defs/routeKey" },
+          "labelKey": { "$ref": "#/$defs/resourceKey" },
+          "parentId": { "$ref": "#/$defs/identifier" },
+          "group": { "$ref": "#/$defs/identifier" },
+          "weight": { "type": "integer", "minimum": -1000000, "maximum": 1000000 }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "$ref": "#/$defs/packageRelativePath" },
+          "sha256": { "$ref": "#/$defs/lowercaseSha256Hex" }
+        }
+      }
+    },
+    "signature": { "$ref": "#/$defs/pluginSignature" }
+  },
+  "$defs": {
+    "pluginIdentifier": { "type": "string", "minLength": 3, "maxLength": 128, "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$" },
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "semanticVersion": { "type": "string", "maxLength": 32, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "apiVersion": { "type": "string", "maxLength": 16, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "displayText": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$" },
+    "descriptionText": { "type": "string", "minLength": 1, "maxLength": 1024, "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$" },
+    "operationTargetId": { "type": "string", "minLength": 3, "maxLength": 192, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*(?:\\.[A-Za-z0-9][A-Za-z0-9_-]*)+$" },
+    "resourceKey": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "routeKey": { "type": "string", "minLength": 1, "maxLength": 192, "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$" },
+    "packageRelativePath": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*[:\\u0000-\\u001F])(?!.*[ .](?:/|$))[A-Za-z0-9_. -]+(?:/[A-Za-z0-9_. -]+)*$" },
+    "lowercaseSha256Hex": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "keyId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "base64urlP1363": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" },
+    "pluginSignature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose", "algorithm", "format", "keyId", "value"],
+      "properties": {
+        "purpose": { "type": "string", "const": "dobby.plugin-package" },
+        "algorithm": { "type": "string", "const": "ECDSA-P256-SHA256" },
+        "format": { "type": "string", "const": "IeeeP1363FixedFieldConcatenation" },
+        "keyId": { "$ref": "#/$defs/keyId" },
+        "value": { "$ref": "#/$defs/base64urlP1363" }
+      }
+    }
+  }
+}

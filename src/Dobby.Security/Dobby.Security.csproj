@@ -5,15 +5,31 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(DobbyPluginTrustProfile)' == 'Production'">
     <EmbeddedResource
-        Include="..\Dobby.Host\Trust\vendor-master-public-key.pem"
-        Link="Trust\vendor-master-public-key.pem"
-        LogicalName="Dobby.Security.Trust.vendor-master-public-key.pem" />
+        Include="..\Dobby.Host\Trust\vendor-plugin-package-public-key.pem"
+        Link="Trust\vendor-plugin-package-public-key.pem"
+        LogicalName="Dobby.Security.Trust.vendor-plugin-package-public-key.pem" />
+    <EmbeddedResource
+        Include="..\Dobby.Host\Trust\vendor-plugin-license-public-key.pem"
+        Link="Trust\vendor-plugin-license-public-key.pem"
+        LogicalName="Dobby.Security.Trust.vendor-plugin-license-public-key.pem" />
+    <EmbeddedResource
+        Include="..\Dobby.Host\Trust\vendor-recovery-public-key.pem"
+        Link="Trust\vendor-recovery-public-key.pem"
+        LogicalName="Dobby.Security.Trust.vendor-recovery-public-key.pem" />
   </ItemGroup>
   <ItemGroup Condition="'$(DobbyPluginTrustProfile)' == 'DevQa'">
     <EmbeddedResource
-        Include="..\Dobby.Host\Trust\dev-qa-public-key.pem"
-        Link="Trust\dev-qa-public-key.pem"
-        LogicalName="Dobby.Security.Trust.dev-qa-public-key.pem" />
+        Include="..\Dobby.Host\Trust\dev-qa-plugin-package-public-key.pem"
+        Link="Trust\dev-qa-plugin-package-public-key.pem"
+        LogicalName="Dobby.Security.Trust.dev-qa-plugin-package-public-key.pem" />
+    <EmbeddedResource
+        Include="..\Dobby.Host\Trust\dev-qa-plugin-license-public-key.pem"
+        Link="Trust\dev-qa-plugin-license-public-key.pem"
+        LogicalName="Dobby.Security.Trust.dev-qa-plugin-license-public-key.pem" />
+    <EmbeddedResource
+        Include="..\Dobby.Host\Trust\dev-qa-recovery-public-key.pem"
+        Link="Trust\dev-qa-recovery-public-key.pem"
+        LogicalName="Dobby.Security.Trust.dev-qa-recovery-public-key.pem" />
   </ItemGroup>
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
@@ -41,10 +57,10 @@
         Condition="'$(DobbyPluginTrustProfile)' != 'Production' and '$(DobbyPluginTrustProfile)' != 'DevQa'"
         Text="DobbyPluginTrustProfile must be Production or DevQa." />
     <Error
-        Condition="'$(DobbyPluginTrustProfile)' == 'Production' and !Exists('..\Dobby.Host\Trust\vendor-master-public-key.pem')"
+        Condition="'$(DobbyPluginTrustProfile)' == 'Production' and (!Exists('..\Dobby.Host\Trust\vendor-plugin-package-public-key.pem') or !Exists('..\Dobby.Host\Trust\vendor-plugin-license-public-key.pem'))"
         Text="Production plugin trust public key is missing." />
     <Error
-        Condition="'$(DobbyPluginTrustProfile)' == 'DevQa' and !Exists('..\Dobby.Host\Trust\dev-qa-public-key.pem')"
+        Condition="'$(DobbyPluginTrustProfile)' == 'DevQa' and (!Exists('..\Dobby.Host\Trust\dev-qa-plugin-package-public-key.pem') or !Exists('..\Dobby.Host\Trust\dev-qa-plugin-license-public-key.pem'))"
         Text="Dev/QA plugin trust public key is missing." />
   </Target>
 </Project>

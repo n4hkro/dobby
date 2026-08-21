@@ -39,7 +39,7 @@ Bu sənəd məhsul və arxitektura sənədlərində artıq bağlanmış davranı
 | FR-021 | Remember-me auto-login yaratmır; cihazda son remembered user üçün username və masked password login formunda hazır görünə bilər. Stored password üçün reveal button göstərilmir, password field edit edilən kimi hazır password yalnız cari form state-indən təmizlənir və Phase 1-də tək saved credential slot hər uğurlu login zamanı remember-me seçiminə uyğun replace olunur və ya boşaldılır. | P1-core | `ADR-0038`, `ADR-0041` |
 | FR-022 | Uğursuz login throttle app-wide işləyir: ilk 2 səhv cəhddə cəza yoxdur, 3-cü səhvdən sonra 10 saniyə, 4-cü səhvdən sonra 30 saniyə, 5-ci və sonrakı səhvlərdən sonra 60 saniyə gözləmə tətbiq olunur. Username dəyişmək aktiv cəzanı sıfırlamır; uğurlu login failed-attempt state-i təmizləyir. | P1-core | `ADR-0038` |
 | FR-023 | Eyni Dobby prosesi daxilində yalnız bir active user session ola bilər. Logout profile menu-dan və lock screen-dəki logout action-dan icra olunur; logout app-i bağlamır, login ekranına qaytarır, current user identity/session material/cached permission decisions/in-memory plugin services/user state-i təmizləyir və active work session varsa təsdiq xəbərdarlığı göstərib onları controlled şəkildə bağlayır və ya cancel edir. Logout və auto-lock remember-me persistent slot-unu silmir; saved credential yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə boşaldılır. | P1-core | `ADR-0031`, `ADR-0038`, `ADR-0050`, `docs/specs/session-lifecycle.md` |
-| FR-024 | Profile/account səthindən self-service password change cari user üçün mümkündür, cari password tələb etmir və uğurlu dəyişiklik cari session-u saxlayır; növbəti login yeni password tələb edir. Manual lock profile menu və/və ya status area-dan çağırılır və auto-lock ilə eyni lock screen-i istifadə edir. Auto-lock default passivdir; istifadəçi aktivləşdirəndə timeout dəyərini dəqiqə ilə verir. Lock screen yalnız cari user-in password-u ilə unlock və ya logout ilə login ekranına qayıtma davranışı daşıyır; lock screen-də başqa user ilə birbaşa login flow-u yoxdur. | P1-core | `ADR-0031`, `docs/specs/session-lifecycle.md` |
+| FR-024 | Profile/account səthindən self-service password change cari user üçün mümkündür, cari password və yeni-password confirmation tələb edir. Uğurlu dəyişiklik cari session-u saxlayır, həmin user-in başqa active session-larını invalid edir və növbəti login üçün yeni password tələb edir. Credential/session/remembered-account/audit/outbox dəyişiklikləri atomik commit olunur. Manual lock profile menu və/və ya status area-dan çağırılır və auto-lock ilə eyni lock screen-i istifadə edir. Auto-lock default passivdir; istifadəçi aktivləşdirəndə timeout dəyərini dəqiqə ilə verir. Lock screen yalnız cari user-in password-u ilə unlock və ya logout ilə login ekranına qayıtma davranışı daşıyır; lock screen-də başqa user ilə birbaşa login flow-u yoxdur. | P1-core | `ADR-0031`, `ADR-0058`, `ADR-0061`, `docs/specs/session-lifecycle.md` |
 | FR-025 | `Plugins` bölməsi plugin adı, versiyası, statusu və qısa təsviri olan siyahı göstərir; install `import`, enable/disable `configure`, uninstall `delete` permission-u ilə yoxlanır. Disable olunmuş plugin aktiv navigation entry kimi işləməz və runtime-a açılmaz. Uninstall təsdiq tələb edir və istifadəçiyə plugin datasını saxlamaq və ya silmək seçimi verir. Cari process-də aktivləşdirilmiş plugin uninstall təsdiqindən sonra `Pending uninstall` state-inə keçir, dərhal disabled/hidden olur və runtime fayllarının fiziki silinməsi növbəti app start-da fresh plugin discovery-dən əvvəl tamamlanır; restart tamamlanana qədər plugin list restart-required vəziyyəti göstərir. Heç vaxt aktivləşdirilməmiş plugin runtime faylları host nəzarəti ilə dərhal silinə bilər. Local marketplace catalog, update, repair və downgrade Phase 1 scope-unda deyil. | P1-core | `FR-007`, `FR-008`, `ADR-0007`, `ADR-0048`, `docs/specs/plugins-manager.md` |
 | FR-026 | Plugin runtime yalnız uğurlu login sonrası real assembly/code execution edə bilər və plugin ekranları Main Content Area-da yalnız rəsmi `Dobby.Contracts`/`Dobby.SDK` page/extension contract-ları ilə host olunur; plugin daxili WPF/host implementation detallarına toxuna bilməz. Plugin screen/task/runtime-da unhandled fault baş verərsə host app çökmür, fault həmin plugin instance/screen/task sərhədində isolate edilir, istifadəçiyə non-technical error göstərilir və raw exception detail yalnız diagnostics/audit boundary daxilində qalır. | P1-core | `ADR-0001`, `ADR-0012`, `ADR-0008`, `docs/specs/plugins-manager.md` |
 | FR-027 | Dobby default olaraq vendor-a usage analytics, crash report, telemetry və diagnostics avtomatik göndərmir. Diagnostics yalnız explicit user/Owner action ilə local export package kimi çıxarılır; export seçilmiş support məlumatlarını daşıyır, raw password, token, private key, session material, remember-me secret və raw license artifact detail daşımır. | P1-core | `ADR-0019`, `docs/specs/audit-and-diagnostics.md` |
@@ -69,3 +69,31 @@ Standalone requirements above remain canonical for Standalone mode.
 These Branch Shared requirements are Phase 1 documentation-pass requirements
 only until a later approved Branch Shared skeleton implementation pass opens
 code work.
+
+## 2026-08 Functional Hardening Amendment (Controlling)
+
+- **FR-001/FR-004:** remembered login stores only the selected username. A new
+  process requires fresh authentication; password change requires current
+  password or an explicitly approved reauthentication ceremony.
+- **FR-001:** login throttling is durable across restart, keyed independently by
+  normalized account and device/global abuse signals, bounded, observable and
+  cleared only according to policy. Credential warm-up is optional, cancellable,
+  concurrency-bounded, expiring and charged to the same throttle policy.
+- **FR-004:** Owner recovery uses a device-generated non-exportable/as-protected
+  recovery key pair. Requests and responses bind version, purpose, request ID,
+  nonce, deployment/device identity and recovery public-key hash. Raw hardware
+  identifiers are not authentication factors or support codes.
+- **FR-021/FR-024:** plugin install validates bounded archive resources and safe
+  canonical paths before materialization. In-process plugins are trusted,
+  reviewed and purpose-signed; hostile third-party code is out of scope.
+- **FR-024:** plugin lifecycle and actions are asynchronous, cancellable and
+  timeout-governed. Declarative SDK UI supports localizable forms, tables,
+  validation and commands without exposing host WPF objects.
+- **FR-026/FR-027/FR-028:** signed license intent is `Granted` or `Revoked`;
+  pending/active/grace/read-only behavior is derived. Invalid import never
+  replaces last-known-good state. Valid import, attestation and audit/outbox
+  state commit atomically and all untrusted fields are bounded before parsing.
+- **FR-027:** host support diagnostics remain exportable in all license states;
+  plugin/domain data export remains license/capability gated.
+- BranchSetup proof is a dedicated purpose-signed setup authorization artifact,
+  not an ordinary plugin license. Branch Shared implementation remains deferred.

@@ -15,6 +15,33 @@ namespace Dobby.IntegrationTests.Auth;
 
 public sealed class UserManagementServiceTests
 {
+    public static TheoryData<string> CreateFailurePoints => new()
+    {
+        "user-write",
+        "credential-write",
+        "audit-write",
+        "outbox-write",
+        "commit"
+    };
+
+    public static TheoryData<string> PasswordResetFailurePoints => new()
+    {
+        "password-write",
+        "session-write",
+        "audit-write",
+        "outbox-write",
+        "commit"
+    };
+
+    public static TheoryData<string> DeactivationFailurePoints => new()
+    {
+        "active-state-write",
+        "session-write",
+        "audit-write",
+        "outbox-write",
+        "commit"
+    };
+
     [Fact]
     public void Owner_can_create_list_detail_update_and_results_exclude_credential_material()
     {
@@ -79,7 +106,7 @@ public sealed class UserManagementServiceTests
 
         service.DeactivateUser(ownerId, managedId, CorrelationId.New()).IsSuccess.ShouldBeTrue();
         fixture.LoginService.Login("managed", "new managed password", null, CorrelationId.New())
-            .Kind.ShouldBe(LoginAttemptKind.Deactivated);
+            .Kind.ShouldBe(LoginAttemptKind.InvalidCredentials);
 
         service.ReactivateUser(ownerId, managedId, CorrelationId.New()).IsSuccess.ShouldBeTrue();
         fixture.LoginService.Login("managed", "new managed password", null, CorrelationId.New())
@@ -107,6 +134,141 @@ public sealed class UserManagementServiceTests
             .IsSuccess.ShouldBeTrue();
         service.CreateManagedUser(ownerId, " DUPLICATE ", "Duplicate Again", "second password", CorrelationId.New())
             .ErrorCode.ShouldBe(ErrorCode.AlreadyExists);
+    }
+
+    [Theory]
+    [MemberData(nameof(CreateFailurePoints))]
+    public void Managed_user_creation_rolls_back_user_credential_audit_and_outbox_at_every_failure_point(
+        string failurePoint)
+    {
+        using var fixture = UserManagementFixture.Create();
+        var ownerId = fixture.BootstrapOwner();
+        var correlationId = CorrelationId.New();
+
+        var result = fixture.CreateService(new UserManagementFailureInjector(failurePoint))
+            .CreateManagedUser(
+                ownerId,
+                "atomic.user",
+                "Atomic User",
+                "atomic password",
+                correlationId);
+
+        result.ErrorCode.ShouldBe(ErrorCode.DatabaseUnavailable);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM Users WHERE UsernameNormalized = 'atomic.user';").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM Credentials WHERE UserId NOT IN (SELECT UserId FROM Users);").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM AuditLog WHERE CorrelationId = @CorrelationId;",
+            new { CorrelationId = correlationId.ToString() }).ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostOutbox WHERE IdempotencyKey = @IdempotencyKey;",
+            new { IdempotencyKey = $"user-mutation:{correlationId}" }).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Concurrent_creation_of_same_username_commits_one_complete_user_without_orphans()
+    {
+        using var fixture = UserManagementFixture.Create();
+        var ownerId = fixture.BootstrapOwner();
+        var first = fixture.CreateService();
+        var second = fixture.CreateService();
+        using var start = new Barrier(2);
+
+        var tasks = new[]
+        {
+            Task.Run(() =>
+            {
+                start.SignalAndWait();
+                return first.CreateManagedUser(
+                    ownerId,
+                    "same.user",
+                    "First",
+                    "first password",
+                    CorrelationId.New());
+            }),
+            Task.Run(() =>
+            {
+                start.SignalAndWait();
+                return second.CreateManagedUser(
+                    ownerId,
+                    "same.user",
+                    "Second",
+                    "second password",
+                    CorrelationId.New());
+            })
+        };
+
+        var results = await Task.WhenAll(tasks);
+
+        results.Count(result => result.IsSuccess).ShouldBe(1);
+        results.Count(result => result.ErrorCode == ErrorCode.AlreadyExists).ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM Users WHERE UsernameNormalized = 'same.user';").ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM Credentials WHERE UserId = (SELECT UserId FROM Users WHERE UsernameNormalized = 'same.user');")
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM AuditLog WHERE EventName = 'user.create' AND Target = (SELECT UserId FROM Users WHERE UsernameNormalized = 'same.user');")
+            .ShouldBe(1);
+    }
+
+    [Theory]
+    [MemberData(nameof(PasswordResetFailurePoints))]
+    public void Password_reset_failure_preserves_old_credential_active_session_and_evidence(
+        string failurePoint)
+    {
+        using var fixture = UserManagementFixture.Create();
+        var ownerId = fixture.BootstrapOwner();
+        var normalService = fixture.CreateService();
+        var managedId = normalService.CreateManagedUser(
+            ownerId,
+            "reset.user",
+            "Reset User",
+            "old password",
+            CorrelationId.New()).Value;
+        fixture.SessionLifecycle.Create(managedId).IsSuccess.ShouldBeTrue();
+        var correlationId = CorrelationId.New();
+
+        var result = fixture.CreateService(new UserManagementFailureInjector(failurePoint))
+            .ResetPassword(ownerId, managedId, "new password", correlationId);
+
+        result.ErrorCode.ShouldBe(ErrorCode.DatabaseUnavailable);
+        fixture.CredentialStore.VerifyPassword(managedId, "old password").Value.ShouldBeTrue();
+        fixture.CredentialStore.VerifyPassword(managedId, "new password").Value.ShouldBeFalse();
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM Sessions WHERE UserId = @UserId AND InvalidatedAtUtc IS NULL;",
+            new { UserId = managedId }).ShouldBe(1);
+        AssertNoEvidenceForCorrelation(fixture, correlationId);
+    }
+
+    [Theory]
+    [MemberData(nameof(DeactivationFailurePoints))]
+    public void Deactivation_failure_preserves_active_user_session_and_evidence(string failurePoint)
+    {
+        using var fixture = UserManagementFixture.Create();
+        var ownerId = fixture.BootstrapOwner();
+        var normalService = fixture.CreateService();
+        var managedId = normalService.CreateManagedUser(
+            ownerId,
+            "active.user",
+            "Active User",
+            "active password",
+            CorrelationId.New()).Value;
+        fixture.SessionLifecycle.Create(managedId).IsSuccess.ShouldBeTrue();
+        var correlationId = CorrelationId.New();
+
+        var result = fixture.CreateService(new UserManagementFailureInjector(failurePoint))
+            .DeactivateUser(ownerId, managedId, correlationId);
+
+        result.ErrorCode.ShouldBe(ErrorCode.DatabaseUnavailable);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT IsActive FROM Users WHERE UserId = @UserId;",
+            new { UserId = managedId }).ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM Sessions WHERE UserId = @UserId AND InvalidatedAtUtc IS NULL;",
+            new { UserId = managedId }).ShouldBe(1);
+        AssertNoEvidenceForCorrelation(fixture, correlationId);
     }
 
     [Fact]
@@ -303,18 +465,26 @@ public sealed class UserManagementServiceTests
             return LoginService.Login("owner", "owner password", "Owner", CorrelationId.New()).UserId!;
         }
 
-        public ManagedUserService CreateService()
+        public ManagedUserService CreateService(IHostPersistenceTransactionFaultInjector? injector = null)
         {
             var grants = new PermissionGrantStore(Executor);
             var registry = OperationTargetRegistry.CreateDefault();
             var policy = new OperationAuthorizationPolicy(registry, grants);
+            var mutationUnitOfWork = new HostMutationUnitOfWork(
+                new HostPersistenceTransactionScope(Factory, injector),
+                new DurableAuditTrail(Executor),
+                new HostTransactionOutbox(time));
             return new ManagedUserService(
                 Executor,
                 CredentialStore,
                 grants,
                 new UserManagementAuthorizationGuard(policy, grants, registry),
                 time,
-                new UserManagementAuditCoordinator(new DurableAuditTrail(Executor), Executor, time));
+                new UserManagementAuditCoordinator(
+                    new DurableAuditTrail(Executor),
+                    Executor,
+                    time,
+                    mutationUnitOfWork));
         }
 
         public static UserManagementFixture Create()
@@ -333,11 +503,52 @@ public sealed class UserManagementServiceTests
         }
     }
 
+    private sealed class UserManagementFailureInjector(string failurePoint)
+        : IHostPersistenceTransactionFaultInjector
+    {
+        public void BeforeCommand(int commandNumber, HostPersistenceCommandKind kind, string commandText)
+        {
+            if ((failurePoint == "user-write" && commandText.Contains("INSERT INTO Users", StringComparison.Ordinal)) ||
+                (failurePoint == "credential-write" && commandText.Contains("INSERT INTO Credentials", StringComparison.Ordinal)) ||
+                (failurePoint == "password-write" && commandText.Contains("UPDATE Credentials", StringComparison.Ordinal)) ||
+                (failurePoint == "active-state-write" && commandText.Contains("UPDATE Users SET IsActive", StringComparison.Ordinal)) ||
+                (failurePoint == "session-write" && commandText.Contains("UPDATE Sessions", StringComparison.Ordinal)) ||
+                (failurePoint == "audit-write" && commandText.Contains("INSERT INTO AuditLog", StringComparison.Ordinal)) ||
+                (failurePoint == "outbox-write" && commandText.Contains("INSERT INTO HostOutbox", StringComparison.Ordinal)))
+            {
+                throw new SyntheticUserManagementFailure(failurePoint);
+            }
+        }
+
+        public void BeforeCommit()
+        {
+            if (failurePoint == "commit")
+            {
+                throw new SyntheticUserManagementFailure(failurePoint);
+            }
+        }
+    }
+
+    private sealed class SyntheticUserManagementFailure(string failurePoint)
+        : Exception("Synthetic User Management failure at " + failurePoint);
+
     private static int AuditCount(UserManagementFixture fixture, string eventName, string target, string result)
     {
         return fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM AuditLog WHERE EventName = @EventName AND Target = @Target AND Result = @Result;",
             new { EventName = eventName, Target = target, Result = result });
+    }
+
+    private static void AssertNoEvidenceForCorrelation(
+        UserManagementFixture fixture,
+        CorrelationId correlationId)
+    {
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM AuditLog WHERE CorrelationId = @CorrelationId;",
+            new { CorrelationId = correlationId.ToString() }).ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostOutbox WHERE IdempotencyKey = @IdempotencyKey;",
+            new { IdempotencyKey = $"user-mutation:{correlationId}" }).ShouldBe(0);
     }
 
     private sealed class RecordingProtector : IProtectedDataProtector

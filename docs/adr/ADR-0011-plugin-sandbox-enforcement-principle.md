@@ -1,12 +1,12 @@
-# ADR-0011: Plugin Sandbox Enforcement Principle
+# ADR-0011: Plugin Trust and Policy Enforcement Principle
 
-**Status:** Accepted
+**Status:** Accepted (trust-boundary wording amended by ADR-0059)
 **Date:** 2026-04-30
 
 ## Context
 
-Architecture Map Cədvəl 3 `Plugin Isolation / Sandbox` sətri wrapper obyektinin
-təkbaşına sandbox olmadığını qeyd edirdi. Dobby Phase 1-də arbitrary third-party
+Architecture Map-in köhnə `Plugin Isolation / Sandbox` sətri wrapper obyektinin
+təhlükəsizlik sərhədi olmadığını qeyd edirdi. Dobby Phase 1-də arbitrary third-party
 plugin modeli açmır; plugin-lər vendor-created və vendor-signed olur. Buna baxmayaraq
 host skeleton-u plugin-lərin hansı sərhədlərlə məhdudlaşdırılacağını guess etmədən
 yaratmalıdır.
@@ -16,10 +16,11 @@ qərarlarını bir enforcement prinsipinə bağlayır.
 
 ## Decision
 
-### 1. P1 sandbox nədir
+### 1. P1 trust modeli
 
-Phase 1 sandbox OS/process-level hard isolation deyil. Sandbox aşağıdakı
-host-controlled enforcement qatlarının birlikdə tətbiqidir:
+Phase 1 yalnız reviewed, vendor-signed və tam etibarlı in-process kodu dəstəkləyir.
+Aşağıdakı host-controlled enforcement qatları uyğunluq, bütövlük və məhsul
+policy-si üçündür; onlar hostile kod üçün sandbox və ya containment deyil:
 
 - vendor signature və trust verification;
 - `.dobbyplugin` package validation və forbidden-content reject qaydaları;
@@ -53,7 +54,7 @@ CPU, native-call, thread, environment və process containment zəmanəti vermir.
 Vendor signing trust boundary-nin hissəsidir. Corrupted-state fatal exception-lar
 (`OutOfMemoryException`, `StackOverflowException`) host tərəfindən tutulmur.
 
-Out-of-process plugin worker, brokered process permissions, per-plugin OS sandbox
+Out-of-process plugin worker, brokered process permissions, per-plugin OS isolation
 və hardened native isolation P2 trigger-ləridir və yalnız `ADR-0007` future
 criteria-ları açılarsa yenidən qiymətləndirilir.
 
@@ -71,15 +72,15 @@ Skeleton və release evidence minimum aşağıdakıları yoxlamalıdır:
 
 ## Consequences
 
-- Sandbox wrapper abstraction kimi deyil, enforce olunan host boundary set-i kimi
-  implement edilir.
+- Policy wrapper-ları authorization və məhsul qaydalarını enforce edir, lakin
+  in-process kodu host prosesindən təhlükəsizlik baxımından təcrid etmir.
 - P1 scope arbitrary/user-installed third-party plugin marketplace-i açmır.
 - Security review OS/process isolation olmamasını P1 limit kimi görür, amma bu
   limit vendor-signed plugin modelinə uyğun documented tradeoff-dur.
 
 ## Cross-references
 
-- `docs/02_ARCHITECTURE_MAP.md` — Row 39 `Plugin Isolation / Sandbox`, Engineering Conventions `Sandbox Enforcement`
+- `docs/02_ARCHITECTURE_MAP.md` — Row 39 `Plugin Trust / Policy Enforcement`
 - `docs/adr/ADR-0007-plugin-load-context-strategy.md`
 - `docs/adr/ADR-0012-plugin-capability-boundary.md`
 - `docs/adr/ADR-0032-plugin-signature-trust-model.md`

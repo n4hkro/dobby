@@ -44,6 +44,7 @@ public sealed class LoginAuditCoordinator(IAuditTrail auditTrail, TimeProvider t
             LoginAttemptKind.KdfUnsupported => "kdf-unsupported",
             LoginAttemptKind.Deactivated => "deactivated",
             LoginAttemptKind.Throttled => "throttled",
+            LoginAttemptKind.Busy => "busy",
             _ => "validation-failed"
         };
     }

@@ -66,8 +66,7 @@ public sealed class PostLoginSessionRuntime(
         Result result;
         lock (sessionGate)
         {
-            result = sessionLifecycleService.Logout("user.logout");
-            auditCoordinator.AppendLogout(session.UserId, result, correlationId);
+            result = sessionLifecycleService.Logout("user.logout", correlationId);
         }
 
         if (result.IsSuccess)
@@ -85,8 +84,16 @@ public sealed class PostLoginSessionRuntime(
         SessionCheckpoint checkpoint;
         lock (sessionGate)
         {
-            checkpoint = sessionLifecycleService.Checkpoint();
-            auditCoordinator.AppendCheckpoint(session.UserId, checkpoint, correlationId);
+            checkpoint = sessionLifecycleService.Checkpoint(correlationId);
+            if (checkpoint.Kind == SessionCheckpointKind.Locked)
+            {
+                auditCoordinator.AppendCheckpoint(session.UserId, checkpoint, correlationId);
+            }
+        }
+
+        if (checkpoint.ErrorCode.HasValue)
+        {
+            return Result.Failure(checkpoint.ErrorCode.Value);
         }
 
         if (checkpoint.Kind == SessionCheckpointKind.Locked && checkpoint.JustTransitioned)

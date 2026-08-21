@@ -293,8 +293,12 @@ public partial class MainWindow : Window
 
         ChangePasswordButton.IsEnabled = canChangePassword;
         SettingsChangePasswordButton.IsEnabled = canChangePassword;
+        CurrentPasswordBox.IsEnabled = canChangePassword;
         NewPasswordBox.IsEnabled = canChangePassword;
+        ConfirmNewPasswordBox.IsEnabled = canChangePassword;
+        SettingsCurrentPasswordBox.IsEnabled = canChangePassword;
         SettingsNewPasswordBox.IsEnabled = canChangePassword;
+        SettingsConfirmNewPasswordBox.IsEnabled = canChangePassword;
         PasswordChangeRememberMeCheckBox.IsEnabled = canChangePassword;
         SettingsPasswordChangeRememberMeCheckBox.IsEnabled = canChangePassword;
         ManualLockButton.IsEnabled = canLock;
@@ -987,18 +991,34 @@ public partial class MainWindow : Window
 
     private void ChangePassword_Click(object sender, RoutedEventArgs e)
     {
-        ChangePasswordCore(NewPasswordBox, PasswordChangeRememberMeCheckBox);
+        ChangePasswordCore(
+            CurrentPasswordBox,
+            NewPasswordBox,
+            ConfirmNewPasswordBox,
+            PasswordChangeRememberMeCheckBox);
     }
 
     private void SettingsChangePassword_Click(object sender, RoutedEventArgs e)
     {
-        ChangePasswordCore(SettingsNewPasswordBox, SettingsPasswordChangeRememberMeCheckBox);
+        ChangePasswordCore(
+            SettingsCurrentPasswordBox,
+            SettingsNewPasswordBox,
+            SettingsConfirmNewPasswordBox,
+            SettingsPasswordChangeRememberMeCheckBox);
     }
 
-    private void ChangePasswordCore(PasswordBox passwordBox, CheckBox rememberMeCheckBox)
+    private void ChangePasswordCore(
+        PasswordBox currentPasswordBox,
+        PasswordBox newPasswordBox,
+        PasswordBox confirmationBox,
+        CheckBox rememberMeCheckBox)
     {
-        var password = passwordBox.Password;
-        if (string.IsNullOrWhiteSpace(password))
+        var currentPassword = currentPasswordBox.Password;
+        var newPassword = newPasswordBox.Password;
+        var confirmation = confirmationBox.Password;
+        if (string.IsNullOrWhiteSpace(currentPassword) ||
+            string.IsNullOrWhiteSpace(newPassword) ||
+            !StringComparer.Ordinal.Equals(newPassword, confirmation))
         {
             ShowActionFeedback(HostResourceKeys.ShellProfilePasswordChangeError, HostResourceKeys.ShellNotificationBanner);
             return;
@@ -1016,7 +1036,9 @@ public partial class MainWindow : Window
             result = loginRuntime.AccountSettingsModel.ChangePassword(
                 session.UserId,
                 session.SessionId,
-                password,
+                currentPassword,
+                newPassword,
+                confirmation,
                 rememberMeCheckBox.IsChecked == true,
                 correlationId);
         }
@@ -1027,6 +1049,7 @@ public partial class MainWindow : Window
 
         if (!result.IsSuccess)
         {
+            currentPasswordBox.Password = string.Empty;
             var feedbackKey = IsDenied(result.ErrorCode)
                 ? HostResourceKeys.ShellProfilePasswordChangeDenied
                 : HostResourceKeys.ShellProfilePasswordChangeError;
@@ -1034,7 +1057,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        passwordBox.Password = string.Empty;
+        currentPasswordBox.Password = string.Empty;
+        newPasswordBox.Password = string.Empty;
+        confirmationBox.Password = string.Empty;
         ShowActionFeedback(HostResourceKeys.ShellProfilePasswordChangeSuccess, HostResourceKeys.ShellNotificationToast);
     }
 

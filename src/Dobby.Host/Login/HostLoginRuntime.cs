@@ -13,6 +13,32 @@ using Dobby.Security.CurrentContext;
 
 namespace Dobby.Host.Login;
 
+public static class LoginRuntimeCompositionEvents
+{
+    public const string PreAuthRuntimeConstructed = "pre-auth-runtime-constructed";
+    public const string AuthenticatedRuntimeConstructionStarted = "authenticated-runtime-construction-started";
+    public const string BusinessRepositoriesConstructed = "business-repositories-constructed";
+    public const string LicensingConstructed = "licensing-constructed";
+    public const string AuditRetentionStarted = "audit-retention-started";
+    public const string PluginRuntimeConstructed = "plugin-runtime-constructed";
+    public const string AuthenticatedRuntimeConstructed = "authenticated-runtime-constructed";
+
+    public static IReadOnlySet<string> ForbiddenBeforeAuthentication { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        AuthenticatedRuntimeConstructionStarted,
+        BusinessRepositoriesConstructed,
+        LicensingConstructed,
+        AuditRetentionStarted,
+        PluginRuntimeConstructed,
+        AuthenticatedRuntimeConstructed
+    };
+}
+
+public interface ILoginRuntimeCompositionProbe
+{
+    void Record(string eventName);
+}
+
 public sealed record HostPreLoginRuntime(
     ILoginRuntimeWorkflow LoginWorkflow,
     LoginViewModel LoginViewModel,
@@ -52,6 +78,10 @@ public sealed record HostLoginRuntime(
     string DiagnosticsSourceDirectory,
     string DiagnosticsOutputZipPath) : IAsyncDisposable
 {
+    internal CancellationTokenSource? AuthenticatedLifetime { get; init; }
+
+    internal Task? AuditRetentionTask { get; init; }
+
     public Result<CurrentCustomerDeploymentContextResult> ProvisionCustomerDeploymentContext(
         string actorId,
         string customerId,
@@ -84,7 +114,20 @@ public sealed record HostLoginRuntime(
 
     public async ValueTask DisposeAsync()
     {
+        AuthenticatedLifetime?.Cancel();
         PostLoginSessionRuntime.Dispose();
+        if (AuditRetentionTask is not null)
+        {
+            try
+            {
+                await AuditRetentionTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
         await PluginRuntimeCoordinator.DisposeAsync().ConfigureAwait(false);
+        AuthenticatedLifetime?.Dispose();
     }
 }

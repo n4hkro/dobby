@@ -94,7 +94,7 @@ public partial class App : System.Windows.Application
             MainWindow = loginWindow;
             if (loginWindow.ShowDialog() != true)
             {
-                LoginRuntimePreparer.DisposeWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask);
+                LoginRuntimePreparer.ObserveWhenReadyWithoutBlockingShutdown(preparedLoginEntryRuntimeTask);
                 ShutdownHostProcess();
                 return;
             }
@@ -107,24 +107,20 @@ public partial class App : System.Windows.Application
                 return;
             }
 
-            var preparedLoginRuntime = await preparedLoginEntryRuntime.ShellRuntimeTask;
-            postLoginTiming?.MarkRuntimeReady();
-            if (preparedLoginRuntime is null)
+            var authenticatedSession = loginWindow.AuthenticatedSession;
+            if (authenticatedSession is null)
             {
                 ShutdownHostProcess();
                 return;
             }
 
-            var authenticatedSession = loginWindow.AuthenticatedSession;
-            if (authenticatedSession is not null)
+            var preparedLoginRuntime = await LoginRuntimePreparer.InitializeAuthenticatedRuntimeAsync(
+                authenticatedSession);
+            postLoginTiming?.MarkRuntimeReady();
+            if (preparedLoginRuntime is null)
             {
-                var sessionActivation = preparedLoginRuntime.LoginRuntime.SessionLifecycleService.ActivateExisting(authenticatedSession);
-                if (!sessionActivation.IsSuccess)
-                {
-                    await preparedLoginRuntime.DisposeAsync();
-                    ShutdownHostProcess();
-                    return;
-                }
+                ShutdownHostProcess();
+                return;
             }
 
             var returnToLogin = await PostLoginShellPresenter.ShowAsync(

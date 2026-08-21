@@ -248,3 +248,16 @@ preserves the support-safe value observed when the event was written and does
 not follow later profile changes.
 
 Adding a new `source` value requires an ADR/spec amendment.
+
+## 2026-08 Hardening Amendment (Controlling)
+
+- Durable audit is a structured security/business record, not an exception dump.
+  Raw exception text, stack traces, SQL, full paths, artifact bodies and secret
+  values are forbidden; use stable reason codes, safe fields and correlation IDs.
+- State changes and required audit/outbox records share one provider transaction.
+  External sinks consume an idempotent post-commit outbox.
+- Host-owned support diagnostics export remains available in all plugin-license
+  lifecycle states. License/capability gates apply to plugin/domain data exports,
+  not to the minimum host support bundle required to diagnose licensing.
+- Redaction is structured and allow-list based. Regex replacement is defense in
+  depth, not the sole secret-detection mechanism.

@@ -1,140 +1,131 @@
-using System.Text;
 using Dobby.Core;
 using Dobby.Infrastructure.Persistence;
-using Dobby.Infrastructure.ProtectedStorage;
 
 namespace Dobby.Security.Authentication;
 
-public sealed record RememberMeSavedLogin(
+public sealed record RememberedLoginAccount(
     string UserId,
-    string MaskedUsername,
-    string Password,
-    bool HasMaskedPasswordPrefill);
+    string UsernameNormalized);
 
-public sealed class RememberMeSlotService(
-    IHostPersistenceCommandExecutor executor,
-    IProtectedDataProtector protector,
-    byte[]? applicationEntropy = null,
-    IRememberMeStartupSnapshotSink? startupSnapshotSink = null)
+public sealed class RememberMeSlotService(IHostPersistenceCommandExecutor executor)
 {
     private const string SlotId = "single";
-    private static readonly byte[] PasswordPayloadPrefix = "Dobby:RememberMePassword:v1\0"u8.ToArray();
-    private readonly IRememberMeStartupSnapshotSink startupSnapshotSinkCore =
-        startupSnapshotSink ?? NullRememberMeStartupSnapshotSink.Instance;
+    private const string UsernameOnlyVersion = "username-only-v1";
 
-    public Result ApplySuccessfulLogin(string userId, string usernameNormalized, string password, bool rememberMe)
+    public Result ApplySuccessfulLogin(string userId, string usernameNormalized, bool rememberMe)
     {
+        return ApplySuccessfulLogin(executor, userId, usernameNormalized, rememberMe);
+    }
+
+    public Result ApplySuccessfulLogin(
+        IHostPersistenceCommandExecutor commands,
+        string userId,
+        string usernameNormalized,
+        bool rememberMe)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(usernameNormalized);
-        ArgumentNullException.ThrowIfNull(password);
 
         if (!rememberMe)
         {
-            return ClearSlot();
+            return ClearSlot(commands);
+        }
+
+        var normalized = UsernameCanonicalValidator.Normalize(usernameNormalized);
+        if (!normalized.IsSuccess)
+        {
+            return Result.Failure(normalized.ErrorCode!.Value);
         }
 
         var now = DateTimeOffset.UtcNow.ToString("O");
-        var payload = PasswordPayloadPrefix
-            .Concat(Encoding.UTF8.GetBytes(password))
-            .ToArray();
-        var protectedBlob = protector.Protect(
-            payload,
-            ProtectedStorageEntropy.ForRememberMe(applicationEntropy, SlotId, userId));
-        executor.Execute("DELETE FROM RememberMeSlot;");
-        executor.Execute(
-            "INSERT INTO RememberMeSlot(SlotId, UserId, MaskedUsername, ProtectedRememberMeBlob, ProtectionVersion, CreatedAtUtc, UpdatedAtUtc, ExpiresAtUtc) VALUES (@SlotId, @UserId, @MaskedUsername, @ProtectedRememberMeBlob, @ProtectionVersion, @CreatedAtUtc, @UpdatedAtUtc, NULL);",
+        commands.Execute(
+            """
+            INSERT INTO RememberMeSlot(
+                SlotId,
+                UserId,
+                UsernameNormalized,
+                Version,
+                CreatedAtUtc,
+                UpdatedAtUtc)
+            VALUES (
+                @SlotId,
+                @UserId,
+                @UsernameNormalized,
+                @Version,
+                @CreatedAtUtc,
+                @UpdatedAtUtc)
+            ON CONFLICT(SlotId) DO UPDATE SET
+                UserId = excluded.UserId,
+                UsernameNormalized = excluded.UsernameNormalized,
+                Version = excluded.Version,
+                UpdatedAtUtc = excluded.UpdatedAtUtc;
+            """,
             new
             {
                 SlotId,
                 UserId = userId,
-                MaskedUsername = usernameNormalized,
-                ProtectedRememberMeBlob = protectedBlob,
-                ProtectionVersion = "dpapi-current-user-v2",
+                UsernameNormalized = normalized.Value,
+                Version = UsernameOnlyVersion,
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now
             });
-        SaveStartupSnapshot(new RememberMeSavedLogin(
-            userId,
-            usernameNormalized,
-            password,
-            true));
 
         return Result.Success();
     }
 
-    public Result<RememberMeSavedLogin?> LoadSavedLogin()
+    public Result<RememberedLoginAccount?> LoadRememberedAccount()
     {
         var row = executor.Query<RememberMeRow>(
-            "SELECT UserId, MaskedUsername, ProtectedRememberMeBlob FROM RememberMeSlot WHERE SlotId = @SlotId;",
+            """
+            SELECT
+                slot.UserId,
+                slot.UsernameNormalized,
+                users.UsernameNormalized AS CurrentUsernameNormalized
+            FROM RememberMeSlot AS slot
+            LEFT JOIN Users AS users ON users.UserId = slot.UserId
+            WHERE slot.SlotId = @SlotId;
+            """,
             new { SlotId }).SingleOrDefault();
-        if (row is null || row.ProtectedRememberMeBlob is null || row.UserId is null || row.MaskedUsername is null)
-        {
-            ClearStartupSnapshot();
-            return Result.Success<RememberMeSavedLogin?>(null);
-        }
 
-        try
-        {
-            var plaintext = protector.Unprotect(
-                row.ProtectedRememberMeBlob,
-                ProtectedStorageEntropy.ForRememberMe(applicationEntropy, SlotId, row.UserId));
-            if (!plaintext.AsSpan().StartsWith(PasswordPayloadPrefix))
-            {
-                ClearSlot();
-                return Result.Success<RememberMeSavedLogin?>(null);
-            }
-
-            var savedCredential = Encoding.UTF8.GetString(plaintext.AsSpan(PasswordPayloadPrefix.Length));
-            var savedLogin = new RememberMeSavedLogin(
-                row.UserId,
-                row.MaskedUsername,
-                savedCredential,
-                true);
-            SaveStartupSnapshot(savedLogin);
-            return Result.Success<RememberMeSavedLogin?>(savedLogin);
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or System.Security.Cryptography.CryptographicException)
+        if (row is null ||
+            string.IsNullOrWhiteSpace(row.UserId) ||
+            string.IsNullOrWhiteSpace(row.UsernameNormalized) ||
+            string.IsNullOrWhiteSpace(row.CurrentUsernameNormalized))
         {
             ClearSlot();
-            return Result.Success<RememberMeSavedLogin?>(null);
+            return Result.Success<RememberedLoginAccount?>(null);
         }
+
+        var normalized = UsernameCanonicalValidator.Normalize(row.UsernameNormalized);
+        if (!normalized.IsSuccess ||
+            !StringComparer.Ordinal.Equals(normalized.Value, row.CurrentUsernameNormalized))
+        {
+            ClearSlot();
+            return Result.Success<RememberedLoginAccount?>(null);
+        }
+
+        return Result.Success<RememberedLoginAccount?>(
+            new RememberedLoginAccount(row.UserId, normalized.Value));
     }
 
     public Result ClearSlot()
     {
-        executor.Execute("DELETE FROM RememberMeSlot;");
-        ClearStartupSnapshot();
+        return ClearSlot(executor);
+    }
+
+    public Result ClearSlot(IHostPersistenceCommandExecutor commands)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
+        commands.Execute("DELETE FROM RememberMeSlot;");
         return Result.Success();
-    }
-
-    private void SaveStartupSnapshot(RememberMeSavedLogin savedLogin)
-    {
-        try
-        {
-            startupSnapshotSinkCore.Save(savedLogin);
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
-        {
-        }
-    }
-
-    private void ClearStartupSnapshot()
-    {
-        try
-        {
-            startupSnapshotSinkCore.Clear();
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
-        {
-        }
     }
 
     private sealed class RememberMeRow
     {
         public string? UserId { get; init; }
 
-        public string? MaskedUsername { get; init; }
+        public string? UsernameNormalized { get; init; }
 
-        public byte[]? ProtectedRememberMeBlob { get; init; }
+        public string? CurrentUsernameNormalized { get; init; }
     }
 }

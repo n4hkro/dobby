@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Windows;
 using System.Windows.Threading;
 using Dobby.Core;
@@ -9,18 +8,11 @@ namespace Dobby.Host.Login;
 
 public partial class LoginWindow : Window
 {
-    private static readonly PropertyInfo PasswordBoxPasswordProperty =
-        typeof(System.Windows.Controls.PasswordBox).GetProperty(nameof(System.Windows.Controls.PasswordBox.Password))
-        ?? throw new MissingMemberException(
-            nameof(System.Windows.Controls.PasswordBox),
-            nameof(System.Windows.Controls.PasswordBox.Password));
-
     private ILoginRuntimeWorkflow? loginWorkflow;
     private LoginViewModel viewModel;
     private RecoveryViewModel? recoveryViewModel;
     private readonly HostStringCatalog strings = new();
     private DispatcherTimer? throttleTimer;
-    private DispatcherTimer? credentialWarmupTimer;
     private bool applyingInitialState;
     private bool userEditedLoginFields;
 
@@ -45,7 +37,6 @@ public partial class LoginWindow : Window
         Closed += (_, _) =>
         {
             StopThrottleTimer();
-            StopCredentialWarmupTimer();
         };
     }
 
@@ -91,19 +82,16 @@ public partial class LoginWindow : Window
         if (userEditedLoginFields)
         {
             ApplyInitialState(preserveLoginFields: true);
-            QueueCredentialWarmup();
             return;
         }
 
         if (shouldKeepRenderedLoginFields)
         {
             ApplyRuntimeStateWithoutLoginFieldReset();
-            QueueCredentialWarmup();
             return;
         }
 
         ApplyInitialState();
-        QueueCredentialWarmup();
     }
 
     public void ShowRuntimeInitializationFailure()
@@ -117,7 +105,7 @@ public partial class LoginWindow : Window
         var workflow = loginWorkflow;
         if (workflow is null)
         {
-            ShowError("Login runtime is unavailable.");
+            ShowRuntimeInitializationFailure();
             return;
         }
 
@@ -125,7 +113,7 @@ public partial class LoginWindow : Window
         PostLoginTiming = postLoginTiming;
         var submission = new LoginSubmission(
             UsernameBox.Text,
-            viewModel.SubmittedPassword(PasswordBox.Password),
+            PasswordBox.Password,
             SubmittedDisplayName(),
             RememberMeCheckBox.IsChecked == true,
             CorrelationId.New());
@@ -196,10 +184,6 @@ public partial class LoginWindow : Window
         {
             UsernameBox.Text = viewModel.Username ?? string.Empty;
             RememberMeCheckBox.IsChecked = viewModel.RememberMeSelected;
-            if (viewModel.InitialPasswordDisplayValue is not null)
-            {
-                ApplyInitialPassword(viewModel.InitialPasswordDisplayValue);
-            }
         }
         else
         {
@@ -211,15 +195,10 @@ public partial class LoginWindow : Window
         ApplyThrottleState();
     }
 
-    private void ApplyInitialPassword(string value)
-    {
-        PasswordBoxPasswordProperty.SetValue(PasswordBox, value);
-    }
-
     private bool ShouldKeepRenderedLoginFields(LoginViewModel runtimeViewModel)
     {
-        return viewModel.IsPasswordPrefilled &&
-            runtimeViewModel.IsPasswordPrefilled &&
+        return viewModel.ShouldShowDisplayNameInput == runtimeViewModel.ShouldShowDisplayNameInput &&
+            viewModel.RememberMeSelected == runtimeViewModel.RememberMeSelected &&
             StringComparer.Ordinal.Equals(viewModel.Username, runtimeViewModel.Username);
     }
 
@@ -234,7 +213,6 @@ public partial class LoginWindow : Window
         if (!applyingInitialState)
         {
             userEditedLoginFields = true;
-            ScheduleCredentialWarmup();
         }
     }
 
@@ -247,61 +225,6 @@ public partial class LoginWindow : Window
 
         userEditedLoginFields = true;
         viewModel.EditPassword(PasswordBox.Password);
-        ScheduleCredentialWarmup();
-    }
-
-    private void ScheduleCredentialWarmup()
-    {
-        if (loginWorkflow is not ILoginCredentialWarmupWorkflow)
-        {
-            return;
-        }
-
-        credentialWarmupTimer ??= CreateCredentialWarmupTimer();
-        credentialWarmupTimer.Stop();
-        credentialWarmupTimer.Start();
-    }
-
-    private DispatcherTimer CreateCredentialWarmupTimer()
-    {
-        var timer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(300)
-        };
-        timer.Tick += (_, _) =>
-        {
-            StopCredentialWarmupTimer();
-            QueueCredentialWarmup();
-        };
-        return timer;
-    }
-
-    private void QueueCredentialWarmup()
-    {
-        if (loginWorkflow is not ILoginCredentialWarmupWorkflow warmupWorkflow)
-        {
-            return;
-        }
-
-        var username = UsernameBox.Text;
-        var credential = viewModel.IsPasswordPrefilled
-            ? viewModel.Password
-            : PasswordBox.Password;
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(credential))
-        {
-            return;
-        }
-
-        _ = warmupWorkflow.WarmCredentialsAsync(new LoginCredentialWarmup(
-            username,
-            credential,
-            CorrelationId.New()));
-    }
-
-    private void StopCredentialWarmupTimer()
-    {
-        credentialWarmupTimer?.Stop();
-        credentialWarmupTimer = null;
     }
 
     private void ApplyThrottleState()

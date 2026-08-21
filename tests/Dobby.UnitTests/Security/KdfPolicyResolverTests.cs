@@ -34,4 +34,19 @@ public sealed class KdfPolicyResolverTests
         result.IsSuccess.ShouldBeFalse();
         result.ErrorCode.ShouldBe(ErrorCode.Unauthorized);
     }
+
+    [Fact]
+    public void Every_configuration_accepted_kdf_has_a_runtime_implementation()
+    {
+        foreach (var mode in DobbyOptionsValidator.SupportedPasswordKdfModes)
+        {
+            var validation = new DobbyOptionsValidator().Validate(
+                Microsoft.Extensions.Options.Options.DefaultName,
+                new DobbyOptions { Auth = new AuthOptions { PasswordKdfMode = mode } });
+            var resolved = new KdfPolicyResolver(new AuthOptions { PasswordKdfMode = mode }).Resolve();
+
+            validation.Succeeded.ShouldBeTrue();
+            resolved.IsSuccess.ShouldBeTrue();
+        }
+    }
 }

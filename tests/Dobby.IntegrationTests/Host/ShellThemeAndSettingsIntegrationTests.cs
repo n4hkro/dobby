@@ -43,7 +43,6 @@ public sealed class ShellThemeAndSettingsIntegrationTests
             fixture.Options,
             TimeProvider.System,
             new RecordingProtector(),
-            new RecordingProtector(),
             reporter,
             activeSession: new SessionRecord(
                 Guid.NewGuid().ToString("D"),

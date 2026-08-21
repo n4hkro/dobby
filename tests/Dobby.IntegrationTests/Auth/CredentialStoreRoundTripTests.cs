@@ -3,6 +3,7 @@ using Dobby.Core;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
 using Dobby.Security.Authentication;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 using System.Security.Cryptography;
 
@@ -192,6 +193,58 @@ public sealed class CredentialStoreRoundTripTests
     }
 
     [Fact]
+    public void Credential_store_upgrades_valid_legacy_iterations_only_after_successful_verification()
+    {
+        using var fixture = CredentialStoreFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        var createdAt = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+        var upgradedAt = DateTimeOffset.Parse("2026-08-21T10:00:00Z");
+        fixture.Executor.Execute(
+            "INSERT INTO Users(UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc) VALUES (@UserId, 'owner', NULL, 1, 1, @Now, @Now);",
+            new { UserId = "user-1", Now = createdAt.ToString("O") });
+        var protector = new RecordingProtector();
+        var salt = Enumerable.Range(1, 16).Select(value => (byte)value).ToArray();
+        var legacyHash = Rfc2898DeriveBytes.Pbkdf2(
+            "correct horse battery staple",
+            salt,
+            KdfPolicy.MinimumVerifiablePbkdf2Iterations,
+            HashAlgorithmName.SHA256,
+            32);
+        fixture.Executor.Execute(
+            "INSERT INTO Credentials(CredentialId, UserId, KdfMode, KdfVersion, PasswordHash, Salt, SaltBitLength, CreatedAtUtc, UpdatedAtUtc, PasswordChangedAtUtc) VALUES (@CredentialId, @UserId, 'Pbkdf2Sha256', @KdfVersion, @PasswordHash, @Salt, 128, @Now, @Now, NULL);",
+            new
+            {
+                CredentialId = Guid.CreateVersion7().ToString("D"),
+                UserId = "user-1",
+                KdfVersion = $"PBKDF2-HMAC-SHA256:{KdfPolicy.MinimumVerifiablePbkdf2Iterations}",
+                PasswordHash = protector.Protect(legacyHash, []),
+                Salt = protector.Protect(salt, []),
+                Now = createdAt.ToString("O")
+            });
+        var store = new CredentialStore(
+            fixture.Executor,
+            protector,
+            new KdfPolicyResolver(new AuthOptions { PasswordKdfMode = "Pbkdf2Sha256" }),
+            fixture.ApplicationEntropy,
+            new FakeTimeProvider(upgradedAt));
+
+        store.VerifyPassword("user-1", "wrong password").Value.ShouldBeFalse();
+        fixture.Executor.QueryScalar<string>(
+                "SELECT KdfVersion FROM Credentials WHERE UserId = 'user-1';")
+            .ShouldBe($"PBKDF2-HMAC-SHA256:{KdfPolicy.MinimumVerifiablePbkdf2Iterations}");
+
+        store.VerifyPassword("user-1", "correct horse battery staple").Value.ShouldBeTrue();
+
+        var upgraded = fixture.Executor.Query<CredentialTimestampsRow>(
+            "SELECT KdfVersion, CreatedAtUtc, UpdatedAtUtc, PasswordChangedAtUtc FROM Credentials WHERE UserId = 'user-1';")
+            .Single();
+        upgraded.KdfVersion.ShouldBe("PBKDF2-HMAC-SHA256:600000");
+        upgraded.CreatedAtUtc.ShouldBe(createdAt.ToString("O"));
+        upgraded.UpdatedAtUtc.ShouldBe(upgradedAt.ToString("O"));
+        upgraded.PasswordChangedAtUtc.ShouldBe(upgradedAt.ToString("O"));
+    }
+
+    [Fact]
     public void Credential_store_fails_closed_for_under_floor_persisted_hash_length()
     {
         using var fixture = CredentialStoreFixture.Create();
@@ -241,6 +294,17 @@ public sealed class CredentialStoreRoundTripTests
         public byte[] Salt { get; init; } = [];
 
         public int SaltBitLength { get; init; }
+    }
+
+    private sealed class CredentialTimestampsRow
+    {
+        public string KdfVersion { get; init; } = string.Empty;
+
+        public string CreatedAtUtc { get; init; } = string.Empty;
+
+        public string UpdatedAtUtc { get; init; } = string.Empty;
+
+        public string PasswordChangedAtUtc { get; init; } = string.Empty;
     }
 
     private sealed class RecordingProtector : IProtectedDataProtector

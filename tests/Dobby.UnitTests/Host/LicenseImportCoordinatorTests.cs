@@ -313,10 +313,14 @@ public sealed class LicenseImportCoordinatorTests
 
     private sealed class InMemoryAdminSigningMaterialProvider(string profile, ECDsa key) : IAdminSigningMaterialProvider
     {
-        public AdminSigningMaterialResult Resolve(string signingProfile)
+        public AdminSigningMaterialResult Resolve(string signingProfile, string purpose)
         {
             return signingProfile.Equals(profile, StringComparison.Ordinal)
-                ? AdminSigningMaterialResult.Success(new AdminSigningMaterial(signingProfile, key))
+                ? AdminSigningMaterialResult.Success(new AdminSigningMaterial(
+                    signingProfile,
+                    purpose,
+                    "license-test-2026-01",
+                    key))
                 : AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
         }
     }

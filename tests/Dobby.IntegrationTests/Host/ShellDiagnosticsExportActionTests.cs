@@ -326,14 +326,59 @@ public sealed class ShellDiagnosticsExportActionTests
             {
                 ShowWindow(window);
                 OpenProfileMenu(window);
+                FindNamed<PasswordBox>(window, "CurrentPasswordBox").Password = "current password";
                 FindNamed<PasswordBox>(window, "NewPasswordBox").Password = "new password";
+                FindNamed<PasswordBox>(window, "ConfirmNewPasswordBox").Password = "new password";
                 FindNamed<Button>(window, "ChangePasswordButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Pump(window);
 
                 calls.ShouldBe(1);
                 busyTextSeenByBackend.ShouldBe(strings.GetString(HostResourceKeys.ShellProfilePasswordChangeBusy));
                 shell.StatusText.ShouldBe(strings.GetString(HostResourceKeys.ShellProfilePasswordChangeSuccess));
+                FindNamed<PasswordBox>(window, "CurrentPasswordBox").Password.ShouldBeEmpty();
                 FindNamed<PasswordBox>(window, "NewPasswordBox").Password.ShouldBeEmpty();
+                FindNamed<PasswordBox>(window, "ConfirmNewPasswordBox").Password.ShouldBeEmpty();
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Authenticated_shell_rejects_password_confirmation_mismatch_before_backend_call()
+    {
+        var calls = 0;
+        var strings = HostStringCatalog.CreateResourceBacked();
+
+        RunOnSta(() =>
+        {
+            var shell = ShellViewModel.CreateDefault(strings);
+            var window = CreateHiddenWindow(
+                shell,
+                new ShellActionOverrides
+                {
+                    ChangePassword = _ =>
+                    {
+                        calls++;
+                        return Result.Success();
+                    }
+                });
+
+            try
+            {
+                ShowWindow(window);
+                OpenProfileMenu(window);
+                FindNamed<PasswordBox>(window, "CurrentPasswordBox").Password = "current password";
+                FindNamed<PasswordBox>(window, "NewPasswordBox").Password = "new password";
+                FindNamed<PasswordBox>(window, "ConfirmNewPasswordBox").Password = "different password";
+
+                FindNamed<Button>(window, "ChangePasswordButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Pump(window);
+
+                calls.ShouldBe(0);
+                shell.StatusText.ShouldBe(strings.GetString(HostResourceKeys.ShellProfilePasswordChangeError));
             }
             finally
             {
@@ -477,7 +522,9 @@ public sealed class ShellDiagnosticsExportActionTests
                 ShowWindow(window);
                 OpenProfileMenu(window);
 
+                FindNamed<PasswordBox>(window, "CurrentPasswordBox").Password = "current password";
                 FindNamed<PasswordBox>(window, "NewPasswordBox").Password = "new password";
+                FindNamed<PasswordBox>(window, "ConfirmNewPasswordBox").Password = "new password";
                 FindNamed<Button>(window, "ChangePasswordButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Pump(window);
                 shell.StatusText.ShouldBe(strings.GetString(HostResourceKeys.ShellProfilePasswordChangeDenied));

@@ -211,3 +211,29 @@ Storage code and future skeleton shape must keep provider semantics explicit:
 
 These guardrails are documentation-stage rules now and skeleton-stage rules only
 after a separate implementation phase is approved.
+
+## 2026-08 Engineering Amendment (Controlling)
+
+- Composition roots expose explicit pre-authenticated and authenticated scopes;
+  constructors and factories do not start hidden background work.
+- Use provider-owned transactions/unit-of-work for state plus audit/outbox.
+  Multi-write application workflows may not advertise atomicity by ordering
+  unrelated repository calls.
+- Untrusted byte streams are validated incrementally with explicit limits before
+  materialization. Archive extraction resolves the final absolute destination
+  under a verified root and never overwrites an existing file.
+- Specify cryptographic encoding in code and tests; never depend on an overload's
+  default ECDSA signature format. Canonical payloads include version, purpose and
+  key ID/domain separation.
+- Async UI event handlers call genuinely asynchronous application operations,
+  pass cancellation tokens and never wrap arbitrary synchronous I/O in a way
+  that loses lifetime, progress or error ownership.
+- Plugin SDK boundaries use immutable declarative models and host-mediated
+  commands. WPF types, `IServiceProvider`, filesystem/network handles and raw
+  delegates do not cross the contract boundary.
+- Expected `Result` failures are not recorded as runtime faults. Only exceptions
+  or explicit plugin-defect outcomes affect fault/quarantine policy.
+- Security logs use typed structured fields and allow-list redaction. Raw
+  exceptions are diagnostic-only after sanitization and correlation.
+- Tests assert observable behavior, restart/crash recovery and negative trust
+  cases. Source inspection tests are permitted only for structural invariants.

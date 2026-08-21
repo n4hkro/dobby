@@ -238,6 +238,12 @@
     <value>Anonymous user</value>
   </data><data name="Dobby.Shell.Profile.ChangePassword" xml:space="preserve">
     <value>Change password</value>
+  </data><data name="Dobby.Shell.Profile.PasswordChange.CurrentPassword" xml:space="preserve">
+    <value>Current password</value>
+  </data><data name="Dobby.Shell.Profile.PasswordChange.NewPassword" xml:space="preserve">
+    <value>New password</value>
+  </data><data name="Dobby.Shell.Profile.PasswordChange.ConfirmNewPassword" xml:space="preserve">
+    <value>Confirm new password</value>
   </data><data name="Dobby.Shell.Profile.ManualLock" xml:space="preserve">
     <value>Lock</value>
   </data><data name="Dobby.Shell.Profile.Logout" xml:space="preserve">
@@ -284,6 +290,9 @@
     <value>Managed user</value>
   </data><data name="About.OwnerStatus.Registered" xml:space="preserve">
     <value>Owner is registered</value>
+  </data>
+  <data name="Dobby.Host.Login.RememberMe" xml:space="preserve">
+    <value>Remember this username</value>
   </data><data name="Dobby.Host.AuditRetentionSweep" xml:space="preserve">
     <value>Audit retention cleanup</value>
   </data><data name="Dobby.Shell.Diagnostics.Export.Denied" xml:space="preserve"><value>You do not have permission to export diagnostics</value></data><data name="Dobby.Shell.Profile.ManualLock.Denied" xml:space="preserve"><value>You do not have permission to lock the session</value></data><data name="Dobby.Shell.Profile.PasswordChange.Denied" xml:space="preserve"><value>You do not have permission to change the password</value></data><data name="Dobby.Host.Settings.SecuritySession.Save" xml:space="preserve"><value>Save</value></data><data name="Dobby.Shell.Diagnostics.Export.Success" xml:space="preserve"><value>Diagnostics exported</value></data><data name="Dobby.Shell.Profile.PasswordChange.Error" xml:space="preserve"><value>Password could not be changed</value></data><data name="Dobby.Shell.Profile.Logout.Busy" xml:space="preserve"><value>Logging out</value></data><data name="Dobby.Shell.Profile.Logout.Error" xml:space="preserve"><value>Could not log out</value></data><data name="Dobby.Shell.Profile.ManualLock.Busy" xml:space="preserve"><value>Locking session</value></data><data name="Dobby.Shell.Profile.PasswordChange.Success" xml:space="preserve"><value>Password changed</value></data><data name="Dobby.Shell.Profile.Logout.Success" xml:space="preserve"><value>Logged out</value></data><data name="Dobby.Shell.Diagnostics.Export.Busy" xml:space="preserve"><value>Exporting diagnostics</value></data><data name="Dobby.Shell.Profile.ManualLock.Success" xml:space="preserve"><value>Session locked</value></data><data name="Dobby.Shell.Profile.Logout.Denied" xml:space="preserve"><value>You do not have permission to log out</value></data><data name="Dobby.Shell.Profile.ManualLock.Error" xml:space="preserve"><value>Session could not be locked</value></data><data name="Dobby.Shell.Profile.PasswordChange.Busy" xml:space="preserve"><value>Changing password</value></data><data name="Dobby.Shell.Diagnostics.Export.Error" xml:space="preserve"><value>Diagnostics could not be exported</value></data><data name="Dobby.Shell.WorkSession.Restore" xml:space="preserve"><value>Restore</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Title" xml:space="preserve"><value>Confirm physical printing</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Message" xml:space="preserve"><value>The license is in read-only mode. Continue printing to this physical printer?</value></data></root>

@@ -194,3 +194,25 @@ Mərhələ 1 yalnız sənəd işidir: `ADR-0056`, `ADR-0057`, bağlı spec-lər 
 yaradılır və mövcud sənədlər mode-aware edilir. Bu mərhələ code skeleton,
 `Dobby.BranchSetup` implementation, Npgsql runtime adapter və installer işi
 başlatmır.
+
+## 2026-08 Security and Completion Amendment (Controlling)
+
+This amendment overrides conflicting earlier wording and is governed by
+`ADR-0058` through `ADR-0061`.
+
+- Standalone completion and production-release evidence are the current product
+  milestone. Branch Shared remains a separately approved future track.
+- "Remember me" may retain only a non-secret account identifier. A password,
+  password-equivalent verifier or replayable login proof is never persisted for
+  one-click login.
+- Login-first means the pre-authentication process is deliberately small. Full
+  shell, plugin, licensing, retention and business runtimes begin only after an
+  authenticated session exists.
+- In-process plugins are trusted, reviewed, signed product code. Dobby does not
+  claim that `AssemblyLoadContext`, capability wrappers or namespace scanning
+  sandbox hostile code. A future untrusted-plugin product requires a separate
+  process/OS isolation design.
+- Host-owned support diagnostics remain available in every license lifecycle
+  state. License gates still protect plugin/domain exports and mutations.
+- Security-relevant state changes and their audit/outbox records form one
+  durable unit; success is never reported for a partially committed mutation.

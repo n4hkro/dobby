@@ -132,3 +132,15 @@ the package validation flow.
 - `AC-022` permission guard behavior.
 - `AC-031` plugin list/lifecycle permission behavior.
 - `AC-032` runtime fault isolation.
+
+## 2026-08 Completion Amendment (Controlling)
+
+The sample is release evidence only when its package has real computed content
+hashes, a valid purpose-separated development/release signature, compatible
+manifest/API versions and installs through the same manager path as customer
+packages. Dummy hashes or signatures are fixtures, not a deliverable.
+
+Its declarative page demonstrates localization, validated input, a table/list,
+an asynchronous cancellable command and deterministic work-session closure.
+The release pipeline verifies it with the repository-owned
+`verify-plugin-package` command and includes negative tamper/compatibility cases.

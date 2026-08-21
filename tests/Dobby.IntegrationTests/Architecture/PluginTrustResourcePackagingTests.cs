@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Xml.Linq;
+using Dobby.Security.Authentication;
 using Dobby.Security.Trust;
 using Shouldly;
 
@@ -33,7 +34,7 @@ public sealed class PluginTrustResourcePackagingTests
     }
 
     [Fact]
-    public void Security_project_embeds_exactly_one_profile_selected_trust_anchor()
+    public void Security_project_embeds_only_profile_selected_purpose_separated_trust_anchors()
     {
         var project = XDocument.Load(Path.Combine(
             RepoRoot().FullName,
@@ -57,6 +58,16 @@ public sealed class PluginTrustResourcePackagingTests
             "'$(DobbyPluginTrustProfile)' == 'DevQa'",
             @"..\Dobby.Host\Trust\dev-qa-public-key.pem",
             PluginTrustPublicKeyProvider.DevQaResourceName);
+        AssertResource(
+            project,
+            "'$(DobbyPluginTrustProfile)' == 'Production'",
+            @"..\Dobby.Host\Trust\vendor-recovery-public-key.pem",
+            VendorRecoveryPublicKey.ProductionResourceName);
+        AssertResource(
+            project,
+            "'$(DobbyPluginTrustProfile)' == 'DevQa'",
+            @"..\Dobby.Host\Trust\dev-qa-recovery-public-key.pem",
+            VendorRecoveryPublicKey.DevQaResourceName);
     }
 
     [Fact]
@@ -73,27 +84,15 @@ public sealed class PluginTrustResourcePackagingTests
     }
 
     [Fact]
-    public void Admin_recovery_concrete_verifier_proof_uses_embedded_dev_qa_trust_anchor_without_injected_resource_map()
+    public void Recovery_trust_anchor_is_embedded_separately_from_plugin_trust_and_excludes_test_key_in_production()
     {
-        var source = File.ReadAllText(Path.Combine(
-            RepoRoot().FullName,
-            "tests",
-            "Dobby.UnitTests",
-            "Admin",
-            "AdminCommandHostTests.cs"));
-        var start = source.IndexOf(
-            "Create_recovery_response_writes_host_compatible_envelope_through_concrete_verifier",
-            StringComparison.Ordinal);
-        start.ShouldBeGreaterThanOrEqualTo(0);
-        var end = source.IndexOf("Create_plugin_license_writes_importable_license", start, StringComparison.Ordinal);
-        end.ShouldBeGreaterThan(start);
-        var proof = source[start..end];
+        var assembly = typeof(VendorRecoveryPublicKey).Assembly;
+        var resources = assembly.GetManifestResourceNames();
 
-        proof.ShouldContain("ApprovedDevQaBootstrapSigningKeyPath");
-        proof.ShouldContain("new PluginTrustPublicKeyProvider(DobbyPluginTrustProfile.DevQa)");
-        proof.ShouldNotContain("new Dictionary<string, byte[]>", Case.Sensitive);
-        proof.ShouldNotContain("new InMemorySigningMaterialProvider(\"dev-qa\", key)", Case.Sensitive);
-        proof.ShouldNotContain("new VendorRecoveryPublicKey(publicKeyProvider)", Case.Sensitive);
+        VendorRecoveryPublicKey.ProductionResourceName.ShouldNotBe(PluginTrustPublicKeyProvider.ProductionResourceName);
+        resources.ShouldContain(VendorRecoveryPublicKey.ProductionResourceName);
+        resources.ShouldNotContain(VendorRecoveryPublicKey.DevQaResourceName);
+        Should.NotThrow(() => new VendorRecoveryPublicKey(DobbyPluginTrustProfile.Production));
     }
 
     private static void AssertResource(
@@ -109,7 +108,10 @@ public sealed class PluginTrustResourcePackagingTests
                 element.Attribute("Condition")?.Value == expectedCondition);
         var resource = itemGroup
             .Elements()
-            .Single(element => element.Name.LocalName == "EmbeddedResource");
+            .Single(element =>
+                element.Name.LocalName == "EmbeddedResource" &&
+                element.Attribute("Include")?.Value == expectedInclude &&
+                element.Attribute("LogicalName")?.Value == expectedLogicalName);
 
         resource.Attribute("Include")?.Value.ShouldBe(expectedInclude);
         resource.Attribute("LogicalName")?.Value.ShouldBe(expectedLogicalName);

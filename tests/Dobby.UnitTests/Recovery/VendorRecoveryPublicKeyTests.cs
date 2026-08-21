@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Dobby.Security.Authentication;
 using Dobby.Security.Trust;
 using Shouldly;
@@ -9,46 +7,42 @@ namespace Dobby.UnitTests.Recovery;
 public sealed class VendorRecoveryPublicKeyTests
 {
     [Fact]
-    public void Production_vendor_recovery_public_key_rejects_malformed_signature_material()
+    public void Production_ring_rejects_malformed_unknown_and_cross_purpose_material()
     {
         IVendorRecoveryPublicKey publicKey = new VendorRecoveryPublicKey();
+        var now = DateTimeOffset.Parse("2026-08-21T00:00:00Z");
 
-        publicKey.Verify([1, 2, 3], [4, 5, 6]).ShouldBeFalse();
+        publicKey.Verify(
+            VendorRecoveryPublicKey.ProductionKeyId,
+            ArtifactSignaturePurposes.OwnerRecoveryResponse,
+            [1, 2, 3],
+            [4, 5, 6],
+            now).ShouldBeFalse();
+        publicKey.Verify(
+            "unknown-key",
+            ArtifactSignaturePurposes.OwnerRecoveryResponse,
+            [1, 2, 3],
+            new byte[64],
+            now).ShouldBeFalse();
+        publicKey.Verify(
+            VendorRecoveryPublicKey.ProductionKeyId,
+            ArtifactSignaturePurposes.PluginPackage,
+            [1, 2, 3],
+            new byte[64],
+            now).ShouldBeFalse();
     }
 
     [Fact]
-    public void Vendor_recovery_public_key_verifies_p1363_signature_from_embedded_trust_resource()
+    public void Production_profile_cannot_load_test_only_recovery_key()
     {
-        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var payload = Encoding.UTF8.GetBytes("""{"requestId":"request-1"}""");
-        var signature = key.SignData(
-            payload,
-            HashAlgorithmName.SHA256,
-            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        var publicKey = new VendorRecoveryPublicKey(new PluginTrustPublicKeyProvider(
-            DobbyPluginTrustProfile.DevQa,
-            new Dictionary<string, byte[]>(StringComparer.Ordinal)
-            {
-                [PluginTrustPublicKeyProvider.DevQaResourceName] = EncodePem(key.ExportSubjectPublicKeyInfo())
-            }));
+        var key = new ArtifactVerificationKey(
+            "test-key",
+            ArtifactSignaturePurposes.OwnerRecoveryResponse,
+            [1, 2, 3],
+            DateTimeOffset.UnixEpoch,
+            null,
+            IsTestOnly: true);
 
-        publicKey.Verify(payload, signature).ShouldBeTrue();
-        publicKey.Verify(Encoding.UTF8.GetBytes("""{"requestId":"other"}"""), signature).ShouldBeFalse();
-    }
-
-    [Fact]
-    public void Vendor_recovery_public_key_fails_closed_when_expected_trust_resource_is_missing()
-    {
-        var publicKey = new VendorRecoveryPublicKey(new PluginTrustPublicKeyProvider(
-            DobbyPluginTrustProfile.DevQa,
-            new Dictionary<string, byte[]>(StringComparer.Ordinal)));
-
-        publicKey.Verify([1, 2, 3], new byte[64]).ShouldBeFalse();
-    }
-
-    private static byte[] EncodePem(byte[] der)
-    {
-        var base64 = Convert.ToBase64String(der, Base64FormattingOptions.InsertLineBreaks);
-        return Encoding.UTF8.GetBytes($"-----BEGIN PUBLIC KEY-----\n{base64}\n-----END PUBLIC KEY-----\n");
+        Should.Throw<InvalidOperationException>(() => new ArtifactPublicKeyRing([key], productionProfile: true));
     }
 }

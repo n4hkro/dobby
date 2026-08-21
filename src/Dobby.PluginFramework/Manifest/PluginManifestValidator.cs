@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Dobby.Core;
 using Dobby.Core.Versioning;
+using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authorization;
 using NuGet.Versioning;
 
@@ -28,10 +29,6 @@ public static class PluginManifestValidator
     private static readonly Regex RouteKeyPattern = new("^[A-Za-z0-9][A-Za-z0-9._/-]*$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex PluginIdPattern = new("^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex OperationTargetIdPattern = new("^[A-Za-z0-9][A-Za-z0-9_-]*(?:\\.[A-Za-z0-9][A-Za-z0-9_-]*)+$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
-    private static readonly Regex PackageRelativePathPattern = new(
-        "^(?!/)(?![A-Za-z]:)(?!\\\\)(?!\\.\\.?$)(?!\\.\\./)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\])(?!.*[\\u0000-\\u001F]).+$",
-        RegexOptions.CultureInvariant | RegexOptions.Compiled);
-
     public static Result<PluginManifest> Validate(PluginManifest manifest, HostVersion hostVersion)
     {
         var detailed = ValidateDetailed(manifest, hostVersion);
@@ -323,7 +320,7 @@ public static class PluginManifestValidator
 
     private static void ValidateFiles(IReadOnlyList<PluginPackageFile> files, ICollection<PluginManifestValidationReason> reasons)
     {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var declaredPaths = new List<string>(files.Count);
 
         if (files.Count == 0)
         {
@@ -339,16 +336,32 @@ public static class PluginManifestValidator
             {
                 reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Package file path is malformed.", $"{path}.path"));
             }
+            else
+            {
+                declaredPaths.Add(file.Path);
+            }
 
             if (!IsSha256(file.Sha256))
             {
                 reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Package file sha256 must be lowercase hex.", $"{path}.sha256"));
             }
 
-            if (!seen.Add(file.Path))
-            {
-                reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Package file paths must be unique.", $"{path}.path"));
-            }
+        }
+
+        if (PluginPackagePathPolicy.HasCaseOrUnicodeCollision(declaredPaths))
+        {
+            reasons.Add(new PluginManifestValidationReason(
+                "invalid-manifest",
+                "Package file paths must be unique under case-insensitive Unicode-normalized comparison.",
+                "files"));
+        }
+
+        if (PluginPackagePathPolicy.HasFileDirectoryPrefixCollision(declaredPaths))
+        {
+            reasons.Add(new PluginManifestValidationReason(
+                "invalid-manifest",
+                "A package file path cannot also be the directory prefix of another file.",
+                "files"));
         }
     }
 
@@ -383,10 +396,8 @@ public static class PluginManifestValidator
 
     private static bool IsCanonicalPackageRelativePath(string value)
     {
-        return PackageRelativePathPattern.IsMatch(value) &&
-            !value.Contains("..", StringComparison.Ordinal) &&
-            !value.StartsWith("/", StringComparison.Ordinal) &&
-            !value.Contains('\\', StringComparison.Ordinal);
+        return PluginPackagePathPolicy.TryNormalize(value, out var normalized) &&
+            normalized.Equals(value, StringComparison.Ordinal);
     }
 
     private static bool IsSha256(string value)

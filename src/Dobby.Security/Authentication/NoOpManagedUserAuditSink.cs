@@ -1,13 +1,39 @@
 using Dobby.Core;
+using Dobby.Infrastructure.Persistence;
 
 namespace Dobby.Security.Authentication;
 
-public sealed class NoOpManagedUserAuditSink : IManagedUserAuditSink
+public sealed class NoOpManagedUserAuditSink(IHostPersistenceCommandExecutor executor) : IManagedUserAuditSink
 {
-    public static NoOpManagedUserAuditSink Instance { get; } = new();
-
-    private NoOpManagedUserAuditSink()
+    public Result<T> ExecuteUserMutation<T>(
+        string actorId,
+        string targetUserId,
+        ManagedUserAuditAction action,
+        CorrelationId correlationId,
+        Func<IHostPersistenceCommandExecutor, Result<T>> mutation)
     {
+        return mutation(executor);
+    }
+
+    public Result ExecuteUserMutation(
+        string actorId,
+        string targetUserId,
+        ManagedUserAuditAction action,
+        CorrelationId correlationId,
+        Func<IHostPersistenceCommandExecutor, Result> mutation)
+    {
+        return mutation(executor);
+    }
+
+    public Result ExecutePermissionMutation(
+        string actorId,
+        string targetUserId,
+        string permissionKey,
+        bool grant,
+        CorrelationId correlationId,
+        Func<IHostPersistenceCommandExecutor, Result> mutation)
+    {
+        return mutation(executor);
     }
 
     public void AppendUserMutation(
