@@ -9,28 +9,35 @@ namespace Dobby.IntegrationTests.Architecture;
 
 public sealed class PluginTrustResourcePackagingTests
 {
-    private const string ApprovedProductionPemSha256 = "74ca9ee78d453e122d86047c90fd174e78fa1828647404e03122b6d7ab39201f";
+    private const string ApprovedProductionPluginPemSha256 = "fc8945a5b118db0951a29c0093af17f53f809d54bc6e490e930f423f04b4bf1f";
+    private const string ApprovedProductionLicensePemSha256 = "74bc41acb824f32052fdead5acb25599a91f3ce57408dd1b3c7af0fd9af49d9b";
     private const string Sprint8BootstrapPemSha256 = "00bedd1f30da9726b50e6aa6929d3df5e7d5e2dbaf05f6435503c01210f5ad1f";
-    private const string DevQaPemSha256 = "cb0d35dafea42031e18c778ff208d7b142b280d73ba68983d5f3afccb6a08afc";
+    private const string DevQaPluginPemSha256 = "c50affc2f2e4e3659eaf4c4c4fc3646eb2b117624b57a3fc034249e7b1d56e7a";
+    private const string DevQaLicensePemSha256 = "02f1ba638b092f314efa90f38323506ae053bd44438515bf021ec9e8b3ff135f";
     private const string TestOnlyRecoveryPemSha256 = "1a30c878be9f0d69adcfbad0a7244e19738a3c81fb9ca7eb2581a8b1c2455a19";
 
     [Fact]
     public void Production_source_public_pem_parses_and_matches_approved_hash()
     {
-        ParseAndHashPem("vendor-master-public-key.pem").ShouldBe(ApprovedProductionPemSha256);
+        ParseAndHashPem("vendor-plugin-package-public-key.pem").ShouldBe(ApprovedProductionPluginPemSha256);
+        ParseAndHashPem("vendor-plugin-license-public-key.pem").ShouldBe(ApprovedProductionLicensePemSha256);
+        ApprovedProductionPluginPemSha256.ShouldNotBe(ApprovedProductionLicensePemSha256);
     }
 
     [Fact]
     public void Bootstrap_dev_qa_and_test_only_public_keys_remain_negative_controls_for_production_hash()
     {
-        Sprint8BootstrapPemSha256.ShouldNotBe(ApprovedProductionPemSha256);
+        Sprint8BootstrapPemSha256.ShouldNotBe(ApprovedProductionPluginPemSha256);
 
-        PemSha256("dev-qa-public-key.pem").ShouldBe(DevQaPemSha256);
-        DevQaPemSha256.ShouldNotBe(ApprovedProductionPemSha256);
+        PemSha256("dev-qa-plugin-package-public-key.pem").ShouldBe(DevQaPluginPemSha256);
+        PemSha256("dev-qa-plugin-license-public-key.pem").ShouldBe(DevQaLicensePemSha256);
+        DevQaPluginPemSha256.ShouldNotBe(ApprovedProductionPluginPemSha256);
+        DevQaLicensePemSha256.ShouldNotBe(ApprovedProductionLicensePemSha256);
+        DevQaPluginPemSha256.ShouldNotBe(DevQaLicensePemSha256);
 
         PemSha256(Path.Combine("Recovery", "Fixtures", "TEST-ONLY", "vendor-recovery-public-key.TEST-ONLY.txt"))
             .ShouldBe(TestOnlyRecoveryPemSha256);
-        TestOnlyRecoveryPemSha256.ShouldNotBe(ApprovedProductionPemSha256);
+        TestOnlyRecoveryPemSha256.ShouldNotBe(ApprovedProductionPluginPemSha256);
     }
 
     [Fact]
@@ -51,13 +58,23 @@ public sealed class PluginTrustResourcePackagingTests
         AssertResource(
             project,
             "'$(DobbyPluginTrustProfile)' == 'Production'",
-            @"..\Dobby.Host\Trust\vendor-master-public-key.pem",
+            @"..\Dobby.Host\Trust\vendor-plugin-package-public-key.pem",
             PluginTrustPublicKeyProvider.ProductionResourceName);
         AssertResource(
             project,
+            "'$(DobbyPluginTrustProfile)' == 'Production'",
+            @"..\Dobby.Host\Trust\vendor-plugin-license-public-key.pem",
+            PluginTrustPublicKeyProvider.ProductionLicenseResourceName);
+        AssertResource(
+            project,
             "'$(DobbyPluginTrustProfile)' == 'DevQa'",
-            @"..\Dobby.Host\Trust\dev-qa-public-key.pem",
+            @"..\Dobby.Host\Trust\dev-qa-plugin-package-public-key.pem",
             PluginTrustPublicKeyProvider.DevQaResourceName);
+        AssertResource(
+            project,
+            "'$(DobbyPluginTrustProfile)' == 'DevQa'",
+            @"..\Dobby.Host\Trust\dev-qa-plugin-license-public-key.pem",
+            PluginTrustPublicKeyProvider.DevQaLicenseResourceName);
         AssertResource(
             project,
             "'$(DobbyPluginTrustProfile)' == 'Production'",
@@ -77,7 +94,9 @@ public sealed class PluginTrustResourcePackagingTests
         var resources = assembly.GetManifestResourceNames();
 
         resources.ShouldContain(PluginTrustPublicKeyProvider.ProductionResourceName);
+        resources.ShouldContain(PluginTrustPublicKeyProvider.ProductionLicenseResourceName);
         resources.ShouldNotContain(PluginTrustPublicKeyProvider.DevQaResourceName);
+        resources.ShouldNotContain(PluginTrustPublicKeyProvider.DevQaLicenseResourceName);
         assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
             .Single(attribute => attribute.Key == "DobbyPluginTrustProfile")
             .Value.ShouldBe("Production");

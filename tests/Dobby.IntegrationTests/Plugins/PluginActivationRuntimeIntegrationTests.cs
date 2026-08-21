@@ -309,9 +309,12 @@ public sealed class PluginActivationRuntimeIntegrationTests
         {
             var manifest = new Dictionary<string, object?>
             {
+                ["schemaVersion"] = 2,
+                ["purpose"] = "dobby.plugin-package",
                 ["pluginId"] = pluginId,
                 ["version"] = Version,
                 ["vendorId"] = "dobby.vendor",
+                ["hostApiVersion"] = "2.0",
                 ["minHostVersion"] = "1.0.0",
                 ["entryAssembly"] = EntryAssembly,
                 ["displayName"] = $"{pluginId} display",
@@ -344,9 +347,11 @@ public sealed class PluginActivationRuntimeIntegrationTests
                 },
                 ["signature"] = new Dictionary<string, object?>
                 {
+                    ["purpose"] = "dobby.plugin-package",
                     ["algorithm"] = "ECDSA-P256-SHA256",
-                    ["keyVersion"] = 1,
-                    ["value"] = "AQ"
+                    ["format"] = "IeeeP1363FixedFieldConcatenation",
+                    ["keyId"] = "plugin-prod-2026-01",
+                    ["value"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
                 }
             };
 

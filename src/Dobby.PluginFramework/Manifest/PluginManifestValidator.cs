@@ -3,6 +3,7 @@ using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authorization;
+using Dobby.Security.Trust;
 using NuGet.Versioning;
 
 namespace Dobby.PluginFramework.Manifest;
@@ -29,6 +30,7 @@ public static class PluginManifestValidator
     private static readonly Regex RouteKeyPattern = new("^[A-Za-z0-9][A-Za-z0-9._/-]*$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex PluginIdPattern = new("^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex OperationTargetIdPattern = new("^[A-Za-z0-9][A-Za-z0-9_-]*(?:\\.[A-Za-z0-9][A-Za-z0-9_-]*)+$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex HostApiVersionPattern = new("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     public static Result<PluginManifest> Validate(PluginManifest manifest, HostVersion hostVersion)
     {
         var detailed = ValidateDetailed(manifest, hostVersion);
@@ -45,6 +47,21 @@ public static class PluginManifestValidator
         }
 
         var reasons = new List<PluginManifestValidationReason>();
+
+        if (manifest.SchemaVersion != PluginManifestContract.CurrentSchemaVersion)
+        {
+            reasons.Add(new PluginManifestValidationReason("unsupported-manifest-version", "Only plugin manifest schema v2 is accepted for installation.", "schemaVersion"));
+        }
+
+        if (!manifest.Purpose.Equals(ArtifactSignaturePurposes.PluginPackage, StringComparison.Ordinal))
+        {
+            reasons.Add(new PluginManifestValidationReason("signature-failed", "Plugin manifest purpose is not approved.", "purpose"));
+        }
+
+        if (manifest.HostApiVersion.Length > 16 || !HostApiVersionPattern.IsMatch(manifest.HostApiVersion))
+        {
+            reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Host API version must use MAJOR.MINOR format.", "hostApiVersion"));
+        }
 
         if (!IsPluginId(manifest.PluginId))
         {
@@ -86,6 +103,8 @@ public static class PluginManifestValidator
             reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Icon path must be canonical when present.", "icon.path"));
         }
 
+        ValidateNativeLibraries(manifest.NativeLibraries, reasons);
+
         ValidateCapabilities(manifest.Capabilities, reasons);
         ValidateOperationTargets(manifest.PluginId, manifest.OperationTargets, reasons);
         ValidateExtensionPoints(manifest.ExtensionPoints, reasons);
@@ -96,6 +115,29 @@ public static class PluginManifestValidator
         return reasons.Count == 0
             ? PluginManifestValidationOutcome.Success(manifest)
             : PluginManifestValidationOutcome.Failure(reasons);
+    }
+
+    private static void ValidateNativeLibraries(
+        IReadOnlyList<string> nativeLibraries,
+        ICollection<PluginManifestValidationReason> reasons)
+    {
+        if (nativeLibraries.Count > 32)
+        {
+            reasons.Add(new PluginManifestValidationReason("invalid-manifest", "At most 32 native libraries may be declared.", "nativeLibraries"));
+        }
+
+        for (var index = 0; index < nativeLibraries.Count; index++)
+        {
+            if (!IsCanonicalPackageRelativePath(nativeLibraries[index]))
+            {
+                reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Native library path is malformed.", $"nativeLibraries[{index}]"));
+            }
+        }
+
+        if (PluginPackagePathPolicy.HasCaseOrUnicodeCollision(nativeLibraries))
+        {
+            reasons.Add(new PluginManifestValidationReason("invalid-manifest", "Native library paths must be unique.", "nativeLibraries"));
+        }
     }
 
     private static void ValidateCapabilities(IReadOnlyList<PluginCapability> capabilities, ICollection<PluginManifestValidationReason> reasons)
@@ -367,17 +409,30 @@ public static class PluginManifestValidator
 
     private static void ValidateSignature(PluginPackageSignature signature, ICollection<PluginManifestValidationReason> reasons)
     {
-        if (!signature.Algorithm.Equals("ECDSA-P256-SHA256", StringComparison.Ordinal))
+        if (!signature.Purpose.Equals(ArtifactSignaturePurposes.PluginPackage, StringComparison.Ordinal))
+        {
+            reasons.Add(new PluginManifestValidationReason("signature-failed", "Signature purpose is not approved.", "signature.purpose"));
+        }
+
+        if (!signature.Algorithm.Equals(ArtifactSignatureProfile.Algorithm, StringComparison.Ordinal))
         {
             reasons.Add(new PluginManifestValidationReason("signature-failed", "Signature algorithm is not approved.", "signature.algorithm"));
         }
 
-        if (signature.KeyVersion != 1)
+        if (!signature.Format.Equals(ArtifactSignatureProfile.Format, StringComparison.Ordinal))
         {
-            reasons.Add(new PluginManifestValidationReason("signature-failed", "Signature key version is not approved.", "signature.keyVersion"));
+            reasons.Add(new PluginManifestValidationReason("signature-failed", "Signature encoding format is not approved.", "signature.format"));
         }
 
-        if (!IsBase64Url(signature.Value))
+        if (signature.KeyId.Length is < 3 or > 64 || !LocalIdentifierPattern.IsMatch(signature.KeyId))
+        {
+            reasons.Add(new PluginManifestValidationReason("signature-failed", "Signature key id is malformed.", "signature.keyId"));
+        }
+
+        if (!ArtifactSignatureCodec.TryDecodeUnpaddedBase64Url(
+                signature.Value,
+                ArtifactSignatureProfile.P256SignatureLength,
+                out _))
         {
             reasons.Add(new PluginManifestValidationReason("signature-failed", "Signature value is malformed.", "signature.value"));
         }
@@ -403,13 +458,6 @@ public static class PluginManifestValidator
     private static bool IsSha256(string value)
     {
         return value.Length == 64 && value.All(character => Uri.IsHexDigit(character) && !char.IsUpper(character));
-    }
-
-    private static bool IsBase64Url(string value)
-    {
-        return value.Length > 0 && value.All(character =>
-            char.IsLetterOrDigit(character) ||
-            character is '-' or '_');
     }
 
     private static bool IsStableSemVer(string value)

@@ -424,9 +424,9 @@ public sealed class PluginInstallStatePersistenceTests
             new PluginPackageSignature("ECDSA-P256-SHA256", 1, "AQ"));
         var fingerprint = PluginPackageFingerprint.Compute(manifest);
         var manifestJson =
-            "{\"pluginId\":\"com.dobby.sample\",\"version\":\"1.0.0\",\"vendorId\":\"dobby.vendor\",\"minHostVersion\":\"1.0.0\",\"entryAssembly\":\"bin/plugins/com.dobby.sample.dll\",\"displayName\":\"Sample Plugin\",\"description\":\"Sample plugin description\",\"dependsOn\":[],\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}],\"operationTargets\":[{\"id\":\"com.dobby.sample.greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}],\"extensionPoints\":[{\"id\":\"sample.home\",\"target\":\"plugin-page-region\",\"routeKey\":\"sample.home\",\"labelKey\":\"sample.home.label\",\"group\":\"default\",\"weight\":100}],\"files\":[{\"path\":\"content/hello.txt\",\"sha256\":\"" +
+            "{\"schemaVersion\":2,\"purpose\":\"dobby.plugin-package\",\"pluginId\":\"com.dobby.sample\",\"version\":\"1.0.0\",\"vendorId\":\"dobby.vendor\",\"hostApiVersion\":\"2.0\",\"minHostVersion\":\"1.0.0\",\"entryAssembly\":\"bin/plugins/com.dobby.sample.dll\",\"displayName\":\"Sample Plugin\",\"description\":\"Sample plugin description\",\"dependsOn\":[],\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}],\"operationTargets\":[{\"id\":\"com.dobby.sample.greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}],\"extensionPoints\":[{\"id\":\"sample.home\",\"target\":\"plugin-page-region\",\"routeKey\":\"sample.home\",\"labelKey\":\"sample.home.label\",\"group\":\"default\",\"weight\":100}],\"files\":[{\"path\":\"content/hello.txt\",\"sha256\":\"" +
             fileHash +
-            "\"}],\"signature\":{\"algorithm\":\"ECDSA-P256-SHA256\",\"keyVersion\":1,\"value\":\"AQ\"}}";
+            "\"}],\"signature\":{\"purpose\":\"dobby.plugin-package\",\"algorithm\":\"ECDSA-P256-SHA256\",\"format\":\"IeeeP1363FixedFieldConcatenation\",\"keyId\":\"plugin-prod-2026-01\",\"value\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}}";
         return new PluginPackageDescriptor(
             "package.dobbyplugin",
             fingerprint.Fingerprint,

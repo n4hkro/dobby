@@ -30,12 +30,25 @@ public sealed class LicenseRuntimeModeServiceTests
     }
 
     [Fact]
-    public void Evaluate_promotes_pending_to_active_when_not_before_arrives()
+    public void Evaluate_grant_is_active_at_not_before_boundary()
     {
-        var payload = Payload(status: LicenseArtifactStatus.Pending);
+        var payload = Payload();
 
         LicenseRuntimeModeService.EvaluateLifecycle(payload, new DateTimeOffset(2026, 06, 18, 0, 0, 0, TimeSpan.Zero))
             .ShouldBe(LicenseLifecycleState.Active);
+    }
+
+    [Fact]
+    public void Evaluate_revocation_and_unhealthy_trusted_time_are_denied()
+    {
+        var now = new DateTimeOffset(2026, 06, 18, 0, 0, 0, TimeSpan.Zero);
+
+        LicenseRuntimeModeService.EvaluateLifecycle(Payload(intent: LicenseGrantIntent.Revoked), now)
+            .ShouldBe(LicenseLifecycleState.Denied);
+        LicenseRuntimeModeService.EvaluateLifecycle(Payload(), now, TrustedTimeHealth.RollbackDetected)
+            .ShouldBe(LicenseLifecycleState.Denied);
+        LicenseRuntimeModeService.EvaluateLifecycle(Payload(), now, bindingValid: false)
+            .ShouldBe(LicenseLifecycleState.Denied);
     }
 
     [Fact]
@@ -70,27 +83,28 @@ public sealed class LicenseRuntimeModeServiceTests
     }
 
     private static LicensePayload Payload(
-        LicenseArtifactStatus status = LicenseArtifactStatus.Active,
+        LicenseGrantIntent intent = LicenseGrantIntent.Granted,
         DateTimeOffset? notBefore = null,
         DateTimeOffset? expiresAt = null,
         int gracePeriodDays = 0)
     {
         var issuedAt = new DateTimeOffset(2026, 06, 18, 0, 0, 0, TimeSpan.Zero);
         return new LicensePayload(
-            2,
+            3,
+            "dobby.plugin-license",
+            "license-prod-2026-01",
             "license-1",
+            "series-1",
+            1,
             "plugin.sample",
             "default",
             "default",
-            "v1",
             new string('a', 64),
             new string('b', 64),
-            1,
             issuedAt,
             notBefore ?? issuedAt,
             expiresAt ?? issuedAt.AddDays(30),
             gracePeriodDays,
-            status,
-            1);
+            intent);
     }
 }

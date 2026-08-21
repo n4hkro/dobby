@@ -1,10 +1,12 @@
 using System.Security.Cryptography;
+using System.Collections.Concurrent;
 using Dobby.Security.CurrentContext;
 
 namespace Dobby.Licensing;
 
 public sealed class LicenseImportService
 {
+    private static readonly ConcurrentDictionary<RevisionSeriesKey, object> CommitGates = new();
     private readonly LicenseSignatureVerifier signatureVerifier;
     private readonly CurrentCustomerDeploymentContextService currentContextService;
     private readonly ILicenseStateStore stateStore;
@@ -25,108 +27,89 @@ public sealed class LicenseImportService
 
         if (!request.PermissionGranted)
         {
-            AppendAttestation(request, licenseRevision: null, LicenseRejectReasons.PermissionDenied);
             return LicenseImportResult.Failure(LicenseRejectReasons.PermissionDenied, "permission-denied");
         }
 
         if (request.CancellationToken.IsCancellationRequested)
         {
-            return Cancelled(request, licenseRevision: null);
+            return Cancelled();
         }
 
         var parse = LicenseArtifactParser.Parse(request.FileName, request.ArtifactBytes);
         if (!parse.IsSuccess)
         {
-            AppendAttestation(request, licenseRevision: null, parse.ReasonCode);
             return LicenseImportResult.Failure(parse.ReasonCode, parse.ReasonCode);
         }
 
         if (request.CancellationToken.IsCancellationRequested)
         {
-            return Cancelled(request, licenseRevision: null);
+            return Cancelled();
         }
 
         var signature = signatureVerifier.Verify(parse.Artifact!.Signature, parse.Artifact.CanonicalPayload);
         if (!signature.IsSuccess)
         {
-            AppendAttestation(request, licenseRevision: null, signature.ReasonCode);
             return LicenseImportResult.Failure(signature.ReasonCode, signature.SupportCode);
         }
 
         if (request.CancellationToken.IsCancellationRequested)
         {
-            return Cancelled(request, licenseRevision: null);
+            return Cancelled();
         }
 
         var payloadValidation = LicensePayloadValidator.Validate(parse.Artifact);
         if (!payloadValidation.IsSuccess)
         {
-            AppendAttestation(request, licenseRevision: null, payloadValidation.ReasonCode);
             return LicenseImportResult.Failure(payloadValidation.ReasonCode, payloadValidation.ReasonCode);
         }
 
         var payload = payloadValidation.Payload!;
         if (request.CancellationToken.IsCancellationRequested)
         {
-            return Cancelled(request, payload.LicenseRevision);
+            return Cancelled();
         }
 
         var context = currentContextService.ValidateMatches(payload.CustomerId, payload.DeploymentId);
         if (!context.IsSuccess)
         {
-            AppendAttestation(request, payload.LicenseRevision, context.ReasonCode);
             return LicenseImportResult.Failure(context.ReasonCode, context.SupportCode);
         }
 
         if (request.CancellationToken.IsCancellationRequested)
         {
-            return Cancelled(request, payload.LicenseRevision);
+            return Cancelled();
         }
 
         var currentDeviceFingerprint = request.CurrentDeviceFingerprintProvider();
-        if (!LicenseDeviceFingerprintV1.Matches(currentDeviceFingerprint, payload.DeviceFingerprint))
+        if (!LicenseDeviceFingerprintV1.Matches(currentDeviceFingerprint, payload.DeviceKeyHash))
         {
-            AppendAttestation(request, payload.LicenseRevision, LicenseRejectReasons.BindingMismatch);
             return LicenseImportResult.Failure(LicenseRejectReasons.BindingMismatch, "device-binding-mismatch");
         }
 
         if (request.CancellationToken.IsCancellationRequested)
         {
-            return Cancelled(request, payload.LicenseRevision);
+            return Cancelled();
         }
 
         var installedPackageFingerprint = request.InstalledPackageFingerprintResolver(payload.PluginId);
         if (!payload.PackageFingerprint.Equals(installedPackageFingerprint, StringComparison.Ordinal))
         {
-            AppendAttestation(request, payload.LicenseRevision, LicenseRejectReasons.PackageMismatch);
             return LicenseImportResult.Failure(LicenseRejectReasons.PackageMismatch, "package-binding-mismatch");
         }
 
         if (request.CancellationToken.IsCancellationRequested)
         {
-            return Cancelled(request, payload.LicenseRevision);
+            return Cancelled();
         }
 
         var key = new RevisionSeriesKey(payload.PluginId, payload.CustomerId, payload.DeploymentId);
-        var existing = stateStore.Read(key);
-        if (!LicenseRevisionPolicy.CanImport(existing?.LicenseRevision, payload.LicenseRevision))
-        {
-            AppendAttestation(request, payload.LicenseRevision, LicenseRejectReasons.OlderRevision);
-            return LicenseImportResult.Failure(LicenseRejectReasons.OlderRevision, "older-or-equal-revision");
-        }
-
-        if (request.CancellationToken.IsCancellationRequested)
-        {
-            return Cancelled(request, payload.LicenseRevision);
-        }
-
         var lifecycleState = LicenseRuntimeModeService.EvaluateLifecycle(payload, request.ImportedAtUtc);
-        stateStore.Save(new LicenseStateRecord(
+        var state = new LicenseStateRecord(
             key,
             payload.PluginId,
             payload.CustomerId,
             payload.DeploymentId,
-            payload.DeviceFingerprint,
+            payload.DeviceKeyHash,
             payload.PackageFingerprint,
             payload.LicenseRevision,
             lifecycleState,
@@ -134,26 +117,49 @@ public sealed class LicenseImportService
             payload.NotBefore,
             payload.ExpiresAt,
             payload.GracePeriodDays,
-            payload.Status));
-        AppendAttestation(request, payload.LicenseRevision, "succeeded");
-
-        return LicenseImportResult.Success(lifecycleState, payload.PluginId);
-    }
-
-    private LicenseImportResult Cancelled(LicenseImportRequest request, int? licenseRevision)
-    {
-        AppendAttestation(request, licenseRevision, LicenseRejectReasons.Cancelled);
-        return LicenseImportResult.Failure(LicenseRejectReasons.Cancelled, "cancelled");
-    }
-
-    private void AppendAttestation(LicenseImportRequest request, int? licenseRevision, string result)
-    {
-        stateStore.AppendAttestation(new LicenseImportAttestation(
+            SourceStatus: null,
+            LicenseId: payload.LicenseId,
+            RevisionSeriesId: payload.RevisionSeriesId,
+            KeyId: payload.KeyId,
+            IssuedAtUtc: payload.IssuedAt,
+            SourceIntent: payload.Intent);
+        var attestation = new LicenseImportAttestation(
             SourceArtifactHash(request.ArtifactBytes),
-            licenseRevision,
+            payload.LicenseRevision,
             request.ImportedAtUtc,
-            result,
-            request.CorrelationId));
+            "succeeded",
+            request.CorrelationId);
+        LicenseImportCommitResult commit;
+        lock (CommitGates.GetOrAdd(key, static _ => new object()))
+        {
+            if (request.CancellationToken.IsCancellationRequested)
+            {
+                return Cancelled();
+            }
+
+            commit = stateStore.CommitSuccessfulImport(
+                state,
+                attestation,
+                new LicenseImportCommitMetadata(request.ActorId, request.CorrelationId));
+        }
+
+        return commit.Outcome switch
+        {
+            LicenseImportCommitOutcome.Committed => LicenseImportResult.Success(
+                lifecycleState,
+                payload.PluginId,
+                commit.SuccessAuditAlreadyPresent),
+            LicenseImportCommitOutcome.AlreadyCurrent => LicenseImportResult.Success(
+                lifecycleState,
+                payload.PluginId,
+                auditCommitted: true),
+            _ => LicenseImportResult.Failure(LicenseRejectReasons.OlderRevision, "older-or-conflicting-revision")
+        };
+    }
+
+    private static LicenseImportResult Cancelled()
+    {
+        return LicenseImportResult.Failure(LicenseRejectReasons.Cancelled, "cancelled");
     }
 
     private static string SourceArtifactHash(byte[] bytes)

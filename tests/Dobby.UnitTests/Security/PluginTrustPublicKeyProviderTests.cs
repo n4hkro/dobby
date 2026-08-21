@@ -21,6 +21,8 @@ public sealed class PluginTrustPublicKeyProviderTests
         result.IsSuccess.ShouldBeTrue();
         result.Value!.ResourceName.ShouldBe(PluginTrustPublicKeyProvider.ProductionResourceName);
         result.Value.Profile.ShouldBe(DobbyPluginTrustProfile.Production);
+        result.Value.Purpose.ShouldBe(ArtifactSignaturePurposes.PluginPackage);
+        result.Value.KeyId.ShouldBe(PluginTrustPublicKeyProvider.ProductionPluginPackageKeyId);
         result.Value.PublicKeyBytes.ShouldBe(publicKeyDer);
         result.Value.Sha256.ShouldBe(PluginTrustTestData.HashHex(publicKeyDer));
     }
@@ -116,12 +118,35 @@ public sealed class PluginTrustPublicKeyProviderTests
 
         constructors
             .SelectMany(constructor => constructor.GetParameters())
-            .Any(parameter => parameter.ParameterType == typeof(string))
+            .Any(parameter =>
+                parameter.ParameterType == typeof(string) &&
+                parameter.Name!.Contains("path", StringComparison.OrdinalIgnoreCase))
             .ShouldBeFalse();
 
         constructors
             .SelectMany(constructor => constructor.GetParameters())
             .Any(parameter => parameter.ParameterType == typeof(IReadOnlyDictionary<string, byte[]>))
             .ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Resolve_uses_a_distinct_license_resource_key_and_purpose()
+    {
+        using var key = PluginTrustTestData.CreateKeyPair(out var publicKeyDer, out var publicKeyPem);
+        var provider = new PluginTrustPublicKeyProvider(
+            DobbyPluginTrustProfile.Production,
+            new Dictionary<string, byte[]>
+            {
+                [PluginTrustPublicKeyProvider.ProductionLicenseResourceName] = publicKeyPem
+            },
+            ArtifactSignaturePurposes.PluginLicense);
+
+        var result = provider.Resolve();
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value!.Purpose.ShouldBe(ArtifactSignaturePurposes.PluginLicense);
+        result.Value.KeyId.ShouldBe(PluginTrustPublicKeyProvider.ProductionPluginLicenseKeyId);
+        result.Value.PublicKeyBytes.ShouldBe(publicKeyDer);
+        result.Value.ResourceName.ShouldNotBe(PluginTrustPublicKeyProvider.ProductionResourceName);
     }
 }

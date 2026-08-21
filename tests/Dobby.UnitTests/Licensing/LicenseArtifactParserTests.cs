@@ -1,4 +1,5 @@
 using Dobby.Licensing;
+using Dobby.Security.Trust;
 using Shouldly;
 
 namespace Dobby.UnitTests.Licensing;
@@ -6,34 +7,20 @@ namespace Dobby.UnitTests.Licensing;
 public sealed class LicenseArtifactParserTests
 {
     [Fact]
-    public void Parse_accepts_dobbylicense_artifact_and_extracts_canonical_payload_bytes()
+    public void Parse_accepts_strict_v3_artifact_and_domain_separates_canonical_payload()
     {
-        var artifact = Encoding.UTF8.GetBytes(
-            """
-            {
-              "signature": {
-                "value": "AQID",
-                "keyVersion": 1,
-                "algorithm": "ECDSA-P256-SHA256"
-              },
-              "payload": {
-                "pluginId": "plugin.sample",
-                "schemaVersion": 2,
-                "keyVersion": 1
-              }
-            }
-            """);
+        using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out _);
+        var fixture = LicenseArtifactFixtureBuilder.CreateSignedArtifact(key);
 
-        var result = LicenseArtifactParser.Parse("sample.dobbylicense", artifact);
+        var result = LicenseArtifactParser.Parse("sample.dobbylicense", fixture.Bytes);
 
-        result.IsSuccess.ShouldBeTrue();
-        result.ReasonCode.ShouldBeEmpty();
-        result.Artifact.ShouldNotBeNull();
-        result.Artifact.Signature.Algorithm.ShouldBe("ECDSA-P256-SHA256");
-        result.Artifact.Signature.KeyVersion.ShouldBe(1);
-        result.Artifact.Signature.Value.ShouldBe("AQID");
-        Encoding.UTF8.GetString(result.Artifact.CanonicalPayload).ShouldBe(
-            "{\"keyVersion\":1,\"pluginId\":\"plugin.sample\",\"schemaVersion\":2}");
+        result.IsSuccess.ShouldBeTrue(result.ReasonCode);
+        result.Artifact!.Signature.Purpose.ShouldBe(ArtifactSignaturePurposes.PluginLicense);
+        result.Artifact.Signature.Format.ShouldBe(ArtifactSignatureProfile.Format);
+        result.Artifact.Signature.KeyId.ShouldBe(PluginTrustPublicKeyProvider.ProductionPluginLicenseKeyId);
+        result.Artifact.Signature.Value.Length.ShouldBe(86);
+        result.Artifact.CanonicalPayload.AsSpan().StartsWith("DOBBY-SIGNED-ARTIFACT\0"u8).ShouldBeTrue();
+        LicensePayloadValidator.Validate(result.Artifact).IsSuccess.ShouldBeTrue();
     }
 
     [Theory]
@@ -41,117 +28,42 @@ public sealed class LicenseArtifactParserTests
     [InlineData("sample.entitlement")]
     public void Parse_rejects_non_dobbylicense_extensions(string fileName)
     {
-        var result = LicenseArtifactParser.Parse(fileName, MinimalArtifactBytes());
+        using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out _);
+        var result = LicenseArtifactParser.Parse(fileName, LicenseArtifactFixtureBuilder.CreateSignedArtifact(key).Bytes);
 
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.InvalidLicenseFile);
     }
 
     [Fact]
-    public void Parse_rejects_invalid_utf8()
-    {
-        var result = LicenseArtifactParser.Parse("sample.dobbylicense", [0xff]);
-
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
-    }
-
-    [Fact]
-    public void Parse_rejects_malformed_json()
-    {
-        var result = LicenseArtifactParser.Parse("sample.dobbylicense", Encoding.UTF8.GetBytes("{"));
-
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
-    }
-
-    [Fact]
-    public void Parse_rejects_utf8_bom()
-    {
-        var bytes = Encoding.UTF8.GetPreamble()
-            .Concat(MinimalArtifactBytes())
-            .ToArray();
-
-        var result = LicenseArtifactParser.Parse("sample.dobbylicense", bytes);
-
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
-    }
-
-    [Fact]
-    public void Parse_rejects_root_extra_properties_before_signature_verification()
+    public void Parse_rejects_oversize_before_json_processing()
     {
         var result = LicenseArtifactParser.Parse(
             "sample.dobbylicense",
-            Encoding.UTF8.GetBytes(
-                """
-                {
-                  "payload": {},
-                  "signature": {
-                    "algorithm": "ECDSA-P256-SHA256",
-                    "keyVersion": 1,
-                    "value": "AQID"
-                  },
-                  "extra": true
-                }
-                """));
+            new byte[LicenseV3Contract.MaximumArtifactBytes + 1]);
 
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.InvalidLicenseFile);
     }
 
     [Theory]
-    [InlineData("""{"signature":{"algorithm":"ECDSA-P256-SHA256","keyVersion":1,"value":"AQID"}}""")]
-    [InlineData("""{"payload":{}}""")]
-    public void Parse_rejects_missing_root_payload_or_signature(string json)
+    [MemberData(nameof(MalformedArtifacts))]
+    public void Parse_rejects_malformed_encoding_shape_duplicates_and_depth(byte[] bytes, string reason)
     {
-        var result = LicenseArtifactParser.Parse("sample.dobbylicense", Encoding.UTF8.GetBytes(json));
+        var result = LicenseArtifactParser.Parse("sample.dobbylicense", bytes);
 
         result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
+        result.ReasonCode.ShouldBe(reason);
     }
 
-    [Theory]
-    [InlineData("RSA-SHA256", "1", "AQID")]
-    [InlineData("ECDSA-P256-SHA256", "\"1\"", "AQID")]
-    [InlineData("ECDSA-P256-SHA256", "2", "AQID")]
-    [InlineData("ECDSA-P256-SHA256", "1", "AQID==")]
-    [InlineData("ECDSA-P256-SHA256", "1", "not-valid@")]
-    public void Parse_rejects_invalid_signature_block_shape(
-        string algorithm,
-        string keyVersionJson,
-        string value)
+    public static IEnumerable<object[]> MalformedArtifacts()
     {
-        var json =
-            $$"""
-              {
-                "payload": {},
-                "signature": {
-                  "algorithm": "{{algorithm}}",
-                  "keyVersion": {{keyVersionJson}},
-                  "value": "{{value}}"
-                }
-              }
-              """;
-
-        var result = LicenseArtifactParser.Parse("sample.dobbylicense", Encoding.UTF8.GetBytes(json));
-
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-signature");
-    }
-
-    private static byte[] MinimalArtifactBytes()
-    {
-        return Encoding.UTF8.GetBytes(
-            """
-            {
-              "payload": {},
-              "signature": {
-                "algorithm": "ECDSA-P256-SHA256",
-                "keyVersion": 1,
-                "value": "AQID"
-              }
-            }
-            """);
+        yield return [new byte[] { 0xff }, LicenseRejectReasons.InvalidLicenseFile];
+        yield return [Encoding.UTF8.GetBytes("{"), LicenseRejectReasons.InvalidLicenseFile];
+        yield return [Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes("{}")).ToArray(), LicenseRejectReasons.InvalidLicenseFile];
+        yield return [Encoding.UTF8.GetBytes("""{"payload":{},"payload":{},"signature":{}}"""), LicenseRejectReasons.InvalidLicenseFile];
+        yield return [Encoding.UTF8.GetBytes("""{"payload":{},"signature":{},"extra":true}"""), LicenseRejectReasons.InvalidLicenseFile];
+        yield return [Encoding.UTF8.GetBytes("""{"payload":{},"signature":{"purpose":"dobby.plugin-license","algorithm":"ECDSA-P256-SHA256","format":"DER","keyId":"license-prod-2026-01","value":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}"""), LicenseRejectReasons.InvalidSignature];
+        yield return [Encoding.UTF8.GetBytes("""{"payload":{},"signature":{"purpose":"dobby.plugin-license","algorithm":"ECDSA-P256-SHA256","format":"IeeeP1363FixedFieldConcatenation","keyId":"license-prod-2026-01","value":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}}"""), LicenseRejectReasons.InvalidSignature];
+        var nested = new string('[', 18) + "0" + new string(']', 18);
+        yield return [Encoding.UTF8.GetBytes("{\"payload\":{\"nested\":" + nested + "},\"signature\":{}}"), LicenseRejectReasons.InvalidLicenseFile];
     }
 }

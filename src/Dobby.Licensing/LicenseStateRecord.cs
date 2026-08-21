@@ -13,4 +13,10 @@ public sealed record LicenseStateRecord(
     DateTimeOffset? NotBeforeUtc = null,
     DateTimeOffset? ExpiresAtUtc = null,
     int? GracePeriodDays = null,
-    LicenseArtifactStatus? SourceStatus = null);
+    LicenseArtifactStatus? SourceStatus = null,
+    string? LicenseId = null,
+    string? RevisionSeriesId = null,
+    string? KeyId = null,
+    DateTimeOffset? IssuedAtUtc = null,
+    LicenseGrantIntent? SourceIntent = null,
+    TrustedTimeHealth TrustedTimeHealth = TrustedTimeHealth.Healthy);

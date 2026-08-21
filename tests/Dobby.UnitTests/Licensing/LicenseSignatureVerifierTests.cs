@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Dobby.Licensing;
 using Dobby.Security.Trust;
 using Shouldly;
@@ -7,74 +8,86 @@ namespace Dobby.UnitTests.Licensing;
 public sealed class LicenseSignatureVerifierTests
 {
     [Fact]
-    public void Verify_accepts_valid_p256_der_signature_from_selected_trust_resource()
+    public void Verify_accepts_valid_p256_P1363_signature_from_license_trust_resource()
     {
         using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
-        var canonicalPayload = Encoding.UTF8.GetBytes("{\"schemaVersion\":2}");
+        var canonicalPayload = Encoding.UTF8.GetBytes("license-domain-payload");
         var signature = LicenseArtifactFixtureBuilder.SignToBase64Url(key, canonicalPayload);
-        var verifier = CreateVerifier(publicKeyPem);
 
-        var result = verifier.Verify(
-            new LicenseSignatureBlock("ECDSA-P256-SHA256", 1, signature),
-            canonicalPayload);
+        var result = CreateVerifier(publicKeyPem).Verify(Signature(signature), canonicalPayload);
 
         result.IsSuccess.ShouldBeTrue();
-        result.ReasonCode.ShouldBeEmpty();
     }
 
     [Fact]
     public void Verify_rejects_signature_mismatch_without_exposing_raw_details()
     {
         using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
-        var signature = LicenseArtifactFixtureBuilder.SignToBase64Url(
-            key,
-            Encoding.UTF8.GetBytes("{\"schemaVersion\":2}"));
-        var verifier = CreateVerifier(publicKeyPem);
+        var signature = LicenseArtifactFixtureBuilder.SignToBase64Url(key, "first"u8.ToArray());
 
-        var result = verifier.Verify(
-            new LicenseSignatureBlock("ECDSA-P256-SHA256", 1, signature),
-            Encoding.UTF8.GetBytes("{\"schemaVersion\":3}"));
+        var result = CreateVerifier(publicKeyPem).Verify(Signature(signature), "second"u8.ToArray());
 
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-signature");
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.InvalidSignature);
         result.SupportCode.ShouldBe("signature-failed");
     }
 
     [Fact]
-    public void Verify_maps_missing_trust_resource_to_untrusted_vendor()
+    public void Verify_maps_missing_license_trust_resource_to_untrusted_vendor()
     {
         var verifier = new LicenseSignatureVerifier(new PluginTrustPublicKeyProvider(
             DobbyPluginTrustProfile.Production,
-            new Dictionary<string, byte[]>()));
+            new Dictionary<string, byte[]>(),
+            ArtifactSignaturePurposes.PluginLicense));
 
         var result = verifier.Verify(
-            new LicenseSignatureBlock("ECDSA-P256-SHA256", 1, "AQID"),
-            Encoding.UTF8.GetBytes("{\"schemaVersion\":2}"));
+            Signature(ArtifactSignatureCodec.ToUnpaddedBase64Url(new byte[64])),
+            "payload"u8.ToArray());
 
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("untrusted-vendor");
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.UntrustedVendor);
         result.SupportCode.ShouldBe("trust-failed");
     }
 
     [Theory]
-    [InlineData("RSA-SHA256", 1, "AQID")]
-    [InlineData("ECDSA-P256-SHA256", 2, "AQID")]
-    [InlineData("ECDSA-P256-SHA256", 1, "AQID==")]
-    public void Verify_rejects_malformed_signature_contract_values(
+    [InlineData("dobby.plugin-package", "ECDSA-P256-SHA256", "IeeeP1363FixedFieldConcatenation", "license-prod-2026-01")]
+    [InlineData("dobby.plugin-license", "RSA-SHA256", "IeeeP1363FixedFieldConcatenation", "license-prod-2026-01")]
+    [InlineData("dobby.plugin-license", "ECDSA-P256-SHA256", "DER", "license-prod-2026-01")]
+    [InlineData("dobby.plugin-license", "ECDSA-P256-SHA256", "IeeeP1363FixedFieldConcatenation", "")]
+    public void Verify_rejects_cross_purpose_and_malformed_profile(
+        string purpose,
         string algorithm,
-        int keyVersion,
-        string value)
+        string format,
+        string keyId)
     {
         using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
+        var signature = new LicenseSignatureBlock(
+            purpose,
+            algorithm,
+            format,
+            keyId,
+            ArtifactSignatureCodec.ToUnpaddedBase64Url(new byte[64]));
+
+        CreateVerifier(publicKeyPem).Verify(signature, "payload"u8.ToArray()).ReasonCode
+            .ShouldBe(LicenseRejectReasons.InvalidSignature);
+    }
+
+    [Fact]
+    public void Verify_rejects_DER_and_padded_base64url_encodings()
+    {
+        using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
+        var payload = "payload"u8.ToArray();
+        var der = key.SignData(payload, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
         var verifier = CreateVerifier(publicKeyPem);
 
-        var result = verifier.Verify(
-            new LicenseSignatureBlock(algorithm, keyVersion, value),
-            Encoding.UTF8.GetBytes("{\"schemaVersion\":2}"));
-
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-signature");
+        verifier.Verify(Signature(ArtifactSignatureCodec.ToUnpaddedBase64Url(der)), payload).IsSuccess.ShouldBeFalse();
+        verifier.Verify(Signature(LicenseArtifactFixtureBuilder.SignToBase64Url(key, payload) + "="), payload).IsSuccess.ShouldBeFalse();
     }
+
+    private static LicenseSignatureBlock Signature(string value) => new(
+        ArtifactSignaturePurposes.PluginLicense,
+        ArtifactSignatureProfile.Algorithm,
+        ArtifactSignatureProfile.Format,
+        PluginTrustPublicKeyProvider.ProductionPluginLicenseKeyId,
+        value);
 
     private static LicenseSignatureVerifier CreateVerifier(byte[] publicKeyPem)
     {
@@ -82,7 +95,8 @@ public sealed class LicenseSignatureVerifierTests
             DobbyPluginTrustProfile.Production,
             new Dictionary<string, byte[]>
             {
-                [PluginTrustPublicKeyProvider.ProductionResourceName] = publicKeyPem
-            }));
+                [PluginTrustPublicKeyProvider.ProductionLicenseResourceName] = publicKeyPem
+            },
+            ArtifactSignaturePurposes.PluginLicense));
     }
 }

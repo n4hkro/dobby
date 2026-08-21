@@ -18,7 +18,7 @@ public static class LicenseRuntimeModeMapper
         {
             LicenseLifecycleState.Active => PluginRuntimeMode.FullAccess,
             LicenseLifecycleState.Grace => PluginRuntimeMode.FullAccess,
-            LicenseLifecycleState.ReadOnly => PluginRuntimeMode.ReadOnlyExpired,
+            LicenseLifecycleState.ReadOnlyExpired => PluginRuntimeMode.ReadOnlyExpired,
             LicenseLifecycleState.NoLicense => PluginRuntimeMode.Denied,
             LicenseLifecycleState.Pending => PluginRuntimeMode.Denied,
             LicenseLifecycleState.Denied => PluginRuntimeMode.Denied,

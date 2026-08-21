@@ -1,3 +1,6 @@
+using Dobby.Audit;
+using Dobby.Core;
+using Dobby.Diagnostics;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Licensing;
 
@@ -5,18 +8,27 @@ namespace Dobby.Host;
 
 public sealed class HostLicenseStateStore(
     IHostPersistenceCommandExecutor executor,
-    IHostPersistenceTransactionScope transactionScope) : ILicenseStateStore
+    IHostPersistenceTransactionScope transactionScope,
+    IHostMutationUnitOfWork? mutationUnitOfWork = null) : ILicenseStateStore
 {
     public LicenseStateRecord? Read(RevisionSeriesKey key)
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        var row = executor.Query<LicenseStateRow>(
+        return ReadInScope(executor, key);
+    }
+
+    private static LicenseStateRecord? ReadInScope(
+        IHostPersistenceCommandExecutor targetExecutor,
+        RevisionSeriesKey key)
+    {
+        var row = targetExecutor.Query<LicenseStateRow>(
             """
             SELECT
                 PluginId, CustomerId, DeploymentId, DeviceFingerprint, PackageFingerprint,
                 LicenseRevision, LifecycleState, ImportedAtUtc,
-                NotBeforeUtc, ExpiresAtUtc, GracePeriodDays, SourceStatus
+                NotBeforeUtc, ExpiresAtUtc, GracePeriodDays, SourceStatus,
+                LicenseId, RevisionSeriesId, KeyId, IssuedAtUtc, SourceIntent, TrustedTimeHealth
             FROM PluginLicenseState
             WHERE PluginId = @PluginId
               AND CustomerId = @CustomerId
@@ -25,7 +37,7 @@ public sealed class HostLicenseStateStore(
             key)
             .SingleOrDefault();
 
-        return row?.ToState();
+        return row?.TryToState();
     }
 
     public void Save(LicenseStateRecord state)
@@ -34,16 +46,26 @@ public sealed class HostLicenseStateStore(
 
         transactionScope.ExecuteInTransaction(tx =>
         {
-            tx.Execute(
+            SaveInScope(tx, state);
+        });
+    }
+
+    private static void SaveInScope(
+        IHostPersistenceCommandExecutor tx,
+        LicenseStateRecord state)
+    {
+        tx.Execute(
                 """
                 INSERT INTO PluginLicenseState (
                     PluginId, CustomerId, DeploymentId, DeviceFingerprint, PackageFingerprint,
                     LicenseRevision, LifecycleState, ImportedAtUtc,
-                    NotBeforeUtc, ExpiresAtUtc, GracePeriodDays, SourceStatus
+                    NotBeforeUtc, ExpiresAtUtc, GracePeriodDays, SourceStatus,
+                    LicenseId, RevisionSeriesId, KeyId, IssuedAtUtc, SourceIntent, TrustedTimeHealth
                 ) VALUES (
                     @PluginId, @CustomerId, @DeploymentId, @DeviceFingerprint, @PackageFingerprint,
                     @LicenseRevision, @LifecycleState, @ImportedAtUtc,
-                    @NotBeforeUtc, @ExpiresAtUtc, @GracePeriodDays, @SourceStatus
+                    @NotBeforeUtc, @ExpiresAtUtc, @GracePeriodDays, @SourceStatus,
+                    @LicenseId, @RevisionSeriesId, @KeyId, @IssuedAtUtc, @SourceIntent, @TrustedTimeHealth
                 )
                 ON CONFLICT(PluginId, CustomerId, DeploymentId) DO UPDATE SET
                     DeviceFingerprint = excluded.DeviceFingerprint,
@@ -54,7 +76,13 @@ public sealed class HostLicenseStateStore(
                     NotBeforeUtc = excluded.NotBeforeUtc,
                     ExpiresAtUtc = excluded.ExpiresAtUtc,
                     GracePeriodDays = excluded.GracePeriodDays,
-                    SourceStatus = excluded.SourceStatus;
+                    SourceStatus = excluded.SourceStatus,
+                    LicenseId = excluded.LicenseId,
+                    RevisionSeriesId = excluded.RevisionSeriesId,
+                    KeyId = excluded.KeyId,
+                    IssuedAtUtc = excluded.IssuedAtUtc,
+                    SourceIntent = excluded.SourceIntent,
+                    TrustedTimeHealth = excluded.TrustedTimeHealth;
                 """,
                 new
                 {
@@ -69,16 +97,108 @@ public sealed class HostLicenseStateStore(
                     NotBeforeUtc = state.NotBeforeUtc?.ToString("O"),
                     ExpiresAtUtc = state.ExpiresAtUtc?.ToString("O"),
                     state.GracePeriodDays,
-                    SourceStatus = state.SourceStatus?.ToString()
+                    SourceStatus = state.SourceStatus?.ToString(),
+                    state.LicenseId,
+                    state.RevisionSeriesId,
+                    state.KeyId,
+                    IssuedAtUtc = state.IssuedAtUtc?.ToString("O"),
+                    SourceIntent = state.SourceIntent?.ToString(),
+                    TrustedTimeHealth = state.TrustedTimeHealth.ToString()
                 });
-        });
     }
 
     public void AppendAttestation(LicenseImportAttestation attestation)
     {
         ArgumentNullException.ThrowIfNull(attestation);
 
-        executor.Execute(
+        AppendAttestationInScope(executor, attestation);
+    }
+
+    public LicenseImportCommitResult CommitSuccessfulImport(
+        LicenseStateRecord state,
+        LicenseImportAttestation attestation,
+        LicenseImportCommitMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(attestation);
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        if (mutationUnitOfWork is null)
+        {
+            LicenseImportCommitResult? result = null;
+            transactionScope.ExecuteInTransaction(tx =>
+            {
+                var decision = LicenseImportCommitPolicy.Decide(ReadInScope(tx, state.RevisionSeriesKey), state);
+                if (decision != LicenseImportCommitOutcome.Committed)
+                {
+                    result = new LicenseImportCommitResult(
+                        decision,
+                        SuccessAuditAlreadyPresent: decision == LicenseImportCommitOutcome.AlreadyCurrent);
+                    return;
+                }
+
+                SaveInScope(tx, state);
+                AppendAttestationInScope(tx, attestation);
+                result = new LicenseImportCommitResult(
+                    LicenseImportCommitOutcome.Committed,
+                    SuccessAuditAlreadyPresent: false);
+            });
+            return result ?? throw new InvalidOperationException("License import transaction did not complete.");
+        }
+
+        if (!Guid.TryParse(metadata.CorrelationId, out var correlationGuid) ||
+            string.IsNullOrWhiteSpace(metadata.ActorId))
+        {
+            throw new InvalidOperationException("License import commit metadata is invalid.");
+        }
+
+        return mutationUnitOfWork.Execute(context =>
+        {
+            var decision = LicenseImportCommitPolicy.Decide(
+                ReadInScope(context.Commands, state.RevisionSeriesKey),
+                state);
+            if (decision != LicenseImportCommitOutcome.Committed)
+            {
+                return new LicenseImportCommitResult(
+                    decision,
+                    SuccessAuditAlreadyPresent: decision == LicenseImportCommitOutcome.AlreadyCurrent);
+            }
+
+            SaveInScope(context.Commands, state);
+            AppendAttestationInScope(context.Commands, attestation);
+            context.AppendAudit(new AuditEvent(
+                AuditEventName.LicenseImportSucceeded,
+                metadata.ActorId,
+                $"license:{state.PluginId}",
+                AuditResult.Success,
+                new CorrelationId(correlationGuid),
+                state.ImportedAtUtc,
+                DiagnosticRedactor.RedactFields(new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["reasonCode"] = "succeeded",
+                    ["lifecycleState"] = state.LifecycleState.ToString()
+                })));
+            context.EnqueueOutbox(new HostOutboxMessage(
+                $"license-import:{state.LicenseId}:{state.LicenseRevision}",
+                "license",
+                "activation-refresh-requested",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["pluginId"] = state.PluginId,
+                    ["revisionSeriesId"] = state.RevisionSeriesId ?? string.Empty,
+                    ["licenseRevision"] = state.LicenseRevision.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                }));
+            return new LicenseImportCommitResult(
+                LicenseImportCommitOutcome.Committed,
+                SuccessAuditAlreadyPresent: true);
+        });
+    }
+
+    private static void AppendAttestationInScope(
+        IHostPersistenceCommandExecutor targetExecutor,
+        LicenseImportAttestation attestation)
+    {
+        targetExecutor.Execute(
             """
             INSERT INTO PluginLicenseImportAttestation (
                 AttestationId, SourceArtifactHash, LicenseRevision, ImportedAtUtc, Result, CorrelationId
@@ -111,9 +231,29 @@ public sealed class HostLicenseStateStore(
         public string? ExpiresAtUtc { get; set; }
         public int? GracePeriodDays { get; set; }
         public string? SourceStatus { get; set; }
+        public string? LicenseId { get; set; }
+        public string? RevisionSeriesId { get; set; }
+        public string? KeyId { get; set; }
+        public string? IssuedAtUtc { get; set; }
+        public string? SourceIntent { get; set; }
+        public string TrustedTimeHealth { get; set; } = string.Empty;
 
-        public LicenseStateRecord ToState()
+        public LicenseStateRecord? TryToState()
         {
+            if (!Enum.TryParse<LicenseLifecycleState>(LifecycleState, ignoreCase: false, out var lifecycle) ||
+                !Enum.IsDefined(lifecycle) ||
+                !TryParseDateTimeOffset(ImportedAtUtc, out var importedAt) ||
+                !TryParseNullableDateTimeOffset(NotBeforeUtc, out var notBefore) ||
+                !TryParseNullableDateTimeOffset(ExpiresAtUtc, out var expiresAt) ||
+                !TryParseNullableDateTimeOffset(IssuedAtUtc, out var issuedAt) ||
+                !Enum.TryParse<TrustedTimeHealth>(TrustedTimeHealth, ignoreCase: false, out var timeHealth) ||
+                !Enum.IsDefined(timeHealth) ||
+                !TryParseOptionalEnum(SourceStatus, out LicenseArtifactStatus? sourceStatus) ||
+                !TryParseOptionalEnum(SourceIntent, out LicenseGrantIntent? sourceIntent))
+            {
+                return null;
+            }
+
             return new LicenseStateRecord(
                 new RevisionSeriesKey(PluginId, CustomerId, DeploymentId),
                 PluginId,
@@ -122,24 +262,63 @@ public sealed class HostLicenseStateStore(
                 DeviceFingerprint,
                 PackageFingerprint,
                 LicenseRevision,
-                Enum.Parse<LicenseLifecycleState>(LifecycleState),
-                ParseDateTimeOffset(ImportedAtUtc),
-                ParseNullableDateTimeOffset(NotBeforeUtc),
-                ParseNullableDateTimeOffset(ExpiresAtUtc),
+                lifecycle,
+                importedAt,
+                notBefore,
+                expiresAt,
                 GracePeriodDays,
-                string.IsNullOrWhiteSpace(SourceStatus)
-                    ? null
-                    : Enum.Parse<LicenseArtifactStatus>(SourceStatus));
+                sourceStatus,
+                LicenseId,
+                RevisionSeriesId,
+                KeyId,
+                issuedAt,
+                sourceIntent,
+                timeHealth);
         }
 
-        private static DateTimeOffset ParseDateTimeOffset(string value)
+        private static bool TryParseDateTimeOffset(string? value, out DateTimeOffset timestamp)
         {
-            return DateTimeOffset.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);
+            return DateTimeOffset.TryParseExact(
+                value,
+                "O",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind,
+                out timestamp);
         }
 
-        private static DateTimeOffset? ParseNullableDateTimeOffset(string? value)
+        private static bool TryParseNullableDateTimeOffset(string? value, out DateTimeOffset? timestamp)
         {
-            return string.IsNullOrWhiteSpace(value) ? null : ParseDateTimeOffset(value);
+            timestamp = null;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+
+            if (!TryParseDateTimeOffset(value, out var parsed))
+            {
+                return false;
+            }
+
+            timestamp = parsed;
+            return true;
+        }
+
+        private static bool TryParseOptionalEnum<T>(string? value, out T? parsed)
+            where T : struct, Enum
+        {
+            parsed = null;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+
+            if (!Enum.TryParse<T>(value, ignoreCase: false, out var candidate) || !Enum.IsDefined(candidate))
+            {
+                return false;
+            }
+
+            parsed = candidate;
+            return true;
         }
     }
 }

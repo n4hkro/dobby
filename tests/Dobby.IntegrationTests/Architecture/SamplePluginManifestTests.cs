@@ -12,9 +12,11 @@ public sealed class SamplePluginManifestTests
         using var document = JsonDocument.Parse(File.ReadAllText(SampleManifestPath()));
         var root = document.RootElement;
 
-        root.TryGetProperty("schemaVersion", out _).ShouldBeFalse();
+        root.GetProperty("schemaVersion").GetInt32().ShouldBe(2);
+        root.GetProperty("purpose").GetString().ShouldBe("dobby.plugin-package");
         root.GetProperty("pluginId").GetString().ShouldBe("com.dobby.sample");
         root.GetProperty("vendorId").GetString().ShouldBe("dobby.dev-qa");
+        root.GetProperty("hostApiVersion").GetString().ShouldBe("2.0");
         root.GetProperty("version").GetString().ShouldBe("1.0.0");
         root.GetProperty("entryAssembly").GetString().ShouldBe("bin/plugins/Dobby.Sample.Plugin.dll");
         root.GetProperty("displayName").GetString().ShouldBe("Dobby Sample");
@@ -50,7 +52,11 @@ public sealed class SamplePluginManifestTests
         files["bin/plugins/Dobby.Sample.Plugin.dll"].ShouldBe(new string('0', 64));
         var signatureValue = root.GetProperty("signature").GetProperty("value").GetString();
         signatureValue.ShouldNotBeNull();
-        signatureValue!.ShouldBe("AQ");
+        signatureValue!.Length.ShouldBe(86);
+        var signature = root.GetProperty("signature");
+        signature.GetProperty("purpose").GetString().ShouldBe("dobby.plugin-package");
+        signature.GetProperty("format").GetString().ShouldBe("IeeeP1363FixedFieldConcatenation");
+        signature.GetProperty("keyId").GetString().ShouldBe("plugin-test-2026-01");
     }
 
     [Fact]

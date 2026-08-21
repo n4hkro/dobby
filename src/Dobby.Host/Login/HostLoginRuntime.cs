@@ -10,6 +10,7 @@ using Dobby.Licensing;
 using Dobby.Security.Authentication;
 using Dobby.Security.Authorization;
 using Dobby.Security.CurrentContext;
+using Dobby.Infrastructure.Persistence;
 
 namespace Dobby.Host.Login;
 
@@ -82,6 +83,36 @@ public sealed record HostLoginRuntime(
 
     internal Task? AuditRetentionTask { get; init; }
 
+    internal LicenseActivationRefreshOutboxHandler? LicenseActivationRefreshHandler { get; init; }
+
+    internal HostOutboxDispatcher? OutboxDispatcher { get; init; }
+
+    private Task? outboxDispatchTask;
+    private int outboxPumpStarted;
+
+    public void StartLicenseActivationRefreshDispatch(Func<string, ValueTask> refreshHandler)
+    {
+        ArgumentNullException.ThrowIfNull(refreshHandler);
+        if (LicenseActivationRefreshHandler is null || OutboxDispatcher is null || AuthenticatedLifetime is null)
+        {
+            return;
+        }
+
+        LicenseActivationRefreshHandler.Register(refreshHandler);
+        if (Interlocked.CompareExchange(ref outboxPumpStarted, 1, 0) == 0)
+        {
+            outboxDispatchTask = RunOutboxPumpAsync(OutboxDispatcher, AuthenticatedLifetime.Token);
+        }
+    }
+
+    public async ValueTask DispatchPendingPostCommitEffectsAsync(CancellationToken cancellationToken = default)
+    {
+        if (OutboxDispatcher is not null)
+        {
+            await OutboxDispatcher.DispatchBatchAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     public Result<CurrentCustomerDeploymentContextResult> ProvisionCustomerDeploymentContext(
         string actorId,
         string customerId,
@@ -127,7 +158,41 @@ public sealed record HostLoginRuntime(
             }
         }
 
+        if (outboxDispatchTask is not null)
+        {
+            try
+            {
+                await outboxDispatchTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
         await PluginRuntimeCoordinator.DisposeAsync().ConfigureAwait(false);
         AuthenticatedLifetime?.Dispose();
+    }
+
+    private static async Task RunOutboxPumpAsync(
+        HostOutboxDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await dispatcher.DispatchBatchAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+            {
+                System.Diagnostics.Trace.TraceWarning($"host.outbox.dispatch.failed:{exception.GetType().Name}");
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+        }
     }
 }

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -142,6 +143,39 @@ public static class ArtifactCanonicalJson
             default:
                 throw new InvalidOperationException("Unsupported canonical signed JSON value kind.");
         }
+    }
+}
+
+public static class ArtifactCanonicalPayload
+{
+    private static readonly byte[] Header = "DOBBY-SIGNED-ARTIFACT\0"u8.ToArray();
+
+    public static byte[] Compose(
+        string purpose,
+        int schemaVersion,
+        ReadOnlySpan<byte> canonicalJson)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(purpose);
+        if (schemaVersion <= 0 || canonicalJson.IsEmpty)
+        {
+            throw new ArgumentOutOfRangeException(nameof(schemaVersion));
+        }
+
+        var purposeBytes = Encoding.UTF8.GetBytes(purpose);
+        var versionBytes = Encoding.ASCII.GetBytes(schemaVersion.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        var payload = new byte[
+            Header.Length + purposeBytes.Length + 1 + versionBytes.Length + 1 + canonicalJson.Length];
+        var offset = 0;
+        Header.CopyTo(payload, offset);
+        offset += Header.Length;
+        purposeBytes.CopyTo(payload, offset);
+        offset += purposeBytes.Length;
+        payload[offset++] = 0;
+        versionBytes.CopyTo(payload, offset);
+        offset += versionBytes.Length;
+        payload[offset++] = 0;
+        canonicalJson.CopyTo(payload.AsSpan(offset));
+        return payload;
     }
 }
 

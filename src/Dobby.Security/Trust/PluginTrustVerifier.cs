@@ -21,11 +21,11 @@ public sealed class PluginTrustVerifier : IPluginTrustVerifier
 
     public PluginTrustVerifier(
         PluginTrustPublicKeyProvider publicKeyProvider,
-        DobbyPluginTrustProfile profile = DobbyPluginTrustProfile.Production,
+        DobbyPluginTrustProfile? profile = null,
         TimeProvider? timeProvider = null)
     {
         this.publicKeyProvider = publicKeyProvider ?? throw new ArgumentNullException(nameof(publicKeyProvider));
-        this.profile = profile;
+        this.profile = profile ?? publicKeyProvider.Profile;
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 

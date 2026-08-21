@@ -171,8 +171,9 @@ public partial class MainWindow : Window
             shellViewModel,
             new WindowsLicenseFilePicker(),
             loginRuntime.LicenseImportCoordinator,
-            RefreshLicenseModeAfterImport,
+            _ => loginRuntime.DispatchPendingPostCommitEffectsAsync(),
             licenseImportFaultSink);
+        loginRuntime.StartLicenseActivationRefreshDispatch(RefreshLicenseModeAfterImport);
         ConfigureShellRouteHost(runtimeRouteHost);
         RefreshWorkSessions();
         UpdateProfileAccountText();
@@ -847,25 +848,36 @@ public partial class MainWindow : Window
             : string.Empty;
     }
 
-    private ValueTask RefreshLicenseModeAfterImport(LicenseImportResult importResult)
+    private async ValueTask RefreshLicenseModeAfterImport(string pluginId)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            await Dispatcher.InvokeAsync(() => RefreshLicenseMode(pluginId));
+            return;
+        }
+
+        RefreshLicenseMode(pluginId);
+    }
+
+    private void RefreshLicenseMode(string pluginId)
     {
         var runtime = loginRuntime;
-        if (!importResult.IsSuccess || runtime is null)
+        if (runtime is null)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
         var installedSnapshot = runtime.PluginRuntimeCoordinator.StateStore.Snapshot();
         if (!installedSnapshot.IsSuccess)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
         var installed = installedSnapshot.Value.SingleOrDefault(plugin =>
-            plugin.PluginId.Equals(importResult.PluginId, StringComparison.Ordinal));
+            plugin.PluginId.Equals(pluginId, StringComparison.Ordinal));
         if (installed is null)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
         var mode = runtime.LicenseRuntimeModeProvider.GetCurrentMode(
@@ -875,8 +887,6 @@ public partial class MainWindow : Window
         {
             shellViewModel.SetLicenseRuntimeMode(mode.Value);
         }
-
-        return ValueTask.CompletedTask;
     }
 
     private void WorkspaceNewTab_Click(object sender, RoutedEventArgs e)

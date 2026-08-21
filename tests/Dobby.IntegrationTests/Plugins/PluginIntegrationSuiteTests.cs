@@ -537,13 +537,13 @@ internal sealed class SamplePluginPackageFixture : IDisposable
             ",",
             files.Select(file => $$"""{"path":"{{file.Path}}","sha256":"{{file.Sha256}}"}"""));
         return
-            "{\"pluginId\":\"" + PluginId +
+            "{\"schemaVersion\":2,\"purpose\":\"dobby.plugin-package\",\"pluginId\":\"" + PluginId +
             "\",\"version\":\"" + Version +
-            "\",\"vendorId\":\"dobby.vendor\",\"minHostVersion\":\"1.0.0\",\"entryAssembly\":\"" + entryAssembly +
+            "\",\"vendorId\":\"dobby.vendor\",\"hostApiVersion\":\"2.0\",\"minHostVersion\":\"1.0.0\",\"entryAssembly\":\"" + entryAssembly +
             "\",\"displayName\":\"Sample Plugin\",\"description\":\"Sample plugin description\",\"dependsOn\":[],\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}],\"operationTargets\":[{\"id\":\"" + PluginId +
             ".greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}],\"extensionPoints\":[{\"id\":\"sample.greet.page\",\"target\":\"" + navigationTarget +
             "\",\"routeKey\":\"greet\",\"labelKey\":\"sample.nav.greet\",\"group\":\"default\",\"weight\":100}],\"files\":[" + filesJson +
-            "],\"signature\":{\"algorithm\":\"ECDSA-P256-SHA256\",\"keyVersion\":1,\"value\":\"AQ\"}}";
+            "],\"signature\":{\"purpose\":\"dobby.plugin-package\",\"algorithm\":\"ECDSA-P256-SHA256\",\"format\":\"IeeeP1363FixedFieldConcatenation\",\"keyId\":\"plugin-prod-2026-01\",\"value\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}}";
     }
 
     private static string FindSamplePluginAssembly()

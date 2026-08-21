@@ -222,8 +222,9 @@ public sealed class AdminCommandHostTests
                 DobbyPluginTrustProfile.DevQa,
                 new Dictionary<string, byte[]>(StringComparer.Ordinal)
                 {
-                    [PluginTrustPublicKeyProvider.DevQaResourceName] = publicKeyPem
-                }))
+                    [PluginTrustPublicKeyProvider.DevQaLicenseResourceName] = publicKeyPem
+                },
+                ArtifactSignaturePurposes.PluginLicense))
             .Verify(parsed.Artifact!.Signature, parsed.Artifact.CanonicalPayload)
             .IsSuccess.ShouldBeTrue();
     }
@@ -371,8 +372,9 @@ public sealed class AdminCommandHostTests
                 DobbyPluginTrustProfile.DevQa,
                 new Dictionary<string, byte[]>(StringComparer.Ordinal)
                 {
-                    [PluginTrustPublicKeyProvider.DevQaResourceName] = publicKeyPem
-                }))
+                    [PluginTrustPublicKeyProvider.DevQaLicenseResourceName] = publicKeyPem
+                },
+                ArtifactSignaturePurposes.PluginLicense))
             .Verify(parsed.Artifact!.Signature, parsed.Artifact.CanonicalPayload)
             .IsSuccess.ShouldBeTrue();
     }
@@ -420,9 +422,12 @@ public sealed class AdminCommandHostTests
         var assemblyBytes = File.ReadAllBytes(assemblyPath);
         var assemblyHash = staleAssemblyHash ? new string('0', 64) : Sha256(assemblyBytes);
         var manifestJson =
-            "{\"pluginId\":\"com.dobby.sample\"," +
+            "{\"schemaVersion\":2," +
+            "\"purpose\":\"dobby.plugin-package\"," +
+            "\"pluginId\":\"com.dobby.sample\"," +
             "\"version\":\"1.0.0\"," +
             "\"vendorId\":\"dobby.dev-qa\"," +
+            "\"hostApiVersion\":\"2.0\"," +
             "\"minHostVersion\":\"1.0.0\"," +
             "\"entryAssembly\":\"bin/plugins/Dobby.Sample.Plugin.dll\"," +
             "\"displayName\":\"Dobby Sample\"," +
@@ -432,7 +437,7 @@ public sealed class AdminCommandHostTests
             "\"operationTargets\":[{\"id\":\"com.dobby.sample.greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}]," +
             "\"extensionPoints\":[{\"id\":\"sample.greet.page\",\"target\":\"sidebar\",\"routeKey\":\"greet\",\"labelKey\":\"sample.nav.greet\",\"group\":\"default\",\"weight\":100}]," +
             "\"files\":[{\"path\":\"bin/plugins/Dobby.Sample.Plugin.dll\",\"sha256\":\"" + assemblyHash + "\"}]," +
-            "\"signature\":{\"algorithm\":\"ECDSA-P256-SHA256\",\"keyVersion\":1,\"value\":\"AQ\"}}";
+            "\"signature\":{\"purpose\":\"dobby.plugin-package\",\"algorithm\":\"ECDSA-P256-SHA256\",\"format\":\"IeeeP1363FixedFieldConcatenation\",\"keyId\":\"plugin-test-2026-01\",\"value\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}}";
 
         using var stream = File.Create(packagePath);
         using var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false);

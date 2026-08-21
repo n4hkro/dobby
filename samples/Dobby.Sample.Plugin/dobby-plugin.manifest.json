@@ -1,7 +1,10 @@
 {
+  "schemaVersion": 2,
+  "purpose": "dobby.plugin-package",
   "pluginId": "com.dobby.sample",
   "version": "1.0.0",
   "vendorId": "dobby.dev-qa",
+  "hostApiVersion": "2.0",
   "minHostVersion": "1.0.0",
   "entryAssembly": "bin/plugins/Dobby.Sample.Plugin.dll",
   "displayName": "Dobby Sample",
@@ -55,8 +58,10 @@
     }
   ],
   "signature": {
+    "purpose": "dobby.plugin-package",
     "algorithm": "ECDSA-P256-SHA256",
-    "keyVersion": 1,
-    "value": "AQ"
+    "format": "IeeeP1363FixedFieldConcatenation",
+    "keyId": "plugin-test-2026-01",
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
   }
 }

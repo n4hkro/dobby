@@ -355,14 +355,18 @@ public static class PluginPackageReader
 
         var allowedRootProperties = new HashSet<string>(StringComparer.Ordinal)
         {
+            "schemaVersion",
+            "purpose",
             "pluginId",
             "version",
             "vendorId",
+            "hostApiVersion",
             "minHostVersion",
             "entryAssembly",
             "displayName",
             "description",
             "icon",
+            "nativeLibraries",
             "dependsOn",
             "capabilities",
             "operationTargets",
@@ -383,9 +387,12 @@ public static class PluginPackageReader
 
         try
         {
+            var schemaVersion = GetInt(root, "schemaVersion");
+            var purpose = GetString(root, "purpose");
             var pluginId = GetString(root, "pluginId");
             var version = GetString(root, "version");
             var vendorId = GetString(root, "vendorId");
+            var hostApiVersion = GetString(root, "hostApiVersion");
             var minHostVersion = GetString(root, "minHostVersion");
             var entryAssembly = GetString(root, "entryAssembly");
             var displayName = GetString(root, "displayName");
@@ -393,6 +400,9 @@ public static class PluginPackageReader
             var icon = TryGetProperty(root, "icon", out var iconElement)
                 ? ParseIcon(iconElement)
                 : null;
+            var nativeLibraries = TryGetProperty(root, "nativeLibraries", out var nativeLibrariesElement)
+                ? GetStringArray(nativeLibrariesElement)
+                : [];
             var dependsOn = GetArray(root, "dependsOn", ParseDependency);
             var capabilities = GetArray(root, "capabilities", ParseCapability);
             var operationTargets = GetArray(root, "operationTargets", ParseOperationTarget);
@@ -414,7 +424,13 @@ public static class PluginPackageReader
                 operationTargets,
                 extensionPoints,
                 files,
-                signature));
+                signature)
+            {
+                SchemaVersion = schemaVersion,
+                Purpose = purpose,
+                HostApiVersion = hostApiVersion,
+                NativeLibraries = nativeLibraries
+            });
         }
         catch (InvalidOperationException exception)
         {
@@ -484,10 +500,12 @@ public static class PluginPackageReader
 
     private static PluginPackageSignature ParseSignature(JsonElement element)
     {
-        EnsureOnlyProperties(element, "algorithm", "keyVersion", "value");
+        EnsureOnlyProperties(element, "purpose", "algorithm", "format", "keyId", "value");
         return new PluginPackageSignature(
+            GetString(element, "purpose"),
             GetString(element, "algorithm"),
-            GetInt(element, "keyVersion"),
+            GetString(element, "format"),
+            GetString(element, "keyId"),
             GetString(element, "value"));
     }
 
@@ -671,5 +689,17 @@ public static class PluginPackageReader
 
             base.Dispose(disposing);
         }
+    }
+
+    private static IReadOnlyList<string> GetStringArray(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidOperationException("Manifest array value is malformed.");
+        }
+
+        return element.EnumerateArray()
+            .Select(item => item.GetString() ?? throw new InvalidOperationException("Manifest array item is malformed."))
+            .ToArray();
     }
 }

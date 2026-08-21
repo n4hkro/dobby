@@ -50,6 +50,7 @@ public static class AdminCommandHost
             ],
             [
                 "--report-path",
+                "--intent",
                 "--overwrite"
             ]),
         [CreateRecoveryResponse] = new(
@@ -144,6 +145,12 @@ public static class AdminCommandHost
                 {
                     return Validation("invalid-revision");
                 }
+
+                if (options.Values.TryGetValue("--intent", out var intent) &&
+                    intent is not "granted" and not "revoked")
+                {
+                    return Validation("invalid-intent");
+                }
             }
 
             if (File.Exists(outputPath) && !overwrite)
@@ -196,6 +203,12 @@ public static class AdminCommandHost
             return Validation("input-not-found");
         }
 
+        if (!material.Purpose.Equals(ArtifactSignaturePurposes.PluginPackage, StringComparison.Ordinal) ||
+            Path.GetFullPath(inputPath).Equals(Path.GetFullPath(outputPath), StringComparison.OrdinalIgnoreCase))
+        {
+            return Validation("invalid-output-path");
+        }
+
         var read = PluginPackageReader.Read(inputPath);
         if (!read.IsSuccess)
         {
@@ -225,18 +238,27 @@ public static class AdminCommandHost
 
         var refreshedManifest = archive.Manifest with { Files = refreshedFiles };
         var fingerprint = PluginPackageFingerprint.Compute(refreshedManifest);
-        var signature = ToBase64Url(material.Key.SignData(
+        var signature = ArtifactSignatureCodec.ToUnpaddedBase64Url(material.Key.SignData(
             fingerprint.CanonicalPayload,
             HashAlgorithmName.SHA256,
-            DSASignatureFormat.Rfc3279DerSequence));
-        var manifestJson = WritePluginManifestJson(refreshedManifest, signature);
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+        var signedManifest = refreshedManifest with
+        {
+            Signature = new PluginPackageSignature(
+                ArtifactSignaturePurposes.PluginPackage,
+                ArtifactSignatureProfile.Algorithm,
+                ArtifactSignatureProfile.Format,
+                material.KeyId,
+                signature)
+        };
+        var manifestJson = WritePluginManifestJson(signedManifest);
 
         EnsureParentDirectory(outputPath);
         using (var stream = File.Create(outputPath))
         using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false))
         {
             AddZipEntry(zip, PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(manifestJson));
-            foreach (var file in refreshedManifest.Files.OrderBy(file => file.Path, StringComparer.Ordinal))
+            foreach (var file in signedManifest.Files.OrderBy(file => file.Path, StringComparer.Ordinal))
             {
                 var entry = packageEntries[file.Path];
                 using var content = entry.OpenRead();
@@ -248,6 +270,8 @@ public static class AdminCommandHost
         {
             command = SignPluginPackage,
             signingProfile = material.Profile,
+            signingPurpose = material.Purpose,
+            signingKeyId = material.KeyId,
             outputFileName = Path.GetFileName(outputPath),
             reportFileName = Path.GetFileName(reportPath),
             packageFingerprint = fingerprint.Fingerprint,
@@ -287,34 +311,47 @@ public static class AdminCommandHost
 
         var pluginId = ReadPluginId(packagePath) ?? Path.GetFileNameWithoutExtension(packagePath);
         var packageFingerprint = ReadPackageFingerprint(packagePath);
+        var customerId = Require(options, "--customer-id");
+        var deploymentId = Require(options, "--deployment-id");
+        var intent = options.Values.TryGetValue("--intent", out var explicitIntent)
+            ? explicitIntent
+            : "granted";
+        var revisionSeriesId = "series-" + Sha256Text($"{pluginId}\0{customerId}\0{deploymentId}")[..32];
         var payload = new SortedDictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["customerId"] = Require(options, "--customer-id"),
-            ["deploymentId"] = Require(options, "--deployment-id"),
-            ["deviceFingerprint"] = deviceFingerprint,
-            ["deviceFingerprintAlgorithm"] = "v1",
+            ["customerId"] = customerId,
+            ["deploymentId"] = deploymentId,
+            ["deviceKeyHash"] = deviceFingerprint,
             ["expiresAt"] = ToUtcZ(validUntil),
             ["gracePeriodDays"] = 14,
+            ["intent"] = intent,
             ["issuedAt"] = ToUtcZ(validFrom),
-            ["keyVersion"] = 1,
+            ["keyId"] = material.KeyId,
             ["licenseId"] = Guid.NewGuid().ToString("D"),
             ["licenseRevision"] = revision,
             ["notBefore"] = ToUtcZ(validFrom),
             ["packageFingerprint"] = packageFingerprint,
             ["pluginId"] = pluginId,
-            ["schemaVersion"] = 2,
-            ["status"] = "active"
+            ["purpose"] = ArtifactSignaturePurposes.PluginLicense,
+            ["revisionSeriesId"] = revisionSeriesId,
+            ["schemaVersion"] = LicenseV3Contract.SchemaVersion
         };
 
         using var payloadDocument = JsonDocument.Parse(JsonSerializer.Serialize(payload));
-        var canonicalPayload = LicenseCanonicalJsonWriter.Write(payloadDocument.RootElement);
-        var signature = ToBase64Url(material.Key.SignData(
+        var canonicalJson = LicenseCanonicalJsonWriter.Write(payloadDocument.RootElement);
+        var canonicalPayload = ArtifactCanonicalPayload.Compose(
+            ArtifactSignaturePurposes.PluginLicense,
+            LicenseV3Contract.SchemaVersion,
+            canonicalJson);
+        var signature = ArtifactSignatureCodec.ToUnpaddedBase64Url(material.Key.SignData(
             canonicalPayload,
             HashAlgorithmName.SHA256,
-            DSASignatureFormat.Rfc3279DerSequence));
-        var payloadJson = Encoding.UTF8.GetString(canonicalPayload);
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+        var payloadJson = Encoding.UTF8.GetString(canonicalJson);
         var artifactJson = "{\"payload\":" + payloadJson +
-            ",\"signature\":{\"algorithm\":\"ECDSA-P256-SHA256\",\"keyVersion\":1,\"value\":\"" +
+            ",\"signature\":{\"purpose\":\"dobby.plugin-license\",\"algorithm\":\"ECDSA-P256-SHA256\",\"format\":\"IeeeP1363FixedFieldConcatenation\",\"keyId\":\"" +
+            material.KeyId +
+            "\",\"value\":\"" +
             signature +
             "\"}}";
 
@@ -325,12 +362,15 @@ public static class AdminCommandHost
         {
             command = CreatePluginLicense,
             signingProfile = material.Profile,
+            signingPurpose = material.Purpose,
+            signingKeyId = material.KeyId,
             outputFileName = Path.GetFileName(outputPath),
             reportFileName = Path.GetFileName(reportPath),
             pluginId,
             customerIdHash = Sha256Text(Require(options, "--customer-id"))[..12],
             deploymentIdHash = Sha256Text(Require(options, "--deployment-id"))[..12],
             licenseRevision = revision,
+            licenseIntent = intent,
             artifactSha256 = Sha256File(outputPath)
         };
         WriteReport(reportPath, report, overwrite);
@@ -530,15 +570,18 @@ public static class AdminCommandHost
         return Sha256File(packagePath);
     }
 
-    private static string WritePluginManifestJson(PluginManifest manifest, string signature)
+    private static string WritePluginManifestJson(PluginManifest manifest)
     {
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
         {
             writer.WriteStartObject();
+            writer.WriteNumber("schemaVersion", manifest.SchemaVersion);
+            writer.WriteString("purpose", manifest.Purpose);
             writer.WriteString("pluginId", manifest.PluginId);
             writer.WriteString("version", manifest.Version);
             writer.WriteString("vendorId", manifest.VendorId);
+            writer.WriteString("hostApiVersion", manifest.HostApiVersion);
             writer.WriteString("minHostVersion", manifest.MinHostVersion);
             writer.WriteString("entryAssembly", manifest.EntryAssembly);
             writer.WriteString("displayName", manifest.DisplayName);
@@ -549,6 +592,18 @@ public static class AdminCommandHost
                 writer.WriteStartObject();
                 writer.WriteString("path", manifest.Icon.Path);
                 writer.WriteEndObject();
+            }
+
+            if (manifest.NativeLibraries.Count > 0)
+            {
+                writer.WritePropertyName("nativeLibraries");
+                writer.WriteStartArray();
+                foreach (var path in manifest.NativeLibraries)
+                {
+                    writer.WriteStringValue(path);
+                }
+
+                writer.WriteEndArray();
             }
 
             writer.WritePropertyName("dependsOn");
@@ -637,9 +692,11 @@ public static class AdminCommandHost
             writer.WriteEndArray();
             writer.WritePropertyName("signature");
             writer.WriteStartObject();
-            writer.WriteString("algorithm", "ECDSA-P256-SHA256");
-            writer.WriteNumber("keyVersion", 1);
-            writer.WriteString("value", signature);
+            writer.WriteString("purpose", manifest.Signature.Purpose);
+            writer.WriteString("algorithm", manifest.Signature.Algorithm);
+            writer.WriteString("format", manifest.Signature.Format);
+            writer.WriteString("keyId", manifest.Signature.KeyId);
+            writer.WriteString("value", manifest.Signature.Value);
             writer.WriteEndObject();
             writer.WriteEndObject();
         }

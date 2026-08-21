@@ -394,7 +394,9 @@ public sealed class ShellSmokeTests
             }
 
             if (!payload.Algorithm.Equals("ECDSA-P256-SHA256", StringComparison.Ordinal) ||
-                payload.KeyVersion != 1 ||
+                !payload.Purpose.Equals(ArtifactSignaturePurposes.PluginPackage, StringComparison.Ordinal) ||
+                !payload.Format.Equals(ArtifactSignatureProfile.Format, StringComparison.Ordinal) ||
+                !payload.KeyId.Equals(PluginTrustPublicKeyProvider.DevQaPluginPackageKeyId, StringComparison.Ordinal) ||
                 !TryDecodeSignature(payload.SignatureValue, out var signature))
             {
                 return PluginTrustVerificationResult.Failure("signature-failed", "Sample smoke signature is malformed.");
@@ -404,7 +406,7 @@ public sealed class ShellSmokeTests
                 payload.CanonicalPayload,
                 signature,
                 HashAlgorithmName.SHA256,
-                DSASignatureFormat.Rfc3279DerSequence)
+                DSASignatureFormat.IeeeP1363FixedFieldConcatenation)
                 ? PluginTrustVerificationResult.Success()
                 : PluginTrustVerificationResult.Failure("signature-failed", "Sample smoke signature verification failed.");
         }
@@ -422,7 +424,8 @@ public sealed class ShellSmokeTests
                     _ => throw new FormatException("Invalid base64url length.")
                 };
                 signature = Convert.FromBase64String(padded);
-                return signature.Length > 0;
+                return signature.Length == ArtifactSignatureProfile.P256SignatureLength &&
+                    ArtifactSignatureCodec.ToUnpaddedBase64Url(signature).Equals(value, StringComparison.Ordinal);
             }
             catch (FormatException)
             {

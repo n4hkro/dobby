@@ -251,8 +251,9 @@ public sealed class LicenseImportCoordinatorTests
                 DobbyPluginTrustProfile.Production,
                 new Dictionary<string, byte[]>(StringComparer.Ordinal)
                 {
-                    [PluginTrustPublicKeyProvider.ProductionResourceName] = publicKeyPem
-                })),
+                    [PluginTrustPublicKeyProvider.ProductionLicenseResourceName] = publicKeyPem
+                },
+                ArtifactSignaturePurposes.PluginLicense)),
             currentContextService,
             licenseStateStore);
         var authorization = new OperationAuthorizationPolicy(
@@ -319,7 +320,9 @@ public sealed class LicenseImportCoordinatorTests
                 ? AdminSigningMaterialResult.Success(new AdminSigningMaterial(
                     signingProfile,
                     purpose,
-                    "license-test-2026-01",
+                    profile.Equals("production", StringComparison.Ordinal)
+                        ? PluginTrustPublicKeyProvider.ProductionPluginLicenseKeyId
+                        : PluginTrustPublicKeyProvider.DevQaPluginLicenseKeyId,
                     key))
                 : AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
         }

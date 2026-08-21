@@ -8,7 +8,7 @@ namespace Dobby.PluginFramework.Packaging;
 
 internal static class PluginManifestSchemaValidator
 {
-    private const string ManifestSchemaResourceName = "Dobby.PluginFramework.Schemas.dobby-plugin-manifest.schema.json";
+    private const string ManifestSchemaResourceName = "Dobby.PluginFramework.Schemas.dobby-plugin-manifest-v2.schema.json";
 
     private static readonly Lazy<JsonSchema> ManifestSchema = new(LoadManifestSchema);
 
@@ -25,7 +25,7 @@ internal static class PluginManifestSchemaValidator
             ? []
             : [new PluginManifestValidationReason(
                 "invalid-manifest",
-                "Manifest does not match docs/schemas/dobby-plugin-manifest.schema.json.")];
+                "Manifest does not match docs/schemas/dobby-plugin-manifest-v2.schema.json.")];
     }
 
     private static JsonSchema LoadManifestSchema()

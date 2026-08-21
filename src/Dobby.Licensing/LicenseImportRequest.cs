@@ -8,4 +8,5 @@ public sealed record LicenseImportRequest(
     bool PermissionGranted,
     string CorrelationId,
     DateTimeOffset ImportedAtUtc,
-    CancellationToken CancellationToken = default);
+    CancellationToken CancellationToken = default,
+    string ActorId = "unknown");

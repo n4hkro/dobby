@@ -20,6 +20,10 @@ public sealed class PluginTrustPublicKeyProvider
     private readonly IReadOnlyDictionary<string, byte[]>? resourceMap;
     private readonly Assembly assembly;
 
+    public DobbyPluginTrustProfile Profile => profile;
+
+    public string Purpose => purpose;
+
     public PluginTrustPublicKeyProvider(
         DobbyPluginTrustProfile profile = DobbyPluginTrustProfile.Production,
         string purpose = ArtifactSignaturePurposes.PluginPackage)

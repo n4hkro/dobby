@@ -79,6 +79,7 @@ public static class PluginPackageValidator
             .ToArray();
 
         ValidateEntryAssembly(archive.Manifest.EntryAssembly, manifestFiles, reasons);
+        ValidateRequiredContentDeclarations(archive.Manifest, manifestFiles, reasons);
         ValidateActualEntries(actualFiles, reasons);
         ValidateForbiddenContent(manifestFiles, actualFiles, reasons);
         ValidateAssemblyBoundaries(actualFiles, reasons);
@@ -101,8 +102,10 @@ public static class PluginPackageValidator
 
         var trust = trustVerifier.Verify(new PluginTrustPayload(
             archive.Manifest.VendorId,
-            archive.Manifest.Signature.KeyVersion,
+            archive.Manifest.Signature.Purpose,
             archive.Manifest.Signature.Algorithm,
+            archive.Manifest.Signature.Format,
+            archive.Manifest.Signature.KeyId,
             fingerprint.CanonicalPayload,
             archive.Manifest.Signature.Value));
 
@@ -259,6 +262,32 @@ public static class PluginPackageValidator
                     "invalid-package",
                     "Plugin assembly content could not be read consistently.",
                     entry.Path));
+            }
+        }
+    }
+
+    private static void ValidateRequiredContentDeclarations(
+        PluginManifest manifest,
+        IReadOnlyList<PluginPackageEntry> manifestFiles,
+        ICollection<PluginPackageValidationReason> reasons)
+    {
+        var declared = manifestFiles.Select(file => file.Path).ToHashSet(StringComparer.Ordinal);
+        if (manifest.Icon is not null && !declared.Contains(manifest.Icon.Path))
+        {
+            reasons.Add(new PluginPackageValidationReason(
+                "invalid-manifest",
+                "Plugin icon must be declared in the manifest files section.",
+                "icon.path"));
+        }
+
+        foreach (var nativeLibrary in manifest.NativeLibraries)
+        {
+            if (!declared.Contains(nativeLibrary))
+            {
+                reasons.Add(new PluginPackageValidationReason(
+                    "invalid-manifest",
+                    "Native libraries must be declared in the manifest files section.",
+                    "nativeLibraries"));
             }
         }
     }

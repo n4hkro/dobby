@@ -45,8 +45,7 @@ public sealed class LicenseImportServiceTests
         result.IsSuccess.ShouldBeFalse();
         result.ReasonCode.ShouldBe("permission-denied");
         store.SavedStates.ShouldBeEmpty();
-        store.Attestations.ShouldHaveSingleItem();
-        store.Attestations[0].Result.ShouldBe("permission-denied");
+        store.Attestations.ShouldBeEmpty();
     }
 
     [Fact]
@@ -64,8 +63,7 @@ public sealed class LicenseImportServiceTests
         result.IsSuccess.ShouldBeFalse();
         result.ReasonCode.ShouldBe(LicenseRejectReasons.Cancelled);
         store.SavedStates.ShouldBeEmpty();
-        store.Attestations.ShouldHaveSingleItem();
-        store.Attestations[0].Result.ShouldBe(LicenseRejectReasons.Cancelled);
+        store.Attestations.ShouldBeEmpty();
     }
 
     [Fact]
@@ -84,8 +82,7 @@ public sealed class LicenseImportServiceTests
         result.IsSuccess.ShouldBeFalse();
         result.ReasonCode.ShouldBe("invalid-signature");
         store.SavedStates.ShouldBeEmpty();
-        store.Attestations.ShouldHaveSingleItem();
-        store.Attestations[0].Result.ShouldBe("invalid-signature");
+        store.Attestations.ShouldBeEmpty();
     }
 
     [Fact]
@@ -161,14 +158,33 @@ public sealed class LicenseImportServiceTests
         store.SavedStates.ShouldBeEmpty();
     }
 
+    [Fact]
+    public void Retrying_the_same_signed_grant_is_idempotent()
+    {
+        using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out var publicKeyPem);
+        var store = new InMemoryLicenseStateStore();
+        var service = CreateService(publicKeyPem, store);
+        var artifact = LicenseArtifactFixtureBuilder.CreateSignedArtifact(key);
+
+        var first = service.Import(Request(artifact.Bytes));
+        var retry = service.Import(Request(artifact.Bytes));
+
+        first.IsSuccess.ShouldBeTrue();
+        retry.IsSuccess.ShouldBeTrue();
+        retry.AuditCommitted.ShouldBeTrue();
+        store.SavedStates.Count.ShouldBe(1);
+        store.Attestations.Count.ShouldBe(1);
+    }
+
     private static LicenseImportService CreateService(byte[] publicKeyPem, InMemoryLicenseStateStore store)
     {
         var verifier = new LicenseSignatureVerifier(new PluginTrustPublicKeyProvider(
             DobbyPluginTrustProfile.Production,
             new Dictionary<string, byte[]>
             {
-                [PluginTrustPublicKeyProvider.ProductionResourceName] = publicKeyPem
-            }));
+                [PluginTrustPublicKeyProvider.ProductionLicenseResourceName] = publicKeyPem
+            },
+            ArtifactSignaturePurposes.PluginLicense));
         var contextStore = new InMemoryCurrentContextStore(new CurrentCustomerDeploymentContext("default", "default"));
         return new LicenseImportService(
             verifier,
@@ -210,6 +226,7 @@ public sealed class LicenseImportServiceTests
         public void Save(LicenseStateRecord state)
         {
             SavedStates.Add(state);
+            ExistingState = state;
         }
 
         public void AppendAttestation(LicenseImportAttestation attestation)

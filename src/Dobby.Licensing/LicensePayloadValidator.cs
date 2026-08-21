@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Dobby.Security.Trust;
 
 namespace Dobby.Licensing;
 
@@ -8,169 +9,168 @@ public static class LicensePayloadValidator
 {
     private static readonly string[] RequiredProperties =
     [
-        "schemaVersion",
-        "licenseId",
-        "pluginId",
-        "customerId",
-        "deploymentId",
-        "deviceFingerprintAlgorithm",
-        "deviceFingerprint",
-        "packageFingerprint",
-        "licenseRevision",
-        "issuedAt",
-        "notBefore",
-        "expiresAt",
-        "gracePeriodDays",
-        "status",
-        "keyVersion"
+        "schemaVersion", "purpose", "keyId", "licenseId", "revisionSeriesId",
+        "licenseRevision", "pluginId", "customerId", "deploymentId", "deviceKeyHash",
+        "packageFingerprint", "issuedAt", "notBefore", "expiresAt", "gracePeriodDays", "intent"
     ];
 
     private static readonly HashSet<string> RequiredPropertySet = RequiredProperties.ToHashSet(StringComparer.Ordinal);
-    private static readonly Regex PluginIdPattern = new("^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$", RegexOptions.CultureInvariant);
-    private static readonly Regex UtcDateTimePattern = new("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$", RegexOptions.CultureInvariant);
+    private static readonly Regex IdentifierPattern = new("^[A-Za-z0-9][A-Za-z0-9._:-]*$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex PluginIdPattern = new("^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex KeyIdPattern = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex UtcDateTimePattern = new(
+        "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,7})?Z$",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     public static LicensePayloadValidationResult Validate(LicenseArtifact artifact)
     {
         ArgumentNullException.ThrowIfNull(artifact);
 
-        if (artifact.Payload.ValueKind != JsonValueKind.Object ||
-            !HasExactPayloadShape(artifact.Payload))
-        {
-            return LicensePayloadValidationResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
-        }
-
-        if (!TryGetRequiredInt(artifact.Payload, "schemaVersion", out var schemaVersion) || schemaVersion != 2 ||
+        if (artifact.Payload.ValueKind != JsonValueKind.Object || !HasExactPayloadShape(artifact.Payload) ||
+            !TryGetRequiredInt(artifact.Payload, "schemaVersion", out var schemaVersion) ||
+            schemaVersion != LicenseV3Contract.SchemaVersion ||
+            !TryGetRequiredString(artifact.Payload, "purpose", out var purpose) ||
+            !purpose.Equals(ArtifactSignaturePurposes.PluginLicense, StringComparison.Ordinal) ||
+            !TryGetRequiredString(artifact.Payload, "keyId", out var keyId) ||
             !TryGetRequiredString(artifact.Payload, "licenseId", out var licenseId) ||
+            !TryGetRequiredString(artifact.Payload, "revisionSeriesId", out var revisionSeriesId) ||
+            !TryGetRequiredInt(artifact.Payload, "licenseRevision", out var licenseRevision) ||
             !TryGetRequiredString(artifact.Payload, "pluginId", out var pluginId) ||
             !TryGetRequiredString(artifact.Payload, "customerId", out var customerId) ||
             !TryGetRequiredString(artifact.Payload, "deploymentId", out var deploymentId) ||
-            !TryGetRequiredString(artifact.Payload, "deviceFingerprintAlgorithm", out var deviceFingerprintAlgorithm) ||
-            !TryGetRequiredString(artifact.Payload, "deviceFingerprint", out var deviceFingerprint) ||
+            !TryGetRequiredString(artifact.Payload, "deviceKeyHash", out var deviceKeyHash) ||
             !TryGetRequiredString(artifact.Payload, "packageFingerprint", out var packageFingerprint) ||
-            !TryGetRequiredInt(artifact.Payload, "licenseRevision", out var licenseRevision) ||
             !TryGetRequiredString(artifact.Payload, "issuedAt", out var issuedAtRaw) ||
             !TryGetRequiredString(artifact.Payload, "notBefore", out var notBeforeRaw) ||
             !TryGetRequiredString(artifact.Payload, "expiresAt", out var expiresAtRaw) ||
             !TryGetRequiredInt(artifact.Payload, "gracePeriodDays", out var gracePeriodDays) ||
-            !TryGetRequiredString(artifact.Payload, "status", out var statusRaw) ||
-            !TryGetRequiredInt(artifact.Payload, "keyVersion", out var keyVersion))
+            !TryGetRequiredString(artifact.Payload, "intent", out var intentRaw))
         {
             return LicensePayloadValidationResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
         }
 
-        if (keyVersion != 1 || keyVersion != artifact.Signature.KeyVersion)
+        if (!keyId.Equals(artifact.Signature.KeyId, StringComparison.Ordinal))
         {
             return LicensePayloadValidationResult.Failure(LicenseRejectReasons.InvalidSignature);
         }
 
-        if (!PluginIdPattern.IsMatch(pluginId) ||
-            !deviceFingerprintAlgorithm.Equals("v1", StringComparison.Ordinal) ||
-            !IsLowercaseSha256(deviceFingerprint) ||
+        if (!IsBoundedIdentifier(keyId, 64, KeyIdPattern) ||
+            !IsBoundedIdentifier(licenseId, LicenseV3Contract.MaximumIdentifierLength, IdentifierPattern) ||
+            !IsBoundedIdentifier(revisionSeriesId, LicenseV3Contract.MaximumIdentifierLength, IdentifierPattern) ||
+            !IsBoundedIdentifier(pluginId, LicenseV3Contract.MaximumIdentifierLength, PluginIdPattern) ||
+            !IsBoundedIdentifier(customerId, LicenseV3Contract.MaximumIdentifierLength, IdentifierPattern) ||
+            !IsBoundedIdentifier(deploymentId, LicenseV3Contract.MaximumIdentifierLength, IdentifierPattern) ||
+            !IsLowercaseSha256(deviceKeyHash) ||
             !IsLowercaseSha256(packageFingerprint) ||
             licenseRevision < 1 ||
-            gracePeriodDays < 0 ||
-            !TryMapStatus(statusRaw, out var status) ||
+            gracePeriodDays is < 0 or > LicenseV3Contract.MaximumGracePeriodDays ||
+            !TryMapIntent(intentRaw, out var intent) ||
             !TryParseUtc(issuedAtRaw, out var issuedAt) ||
             !TryParseUtc(notBeforeRaw, out var notBefore) ||
             !TryParseUtc(expiresAtRaw, out var expiresAt) ||
             issuedAt > notBefore ||
-            notBefore > expiresAt)
+            notBefore > expiresAt ||
+            !CanAddGrace(expiresAt, gracePeriodDays))
         {
             return LicensePayloadValidationResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
         }
 
         return LicensePayloadValidationResult.Success(new LicensePayload(
             schemaVersion,
+            purpose,
+            keyId,
             licenseId,
+            revisionSeriesId,
+            licenseRevision,
             pluginId,
             customerId,
             deploymentId,
-            deviceFingerprintAlgorithm,
-            deviceFingerprint,
+            deviceKeyHash,
             packageFingerprint,
-            licenseRevision,
             issuedAt,
             notBefore,
             expiresAt,
             gracePeriodDays,
-            status,
-            keyVersion));
+            intent));
     }
 
     private static bool HasExactPayloadShape(JsonElement payload)
     {
-        var names = payload.EnumerateObject()
-            .Select(property => property.Name)
-            .ToArray();
-
+        var names = payload.EnumerateObject().Select(property => property.Name).ToArray();
         return names.Length == RequiredProperties.Length &&
             names.Distinct(StringComparer.Ordinal).Count() == RequiredProperties.Length &&
-            names.All(name => RequiredPropertySet.Contains(name));
+            names.All(RequiredPropertySet.Contains);
     }
 
     private static bool TryGetRequiredString(JsonElement payload, string name, out string value)
     {
         value = string.Empty;
-        if (!payload.TryGetProperty(name, out var property) || property.ValueKind != JsonValueKind.String)
+        var matches = payload.EnumerateObject().Where(property => property.NameEquals(name)).ToArray();
+        if (matches.Length != 1 || matches[0].Value.ValueKind != JsonValueKind.String)
         {
             return false;
         }
 
-        value = property.GetString() ?? string.Empty;
+        value = matches[0].Value.GetString() ?? string.Empty;
         return value.Length > 0;
     }
 
     private static bool TryGetRequiredInt(JsonElement payload, string name, out int value)
     {
         value = 0;
-        return payload.TryGetProperty(name, out var property) &&
-            property.ValueKind == JsonValueKind.Number &&
-            property.TryGetInt32(out value);
+        var matches = payload.EnumerateObject().Where(property => property.NameEquals(name)).ToArray();
+        return matches.Length == 1 &&
+            matches[0].Value.ValueKind == JsonValueKind.Number &&
+            matches[0].Value.TryGetInt32(out value);
+    }
+
+    private static bool IsBoundedIdentifier(string value, int maximum, Regex pattern)
+    {
+        return value.Length <= maximum && pattern.IsMatch(value) && !value.Any(char.IsControl);
     }
 
     private static bool IsLowercaseSha256(string value)
     {
-        if (value.Length != 64)
-        {
-            return false;
-        }
-
-        return value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
+        return value.Length == 64 && value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
     }
 
-    private static bool TryMapStatus(string value, out LicenseArtifactStatus status)
+    private static bool TryMapIntent(string value, out LicenseGrantIntent intent)
     {
-        status = value switch
+        intent = value switch
         {
-            "active" => LicenseArtifactStatus.Active,
-            "pending" => LicenseArtifactStatus.Pending,
-            "readonly" => LicenseArtifactStatus.ReadOnly,
-            "denied" => LicenseArtifactStatus.Denied,
-            _ => (LicenseArtifactStatus)(-1)
+            "granted" => LicenseGrantIntent.Granted,
+            "revoked" => LicenseGrantIntent.Revoked,
+            _ => (LicenseGrantIntent)(-1)
         };
-
-        return status != (LicenseArtifactStatus)(-1);
+        return intent != (LicenseGrantIntent)(-1);
     }
 
     private static bool TryParseUtc(string value, out DateTimeOffset timestamp)
     {
         timestamp = default;
-        if (!UtcDateTimePattern.IsMatch(value))
+        if (value.Length > 35 || !UtcDateTimePattern.IsMatch(value))
         {
             return false;
         }
 
-        var formats = new[]
-        {
-            "yyyy-MM-dd'T'HH:mm:ss'Z'",
-            "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"
-        };
-
         return DateTimeOffset.TryParseExact(
             value,
-            formats,
+            ["yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"],
             CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
             out timestamp);
+    }
+
+    private static bool CanAddGrace(DateTimeOffset expiresAt, int gracePeriodDays)
+    {
+        try
+        {
+            _ = expiresAt.AddDays(gracePeriodDays);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
     }
 }

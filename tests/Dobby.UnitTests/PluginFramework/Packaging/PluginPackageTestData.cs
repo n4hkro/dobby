@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dobby.PluginFramework.Manifest;
 using Dobby.PluginFramework.Packaging;
+using Dobby.Security.Trust;
 
 namespace Dobby.UnitTests.PluginFramework.Packaging;
 
@@ -56,7 +57,12 @@ internal static class PluginPackageTestData
             operationTargets ?? [new PluginOperationTarget($"{PluginId}.greet", ["execute"], "sample.greet.label")],
             extensionPoints ?? [new PluginExtensionPoint("sample.home", "plugin-page-region", "sample.home", "sample.home.label", null, "default", 100)],
             files ?? DefaultFiles(),
-            signature ?? new PluginPackageSignature("ECDSA-P256-SHA256", 1, "AQ"));
+            signature ?? new PluginPackageSignature(
+                ArtifactSignaturePurposes.PluginPackage,
+                ArtifactSignatureProfile.Algorithm,
+                ArtifactSignatureProfile.Format,
+                PluginTrustPublicKeyProvider.ProductionPluginPackageKeyId,
+                ArtifactSignatureCodec.ToUnpaddedBase64Url(new byte[ArtifactSignatureProfile.P256SignatureLength])));
     }
 
     public static string CreateManifestJson(
@@ -78,9 +84,12 @@ internal static class PluginPackageTestData
     {
         var root = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
+            ["schemaVersion"] = PluginManifestContract.CurrentSchemaVersion,
+            ["purpose"] = ArtifactSignaturePurposes.PluginPackage,
             ["pluginId"] = pluginId ?? PluginId,
             ["version"] = version ?? Version,
             ["vendorId"] = vendorId ?? VendorId,
+            ["hostApiVersion"] = "2.0",
             ["minHostVersion"] = minHostVersion ?? MinHostVersion,
             ["entryAssembly"] = entryAssembly ?? EntryAssembly,
             ["displayName"] = displayName ?? DisplayName,
@@ -111,9 +120,11 @@ internal static class PluginPackageTestData
             }).ToArray(),
             ["signature"] = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["algorithm"] = signature?.Algorithm ?? "ECDSA-P256-SHA256",
-                ["keyVersion"] = signature?.KeyVersion ?? 1,
-                ["value"] = signature?.Value ?? "AQ"
+                ["purpose"] = signature?.Purpose ?? ArtifactSignaturePurposes.PluginPackage,
+                ["algorithm"] = signature?.Algorithm ?? ArtifactSignatureProfile.Algorithm,
+                ["format"] = signature?.Format ?? ArtifactSignatureProfile.Format,
+                ["keyId"] = signature?.KeyId ?? PluginTrustPublicKeyProvider.ProductionPluginPackageKeyId,
+                ["value"] = signature?.Value ?? ArtifactSignatureCodec.ToUnpaddedBase64Url(new byte[ArtifactSignatureProfile.P256SignatureLength])
             }
         };
 

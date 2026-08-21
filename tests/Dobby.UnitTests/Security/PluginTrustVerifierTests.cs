@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Dobby.Security.Trust;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
 namespace Dobby.UnitTests.Security;
@@ -20,13 +21,15 @@ public sealed class PluginTrustVerifierTests
         var signature = key.SignData(
             PluginTrustTestData.CanonicalPayload,
             HashAlgorithmName.SHA256,
-            DSASignatureFormat.Rfc3279DerSequence);
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         var payload = new PluginTrustPayload(
             "dobby.vendor",
-            1,
-            "ECDSA-P256-SHA256",
+            ArtifactSignaturePurposes.PluginPackage,
+            ArtifactSignatureProfile.Algorithm,
+            ArtifactSignatureProfile.Format,
+            PluginTrustPublicKeyProvider.ProductionPluginPackageKeyId,
             PluginTrustTestData.CanonicalPayload,
-            PluginTrustTestData.ToBase64Url(signature));
+            ArtifactSignatureCodec.ToUnpaddedBase64Url(signature));
 
         var result = verifier.Verify(payload);
 
@@ -47,13 +50,15 @@ public sealed class PluginTrustVerifierTests
         var signature = key.SignData(
             PluginTrustTestData.CanonicalPayload,
             HashAlgorithmName.SHA256,
-            DSASignatureFormat.Rfc3279DerSequence);
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         var payload = new PluginTrustPayload(
             "dobby.dev-qa",
-            1,
-            "ECDSA-P256-SHA256",
+            ArtifactSignaturePurposes.PluginPackage,
+            ArtifactSignatureProfile.Algorithm,
+            ArtifactSignatureProfile.Format,
+            PluginTrustPublicKeyProvider.ProductionPluginPackageKeyId,
             PluginTrustTestData.CanonicalPayload,
-            PluginTrustTestData.ToBase64Url(signature));
+            ArtifactSignatureCodec.ToUnpaddedBase64Url(signature));
 
         var result = verifier.Verify(payload);
 
@@ -62,14 +67,17 @@ public sealed class PluginTrustVerifierTests
     }
 
     [Theory]
-    [InlineData("RSA-SHA256", 1, "AQ", "signature-failed")]
-    [InlineData("ECDSA-P256-SHA256", 2, "AQ", "signature-failed")]
-    [InlineData("ECDSA-P256-SHA256", 1, "not-valid@", "signature-failed")]
+    [InlineData("dobby.plugin-license", "ECDSA-P256-SHA256", "IeeeP1363FixedFieldConcatenation", "plugin-prod-2026-01", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
+    [InlineData("dobby.plugin-package", "RSA-SHA256", "IeeeP1363FixedFieldConcatenation", "plugin-prod-2026-01", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
+    [InlineData("dobby.plugin-package", "ECDSA-P256-SHA256", "DER", "plugin-prod-2026-01", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
+    [InlineData("dobby.plugin-package", "ECDSA-P256-SHA256", "IeeeP1363FixedFieldConcatenation", "", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
+    [InlineData("dobby.plugin-package", "ECDSA-P256-SHA256", "IeeeP1363FixedFieldConcatenation", "plugin-prod-2026-01", "not-valid@")]
     public void Verify_rejects_malformed_signature_contract_values(
+        string purpose,
         string algorithm,
-        int keyVersion,
-        string signatureValue,
-        string expectedCode)
+        string format,
+        string keyId,
+        string signatureValue)
     {
         using var key = PluginTrustTestData.CreateKeyPair(out _, out var publicKeyPem);
         var verifier = new PluginTrustVerifier(new PluginTrustPublicKeyProvider(
@@ -80,15 +88,17 @@ public sealed class PluginTrustVerifierTests
             }));
         var payload = new PluginTrustPayload(
             "dobby.vendor",
-            keyVersion,
+            purpose,
             algorithm,
+            format,
+            keyId,
             PluginTrustTestData.CanonicalPayload,
             signatureValue);
 
         var result = verifier.Verify(payload);
 
         result.IsSuccess.ShouldBeFalse();
-        result.Code.ShouldBe(expectedCode);
+        result.Code.ShouldBe("signature-failed");
     }
 
     [Fact]
@@ -99,8 +109,10 @@ public sealed class PluginTrustVerifierTests
             new Dictionary<string, byte[]>()));
         var payload = new PluginTrustPayload(
             "dobby.vendor",
-            1,
-            "ECDSA-P256-SHA256",
+            ArtifactSignaturePurposes.PluginPackage,
+            ArtifactSignatureProfile.Algorithm,
+            ArtifactSignatureProfile.Format,
+            PluginTrustPublicKeyProvider.ProductionPluginPackageKeyId,
             [],
             "AQ");
 
@@ -108,6 +120,66 @@ public sealed class PluginTrustVerifierTests
 
         result.IsSuccess.ShouldBeFalse();
         result.Code.ShouldBe("signature-failed");
-        result.Message.ShouldContain("empty");
+        result.Message.ShouldContain("malformed");
+    }
+
+    [Fact]
+    public void Verify_rejects_DER_signature_even_when_the_key_and_payload_are_valid()
+    {
+        using var key = PluginTrustTestData.CreateKeyPair(out _, out var publicKeyPem);
+        var verifier = new PluginTrustVerifier(new PluginTrustPublicKeyProvider(
+            DobbyPluginTrustProfile.Production,
+            new Dictionary<string, byte[]>
+            {
+                [PluginTrustPublicKeyProvider.ProductionResourceName] = publicKeyPem
+            }));
+        var der = key.SignData(
+            PluginTrustTestData.CanonicalPayload,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.Rfc3279DerSequence);
+
+        var result = verifier.Verify(new PluginTrustPayload(
+            "dobby.vendor",
+            ArtifactSignaturePurposes.PluginPackage,
+            ArtifactSignatureProfile.Algorithm,
+            ArtifactSignatureProfile.Format,
+            PluginTrustPublicKeyProvider.ProductionPluginPackageKeyId,
+            PluginTrustTestData.CanonicalPayload,
+            ArtifactSignatureCodec.ToUnpaddedBase64Url(der)));
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Code.ShouldBe("signature-failed");
+    }
+
+    [Fact]
+    public void Verify_accepts_rotation_overlap_then_rejects_the_retired_key_deterministically()
+    {
+        using var oldKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var activeKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var now = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new FakeTimeProvider(now);
+        var ring = new ArtifactPublicKeyRing(
+            [
+                new ArtifactVerificationKey("plugin-prod-old", ArtifactSignaturePurposes.PluginPackage, oldKey.ExportSubjectPublicKeyInfo(), now.AddYears(-1), now.AddMonths(1), false),
+                new ArtifactVerificationKey("plugin-prod-active", ArtifactSignaturePurposes.PluginPackage, activeKey.ExportSubjectPublicKeyInfo(), now.AddMonths(-1), null, false)
+            ],
+            productionProfile: true);
+        var verifier = new PluginTrustVerifier(ring, DobbyPluginTrustProfile.Production, clock);
+        var signature = oldKey.SignData(
+            PluginTrustTestData.CanonicalPayload,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        var payload = new PluginTrustPayload(
+            "dobby.vendor",
+            ArtifactSignaturePurposes.PluginPackage,
+            ArtifactSignatureProfile.Algorithm,
+            ArtifactSignatureProfile.Format,
+            "plugin-prod-old",
+            PluginTrustTestData.CanonicalPayload,
+            ArtifactSignatureCodec.ToUnpaddedBase64Url(signature));
+
+        verifier.Verify(payload).IsSuccess.ShouldBeTrue();
+        clock.SetUtcNow(now.AddMonths(1));
+        verifier.Verify(payload).IsSuccess.ShouldBeFalse();
     }
 }

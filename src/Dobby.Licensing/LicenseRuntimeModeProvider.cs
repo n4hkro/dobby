@@ -53,7 +53,18 @@ public sealed class LicenseRuntimeModeProvider(
             return Result.Failure<PluginRuntimeMode>(ErrorCode.LicenseBindingMismatch);
         }
 
-        var lifecycleState = state.SourceStatus.HasValue &&
+        var lifecycleState = state.SourceIntent.HasValue &&
+            state.NotBeforeUtc.HasValue &&
+            state.ExpiresAtUtc.HasValue &&
+            state.GracePeriodDays.HasValue
+            ? LicenseRuntimeModeService.EvaluateLifecycle(
+                state.SourceIntent.Value,
+                state.NotBeforeUtc.Value,
+                state.ExpiresAtUtc.Value,
+                state.GracePeriodDays.Value,
+                timeProvider.GetUtcNow(),
+                state.TrustedTimeHealth)
+            : state.SourceStatus.HasValue &&
             state.NotBeforeUtc.HasValue &&
             state.ExpiresAtUtc.HasValue &&
             state.GracePeriodDays.HasValue

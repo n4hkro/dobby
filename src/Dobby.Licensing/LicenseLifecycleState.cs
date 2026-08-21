@@ -6,6 +6,7 @@ public enum LicenseLifecycleState
     Pending,
     Active,
     Grace,
-    ReadOnly,
+    ReadOnlyExpired,
+    ReadOnly = ReadOnlyExpired,
     Denied
 }

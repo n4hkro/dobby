@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Dobby.Licensing;
+using Dobby.Security.Trust;
 
 namespace Dobby.UnitTests.Licensing;
 
@@ -18,7 +19,7 @@ internal static class LicenseArtifactFixtureBuilder
         var signature = key.SignData(
             canonicalPayload,
             HashAlgorithmName.SHA256,
-            DSASignatureFormat.Rfc3279DerSequence);
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 
         return ToBase64Url(signature);
     }
@@ -38,11 +39,15 @@ internal static class LicenseArtifactFixtureBuilder
         var payload = ValidPayload();
         mutate?.Invoke(payload);
         using var payloadDocument = JsonDocument.Parse(JsonSerializer.Serialize(payload));
-        var canonicalPayload = LicenseCanonicalJsonWriter.Write(payloadDocument.RootElement);
+        var canonicalJson = LicenseCanonicalJsonWriter.Write(payloadDocument.RootElement);
+        var canonicalPayload = ArtifactCanonicalPayload.Compose(
+            ArtifactSignaturePurposes.PluginLicense,
+            LicenseV3Contract.SchemaVersion,
+            canonicalJson);
         var signature = SignToBase64Url(key, canonicalPayload);
-        var payloadJson = Encoding.UTF8.GetString(canonicalPayload);
+        var payloadJson = Encoding.UTF8.GetString(canonicalJson);
         var artifactJson = "{\"payload\":" + payloadJson +
-            ",\"signature\":{\"algorithm\":\"ECDSA-P256-SHA256\",\"keyVersion\":1,\"value\":\"" +
+            ",\"signature\":{\"purpose\":\"dobby.plugin-license\",\"algorithm\":\"ECDSA-P256-SHA256\",\"format\":\"IeeeP1363FixedFieldConcatenation\",\"keyId\":\"license-prod-2026-01\",\"value\":\"" +
             signature +
             "\"}}";
 
@@ -66,25 +71,26 @@ internal static class LicenseArtifactFixtureBuilder
             : (byte)'X';
     }
 
-    private static Dictionary<string, object?> ValidPayload()
+    public static Dictionary<string, object?> ValidPayload()
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["schemaVersion"] = 2,
+            ["schemaVersion"] = 3,
+            ["purpose"] = "dobby.plugin-license",
+            ["keyId"] = "license-prod-2026-01",
             ["licenseId"] = "license-1",
+            ["revisionSeriesId"] = "series-1",
+            ["licenseRevision"] = 7,
             ["pluginId"] = "plugin.sample",
             ["customerId"] = "default",
             ["deploymentId"] = "default",
-            ["deviceFingerprintAlgorithm"] = "v1",
-            ["deviceFingerprint"] = new string('a', 64),
+            ["deviceKeyHash"] = new string('a', 64),
             ["packageFingerprint"] = new string('b', 64),
-            ["licenseRevision"] = 7,
             ["issuedAt"] = "2026-06-18T00:00:00Z",
             ["notBefore"] = "2026-06-18T00:00:00Z",
             ["expiresAt"] = "2026-07-18T00:00:00Z",
             ["gracePeriodDays"] = 14,
-            ["status"] = "active",
-            ["keyVersion"] = 1
+            ["intent"] = "granted"
         };
     }
 

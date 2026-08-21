@@ -29,7 +29,8 @@ public sealed class LicenseImportIntegrationTests
         state.RevisionSeriesKey.ShouldBe(new RevisionSeriesKey("plugin.sample", "default", "default"));
         state.DeviceFingerprint.ShouldBe(new string('a', 64));
         state.PackageFingerprint.ShouldBe(new string('b', 64));
-        state.SourceStatus.ShouldBe(LicenseArtifactStatus.Active);
+        state.SourceStatus.ShouldBeNull();
+        state.SourceIntent.ShouldBe(LicenseGrantIntent.Granted);
         state.GracePeriodDays.ShouldBe(14);
         stateStore.Attestations.ShouldHaveSingleItem();
         stateStore.Attestations.Single().Result.ShouldBe("succeeded");
@@ -53,8 +54,7 @@ public sealed class LicenseImportIntegrationTests
         result.ReasonCode.ShouldBe(LicenseRejectReasons.BindingMismatch);
         result.SupportCode.ShouldBe("context-binding-mismatch");
         stateStore.SavedStates.ShouldBeEmpty();
-        stateStore.Attestations.ShouldHaveSingleItem();
-        stateStore.Attestations.Single().Result.ShouldBe(LicenseRejectReasons.BindingMismatch);
+        stateStore.Attestations.ShouldBeEmpty();
         contextStore.SeedDefaultCalls.ShouldBe(0);
         contextStore.ProvisionCalls.ShouldBe(0);
     }
@@ -135,8 +135,9 @@ public sealed class LicenseImportIntegrationTests
             DobbyPluginTrustProfile.Production,
             new Dictionary<string, byte[]>(StringComparer.Ordinal)
             {
-                [PluginTrustPublicKeyProvider.ProductionResourceName] = publicKeyPem
-            }));
+                [PluginTrustPublicKeyProvider.ProductionLicenseResourceName] = publicKeyPem
+            },
+            ArtifactSignaturePurposes.PluginLicense));
 
         return new LicenseImportService(
             verifier,
@@ -170,13 +171,17 @@ public sealed class LicenseImportIntegrationTests
         var payload = ValidPayload();
         mutate?.Invoke(payload);
         using var payloadDocument = JsonDocument.Parse(JsonSerializer.Serialize(payload));
-        var canonicalPayload = LicenseCanonicalJsonWriter.Write(payloadDocument.RootElement);
+        var canonicalJson = LicenseCanonicalJsonWriter.Write(payloadDocument.RootElement);
+        var canonicalPayload = ArtifactCanonicalPayload.Compose(
+            ArtifactSignaturePurposes.PluginLicense,
+            LicenseV3Contract.SchemaVersion,
+            canonicalJson);
         var signature = key.SignData(
             canonicalPayload,
             HashAlgorithmName.SHA256,
-            DSASignatureFormat.Rfc3279DerSequence);
-        var artifactJson = "{\"payload\":" + Encoding.UTF8.GetString(canonicalPayload) +
-            ",\"signature\":{\"algorithm\":\"ECDSA-P256-SHA256\",\"keyVersion\":1,\"value\":\"" +
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        var artifactJson = "{\"payload\":" + Encoding.UTF8.GetString(canonicalJson) +
+            ",\"signature\":{\"purpose\":\"dobby.plugin-license\",\"algorithm\":\"ECDSA-P256-SHA256\",\"format\":\"IeeeP1363FixedFieldConcatenation\",\"keyId\":\"license-prod-2026-01\",\"value\":\"" +
             ToBase64Url(signature) +
             "\"}}";
 
@@ -187,21 +192,22 @@ public sealed class LicenseImportIntegrationTests
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["schemaVersion"] = 2,
+            ["schemaVersion"] = 3,
+            ["purpose"] = "dobby.plugin-license",
+            ["keyId"] = "license-prod-2026-01",
             ["licenseId"] = "license-1",
+            ["revisionSeriesId"] = "series-1",
+            ["licenseRevision"] = 7,
             ["pluginId"] = "plugin.sample",
             ["customerId"] = "default",
             ["deploymentId"] = "default",
-            ["deviceFingerprintAlgorithm"] = "v1",
-            ["deviceFingerprint"] = new string('a', 64),
+            ["deviceKeyHash"] = new string('a', 64),
             ["packageFingerprint"] = new string('b', 64),
-            ["licenseRevision"] = 7,
             ["issuedAt"] = "2026-06-18T00:00:00Z",
             ["notBefore"] = "2026-06-18T00:00:00Z",
             ["expiresAt"] = "2026-07-18T00:00:00Z",
             ["gracePeriodDays"] = 14,
-            ["status"] = "active",
-            ["keyVersion"] = 1
+            ["intent"] = "granted"
         };
     }
 

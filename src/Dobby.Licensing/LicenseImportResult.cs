@@ -5,12 +5,16 @@ public sealed record LicenseImportResult(
     string ReasonCode,
     string SupportCode,
     LicenseLifecycleState LifecycleState,
-    string PluginId = "")
+    string PluginId = "",
+    bool AuditCommitted = false)
 {
-    public static LicenseImportResult Success(LicenseLifecycleState lifecycleState, string pluginId)
+    public static LicenseImportResult Success(
+        LicenseLifecycleState lifecycleState,
+        string pluginId,
+        bool auditCommitted = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
-        return new LicenseImportResult(true, string.Empty, string.Empty, lifecycleState, pluginId);
+        return new LicenseImportResult(true, string.Empty, string.Empty, lifecycleState, pluginId, auditCommitted);
     }
 
     public static LicenseImportResult Failure(string reasonCode, string supportCode)

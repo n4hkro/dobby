@@ -291,13 +291,6 @@ public static class HostLoginRuntimeFactory
         {
             throw new InvalidOperationException("Current customer/deployment context could not be materialized.");
         }
-        var licenseStateStore = new HostLicenseStateStore(executor, transactionScope);
-        compositionProbe?.Record(LoginRuntimeCompositionEvents.LicensingConstructed);
-        var currentLicenseDeviceFingerprint = new Lazy<string>(() => CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId));
-        var licenseRuntimeModeProvider = new LicenseRuntimeModeProvider(
-            licenseStateStore,
-            currentContextService,
-            () => currentLicenseDeviceFingerprint.Value);
         var credentialScopeProtector = credentialProtector ?? new DpapiLocalMachineProtector();
         var kdfPolicyResolver = new KdfPolicyResolver(options.Auth);
         var credentialStore = new CredentialStore(
@@ -311,6 +304,16 @@ public static class HostLoginRuntimeFactory
             transactionScope,
             auditTrail,
             new HostTransactionOutbox(timeProvider));
+        var licenseStateStore = new HostLicenseStateStore(
+            executor,
+            transactionScope,
+            mutationUnitOfWork);
+        compositionProbe?.Record(LoginRuntimeCompositionEvents.LicensingConstructed);
+        var currentLicenseDeviceFingerprint = new Lazy<string>(() => CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId));
+        var licenseRuntimeModeProvider = new LicenseRuntimeModeProvider(
+            licenseStateStore,
+            currentContextService,
+            () => currentLicenseDeviceFingerprint.Value);
         var operationReporter = backgroundOperations ?? new BackgroundOperationReporter();
         var ownerBootstrapCoordinator = new OwnerBootstrapCoordinator(
             transactionScope,
@@ -433,7 +436,8 @@ public static class HostLoginRuntimeFactory
         var pluginCurrentProcessActivationTracker = new PluginCurrentProcessActivationTracker();
         var pluginTrustVerifier = new PluginTrustVerifier();
         var licenseImportService = new LicenseImportService(
-            new LicenseSignatureVerifier(new PluginTrustPublicKeyProvider()),
+            new LicenseSignatureVerifier(new PluginTrustPublicKeyProvider(
+                purpose: ArtifactSignaturePurposes.PluginLicense)),
             currentContextService,
             licenseStateStore);
         var licenseImportCoordinator = new LicenseImportCoordinator(
@@ -555,6 +559,14 @@ public static class HostLoginRuntimeFactory
             licenseRuntimeModeProvider,
             printOutputCoordinator);
         var authenticatedLifetime = new CancellationTokenSource();
+        var licenseActivationRefreshHandler = new LicenseActivationRefreshOutboxHandler();
+        var outboxDispatcher = new HostOutboxDispatcher(
+            transactionScope,
+            new Dictionary<HostOutboxRoute, IHostOutboxMessageHandler>
+            {
+                [LicenseActivationRefreshOutboxHandler.Route] = licenseActivationRefreshHandler
+            },
+            timeProvider);
         var auditRetentionTask = AuditRetentionMaintenance.StartOneShot(
             executor,
             options.Audit.RetentionDays,
@@ -600,7 +612,9 @@ public static class HostLoginRuntimeFactory
             diagnosticsOutputZipPath)
         {
             AuthenticatedLifetime = authenticatedLifetime,
-            AuditRetentionTask = auditRetentionTask
+            AuditRetentionTask = auditRetentionTask,
+            LicenseActivationRefreshHandler = licenseActivationRefreshHandler,
+            OutboxDispatcher = outboxDispatcher
         };
         compositionProbe?.Record(LoginRuntimeCompositionEvents.AuthenticatedRuntimeConstructed);
         return runtime;

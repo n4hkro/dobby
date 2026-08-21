@@ -1,190 +1,133 @@
 using System.Text;
 using System.Text.Json;
+using Dobby.Security.Trust;
 
 namespace Dobby.Licensing;
 
 public static class LicenseArtifactParser
 {
-    private const string ExpectedAlgorithm = "ECDSA-P256-SHA256";
-    private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    private const int MaximumJsonDepth = 16;
+    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
 
     public static LicenseArtifactParseResult Parse(string fileName, byte[] bytes)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
         ArgumentNullException.ThrowIfNull(bytes);
 
-        if (!Path.GetExtension(fileName).Equals(".dobbylicense", StringComparison.OrdinalIgnoreCase))
+        if (!Path.GetExtension(fileName).Equals(".dobbylicense", StringComparison.OrdinalIgnoreCase) ||
+            bytes.Length is 0 or > LicenseV3Contract.MaximumArtifactBytes ||
+            StartsWithBom(bytes))
         {
             return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
         }
 
-        if (StartsWithBom(bytes))
-        {
-            return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
-        }
-
-        string json;
         try
         {
-            json = StrictUtf8.GetString(bytes);
+            _ = StrictUtf8.GetString(bytes);
         }
         catch (DecoderFallbackException)
         {
             return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
         }
 
-        JsonDocument document;
         try
         {
-            document = JsonDocument.Parse(json);
+            using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions
+            {
+                AllowTrailingCommas = false,
+                CommentHandling = JsonCommentHandling.Disallow,
+                MaxDepth = MaximumJsonDepth
+            });
+            if (document.RootElement.ValueKind != JsonValueKind.Object ||
+                !TryGetExactProperty(document.RootElement, "payload", 2, out var payloadElement) ||
+                !TryGetExactProperty(document.RootElement, "signature", 2, out var signatureElement) ||
+                payloadElement.ValueKind != JsonValueKind.Object ||
+                signatureElement.ValueKind != JsonValueKind.Object)
+            {
+                return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
+            }
+
+            if (!TryReadSignature(signatureElement, out var signature))
+            {
+                return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidSignature);
+            }
+
+            var payload = payloadElement.Clone();
+            var canonicalJson = LicenseCanonicalJsonWriter.Write(payload);
+            var canonicalPayload = ArtifactCanonicalPayload.Compose(
+                ArtifactSignaturePurposes.PluginLicense,
+                LicenseV3Contract.SchemaVersion,
+                canonicalJson);
+            return LicenseArtifactParseResult.Success(new LicenseArtifact(payload, signature, canonicalPayload));
         }
         catch (JsonException)
         {
             return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
         }
-
-        using (document)
+        catch (InvalidOperationException)
         {
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
-            }
-
-            var rootProperties = document.RootElement.EnumerateObject().ToArray();
-            if (rootProperties.Length != 2)
-            {
-                return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
-            }
-
-            var payloadProperties = rootProperties
-                .Where(property => property.NameEquals("payload"))
-                .ToArray();
-            var signatureProperties = rootProperties
-                .Where(property => property.NameEquals("signature"))
-                .ToArray();
-
-            if (payloadProperties.Length != 1 ||
-                signatureProperties.Length != 1 ||
-                payloadProperties[0].Value.ValueKind != JsonValueKind.Object ||
-                signatureProperties[0].Value.ValueKind != JsonValueKind.Object)
-            {
-                return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
-            }
-
-            if (!TryReadSignature(signatureProperties[0].Value, out var signature))
-            {
-                return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidSignature);
-            }
-
-            var payload = payloadProperties[0].Value.Clone();
-            var canonicalPayload = LicenseCanonicalJsonWriter.Write(payload);
-            return LicenseArtifactParseResult.Success(new LicenseArtifact(payload, signature, canonicalPayload));
+            return LicenseArtifactParseResult.Failure(LicenseRejectReasons.InvalidLicenseFile);
         }
     }
 
-    private static bool TryReadSignature(JsonElement signatureElement, out LicenseSignatureBlock signature)
+    private static bool TryReadSignature(JsonElement element, out LicenseSignatureBlock signature)
     {
-        signature = new LicenseSignatureBlock(string.Empty, 0, string.Empty);
-        var properties = signatureElement.EnumerateObject().ToArray();
-        if (properties.Length != 3)
+        signature = new LicenseSignatureBlock(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
+        var properties = element.EnumerateObject().ToArray();
+        if (properties.Length != 5 ||
+            properties.Select(property => property.Name).Distinct(StringComparer.Ordinal).Count() != 5 ||
+            !TryGetString(element, "purpose", out var purpose) ||
+            !TryGetString(element, "algorithm", out var algorithm) ||
+            !TryGetString(element, "format", out var format) ||
+            !TryGetString(element, "keyId", out var keyId) ||
+            !TryGetString(element, "value", out var value) ||
+            !purpose.Equals(ArtifactSignaturePurposes.PluginLicense, StringComparison.Ordinal) ||
+            !algorithm.Equals(ArtifactSignatureProfile.Algorithm, StringComparison.Ordinal) ||
+            !format.Equals(ArtifactSignatureProfile.Format, StringComparison.Ordinal) ||
+            keyId.Length is < 3 or > 64 ||
+            !ArtifactSignatureCodec.TryDecodeUnpaddedBase64Url(
+                value,
+                ArtifactSignatureProfile.P256SignatureLength,
+                out _))
         {
             return false;
         }
 
-        var algorithmProperties = properties
-            .Where(property => property.NameEquals("algorithm"))
-            .ToArray();
-        var keyVersionProperties = properties
-            .Where(property => property.NameEquals("keyVersion"))
-            .ToArray();
-        var valueProperties = properties
-            .Where(property => property.NameEquals("value"))
-            .ToArray();
-
-        if (algorithmProperties.Length != 1 ||
-            keyVersionProperties.Length != 1 ||
-            valueProperties.Length != 1)
-        {
-            return false;
-        }
-
-        if (algorithmProperties[0].Value.ValueKind != JsonValueKind.String ||
-            !algorithmProperties[0].Value.GetString()!.Equals(ExpectedAlgorithm, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (keyVersionProperties[0].Value.ValueKind != JsonValueKind.Number ||
-            !keyVersionProperties[0].Value.TryGetInt32(out var keyVersion) ||
-            keyVersion != 1)
-        {
-            return false;
-        }
-
-        if (valueProperties[0].Value.ValueKind != JsonValueKind.String)
-        {
-            return false;
-        }
-
-        var value = valueProperties[0].Value.GetString()!;
-        if (!IsBase64UrlNoPadding(value))
-        {
-            return false;
-        }
-
-        signature = new LicenseSignatureBlock(ExpectedAlgorithm, keyVersion, value);
+        signature = new LicenseSignatureBlock(purpose, algorithm, format, keyId, value);
         return true;
     }
 
-    private static bool IsBase64UrlNoPadding(string value)
+    private static bool TryGetExactProperty(
+        JsonElement element,
+        string name,
+        int expectedTotalProperties,
+        out JsonElement value)
     {
-        if (string.IsNullOrWhiteSpace(value) || value.Contains('=', StringComparison.Ordinal) || value.Length % 4 == 1)
+        value = default;
+        var properties = element.EnumerateObject().ToArray();
+        var matches = properties.Where(property => property.NameEquals(name)).ToArray();
+        if (properties.Length != expectedTotalProperties ||
+            properties.Select(property => property.Name).Distinct(StringComparer.Ordinal).Count() != expectedTotalProperties ||
+            matches.Length != 1)
         {
             return false;
         }
 
-        foreach (var character in value)
-        {
-            var valid = character is >= 'A' and <= 'Z'
-                or >= 'a' and <= 'z'
-                or >= '0' and <= '9'
-                or '-'
-                or '_';
-            if (!valid)
-            {
-                return false;
-            }
-        }
-
-        try
-        {
-            return Base64UrlDecode(value).Length > 0;
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
+        value = matches[0].Value;
+        return true;
     }
 
-    private static byte[] Base64UrlDecode(string value)
+    private static bool TryGetString(JsonElement element, string name, out string value)
     {
-        var padded = value
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        switch (padded.Length % 4)
+        value = string.Empty;
+        var matches = element.EnumerateObject().Where(property => property.NameEquals(name)).ToArray();
+        if (matches.Length != 1 || matches[0].Value.ValueKind != JsonValueKind.String)
         {
-            case 2:
-                padded += "==";
-                break;
-            case 3:
-                padded += "=";
-                break;
-            case 1:
-                throw new FormatException("Invalid base64url value.");
+            return false;
         }
 
-        return Convert.FromBase64String(padded);
+        value = matches[0].Value.GetString() ?? string.Empty;
+        return value.Length > 0;
     }
 
     private static bool StartsWithBom(byte[] bytes)

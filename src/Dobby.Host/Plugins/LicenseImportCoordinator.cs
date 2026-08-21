@@ -135,18 +135,22 @@ public sealed class LicenseImportCoordinator(
                 permissionGranted,
                 correlationId.ToString(),
                 timeProvider.GetUtcNow(),
-                linkedCancellation.Token));
+                linkedCancellation.Token,
+                actorId));
 
             if (result.IsSuccess)
             {
-                AppendAudit(
-                    AuditEventName.LicenseImportSucceeded,
-                    actorId,
-                    Target(result.PluginId),
-                    AuditResult.Success,
-                    correlationId,
-                    "succeeded",
-                    result.LifecycleState.ToString());
+                if (!result.AuditCommitted)
+                {
+                    AppendAudit(
+                        AuditEventName.LicenseImportSucceeded,
+                        actorId,
+                        Target(result.PluginId),
+                        AuditResult.Success,
+                        correlationId,
+                        "succeeded",
+                        result.LifecycleState.ToString());
+                }
             }
             else
             {

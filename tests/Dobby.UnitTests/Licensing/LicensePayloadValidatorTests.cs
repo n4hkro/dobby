@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Dobby.Licensing;
+using Dobby.Security.Trust;
 using Shouldly;
 
 namespace Dobby.UnitTests.Licensing;
@@ -7,198 +8,118 @@ namespace Dobby.UnitTests.Licensing;
 public sealed class LicensePayloadValidatorTests
 {
     [Fact]
-    public void Validate_accepts_schema_v2_payload_after_signature_shape_is_known()
+    public void Validate_accepts_bounded_v3_grant_payload()
     {
-        var artifact = CreateArtifact();
+        var result = LicensePayloadValidator.Validate(CreateArtifact());
 
-        var result = LicensePayloadValidator.Validate(artifact);
-
-        result.IsSuccess.ShouldBeTrue();
-        result.ReasonCode.ShouldBeEmpty();
-        result.Payload.ShouldNotBeNull();
-        result.Payload.SchemaVersion.ShouldBe(2);
-        result.Payload.PluginId.ShouldBe("plugin.sample");
-        result.Payload.Status.ShouldBe(LicenseArtifactStatus.Active);
+        result.IsSuccess.ShouldBeTrue(result.ReasonCode);
+        result.Payload!.SchemaVersion.ShouldBe(3);
+        result.Payload.Purpose.ShouldBe(ArtifactSignaturePurposes.PluginLicense);
+        result.Payload.Intent.ShouldBe(LicenseGrantIntent.Granted);
+        result.Payload.RevisionSeriesId.ShouldBe("series-1");
         result.Payload.LicenseRevision.ShouldBe(7);
     }
 
     [Theory]
-    [InlineData("schemaVersion", 1)]
-    [InlineData("deviceFingerprintAlgorithm", "v2")]
-    [InlineData("deviceFingerprint", "ABCDEF")]
+    [InlineData("schemaVersion", 2)]
+    [InlineData("purpose", "dobby.branch-setup-authorization")]
+    [InlineData("deviceKeyHash", "ABCDEF")]
     [InlineData("packageFingerprint", "abc")]
     [InlineData("licenseRevision", 0)]
     [InlineData("gracePeriodDays", -1)]
-    [InlineData("status", "grace")]
-    [InlineData("keyVersion", 2)]
-    public void Validate_rejects_invalid_payload_schema_values(string propertyName, object value)
+    [InlineData("gracePeriodDays", 366)]
+    [InlineData("intent", "active")]
+    public void Validate_rejects_invalid_v3_authority_values(string propertyName, object value)
     {
-        var artifact = CreateArtifact(payload => payload[propertyName] = value);
-
-        var result = LicensePayloadValidator.Validate(artifact);
+        var result = LicensePayloadValidator.Validate(CreateArtifact(payload => payload[propertyName] = value));
 
         result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe(propertyName == "keyVersion" ? "invalid-signature" : "invalid-license-file");
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.InvalidLicenseFile);
     }
 
     [Fact]
-    public void Validate_rejects_missing_required_payload_field()
+    public void Validate_rejects_payload_key_id_that_differs_from_signature_key_id()
     {
-        var artifact = CreateArtifact(payload => payload.Remove("licenseId"));
+        var result = LicensePayloadValidator.Validate(CreateArtifact(payload => payload["keyId"] = "license-prod-other"));
 
-        var result = LicensePayloadValidator.Validate(artifact);
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.InvalidSignature);
+    }
+
+    [Fact]
+    public void Validate_rejects_missing_extra_and_duplicate_payload_fields()
+    {
+        LicensePayloadValidator.Validate(CreateArtifact(payload => payload.Remove("licenseId"))).IsSuccess.ShouldBeFalse();
+        LicensePayloadValidator.Validate(CreateArtifact(payload => payload["unexpected"] = true)).IsSuccess.ShouldBeFalse();
+
+        const string duplicate = """
+            {"schemaVersion":3,"schemaVersion":3,"purpose":"dobby.plugin-license","keyId":"license-prod-2026-01","licenseId":"license-1","revisionSeriesId":"series-1","licenseRevision":7,"pluginId":"plugin.sample","customerId":"default","deploymentId":"default","deviceKeyHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","packageFingerprint":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","issuedAt":"2026-06-18T00:00:00Z","notBefore":"2026-06-18T00:00:00Z","expiresAt":"2026-07-18T00:00:00Z","gracePeriodDays":14,"intent":"granted"}
+            """;
+        using var document = JsonDocument.Parse(duplicate);
+        var artifact = CreateArtifact(document.RootElement.Clone());
+        LicensePayloadValidator.Validate(artifact).IsSuccess.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("issuedAt", "2026-06-18T00:00:00+04:00")]
+    [InlineData("issuedAt", "2026-06-18T00:00:00.12345678Z")]
+    [InlineData("expiresAt", "9999-12-31T23:59:59Z")]
+    public void Validate_rejects_noncanonical_or_grace_overflowing_timestamps(string field, string value)
+    {
+        var result = LicensePayloadValidator.Validate(CreateArtifact(payload => payload[field] = value));
 
         result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
+        result.ReasonCode.ShouldBe(LicenseRejectReasons.InvalidLicenseFile);
     }
 
     [Fact]
-    public void Validate_rejects_payload_extra_field()
+    public void Validate_accepts_only_granted_or_revoked_intent()
     {
-        var artifact = CreateArtifact(payload => payload["unexpected"] = true);
-
-        var result = LicensePayloadValidator.Validate(artifact);
-
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
+        LicensePayloadValidator.Validate(CreateArtifact(payload => payload["intent"] = "granted")).Payload!.Intent
+            .ShouldBe(LicenseGrantIntent.Granted);
+        LicensePayloadValidator.Validate(CreateArtifact(payload => payload["intent"] = "revoked")).Payload!.Intent
+            .ShouldBe(LicenseGrantIntent.Revoked);
     }
 
     [Fact]
-    public void Validate_rejects_non_utc_timestamp()
+    public void Required_payload_fields_match_v3_schema()
     {
-        var artifact = CreateArtifact(payload => payload["issuedAt"] = "2026-06-18T00:00:00+04:00");
+        using var document = JsonDocument.Parse(File.ReadAllText(CanonicalLicenseSchemaPath()));
+        var required = document.RootElement.GetProperty("properties").GetProperty("payload")
+            .GetProperty("required").EnumerateArray().Select(value => value.GetString()!).ToArray();
 
-        var result = LicensePayloadValidator.Validate(artifact);
-
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
-    }
-
-    [Fact]
-    public void Validate_rejects_not_before_after_expires_at()
-    {
-        var artifact = CreateArtifact(payload =>
-        {
-            payload["notBefore"] = "2026-06-20T00:00:00Z";
-            payload["expiresAt"] = "2026-06-19T00:00:00Z";
-        });
-
-        var result = LicensePayloadValidator.Validate(artifact);
-
-        result.IsSuccess.ShouldBeFalse();
-        result.ReasonCode.ShouldBe("invalid-license-file");
-    }
-
-    [Fact]
-    public void Validate_maps_readonly_status_to_artifact_status()
-    {
-        var artifact = CreateArtifact(payload => payload["status"] = "readonly");
-
-        var result = LicensePayloadValidator.Validate(artifact);
-
-        result.IsSuccess.ShouldBeTrue();
-        result.Payload!.Status.ShouldBe(LicenseArtifactStatus.ReadOnly);
-    }
-
-    [Fact]
-    public void Validate_required_payload_fields_match_canonical_schema()
-    {
-        var requiredProperties = CanonicalPayloadRequiredProperties();
-        var validPayload = ValidPayload();
-
-        validPayload.Keys.ShouldBe(requiredProperties);
-        foreach (var requiredProperty in requiredProperties)
-        {
-            var artifact = CreateArtifact(payload => payload.Remove(requiredProperty));
-
-            var result = LicensePayloadValidator.Validate(artifact);
-
-            result.IsSuccess.ShouldBeFalse($"missing canonical payload field '{requiredProperty}' must be rejected.");
-            result.ReasonCode.ShouldBe(LicenseRejectReasons.InvalidLicenseFile);
-        }
-    }
-
-    [Fact]
-    public void Validate_status_vocabulary_matches_canonical_schema()
-    {
-        foreach (var status in CanonicalPayloadStatusValues())
-        {
-            var artifact = CreateArtifact(payload => payload["status"] = status);
-
-            var result = LicensePayloadValidator.Validate(artifact);
-
-            result.IsSuccess.ShouldBeTrue($"canonical payload status '{status}' must be accepted.");
-        }
+        LicenseArtifactFixtureBuilder.ValidPayload().Keys.ShouldBe(required);
     }
 
     private static LicenseArtifact CreateArtifact(Action<Dictionary<string, object?>>? mutate = null)
     {
-        var payload = ValidPayload();
+        var payload = LicenseArtifactFixtureBuilder.ValidPayload();
         mutate?.Invoke(payload);
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload));
-        var element = document.RootElement.Clone();
+        return CreateArtifact(document.RootElement.Clone());
+    }
+
+    private static LicenseArtifact CreateArtifact(JsonElement payload)
+    {
+        var canonicalJson = LicenseCanonicalJsonWriter.Write(payload);
         return new LicenseArtifact(
-            element,
-            new LicenseSignatureBlock("ECDSA-P256-SHA256", 1, "AQID"),
-            LicenseCanonicalJsonWriter.Write(element));
+            payload,
+            new LicenseSignatureBlock(
+                ArtifactSignaturePurposes.PluginLicense,
+                ArtifactSignatureProfile.Algorithm,
+                ArtifactSignatureProfile.Format,
+                PluginTrustPublicKeyProvider.ProductionPluginLicenseKeyId,
+                ArtifactSignatureCodec.ToUnpaddedBase64Url(new byte[ArtifactSignatureProfile.P256SignatureLength])),
+            ArtifactCanonicalPayload.Compose(
+                ArtifactSignaturePurposes.PluginLicense,
+                LicenseV3Contract.SchemaVersion,
+                canonicalJson));
     }
 
-    private static Dictionary<string, object?> ValidPayload()
-    {
-        return new Dictionary<string, object?>(StringComparer.Ordinal)
-        {
-            ["schemaVersion"] = 2,
-            ["licenseId"] = "license-1",
-            ["pluginId"] = "plugin.sample",
-            ["customerId"] = "default",
-            ["deploymentId"] = "default",
-            ["deviceFingerprintAlgorithm"] = "v1",
-            ["deviceFingerprint"] = new string('a', 64),
-            ["packageFingerprint"] = new string('b', 64),
-            ["licenseRevision"] = 7,
-            ["issuedAt"] = "2026-06-18T00:00:00Z",
-            ["notBefore"] = "2026-06-18T00:00:00Z",
-            ["expiresAt"] = "2026-07-18T00:00:00Z",
-            ["gracePeriodDays"] = 14,
-            ["status"] = "active",
-            ["keyVersion"] = 1
-        };
-    }
-
-    private static string[] CanonicalPayloadRequiredProperties()
-    {
-        using var document = JsonDocument.Parse(File.ReadAllText(CanonicalLicenseSchemaPath()));
-        return document.RootElement
-            .GetProperty("properties")
-            .GetProperty("payload")
-            .GetProperty("required")
-            .EnumerateArray()
-            .Select(property => property.GetString()!)
-            .ToArray();
-    }
-
-    private static string[] CanonicalPayloadStatusValues()
-    {
-        using var document = JsonDocument.Parse(File.ReadAllText(CanonicalLicenseSchemaPath()));
-        return document.RootElement
-            .GetProperty("properties")
-            .GetProperty("payload")
-            .GetProperty("properties")
-            .GetProperty("status")
-            .GetProperty("enum")
-            .EnumerateArray()
-            .Select(status => status.GetString()!)
-            .ToArray();
-    }
-
-    private static string CanonicalLicenseSchemaPath()
-    {
-        return Path.Combine(
-            RepoRoot().FullName,
-            "docs",
-            "schemas",
-            "dobby-plugin-license.schema.json");
-    }
+    private static string CanonicalLicenseSchemaPath() => Path.Combine(
+        RepoRoot().FullName,
+        "docs",
+        "schemas",
+        "dobby-plugin-license-v3.schema.json");
 
     private static DirectoryInfo RepoRoot()
     {

@@ -28,6 +28,10 @@ public sealed class LicensePersistenceMigrationTests
             new { MigrationId = PostLoginPluginPersistenceMigrations.LicenseLifecycleInputsMigrationId })
             .ShouldBe(1);
         fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = @MigrationId;",
+            new { MigrationId = PostLoginPluginPersistenceMigrations.LicenseV3StateMigrationId })
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='PluginLicenseState';")
             .ShouldBe(1);
         var licenseStateColumns = fixture.Executor.Query<string>(
@@ -37,6 +41,12 @@ public sealed class LicensePersistenceMigrationTests
         licenseStateColumns.ShouldContain("GracePeriodDays");
         licenseStateColumns.ShouldContain("NotBeforeUtc");
         licenseStateColumns.ShouldContain("SourceStatus");
+        licenseStateColumns.ShouldContain("LicenseId");
+        licenseStateColumns.ShouldContain("RevisionSeriesId");
+        licenseStateColumns.ShouldContain("KeyId");
+        licenseStateColumns.ShouldContain("IssuedAtUtc");
+        licenseStateColumns.ShouldContain("SourceIntent");
+        licenseStateColumns.ShouldContain("TrustedTimeHealth");
     }
 
     [Fact]
@@ -61,7 +71,13 @@ public sealed class LicensePersistenceMigrationTests
             new DateTimeOffset(2026, 06, 18, 0, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 07, 18, 0, 0, 0, TimeSpan.Zero),
             3,
-            LicenseArtifactStatus.Active);
+            SourceStatus: null,
+            LicenseId: "license-7",
+            RevisionSeriesId: "series-1",
+            KeyId: "license-prod-2026-01",
+            IssuedAtUtc: importedAt.AddDays(-1),
+            SourceIntent: LicenseGrantIntent.Granted,
+            TrustedTimeHealth: TrustedTimeHealth.Healthy);
 
         store.Save(state);
         store.AppendAttestation(new LicenseImportAttestation(
