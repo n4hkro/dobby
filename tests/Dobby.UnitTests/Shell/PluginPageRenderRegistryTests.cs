@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core;
 using Dobby.Shell.PluginPages;
@@ -148,6 +149,43 @@ public sealed class PluginPageRenderRegistryTests
         });
     }
 
+    [Fact]
+    public void Component_page_cancel_button_cancels_inflight_host_command_and_announces_result()
+    {
+        RunOnSta(() =>
+        {
+            var dispatcher = new CancelAwareDispatcher();
+            var model = CreateModel();
+            model = model with
+            {
+                Commands =
+                [
+                    model.Commands.Single() with
+                    {
+                        CanCancel = true,
+                        CancelLabel = new PluginLocalizedText("cancel")
+                    }
+                ]
+            };
+            var registry = PluginPageRenderRegistry.CreateDefault(
+                dispatcher,
+                () => CultureInfo.GetCultureInfo("en-US"));
+            var viewer = registry.Render(model).Value.ShouldBeOfType<ScrollViewer>();
+            var buttons = Descendants<Button>(viewer).ToArray();
+
+            buttons[0].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            dispatcher.Started.Task.IsCompleted.ShouldBeTrue();
+            buttons[1].IsEnabled.ShouldBeTrue();
+            buttons[1].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            DrainDispatcher();
+
+            dispatcher.ObservedCancellation.ShouldBeTrue();
+            Descendants<TextBlock>(viewer).Last().Text.ShouldBe("Cancelled");
+            buttons[0].IsEnabled.ShouldBeTrue();
+            buttons[1].IsEnabled.ShouldBeFalse();
+        });
+    }
+
     private static PluginComponentPageModel CreateModel()
     {
         var keys = new Dictionary<string, (string Az, string En, string Ru)>(StringComparer.Ordinal)
@@ -160,6 +198,7 @@ public sealed class PluginPageRenderRegistryTests
             ["quantity"] = ("Miqdar", "Quantity", "Количество"),
             ["active"] = ("Aktiv", "Active", "Активный"),
             ["command"] = ("Göndər", "Submit", "Отправить"),
+            ["cancel"] = ("Ləğv et", "Cancel", "Отмена"),
             ["success"] = ("{0} qəbul edildi", "Accepted {0}", "Принято: {0}")
         };
         PluginLocalizationBundle Bundle(string culture, Func<(string Az, string En, string Ru), string> select) =>
@@ -240,6 +279,32 @@ public sealed class PluginPageRenderRegistryTests
         }
     }
 
+    private sealed class CancelAwareDispatcher : IPluginCommandDispatcher
+    {
+        public TaskCompletionSource Started { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool ObservedCancellation { get; private set; }
+
+        public async ValueTask<Result<PluginCommandResult>> DispatchAsync(
+            PluginCommandRequest request,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return Result.Success(new PluginCommandResult());
+            }
+            catch (OperationCanceledException)
+            {
+                ObservedCancellation = true;
+                return Result.Failure<PluginCommandResult>(ErrorCode.Cancelled);
+            }
+        }
+    }
+
     private sealed class AnalyticsModel(string label) : IPluginPageModel
     {
         public string Label { get; } = label;
@@ -254,6 +319,8 @@ public sealed class PluginPageRenderRegistryTests
         {
             try
             {
+                SynchronizationContext.SetSynchronizationContext(
+                    new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
                 action();
             }
             catch (Exception ex)
@@ -269,5 +336,14 @@ public sealed class PluginPageRenderRegistryTests
         {
             throw exception;
         }
+    }
+
+    private static void DrainDispatcher()
+    {
+        var frame = new DispatcherFrame();
+        Dispatcher.CurrentDispatcher.BeginInvoke(
+            DispatcherPriority.ApplicationIdle,
+            new Action(() => frame.Continue = false));
+        Dispatcher.PushFrame(frame);
     }
 }

@@ -33,10 +33,10 @@ tests cannot establish runtime security or packaged-install behavior.
 | F-007 | Critical | Implemented | Package ingestion is stream-backed and enforces validated startup/hard limits before and during reads; one shared Windows-safe canonical path policy, exact manifest/file/hash checks and create-new rehashing staging prevent traversal, collision, overwrite and validation-to-install races. | Closed by `PL-02`; guarded by package limit/path/corpus tests and real persistence staging escape/hash-race tests. |
 | F-008 | Critical | Implemented | Current authority and product resources define plugins as reviewed, signed, fully trusted in-process code; ALC and compatibility preflight carry no hostile-code sandbox claim. | Closed by `PL-01`; guarded by trust-language and v2-contract architecture tests. |
 | F-009 | High | Implemented | Plugin package, plugin license and Owner-recovery artifacts use non-interchangeable purposes, distinct profile-selected public keys/key IDs, bounded versioned verification rings, canonical domain-separated bytes, P1363 signatures and unpadded base64url. | Closed by `PL-03`; guarded by cross-purpose, encoding, rotation/retirement and packaged-resource tests. |
-| F-010 | High | Implemented-Weak | Plugin install promotion, installed state and metadata cache are separate crash points; recovery does not reconstruct all projections. | `PL-04` + `PA-04`: transaction journal/state machine, idempotent recovery and projection rebuild. |
-| F-011 | High | Partial | Plugin compatibility has only `minHostVersion`; lifecycle hooks/actions are not fully async/cancellable/timeout-owned. | `PL-05`: manifest/API compatibility matrix and async lifecycle v2. |
-| F-012 | High | Partial | Plugin pages support only text/action models, render resource keys literally and pass action delegates; rich localizable business UI cannot be expressed safely. | `PL-06`: declarative component/command contract and localization provider. |
-| F-013 | Medium | Incorrect | Expected validation/license/capability failures are recorded as plugin runtime faults except cancellation. | `PL-07`: distinguish expected results from defects/exceptions in fault policy. |
+| F-010 | High | Implemented | Plugin installation uses a durable transaction journal and idempotent startup recovery to complete or roll back staging, promotion, persistence and cache projections. Recovery also removes orphaned staging/cache artifacts and incomplete temporary outputs. | Closed by `PL-04` + `PA-04`; guarded by install-state persistence, runtime recovery and startup-order tests. |
+| F-011 | High | Implemented | Manifest schema/package/host API compatibility is table-driven; lifecycle v2 and page commands are async, cancellable and host-timeout-owned, while the bounded v1 module adapter emits an upgrade warning. | Closed by `PL-05`; guarded by compatibility, lifecycle ordering/timeout/cleanup, disable/uninstall and command boundary tests. |
+| F-012 | High | Implemented | Plugin pages use bounded declarative form/table/list/validation models and opaque command IDs; host WPF rendering resolves three-culture bundles and dispatches commands only after runtime/license/operation policy checks. | Closed by `PL-06`; guarded by contract, renderer, dispatcher, signed-package integration and smoke tests. |
+| F-013 | Medium | Implemented | Runtime invocation outcomes distinguish expected validation/policy results, cancellation, timeout, plugin-declared failure, thrown exceptions, contract breaches, and host infrastructure failures. Only documented plugin-defect categories increment the bounded quarantine policy. | Closed by `PL-07`; guarded across activation, route, event-handler and command boundaries, including repeated rejection and quarantine cleanup tests. |
 | F-014 | Critical | Implemented | License v3 signs only granted/revoked intent; lifecycle state is derived deterministically from bounded trusted inputs and a signed Pending status cannot become authority. | Closed by `LC-01`/`LC-02`; guarded by v3 contract, payload and lifecycle truth-table tests. |
 | F-015 | High | Implemented | License parsing is bounded and checked; revision/LKG state, attestation, audit and refresh outbox commit atomically, with restart-safe idempotent post-commit retry. | Closed by `LC-02`/`LC-03`; guarded by parser, migration and per-write/commit/outbox fault tests. |
 | F-016 | High | Implemented | Minimum host support diagnostics is license-state independent in Pending, Active, Grace, ReadOnlyExpired and Denied states, while plugin/domain output remains policy-gated. | Closed by `LC-04`/`PA-03`; guarded by lifecycle-matrix and real export tests. |
@@ -60,7 +60,7 @@ This table replaces the status claims in
 | 1 | Implemented | Plugin-visible storage contracts, compartments, host backend and migration exist. | Regression gate |
 | 2 | Implemented | Canonical runtime roots exist; staging/diagnostics are nested/owned rather than required as top-level siblings. Old row is stale. | `RL-04` packaged-path proof |
 | 3 | Implemented | Durable audit participates in provider-owned mutation transactions; structured event allow-lists and diagnostics redaction are enforced at write/export boundaries. | `PA-02`, `PA-03` regression gate |
-| 4 | Partial | WAL/temp guardrails exist; coherent backup/checkpoint/restore behavior is absent. | `PA-04` |
+| 4 | Implemented | Authenticated maintenance provides cancellable encrypted SQLite online backup, checkpoint/integrity/hash verification, bounded retention and explicit restore with same-device validation, immutable evidence overlay, current-store quarantine and fault-injected rollback. Startup recovery removes only validated incomplete outputs. | `PA-04`; guarded by persistence, retention, strict-login-first and runtime-recovery tests. |
 | 5 | Implemented | Login-visible composition remains pre-auth; full authenticated runtime is constructed only after a committed session. | `ID-04` regression gate |
 | 6 | Implemented | Display names are trimmed/NFC-normalized, bounded, and reject controls, format/bidi and invalid Unicode while preserving user-facing Unicode. | `ID-01` regression gate |
 | 7 | Implemented-Weak | Password validation is minimal. Preserve length/password-manager usability and add offline common-value controls only if product data is available. | `ID-01`, `ID-03` |
@@ -81,7 +81,7 @@ This table replaces the status claims in
 | 22 | Implemented | Sidebar state/persistence exists. | Regression gate |
 | 23 | Implemented | Third-bar state and ordering exist. | Regression gate |
 | 24 | Implemented | Toolbar ordering/visibility state exists. | Regression gate |
-| 25 | Implemented-Weak | Main content and plugin host exist, but plugin UI contract is too narrow. | `PL-06` |
+| 25 | Implemented | Main content hosts bounded declarative plugin forms, inputs, lists, tables, validation and commands without accepting plugin WPF controls. | `PL-06` regression |
 | 26 | Implemented | Shared host/plugin status and progress surface exists. | `UI-02` real progress proof |
 | 27 | Implemented | Notification/feedback surfaces exist. | `UI-03` |
 | 28 | Implemented | Minimized work-session strip and restore exist. | `UI-04` |
@@ -89,10 +89,10 @@ This table replaces the status claims in
 | 30 | Implemented | Localization catalogs/fallback exist. | `PL-06`, `UI-03` |
 | 31 | Implemented | Work-session preservation/continuation is wired for current lifecycle flows. | `RL-01` sample closure |
 | 32 | Implemented | Host support diagnostics export is executable in every plugin-license lifecycle state and excludes plugin/domain diagnostic files by policy. | `LC-04`, `PA-03` regression gate |
-| 33 | Implemented-Weak | Registry works for text/action models only and lacks a sufficient declarative/localized component contract. | `PL-06` |
+| 33 | Implemented | Registry validates and renders the declarative component contract with culture fallback, accessibility metadata and opaque host-dispatched commands. | `PL-06` regression |
 | 34 | Implemented | Plugin routes/pages integrate with Main Content and lifecycle rollback paths. | `PL-05`, `PL-06` regression |
 | 35 | Implemented | Plugin progress snapshots share shell reporting. | `UI-02` real cancellation/progress |
-| 36 | Implemented-Weak | Exception boundaries exist, but expected results are over-counted as faults. | `PL-07` |
+| 36 | Implemented | Classified exception boundaries preserve whether a safe error was returned or caused by a thrown plugin exception; expected results remain fault-neutral and repeated defects trigger deterministic quarantine cleanup. | `PL-07`; `PluginFrameworkTests`, `HostPluginCommandDispatcherTests`, `PluginPageRouteCoordinatorTests` |
 | 37 | Implemented | Safe persisted/user-facing plugin fault states exist. | `PA-03`, `PL-07` hardening |
 | 38 | Implemented | `default/default` context is deliberate current Standalone baseline; real customer provisioning has an explicit Branch Shared deferral. | `BR-01` future |
 | 39 | Implemented | License UI and click handler now exist; old status is stale. | `LC-02`/`LC-03` correctness |

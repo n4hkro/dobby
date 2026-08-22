@@ -187,7 +187,8 @@ public sealed class HostLicenseStateStore(
                     ["pluginId"] = state.PluginId,
                     ["revisionSeriesId"] = state.RevisionSeriesId ?? string.Empty,
                     ["licenseRevision"] = state.LicenseRevision.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                }));
+                },
+                correlationGuid.ToString("D")));
             return new LicenseImportCommitResult(
                 LicenseImportCommitOutcome.Committed,
                 SuccessAuditAlreadyPresent: true);

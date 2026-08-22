@@ -115,13 +115,41 @@ public sealed class PostLoginPluginActivator(
                 continue;
             }
 
-            var moduleResult = current.ModuleFactory(cancellationToken);
+            Result<IPluginModule> moduleResult;
+            PluginInvocationOutcomeKind? moduleFactoryExceptionKind = null;
+            try
+            {
+                moduleResult = current.ModuleFactory(cancellationToken);
+                if (moduleResult.IsSuccess && moduleResult.Value is null)
+                {
+                    moduleResult = Result.Failure<IPluginModule>(ErrorCode.SerializationFailed);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                moduleResult = Result.Failure<IPluginModule>(ErrorCode.Cancelled);
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+            {
+                moduleResult = Result.Failure<IPluginModule>(ErrorCode.PluginInternalError);
+                moduleFactoryExceptionKind = PluginInvocationOutcomeKind.PluginException;
+            }
             if (!moduleResult.IsSuccess)
             {
+                if (moduleResult.ErrorCode == ErrorCode.Cancelled)
+                {
+                    return Result.Success(new PluginActivationExecutionOutcome(
+                        PluginActivationCompletion.Cancelled,
+                        BuildRun(outcomes, activated)));
+                }
+                var moduleKind = moduleFactoryExceptionKind ?? PluginExceptionBoundary.ClassifyResult(
+                    isSuccess: false,
+                    moduleResult.ErrorCode);
                 outcomes[current.PluginId] = new PluginActivationOutcome(
                     current.PluginId,
-                    PluginActivationStatus.Faulted,
-                    moduleResult.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString());
+                    ActivationFailureStatus(moduleKind),
+                    moduleResult.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString(),
+                    InvocationKind: moduleKind);
                 failedPlugins.Add(current.PluginId);
                 continue;
             }
@@ -136,10 +164,14 @@ public sealed class PostLoginPluginActivator(
                         BuildRun(outcomes, activated)));
                 }
 
+                var prepareKind = prepareResult.ErrorCode == ErrorCode.PluginInternalError
+                    ? PluginInvocationOutcomeKind.PluginException
+                    : PluginExceptionBoundary.ClassifyResult(isSuccess: false, prepareResult.ErrorCode);
                 outcomes[current.PluginId] = new PluginActivationOutcome(
                     current.PluginId,
-                    PluginActivationStatus.Faulted,
-                    prepareResult.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString());
+                    ActivationFailureStatus(prepareKind),
+                    prepareResult.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString(),
+                    InvocationKind: prepareKind);
                 failedPlugins.Add(current.PluginId);
                 continue;
             }
@@ -155,12 +187,14 @@ public sealed class PostLoginPluginActivator(
             var module = moduleResult.Value;
             string? warning = null;
             Result activate;
+            PluginInvocationOutcomeKind activationKind;
             if (module is IPluginModuleV2 moduleV2)
             {
-                var initialize = await PluginExceptionBoundary.InvokeLifecycleAsync(
+                var initializeOutcome = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
                     token => moduleV2.InitializeAsync(activationContext, token),
                     cancellationToken,
                     options.InitializationTimeout).ConfigureAwait(false);
+                var initialize = initializeOutcome.Result;
                 if (!initialize.IsSuccess)
                 {
                     await CleanupUncommittedModuleAsync(current.PluginId, moduleV2, cancellationToken).ConfigureAwait(false);
@@ -173,21 +207,24 @@ public sealed class PostLoginPluginActivator(
 
                     outcomes[current.PluginId] = new PluginActivationOutcome(
                         current.PluginId,
-                        PluginActivationStatus.Faulted,
-                        LifecycleFailureReason("initialize", initialize.ErrorCode));
+                        ActivationFailureStatus(initializeOutcome.Kind),
+                        LifecycleFailureReason("initialize", initialize.ErrorCode),
+                        InvocationKind: initializeOutcome.Kind);
                     failedPlugins.Add(current.PluginId);
                     continue;
                 }
 
-                activate = await PluginExceptionBoundary.InvokeLifecycleAsync(
+                var activateOutcome = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
                     token => moduleV2.ActivateAsync(activationContext, token),
                     cancellationToken,
                     options.ActivationTimeout).ConfigureAwait(false);
+                activate = activateOutcome.Result;
+                activationKind = activateOutcome.Kind;
             }
             else
             {
                 warning = LegacyV1UpgradeWarning;
-                activate = await PluginExceptionBoundary.InvokeLifecycleAsync(
+                var activateOutcome = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
                     token => new ValueTask<Result>(Task.Run(() =>
                     {
                         token.ThrowIfCancellationRequested();
@@ -196,6 +233,8 @@ public sealed class PostLoginPluginActivator(
                     }, token)),
                     cancellationToken,
                     options.ActivationTimeout).ConfigureAwait(false);
+                activate = activateOutcome.Result;
+                activationKind = activateOutcome.Kind;
             }
 
             if (!activate.IsSuccess)
@@ -218,8 +257,9 @@ public sealed class PostLoginPluginActivator(
 
                 outcomes[current.PluginId] = new PluginActivationOutcome(
                     current.PluginId,
-                    PluginActivationStatus.Faulted,
-                    LifecycleFailureReason("activate", activate.ErrorCode));
+                    ActivationFailureStatus(activationKind),
+                    LifecycleFailureReason("activate", activate.ErrorCode),
+                    InvocationKind: activationKind);
                 failedPlugins.Add(current.PluginId);
                 continue;
             }
@@ -270,7 +310,8 @@ public sealed class PostLoginPluginActivator(
                 current.PluginId,
                 PluginActivationStatus.Active,
                 string.Empty,
-                warning);
+                warning,
+                PluginInvocationOutcomeKind.Success);
         }
 
         return Result.Success(new PluginActivationExecutionOutcome(
@@ -376,6 +417,12 @@ public sealed class PostLoginPluginActivator(
 
     private static string LifecycleFailureReason(string phase, ErrorCode? errorCode) =>
         $"lifecycle-{phase}-{(errorCode ?? ErrorCode.PluginInternalError).Value.ToLowerInvariant()}";
+
+    private static PluginActivationStatus ActivationFailureStatus(
+        PluginInvocationOutcomeKind outcomeKind) =>
+        PluginExceptionBoundary.IsPluginDefect(outcomeKind)
+            ? PluginActivationStatus.Faulted
+            : PluginActivationStatus.Rejected;
 
     private async ValueTask<Result> InvokeCleanupPhaseAsync(
         Func<CancellationToken, ValueTask<Result>> action,

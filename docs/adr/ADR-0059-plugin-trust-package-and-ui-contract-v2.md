@@ -75,6 +75,16 @@ major version.
 - Expected results such as `Forbidden`, `InvalidInput`, `LicenseReadOnly`, and
   cancellation are not recorded as plugin faults. Only unexpected failures and
   lifecycle contract violations produce fault diagnostics/status.
+- Runtime calls retain an explicit outcome origin after safe error mapping:
+  expected rejection, authorization/license denial, cancellation, timeout,
+  plugin-declared failure, thrown plugin exception, contract breach, or host
+  infrastructure failure. Returned validation errors therefore cannot be
+  confused with plugin code that threw an argument exception.
+- The process-local quarantine policy counts only timeout, plugin-declared
+  failure, thrown exception, and contract-breach outcomes. A completed operation
+  resets the defect streak; expected and host failures are neutral. Reaching the
+  bounded threshold removes the plugin's routes, event subscriptions, services,
+  operations, and work sessions through the normal lifecycle cleanup boundary.
 
 ### Declarative host-rendered UI v2
 
@@ -92,8 +102,9 @@ major version.
 
 ## Consequences
 
-- Existing simple text/action pages become a v1 compatibility adapter and are
-  deprecated for production-grade plugin UI.
+- The delegate-bearing text/action page contract is removed at the v2 UI gate;
+  the lifecycle v1 adapter remains only for the separately documented module
+  migration window.
 - The sample plugin must prove the v2 component, localization, cancellation,
   progress, failure, and work-session paths from a real signed package.
 - The host cannot claim hostile-code containment while using in-process plugins.

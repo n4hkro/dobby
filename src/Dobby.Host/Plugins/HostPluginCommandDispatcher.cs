@@ -14,7 +14,9 @@ public sealed class HostPluginCommandDispatcher(
     HostRuntimeModeMutationGate mutationGate,
     IBackgroundOperationReporter backgroundOperations,
     CancellationToken authenticatedLifetime,
-    PluginRuntimeDiagnosticsCoordinator? diagnostics = null) : IPluginCommandDispatcher
+    PluginRuntimeDiagnosticsCoordinator? diagnostics = null,
+    PluginRuntimeFaultPolicy? faultPolicy = null,
+    IPluginRuntimeLifecycleControl? lifecycleControl = null) : IPluginCommandDispatcher
 {
     private static readonly TimeSpan MaximumCommandTimeout = TimeSpan.FromSeconds(30);
 
@@ -23,14 +25,26 @@ public sealed class HostPluginCommandDispatcher(
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request);
         var preflight = ValidateRequest(request, timeout);
         if (!preflight.IsSuccess)
         {
             return Result.Failure<PluginCommandResult>(preflight.ErrorCode ?? ErrorCode.InvalidInput);
         }
 
-        var runtimeAllowed = mutationGate.EnsurePluginMutationAllowed(request.PluginId);
+        if (faultPolicy?.IsQuarantined(request.PluginId) == true)
+        {
+            return Result.Failure<PluginCommandResult>(ErrorCode.PluginInternalError);
+        }
+
+        Result runtimeAllowed;
+        try
+        {
+            runtimeAllowed = mutationGate.EnsurePluginMutationAllowed(request.PluginId);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure<PluginCommandResult>(ErrorCode.LicenseDenied);
+        }
         if (!runtimeAllowed.IsSuccess)
         {
             return Result.Failure<PluginCommandResult>(runtimeAllowed.ErrorCode ?? ErrorCode.LicenseDenied);
@@ -51,18 +65,43 @@ public sealed class HostPluginCommandDispatcher(
         var correlationId = Guid.TryParse(request.CorrelationId, out var parsedCorrelationId)
             ? new CorrelationId(parsedCorrelationId)
             : CorrelationId.New();
-        var decision = authorizationPolicy.Evaluate(
-            new OperationPermissionCapability(operationKey.Value.ToString()),
-            new PolicyContext(request.UserId, request.PluginId, correlationId));
+        Result<PolicyDecision> decision;
+        try
+        {
+            decision = authorizationPolicy.Evaluate(
+                new OperationPermissionCapability(operationKey.Value.ToString()),
+                new PolicyContext(request.UserId, request.PluginId, correlationId));
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure<PluginCommandResult>(ErrorCode.Forbidden);
+        }
         if (!decision.IsSuccess || !decision.Value.Allowed)
         {
             return Result.Failure<PluginCommandResult>(
                 decision.IsSuccess ? ErrorCode.Forbidden : decision.ErrorCode ?? ErrorCode.Forbidden);
         }
 
-        var handler = ResolveHandler(request.PluginId, request.RouteKey);
+        var boundedRequest = request with
+        {
+            Values = new Dictionary<string, string>(request.Values, StringComparer.Ordinal)
+        };
+        var handler = ResolveHandler(boundedRequest.PluginId, boundedRequest.RouteKey);
         if (!handler.IsSuccess)
         {
+            if (handler.ErrorCode == ErrorCode.PluginInternalError)
+            {
+                diagnostics?.RecordPageActionOutcome(
+                    boundedRequest.PluginId,
+                    boundedRequest.RouteKey,
+                    boundedRequest.CommandId,
+                    ErrorCode.PluginInternalError,
+                    PluginInvocationOutcomeKind.PluginException,
+                    boundedRequest.CorrelationId);
+                await ObserveFaultPolicyAsync(
+                    boundedRequest.PluginId,
+                    PluginInvocationOutcomeKind.PluginException).ConfigureAwait(false);
+            }
             return Result.Failure<PluginCommandResult>(handler.ErrorCode ?? ErrorCode.NotFound);
         }
 
@@ -70,27 +109,78 @@ public sealed class HostPluginCommandDispatcher(
             authenticatedLifetime,
             cancellationToken);
         var operationId = Guid.CreateVersion7();
-        Report(operationId, request, BackgroundOperationStatus.Running, null);
+        Report(operationId, boundedRequest, BackgroundOperationStatus.Running, null);
         var effectiveTimeout = timeout < MaximumCommandTimeout ? timeout : MaximumCommandTimeout;
-        var result = await PluginExceptionBoundary.InvokeLifecycleAsync(
-            token => handler.Value.ExecuteCommandAsync(request, token),
+        var outcome = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
+            token => handler.Value.ExecuteCommandAsync(boundedRequest, token),
             linked.Token,
             effectiveTimeout).ConfigureAwait(false);
+        if (outcome.Result.IsSuccess)
+        {
+            var contract = outcome.Result.Value is null
+                ? Result.Failure(ErrorCode.ValidationFailed)
+                : PluginComponentModelValidator.ValidateCommandResult(
+                    outcome.Result.Value,
+                    new PluginPageCommandContext(
+                        boundedRequest.PluginId,
+                        boundedRequest.RouteKey,
+                        boundedRequest.UserId,
+                        boundedRequest.CorrelationId));
+            if (!contract.IsSuccess)
+            {
+                outcome = new PluginInvocationOutcome<PluginCommandResult>(
+                    Result.Failure<PluginCommandResult>(ErrorCode.SerializationFailed),
+                    PluginInvocationOutcomeKind.ContractBreach);
+            }
+        }
+        var result = outcome.Result;
         Report(
             operationId,
-            request,
-            result.IsSuccess ? BackgroundOperationStatus.Completed : BackgroundOperationStatus.Failed,
+            boundedRequest,
+            result.IsSuccess
+                ? BackgroundOperationStatus.Completed
+                : result.ErrorCode == ErrorCode.Cancelled
+                    ? BackgroundOperationStatus.Cancelled
+                    : BackgroundOperationStatus.Failed,
             result.ErrorCode);
-        if (!result.IsSuccess && result.ErrorCode != ErrorCode.Cancelled)
+        if (!result.IsSuccess)
         {
-            diagnostics?.RecordPageActionFault(
-                request.PluginId,
-                request.RouteKey,
-                request.CommandId,
-                result.ErrorCode ?? ErrorCode.PluginInternalError);
+            diagnostics?.RecordPageActionOutcome(
+                boundedRequest.PluginId,
+                boundedRequest.RouteKey,
+                boundedRequest.CommandId,
+                result.ErrorCode ?? ErrorCode.PluginInternalError,
+                outcome.Kind,
+                boundedRequest.CorrelationId);
         }
+        await ObserveFaultPolicyAsync(boundedRequest.PluginId, outcome.Kind).ConfigureAwait(false);
 
         return result;
+    }
+
+    private async ValueTask ObserveFaultPolicyAsync(
+        string pluginId,
+        PluginInvocationOutcomeKind outcomeKind)
+    {
+        if (faultPolicy is null)
+        {
+            return;
+        }
+
+        var decision = faultPolicy.Observe(pluginId, outcomeKind);
+        if (!decision.QuarantineStarted || lifecycleControl is null)
+        {
+            return;
+        }
+
+        var cleanup = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
+            token => lifecycleControl.DeactivateAndUnloadAsync(pluginId, token),
+            CancellationToken.None,
+            TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+        if (!cleanup.Result.IsSuccess && cleanup.Result.ErrorCode != ErrorCode.Cancelled)
+        {
+            diagnostics?.RecordRuntimeFailure("plugin-quarantine-cleanup-failed");
+        }
     }
 
     private Result<IPluginPageCommandHandler> ResolveHandler(string pluginId, string routeKey)
@@ -117,22 +207,32 @@ public sealed class HostPluginCommandDispatcher(
         }
     }
 
-    private static Result ValidateRequest(PluginCommandRequest request, TimeSpan timeout)
+    private static Result ValidateRequest(PluginCommandRequest? request, TimeSpan timeout)
     {
-        if (string.IsNullOrWhiteSpace(request.PluginId) || request.PluginId.Length > 128 ||
-            string.IsNullOrWhiteSpace(request.RouteKey) || request.RouteKey.Length > 256 ||
-            string.IsNullOrWhiteSpace(request.CommandId) || request.CommandId.Length > 80 ||
-            string.IsNullOrWhiteSpace(request.OperationKey) || request.OperationKey.Length > 200 ||
-            request.Values.Count > 64 ||
-            request.Values.Any(field =>
-                string.IsNullOrWhiteSpace(field.Key) || field.Key.Length > 80 ||
-                field.Value is null || field.Value.Length > 4096) ||
-            timeout < TimeSpan.FromSeconds(1) || timeout > TimeSpan.FromSeconds(60))
+        try
+        {
+            if (request is null ||
+                string.IsNullOrWhiteSpace(request.PluginId) || request.PluginId.Length > 128 ||
+                string.IsNullOrWhiteSpace(request.RouteKey) || request.RouteKey.Length > 256 ||
+                string.IsNullOrWhiteSpace(request.CommandId) || request.CommandId.Length > 80 ||
+                string.IsNullOrWhiteSpace(request.OperationKey) || request.OperationKey.Length > 200 ||
+                request.Values is null || request.Values.Count > 64 ||
+                request.Values.Any(field =>
+                    string.IsNullOrWhiteSpace(field.Key) || field.Key.Length > 80 ||
+                    field.Value is null || field.Value.Length > 4096) ||
+                request.PageRequest is { } page &&
+                    (page.PageIndex < 0 || page.PageSize is < 1 or > PluginComponentModelValidator.MaximumRowsPerPage) ||
+                timeout < TimeSpan.FromSeconds(1) || timeout > TimeSpan.FromSeconds(60))
+            {
+                return Result.Failure(ErrorCode.InvalidInput);
+            }
+
+            return Result.Success();
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
             return Result.Failure(ErrorCode.InvalidInput);
         }
-
-        return Result.Success();
     }
 
     private void Report(
@@ -141,18 +241,24 @@ public sealed class HostPluginCommandDispatcher(
         BackgroundOperationStatus status,
         ErrorCode? failure)
     {
-        backgroundOperations.Progress.Report(new BackgroundOperationSnapshot(
-            operationId,
-            BackgroundOperationOwnerKind.Plugin,
-            request.PluginId,
-            $"plugin.command.{request.CommandId}",
-            null,
-            status,
-            status == BackgroundOperationStatus.Completed
-                ? BackgroundOperationProgress.Determinate(100)
-                : BackgroundOperationProgress.Indeterminate(),
-            CanCancel: status == BackgroundOperationStatus.Running,
-            Guid.TryParse(request.CorrelationId, out var correlationId) ? correlationId : Guid.CreateVersion7(),
-            failure));
+        try
+        {
+            backgroundOperations.Progress.Report(new BackgroundOperationSnapshot(
+                operationId,
+                BackgroundOperationOwnerKind.Plugin,
+                request.PluginId,
+                $"plugin.command.{request.CommandId}",
+                null,
+                status,
+                status == BackgroundOperationStatus.Completed
+                    ? BackgroundOperationProgress.Determinate(100)
+                    : BackgroundOperationProgress.Indeterminate(),
+                CanCancel: status == BackgroundOperationStatus.Running,
+                Guid.TryParse(request.CorrelationId, out var correlationId) ? correlationId : Guid.CreateVersion7(),
+                failure));
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+        }
     }
 }

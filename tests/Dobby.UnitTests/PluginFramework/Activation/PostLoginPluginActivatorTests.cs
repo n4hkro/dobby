@@ -95,6 +95,63 @@ public sealed class PostLoginPluginActivatorTests
     }
 
     [Fact]
+    public async Task V2_expected_initialization_rejection_is_not_a_plugin_fault_and_still_cleans_up()
+    {
+        var module = new RejectingInitializationV2Module();
+        await using var activator = NewActivator();
+
+        var activation = await activator.ActivateAsync(
+        [
+            new PluginActivationCandidate(
+                "rejected-plugin",
+                "1.0.0",
+                true,
+                [],
+                _ => Result.Success<IPluginModule>(module))
+        ],
+        new HostVersion(1, 0, 0),
+        CancellationToken.None);
+
+        activation.IsSuccess.ShouldBeTrue();
+        var outcome = activation.Value.Run.Outcomes.Single();
+        outcome.Status.ShouldBe(PluginActivationStatus.Rejected);
+        outcome.InvocationKind.ShouldBe(PluginInvocationOutcomeKind.ExpectedRejection);
+        module.DeactivateCalled.ShouldBeTrue();
+        module.UnloadCalled.ShouldBeTrue();
+        activation.Value.Run.ActivatedPluginIds.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Module_factory_exception_faults_only_that_plugin_and_does_not_abort_remaining_activation()
+    {
+        await using var activator = NewActivator();
+
+        var activation = await activator.ActivateAsync(
+        [
+            new PluginActivationCandidate(
+                "factory-fault",
+                "1.0.0",
+                true,
+                [],
+                _ => throw new InvalidOperationException("raw detail")),
+            new PluginActivationCandidate(
+                "healthy",
+                "1.0.0",
+                true,
+                [],
+                _ => Result.Success<IPluginModule>(new SuccessfulModule()))
+        ],
+        new HostVersion(1, 0, 0),
+        CancellationToken.None);
+
+        activation.IsSuccess.ShouldBeTrue();
+        var fault = activation.Value.Run.Outcomes.Single(outcome => outcome.PluginId == "factory-fault");
+        fault.Status.ShouldBe(PluginActivationStatus.Faulted);
+        fault.InvocationKind.ShouldBe(PluginInvocationOutcomeKind.PluginException);
+        activation.Value.Run.ActivatedPluginIds.ShouldBe(["healthy"]);
+    }
+
+    [Fact]
     public async Task Activation_cancel_after_one_plugin_returns_partial_run_and_rolls_back_current_plugin()
     {
         var registry = new PluginExtensionPointRegistry();
@@ -463,6 +520,42 @@ public sealed class PostLoginPluginActivatorTests
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             return Result.Success();
         }
+
+        public ValueTask<Result> ActivateAsync(
+            IPluginActivationContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
+
+        public ValueTask<Result> DeactivateAsync(CancellationToken cancellationToken)
+        {
+            DeactivateCalled = true;
+            return ValueTask.FromResult(Result.Success());
+        }
+
+        public ValueTask<Result> UnloadAsync(CancellationToken cancellationToken)
+        {
+            UnloadCalled = true;
+            return ValueTask.FromResult(Result.Success());
+        }
+    }
+
+    private sealed class RejectingInitializationV2Module : IPluginModuleV2
+    {
+        public bool DeactivateCalled { get; private set; }
+
+        public bool UnloadCalled { get; private set; }
+
+        public void RegisterServices(IPluginServiceCollection services)
+        {
+        }
+
+        public void OnActivated(IPluginActivationContext context) =>
+            throw new InvalidOperationException("V1 activation must not run for a V2 module.");
+
+        public ValueTask<Result> InitializeAsync(
+            IPluginActivationContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Failure(ErrorCode.InvalidInput));
 
         public ValueTask<Result> ActivateAsync(
             IPluginActivationContext context,

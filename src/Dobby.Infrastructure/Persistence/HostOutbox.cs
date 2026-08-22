@@ -8,7 +8,8 @@ public sealed record HostOutboxMessage(
     string IdempotencyKey,
     string Purpose,
     string MessageType,
-    IReadOnlyDictionary<string, string> Fields);
+    IReadOnlyDictionary<string, string> Fields,
+    string? EvidenceCorrelationId = null);
 
 public sealed record HostOutboxDelivery(
     string OutboxId,
@@ -52,6 +53,11 @@ public sealed class HostTransactionOutbox(TimeProvider timeProvider) : IHostTran
         ValidateBoundedText(message.Purpose, 80, nameof(message.Purpose), allowTokenOnly: true);
         ValidateBoundedText(message.MessageType, 120, nameof(message.MessageType), allowTokenOnly: true);
         ArgumentNullException.ThrowIfNull(message.Fields);
+        if (message.EvidenceCorrelationId is not null &&
+            (!Guid.TryParse(message.EvidenceCorrelationId, out _) || message.EvidenceCorrelationId.Length > 64))
+        {
+            throw new ArgumentException("Outbox evidence correlation id is malformed.", nameof(message));
+        }
         if (message.Fields.Count > MaximumFieldCount)
         {
             throw new ArgumentOutOfRangeException(nameof(message.Fields));
@@ -79,13 +85,14 @@ public sealed class HostTransactionOutbox(TimeProvider timeProvider) : IHostTran
         }
 
         var existing = executor.Query<ExistingOutboxRow>(
-            "SELECT OutboxId, Purpose, MessageType, PayloadJson FROM HostOutbox WHERE IdempotencyKey = @IdempotencyKey;",
+            "SELECT OutboxId, Purpose, MessageType, PayloadJson, EvidenceCorrelationId FROM HostOutbox WHERE IdempotencyKey = @IdempotencyKey;",
             new { message.IdempotencyKey }).SingleOrDefault();
         if (existing is not null)
         {
             if (!existing.Purpose.Equals(message.Purpose, StringComparison.Ordinal) ||
                 !existing.MessageType.Equals(message.MessageType, StringComparison.Ordinal) ||
-                !existing.PayloadJson.Equals(payloadJson, StringComparison.Ordinal))
+                !existing.PayloadJson.Equals(payloadJson, StringComparison.Ordinal) ||
+                !StringComparer.Ordinal.Equals(existing.EvidenceCorrelationId, message.EvidenceCorrelationId))
             {
                 throw new InvalidOperationException("Outbox idempotency key was reused for a different message.");
             }
@@ -100,10 +107,10 @@ public sealed class HostTransactionOutbox(TimeProvider timeProvider) : IHostTran
             INSERT INTO HostOutbox(
                 OutboxId, IdempotencyKey, Purpose, MessageType, PayloadJson,
                 CreatedAtUtc, NextAttemptAtUtc, AttemptCount, CompletedAtUtc,
-                LastErrorCode, LeaseId, LeaseExpiresAtUtc)
+                LastErrorCode, LeaseId, LeaseExpiresAtUtc, EvidenceCorrelationId)
             VALUES (
                 @OutboxId, @IdempotencyKey, @Purpose, @MessageType, @PayloadJson,
-                @CreatedAtUtc, @CreatedAtUtc, 0, NULL, NULL, NULL, NULL);
+                @CreatedAtUtc, @CreatedAtUtc, 0, NULL, NULL, NULL, NULL, @EvidenceCorrelationId);
             """,
             new
             {
@@ -111,6 +118,7 @@ public sealed class HostTransactionOutbox(TimeProvider timeProvider) : IHostTran
                 message.IdempotencyKey,
                 message.Purpose,
                 message.MessageType,
+                message.EvidenceCorrelationId,
                 PayloadJson = payloadJson,
                 CreatedAtUtc = createdAt
             });
@@ -141,5 +149,7 @@ public sealed class HostTransactionOutbox(TimeProvider timeProvider) : IHostTran
         public string MessageType { get; init; } = string.Empty;
 
         public string PayloadJson { get; init; } = string.Empty;
+
+        public string? EvidenceCorrelationId { get; init; }
     }
 }

@@ -15,6 +15,41 @@ Backup/Restore self-service raw DB copy deyil. Bu spec host-owned online backup/
 - Cross-device restore explicit request/package flow tələb edir; folder copy ilə başqa cihazda app açmaq supported deyil.
 - Backup artifact raw password, protected-storage secret, vendor private key və raw license secret detail daşımır.
 
+## 2.1 Standalone Local Implementation
+
+The Standalone host owns backup and restore as authenticated maintenance. It is
+not constructed or started by the pre-auth/login-visible composition path.
+
+- Backup uses SQLite's online backup API in cancellable bounded page batches.
+- The host forces a WAL checkpoint and verifies both source and snapshot
+  integrity before publishing an artifact.
+- Snapshot publication uses a create-new partial file, durable flush, SHA-256
+  metadata sidecar and atomic promotion. Existing destinations are never
+  overwritten.
+- Destinations are canonical `.db` paths below the host-owned `backup/` root.
+  Reparse-point traversal, insufficient free space and unsafe permissions fail
+  closed. Retention removes the oldest snapshot and matching metadata only after
+  a new snapshot has been verified and promoted.
+- A Standalone snapshot remains encrypted with the host database key and is
+  bound to the protected stable device identity. It is not a cross-device
+  transport artifact.
+- Restore first copies and verifies the candidate in staging. After an explicit
+  Owner confirmation, it takes exclusive persistence ownership, checkpoints and
+  verifies the current store, and overlays the current immutable `AuditLog` plus
+  the current `HostOutbox` delivery state into the staged candidate. Conflicting
+  audit identifiers fail closed.
+- Only then is the current database set moved to a unique support quarantine and
+  the staged database promoted. Post-promotion integrity and identity checks are
+  mandatory. Failures at either destructive transition restore the quarantined
+  database and preserve the failed promoted store for support inspection.
+- Startup recovery removes only validated `.tmp`/`.partial` incomplete outputs
+  below the host temporary root. It does not follow reparse points or delete
+  completed artifacts.
+
+The current implementation deliberately does not claim cross-device restore.
+That requires the request/package lifecycle in section 4 and target-bound key
+wrapping rather than copying a local snapshot.
+
 ## 3. Plugin Restore Source
 
 - Plugin binaries backup artifact-a kor daxil edilmir.

@@ -78,7 +78,7 @@ public sealed class PluginRuntimeDiagnosticsCoordinatorTests
 
         var entry = entries.Single();
         entry.PluginId.ShouldBe("com.dobby.event-fault");
-        entry.Marker.ShouldBe("plugin.runtime.failed:plugin.event.handler");
+        entry.Marker.ShouldBe("plugin.runtime.defect:plugin.event.handler.pluginexception");
         entry.Details.ShouldContain("SampleEvent");
         entry.Details.ShouldContain(nameof(ErrorCode.PluginInternalError));
     }
@@ -98,16 +98,69 @@ public sealed class PluginRuntimeDiagnosticsCoordinatorTests
             "com.dobby.sample",
             "plugin/com.dobby.sample/sample.home",
             "sample.action",
-            ErrorCode.InvalidInput);
+            ErrorCode.PluginInternalError);
 
         entries[0].PluginId.ShouldBe("com.dobby.sample");
-        entries[0].Marker.ShouldBe("plugin.runtime.failed:plugin.page.load");
+        entries[0].Marker.ShouldBe("plugin.runtime.defect:plugin.page.load.plugindeclaredfailure");
         entries[0].Details.ShouldContain("plugin/com.dobby.sample/sample.home");
         entries[0].Details.ShouldContain(nameof(ErrorCode.PluginInternalError));
         entries[1].PluginId.ShouldBe("com.dobby.sample");
-        entries[1].Marker.ShouldBe("plugin.runtime.failed:plugin.page.action");
+        entries[1].Marker.ShouldBe("plugin.runtime.defect:plugin.page.command.plugindeclaredfailure");
         entries[1].Details.ShouldContain("sample.action");
-        entries[1].Details.ShouldContain(nameof(ErrorCode.InvalidInput));
+        entries[1].Details.ShouldContain(nameof(ErrorCode.PluginInternalError));
+    }
+
+    [Theory]
+    [MemberData(nameof(ExpectedOutcomes))]
+    public void Expected_page_command_outcomes_do_not_emit_fault_diagnostics(
+        ErrorCode errorCode,
+        PluginInvocationOutcomeKind outcomeKind)
+    {
+        var entries = new List<PluginRuntimeDiagnosticEntry>();
+        var coordinator = new PluginRuntimeDiagnosticsCoordinator(entries.Add);
+
+        for (var index = 0; index < 5; index++)
+        {
+            coordinator.RecordPageActionOutcome(
+                "com.dobby.sample",
+                "plugin/com.dobby.sample/greet",
+                "sample.submit",
+                errorCode,
+                outcomeKind,
+                Guid.Empty.ToString());
+        }
+
+        entries.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Host_infrastructure_failure_is_attributed_to_host_with_stable_correlation()
+    {
+        var entries = new List<PluginRuntimeDiagnosticEntry>();
+        var coordinator = new PluginRuntimeDiagnosticsCoordinator(entries.Add);
+        var correlationId = Guid.CreateVersion7().ToString();
+
+        coordinator.RecordPageActionOutcome(
+            "com.dobby.sample",
+            "plugin/com.dobby.sample/greet",
+            "sample.submit",
+            ErrorCode.DatabaseUnavailable,
+            PluginInvocationOutcomeKind.HostInfrastructureFailure,
+            correlationId);
+
+        var entry = entries.Single();
+        entry.PluginId.ShouldBe("host");
+        entry.Marker.ShouldBe("plugin.runtime.host-failed:plugin.page.command");
+        entry.Details.ShouldContain("pluginId=com.dobby.sample");
+        entry.Details.ShouldContain(correlationId);
+    }
+
+    public static IEnumerable<object[]> ExpectedOutcomes()
+    {
+        yield return [ErrorCode.InvalidInput, PluginInvocationOutcomeKind.ExpectedRejection];
+        yield return [ErrorCode.Forbidden, PluginInvocationOutcomeKind.AuthorizationOrLicenseDenied];
+        yield return [ErrorCode.LicenseReadOnly, PluginInvocationOutcomeKind.AuthorizationOrLicenseDenied];
+        yield return [ErrorCode.Cancelled, PluginInvocationOutcomeKind.Cancelled];
     }
 
     [Fact]

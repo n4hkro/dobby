@@ -77,6 +77,14 @@ public sealed class StrictLoginFirstRuntimeTests
                 "SELECT COUNT(*) FROM AuditLog WHERE AuditId = 'old-before-login';") == 0,
             TimeSpan.FromSeconds(5)).ShouldBeTrue(
                 "authenticated audit retention must complete before the runtime is disposed and cancelled.");
+        var backupPath = Path.Combine(fixture.Root, "backup", "authenticated-maintenance.db");
+        var backup = await firstRuntime.PersistenceMaintenanceCoordinator.CreateSnapshotAsync(
+            login.Session.UserId,
+            backupPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CorrelationId.New());
+        backup.IsSuccess.ShouldBeTrue();
+        File.Exists(backupPath).ShouldBeTrue();
         await firstRuntime.DisposeAsync();
 
         authenticatedProbe.Events.ShouldBe([
@@ -84,6 +92,7 @@ public sealed class StrictLoginFirstRuntimeTests
             LoginRuntimeCompositionEvents.BusinessRepositoriesConstructed,
             LoginRuntimeCompositionEvents.LicensingConstructed,
             LoginRuntimeCompositionEvents.PluginRuntimeConstructed,
+            LoginRuntimeCompositionEvents.PersistenceMaintenanceConstructed,
             LoginRuntimeCompositionEvents.AuditRetentionStarted,
             LoginRuntimeCompositionEvents.AuthenticatedRuntimeConstructed
         ]);

@@ -16,7 +16,8 @@ public sealed record PluginActivationOutcome(
     string PluginId,
     PluginActivationStatus Status,
     string Reason,
-    string? Warning = null);
+    string? Warning = null,
+    PluginInvocationOutcomeKind? InvocationKind = null);
 
 public sealed record PluginCompatibilityOutcome(
     bool IsCompatible,

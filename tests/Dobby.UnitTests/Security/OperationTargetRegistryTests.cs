@@ -27,6 +27,8 @@ public sealed class OperationTargetRegistryTests
             .SupportedVerbs.ShouldBe([OperationVerb.View, OperationVerb.Import], ignoreOrder: true);
         registry.Get(BuiltInOperationTargets.PluginManagementTargetId).Value
             .SupportedVerbs.ShouldBe([OperationVerb.View, OperationVerb.Import, OperationVerb.Configure, OperationVerb.Delete], ignoreOrder: true);
+        registry.Get(BuiltInOperationTargets.PersistenceMaintenanceTargetId).Value
+            .SupportedVerbs.ShouldBe([OperationVerb.Export, OperationVerb.Import], ignoreOrder: true);
     }
 
     [Fact]

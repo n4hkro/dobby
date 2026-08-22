@@ -438,6 +438,8 @@ public static class HostLoginRuntimeFactory
             RuntimeFolderLayout.DiagnosticsLogs(options.Runtime));
         var pluginRuntimeDiagnosticsCoordinator = new PluginRuntimeDiagnosticsCoordinator(
             pluginRuntimeDiagnosticsFileSink.Record);
+        var pluginRuntimeFaultPolicy = new PluginRuntimeFaultPolicy();
+        IPluginRuntimeLifecycleControl? pluginRuntimeLifecycleControl = null;
         var pluginCurrentProcessActivationTracker = new PluginCurrentProcessActivationTracker();
         var pluginTrustVerifier = new PluginTrustVerifier();
         var licenseImportService = new LicenseImportService(
@@ -477,7 +479,31 @@ public static class HostLoginRuntimeFactory
                     transactionScope,
                     () => activeSessionAccessor.Current?.UserId ?? string.Empty,
                     runtimeModeMutationGate),
-            pluginRuntimeDiagnosticsCoordinator.RecordEventHandlerFault);
+            pluginEventHandlerFaultSink: null,
+            pluginEventHandlerOutcomeSink: async (pluginId, eventType, errorCode, outcomeKind) =>
+            {
+                pluginRuntimeDiagnosticsCoordinator.RecordEventHandlerOutcome(
+                    pluginId,
+                    eventType,
+                    errorCode,
+                    outcomeKind,
+                    correlationId: null);
+                var decision = pluginRuntimeFaultPolicy.Observe(pluginId, outcomeKind);
+                if (!decision.QuarantineStarted || pluginRuntimeLifecycleControl is null)
+                {
+                    return;
+                }
+
+                var result = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
+                    token => pluginRuntimeLifecycleControl.DeactivateAndUnloadAsync(pluginId, token),
+                    CancellationToken.None,
+                    TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+                if (!result.Result.IsSuccess && result.Result.ErrorCode != ErrorCode.Cancelled)
+                {
+                    pluginRuntimeDiagnosticsCoordinator.RecordRuntimeFailure(
+                        "plugin-quarantine-cleanup-failed");
+                }
+            });
         var pluginPackageInstallCoordinator = new HostPluginPackageInstallCoordinator(
             installedPluginStateStore,
             installedPluginMetadataCache,
@@ -502,6 +528,7 @@ public static class HostLoginRuntimeFactory
                 pluginExtensionPointRegistry,
                 pluginLifetimeManager,
                 pluginHostServices));
+        pluginRuntimeLifecycleControl = postLoginPluginActivator;
         var pluginLifecycleCoordinator = new HostPluginLifecycleCoordinator(
             installedPluginStateStore,
             installedPluginMetadataCache,
@@ -513,6 +540,10 @@ public static class HostLoginRuntimeFactory
             runtimeModeMutationGate,
             postLoginPluginActivator,
             pluginActivationCancellation);
+        var persistenceMaintenanceService = new HostPersistenceMaintenanceService(
+            persistenceOptions,
+            protectedMaterialProbe,
+            factory);
         var hostPluginRuntimeCoordinator = new HostPluginRuntimeCoordinator(
             migrator,
             installedPluginStateStore,
@@ -530,7 +561,10 @@ public static class HostLoginRuntimeFactory
             pluginRuntimeAuditCoordinator,
             operationReporter,
             pluginRuntimeDiagnosticsCoordinator,
-            licenseRuntimeModeProvider);
+            licenseRuntimeModeProvider,
+            pluginRuntimeFaultPolicy,
+            persistenceMaintenanceService,
+            new RuntimeTemporaryOutputRecovery(RuntimeFolderLayout.TemporaryFiles(options.Runtime)));
         var managedUserService = new ManagedUserService(
             executor,
             credentialStore,
@@ -573,6 +607,12 @@ public static class HostLoginRuntimeFactory
             licenseRuntimeModeProvider,
             printOutputCoordinator);
         var authenticatedLifetime = new CancellationTokenSource();
+        var persistenceMaintenanceCoordinator = new AuthenticatedPersistenceMaintenanceCoordinator(
+            persistenceMaintenanceService,
+            operationAuthorizationPolicy,
+            operationReporter,
+            authenticatedLifetime.Token);
+        compositionProbe?.Record(LoginRuntimeCompositionEvents.PersistenceMaintenanceConstructed);
         var licenseActivationRefreshHandler = new LicenseActivationRefreshOutboxHandler();
         var outboxDispatcher = new HostOutboxDispatcher(
             transactionScope,
@@ -622,6 +662,7 @@ public static class HostLoginRuntimeFactory
             printTargetClassifier,
             printOutputCoordinator,
             printOutputService,
+            persistenceMaintenanceCoordinator,
             operationReporter,
             Path.Combine(options.Runtime.DataRoot, "logs"),
             diagnosticsOutputZipPath)

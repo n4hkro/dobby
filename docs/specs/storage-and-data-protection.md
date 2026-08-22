@@ -62,7 +62,7 @@ Host runtime data `%LocalAppData%/Dobby/` altında aşağıdakı sahiblik xərit
 | `%LocalAppData%/Dobby/plugins/` | Quraşdırılmış plugin package-ları və metadata | Host |
 | `%LocalAppData%/Dobby/licenses/` | License artifact-ları və cache | Host |
 | `%LocalAppData%/Dobby/recovery/` | Owner recovery request/response artifact-ları | Host |
-| `%LocalAppData%/Dobby/backup/` | Backup/restore artifact-ları (P2 scope) | Host |
+| `%LocalAppData%/Dobby/backup/` | Encrypted local backup snapshots, verification metadata and restore quarantine | Host |
 | `%LocalAppData%/Dobby/temp/` | İşləmə müddətində yaradılmış müvəqqəti fayl-lar | Host |
 
 ## Runtime folder recovery
@@ -70,6 +70,20 @@ Host runtime data `%LocalAppData%/Dobby/` altında aşağıdakı sahiblik xərit
 Startup zamanı required runtime folder-lər yoxdursa təhlükəsiz şəkildə yaradılmalıdır. Optional folder silinibsə recreate edilə bilər.
 
 Protected data, key backing material və ya provider metadata itibsə app silent recreate etməməli, `ADR-0055` failure mode-larına uyğun fail-closed davranmalı və support-safe diagnostics göstərməlidir.
+
+Standalone startup recovery has one host-owned order after authentication:
+database checkpoint/integrity, post-login migrations, plugin install journal and
+projection recovery, plugin staging/orphan/cache cleanup, incomplete temporary
+output cleanup, and finally cancellation-state reset. Temporary and backup
+maintenance validates canonical roots and refuses reparse-point traversal.
+
+Standalone local backup uses the encrypted SQLite online-backup boundary. A
+snapshot retains the same protected database key/device binding, is verified
+before publication, and cannot be treated as a portable cross-device package.
+Restore preserves current immutable audit evidence and outbox delivery state,
+quarantines the previous store before promotion, and rolls back on a failed
+transition. Cross-device key transport remains subject to the separate
+request/package contract in `backup-restore-migration.md`.
 
 ## 4. Plugin Storage Compartments
 

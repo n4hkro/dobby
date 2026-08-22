@@ -152,7 +152,9 @@ public partial class MainWindow : Window
             loginRuntime.RuntimeModeMutationGate,
             loginRuntime.BackgroundOperations,
             authenticatedLifetime,
-            loginRuntime.PluginRuntimeCoordinator.DiagnosticsCoordinator);
+            loginRuntime.PluginRuntimeCoordinator.DiagnosticsCoordinator,
+            loginRuntime.PluginRuntimeCoordinator.RuntimeFaultPolicy,
+            loginRuntime.PluginRuntimeCoordinator.PostLoginPluginActivator);
         pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault(
             commandDispatcher);
         Action<string, string, string, ErrorCode>? actionFaultSink =

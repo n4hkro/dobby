@@ -168,6 +168,71 @@ public sealed class DurableAuditTrailTests
             .ShouldBe(["retained"]);
     }
 
+    [Fact]
+    public void Audit_retention_preserves_old_evidence_until_correlated_outbox_delivery_completes()
+    {
+        using var fixture = AuditPersistenceFixture.Create();
+        var old = DateTimeOffset.UtcNow.AddDays(-366).ToString("O");
+        var protectedCorrelation = CorrelationId.New().ToString();
+        var removableCorrelation = CorrelationId.New().ToString();
+        fixture.Executor.Execute(
+            "INSERT INTO AuditLog(AuditId, OccurredAtUtc, EventName, ActorId, Target, Result, CorrelationId, DetailsJson) VALUES ('pending-evidence', @Old, 'audit.pending', 'system', 'audit', 'success', @ProtectedCorrelation, '{}');",
+            new { Old = old, ProtectedCorrelation = protectedCorrelation });
+        fixture.Executor.Execute(
+            "INSERT INTO AuditLog(AuditId, OccurredAtUtc, EventName, ActorId, Target, Result, CorrelationId, DetailsJson) VALUES ('removable-evidence', @Old, 'audit.removable', 'system', 'audit', 'success', @RemovableCorrelation, '{}');",
+            new { Old = old, RemovableCorrelation = removableCorrelation });
+        fixture.Executor.Execute(
+            """
+            INSERT INTO HostOutbox(
+                OutboxId, IdempotencyKey, Purpose, MessageType, PayloadJson,
+                CreatedAtUtc, NextAttemptAtUtc, AttemptCount, CompletedAtUtc,
+                LastErrorCode, LeaseId, LeaseExpiresAtUtc, EvidenceCorrelationId)
+            VALUES (
+                'pending', 'pending-evidence', 'audit', 'evidence.required', '{}',
+                @Old, @Old, 0, NULL, NULL, NULL, NULL, @ProtectedCorrelation);
+            """,
+            new { Old = old, ProtectedCorrelation = protectedCorrelation });
+
+        var sweeper = new AuditRetentionSweeper(fixture.Executor, retentionDays: 365);
+        sweeper.Sweep();
+
+        fixture.Executor.Query<string>("SELECT AuditId FROM AuditLog ORDER BY AuditId;")
+            .ShouldBe(["pending-evidence"]);
+
+        fixture.Executor.Execute(
+            "UPDATE HostOutbox SET CompletedAtUtc = @CompletedAtUtc WHERE OutboxId = 'pending';",
+            new { CompletedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+        sweeper.Sweep();
+
+        fixture.Executor.Query<string>("SELECT AuditId FROM AuditLog;").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Legacy_pending_outbox_without_evidence_link_fails_retention_closed()
+    {
+        using var fixture = AuditPersistenceFixture.Create();
+        var old = DateTimeOffset.UtcNow.AddDays(-366).ToString("O");
+        fixture.Executor.Execute(
+            "INSERT INTO AuditLog(AuditId, OccurredAtUtc, EventName, ActorId, Target, Result, CorrelationId, DetailsJson) VALUES ('legacy-protected', @Old, 'audit.legacy', 'system', 'audit', 'success', @CorrelationId, '{}');",
+            new { Old = old, CorrelationId = CorrelationId.New().ToString() });
+        fixture.Executor.Execute(
+            """
+            INSERT INTO HostOutbox(
+                OutboxId, IdempotencyKey, Purpose, MessageType, PayloadJson,
+                CreatedAtUtc, NextAttemptAtUtc, AttemptCount, CompletedAtUtc,
+                LastErrorCode, LeaseId, LeaseExpiresAtUtc, EvidenceCorrelationId)
+            VALUES (
+                'legacy-pending', 'legacy-pending', 'audit', 'legacy.required', '{}',
+                @Old, @Old, 0, NULL, NULL, NULL, NULL, NULL);
+            """,
+            new { Old = old });
+
+        new AuditRetentionSweeper(fixture.Executor, retentionDays: 365).Sweep();
+
+        fixture.Executor.Query<string>("SELECT AuditId FROM AuditLog;")
+            .ShouldBe(["legacy-protected"]);
+    }
+
     private sealed class AuditPersistenceFixture : IDisposable
     {
         private AuditPersistenceFixture(string root)

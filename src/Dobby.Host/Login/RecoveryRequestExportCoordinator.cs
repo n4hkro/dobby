@@ -87,7 +87,8 @@ public sealed class RecoveryRequestExportCoordinator(
                     new Dictionary<string, string>(StringComparer.Ordinal)
                     {
                         ["requestId"] = payload.RequestId
-                    }));
+                    },
+                    correlationId.ToString()));
                 return Result.Success();
             });
             if (!persisted.IsSuccess)

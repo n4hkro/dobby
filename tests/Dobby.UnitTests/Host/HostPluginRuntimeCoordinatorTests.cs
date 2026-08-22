@@ -3,6 +3,7 @@ using Dobby.Core.Versioning;
 using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginPages;
 using Dobby.Host.Plugins;
+using Dobby.Host.Startup;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Licensing;
 using Dobby.PluginFramework.Activation;
@@ -59,6 +60,35 @@ public sealed class HostPluginRuntimeCoordinatorTests
         result.IsSuccess.ShouldBeTrue();
         staging.Received(1).Recover();
         activationCancellation.Token.IsCancellationRequested.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Authenticated_startup_recovery_orders_database_plugin_and_temporary_recovery()
+    {
+        var maintenance = Substitute.For<IHostPersistenceMaintenanceService>();
+        maintenance.ForceWalCheckpoint().Returns(PersistenceResult.Success());
+        var migrator = Substitute.For<IHostPersistenceMigrator>();
+        migrator.ApplyPostLoginMigrations(Arg.Any<IReadOnlyDictionary<string, string>>())
+            .Returns(PersistenceResult.Success());
+        var staging = CreateDefaultStagingArea();
+        var temporary = Substitute.For<IRuntimeTemporaryOutputRecovery>();
+        temporary.Recover().Returns(Result.Success(2));
+        var coordinator = CreateCoordinator(
+            migrator: migrator,
+            staging: staging,
+            persistenceMaintenance: maintenance,
+            temporaryOutputRecovery: temporary);
+
+        var result = coordinator.ApplyAuthenticatedStartupRecovery();
+
+        result.IsSuccess.ShouldBeTrue();
+        Received.InOrder(() =>
+        {
+            maintenance.ForceWalCheckpoint();
+            migrator.ApplyPostLoginMigrations(Arg.Any<IReadOnlyDictionary<string, string>>());
+            staging.Recover();
+            temporary.Recover();
+        });
     }
 
     [Fact]
@@ -684,6 +714,8 @@ public sealed class HostPluginRuntimeCoordinatorTests
         PluginExtensionPointRegistry? extensionPointRegistry = null,
         PluginLifetimeManager? lifetimeManager = null,
         PostLoginPluginActivator? postLoginPluginActivator = null,
+        IHostPersistenceMaintenanceService? persistenceMaintenance = null,
+        IRuntimeTemporaryOutputRecovery? temporaryOutputRecovery = null,
         bool configureDefaultStateStoreUpsert = true)
     {
         stateStore ??= CreateDefaultStateStore();
@@ -713,7 +745,9 @@ public sealed class HostPluginRuntimeCoordinatorTests
             postLoginPluginActivator,
             activationTracker ?? Substitute.For<IPluginCurrentProcessActivationTracker>(),
             trustVerifier ?? new AllowAllTrustVerifier(),
-            licenseRuntimeModeProvider: licenseRuntimeModeProvider ?? new AllowAllLicenseRuntimeModeProvider());
+            licenseRuntimeModeProvider: licenseRuntimeModeProvider ?? new AllowAllLicenseRuntimeModeProvider(),
+            persistenceMaintenanceService: persistenceMaintenance,
+            temporaryOutputRecovery: temporaryOutputRecovery);
     }
 
     private static IInstalledPluginStateStore CreateDefaultStateStore()

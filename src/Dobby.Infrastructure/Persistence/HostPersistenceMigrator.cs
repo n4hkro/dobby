@@ -28,6 +28,7 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
             ApplyLoginThrottleMigration(executor);
             ApplyOutboxMigration(executor);
             ApplyRecoveryRequestMigration(executor);
+            ApplyOutboxEvidenceMigration(executor);
             MirrorDeviceIdentity(executor);
             return PersistenceResult.Success();
         }
@@ -88,6 +89,44 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
             RecordMigration(
                 transactionExecutor,
                 PreLoginRecoveryRequestMigrationV10.MigrationId,
+                checksum);
+        });
+    }
+
+    private void ApplyOutboxEvidenceMigration(IHostPersistenceCommandExecutor executor)
+    {
+        var checksum = Checksum(PreLoginOutboxEvidenceMigrationV11.Sql);
+        if (MigrationAlreadyRecorded(
+            executor,
+            PreLoginOutboxEvidenceMigrationV11.MigrationId,
+            checksum))
+        {
+            return;
+        }
+
+        var evidenceColumnExists = executor.Query<string>(
+                "SELECT name FROM pragma_table_info('HostOutbox');")
+            .Contains("EvidenceCorrelationId", StringComparer.Ordinal);
+        if (evidenceColumnExists)
+        {
+            new HostPersistenceTransactionScope(factory).ExecuteInTransaction(transactionExecutor =>
+            {
+                transactionExecutor.Execute(
+                    "CREATE INDEX IF NOT EXISTS IX_HostOutbox_PendingEvidence ON HostOutbox(CompletedAtUtc, EvidenceCorrelationId);");
+                RecordMigration(
+                    transactionExecutor,
+                    PreLoginOutboxEvidenceMigrationV11.MigrationId,
+                    checksum);
+            });
+            return;
+        }
+
+        new HostPersistenceTransactionScope(factory).ExecuteInTransaction(transactionExecutor =>
+        {
+            transactionExecutor.Execute(PreLoginOutboxEvidenceMigrationV11.Sql);
+            RecordMigration(
+                transactionExecutor,
+                PreLoginOutboxEvidenceMigrationV11.MigrationId,
                 checksum);
         });
     }

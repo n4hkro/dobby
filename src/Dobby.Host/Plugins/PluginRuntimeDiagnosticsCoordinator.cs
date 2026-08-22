@@ -16,6 +16,15 @@ public sealed class PluginRuntimeDiagnosticsCoordinator(
     {
         ArgumentNullException.ThrowIfNull(outcome);
 
+        if (outcome.InvocationKind == PluginInvocationOutcomeKind.HostInfrastructureFailure)
+        {
+            Emit(
+                HostRuntimePluginId,
+                "plugin.runtime.host-failed:plugin.activation",
+                $"pluginId={outcome.PluginId}; reason={NormalizeReason(outcome.Reason)}");
+            return;
+        }
+
         var markerPrefix = outcome.Status switch
         {
             PluginActivationStatus.Skipped => "plugin.runtime.skipped",
@@ -61,37 +70,92 @@ public sealed class PluginRuntimeDiagnosticsCoordinator(
 
     public void RecordEventHandlerFault(string pluginId, Type eventType, ErrorCode errorCode)
     {
+        RecordEventHandlerOutcome(
+            pluginId,
+            eventType,
+            errorCode,
+            PluginInvocationOutcomeKind.PluginException,
+            correlationId: null);
+    }
+
+    public void RecordEventHandlerOutcome(
+        string pluginId,
+        Type eventType,
+        ErrorCode errorCode,
+        PluginInvocationOutcomeKind outcomeKind,
+        string? correlationId)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
         ArgumentNullException.ThrowIfNull(eventType);
 
-        Emit(
+        RecordInvocationOutcome(
             pluginId,
-            "plugin.runtime.failed:plugin.event.handler",
-            $"event={eventType.FullName ?? eventType.Name}; error={errorCode}");
+            "plugin.event.handler",
+            $"event={eventType.FullName ?? eventType.Name}; error={errorCode}",
+            outcomeKind,
+            correlationId);
     }
 
     public void RecordPageFault(string pluginId, string routeKey, string operation, ErrorCode errorCode)
+    {
+        RecordPageOutcome(
+            pluginId,
+            routeKey,
+            operation,
+            errorCode,
+            PluginExceptionBoundary.ClassifyResult(isSuccess: false, errorCode),
+            correlationId: null);
+    }
+
+    public void RecordPageOutcome(
+        string pluginId,
+        string routeKey,
+        string operation,
+        ErrorCode errorCode,
+        PluginInvocationOutcomeKind outcomeKind,
+        string? correlationId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
         ArgumentException.ThrowIfNullOrWhiteSpace(routeKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(operation);
 
-        Emit(
+        RecordInvocationOutcome(
             pluginId,
-            $"plugin.runtime.failed:plugin.page.{NormalizeReason(operation)}",
-            $"route={routeKey}; error={errorCode}");
+            $"plugin.page.{NormalizeReason(operation)}",
+            $"route={routeKey}; error={errorCode}",
+            outcomeKind,
+            correlationId);
     }
 
     public void RecordPageActionFault(string pluginId, string routeKey, string actionId, ErrorCode errorCode)
+    {
+        RecordPageActionOutcome(
+            pluginId,
+            routeKey,
+            actionId,
+            errorCode,
+            PluginExceptionBoundary.ClassifyResult(isSuccess: false, errorCode),
+            correlationId: null);
+    }
+
+    public void RecordPageActionOutcome(
+        string pluginId,
+        string routeKey,
+        string actionId,
+        ErrorCode errorCode,
+        PluginInvocationOutcomeKind outcomeKind,
+        string? correlationId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
         ArgumentException.ThrowIfNullOrWhiteSpace(routeKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(actionId);
 
-        Emit(
+        RecordInvocationOutcome(
             pluginId,
-            "plugin.runtime.failed:plugin.page.action",
-            $"route={routeKey}; action={actionId}; error={errorCode}");
+            "plugin.page.command",
+            $"route={routeKey}; command={actionId}; error={errorCode}",
+            outcomeKind,
+            correlationId);
     }
 
     public void RecordInstallRejected(string? pluginId, IReadOnlyList<PluginPackageValidationReason> reasons)
@@ -117,6 +181,40 @@ public sealed class PluginRuntimeDiagnosticsCoordinator(
             pluginId,
             marker,
             DiagnosticRedactor.Redact(details)));
+    }
+
+    private void RecordInvocationOutcome(
+        string pluginId,
+        string operationMarker,
+        string details,
+        PluginInvocationOutcomeKind outcomeKind,
+        string? correlationId)
+    {
+        if (outcomeKind is
+            PluginInvocationOutcomeKind.Success or
+            PluginInvocationOutcomeKind.ExpectedRejection or
+            PluginInvocationOutcomeKind.AuthorizationOrLicenseDenied or
+            PluginInvocationOutcomeKind.Cancelled)
+        {
+            return;
+        }
+
+        var correlation = string.IsNullOrWhiteSpace(correlationId)
+            ? "none"
+            : correlationId;
+        if (outcomeKind == PluginInvocationOutcomeKind.HostInfrastructureFailure)
+        {
+            Emit(
+                HostRuntimePluginId,
+                $"plugin.runtime.host-failed:{operationMarker}",
+                $"pluginId={pluginId}; {details}; correlation={correlation}");
+            return;
+        }
+
+        Emit(
+            pluginId,
+            $"plugin.runtime.defect:{operationMarker}.{outcomeKind.ToString().ToLowerInvariant()}",
+            $"{details}; correlation={correlation}");
     }
 
     private static string FormatPackageValidationReason(PluginPackageValidationReason reason)

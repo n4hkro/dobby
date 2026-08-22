@@ -57,8 +57,11 @@ public sealed class EncryptedSqliteConnectionFactory : IHostPersistenceConnectio
             return PersistenceResult<HostPersistenceConnection>.Failure(providerResult.Error);
         }
 
+        IDisposable? accessLease = null;
+        var leaseTransferred = false;
         try
         {
+            accessLease = HostPersistenceAccessGate.EnterShared(options.DatabasePath);
             var material = protectedMaterialSource.LoadRequired();
             Directory.CreateDirectory(Path.GetDirectoryName(options.DatabasePath)!);
 
@@ -76,7 +79,9 @@ public sealed class EncryptedSqliteConnectionFactory : IHostPersistenceConnectio
                 ApplyCipherPragmas(connection, material.DbOpenSecret);
                 ApplyGuardrails(connection);
                 VerifyReadable(connection);
-                return PersistenceResult<HostPersistenceConnection>.Success(new HostPersistenceConnection(connection));
+                leaseTransferred = true;
+                return PersistenceResult<HostPersistenceConnection>.Success(
+                    new HostPersistenceConnection(connection, accessLease: accessLease));
             }
             catch
             {
@@ -88,6 +93,13 @@ public sealed class EncryptedSqliteConnectionFactory : IHostPersistenceConnectio
         {
             return PersistenceResult<HostPersistenceConnection>.Failure(PersistenceError.Create(
                 PersistenceError.ProviderUnavailable));
+        }
+        finally
+        {
+            if (!leaseTransferred)
+            {
+                accessLease?.Dispose();
+            }
         }
     }
 

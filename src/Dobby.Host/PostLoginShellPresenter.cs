@@ -42,15 +42,15 @@ internal static class PostLoginShellPresenter
         var strings = HostStringCatalog.CreateResourceBacked(localizationDiagnostics.RecordMissingKey);
         var shellViewModel = ShellViewModel.CreateDefault(strings);
         var themeCoordinator = new ShellThemeCoordinator(scopedPreferenceSource);
-        Action<string, string, string, Dobby.Core.ErrorCode>? pageFaultSink =
-            loginRuntime.PluginRuntimeCoordinator.DiagnosticsCoordinator is { } diagnostics
-                ? diagnostics.RecordPageFault
-                : null;
         var pluginPageRouteCoordinator = new PluginPageRouteCoordinator(
             loginRuntime.PluginRuntimeCoordinator.ExtensionPointRegistry,
             shellViewModel,
             () => authenticatedSession?.UserId,
-            pageFaultSink);
+            pageFaultSink: null,
+            lifecycleOptions: null,
+            diagnosticsCoordinator: loginRuntime.PluginRuntimeCoordinator.DiagnosticsCoordinator,
+            faultPolicy: loginRuntime.PluginRuntimeCoordinator.RuntimeFaultPolicy,
+            lifecycleControl: loginRuntime.PluginRuntimeCoordinator.PostLoginPluginActivator);
         using var authenticatedLifetime = new CancellationTokenSource();
         var routeHost = new ShellRouteHost(
             shellViewModel.ResolveRouteOrHome,
@@ -127,7 +127,7 @@ internal static class PostLoginShellPresenter
                 () => BuildSettingsAndAbout(strings, loginRuntime, userId, scopedPreferenceSource),
                 cancellationToken);
             var pluginMigrationTask = Task.Run(
-                () => loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations(),
+                () => loginRuntime.PluginRuntimeCoordinator.ApplyAuthenticatedStartupRecovery(),
                 cancellationToken);
 
             var preferences = await preferenceTask.ConfigureAwait(false);

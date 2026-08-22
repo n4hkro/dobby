@@ -204,7 +204,8 @@ public sealed class RecoveryResponseImportCoordinator(
                     {
                         ["requestId"] = challenge.Payload.RequestId,
                         ["responseId"] = challenge.Payload.ResponseId
-                    }));
+                    },
+                    correlationId.ToString()));
                 return Result.Success();
             });
         }

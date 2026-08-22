@@ -1,6 +1,7 @@
 using Dobby.Configuration;
 using Dobby.Core;
 using Dobby.Host;
+using Dobby.Host.Startup;
 using Shouldly;
 
 namespace Dobby.IntegrationTests.Runtime;
@@ -36,5 +37,33 @@ public sealed class RuntimeFolderRecoveryTests
         Should.Throw<InvalidOperationException>(() =>
             preparer.Prepare(new RuntimeOptions { DataRoot = temp.Path }, CorrelationId.New()))
             .Message.ShouldContain("protected", Case.Insensitive);
+    }
+
+    [Fact]
+    public void Temporary_output_recovery_is_canonical_bounded_and_idempotent()
+    {
+        using var temp = new TemporaryDirectory();
+        var temporaryRoot = Path.Combine(temp.Path, "temp");
+        var nested = Path.Combine(temporaryRoot, "nested");
+        Directory.CreateDirectory(nested);
+        var partial = Path.Combine(temporaryRoot, "dobby-diagnostics.zip.partial");
+        var interrupted = Path.Combine(nested, "export.partial.019d0c4e");
+        var completed = Path.Combine(temporaryRoot, "completed.zip");
+        var outside = Path.Combine(temp.Path, "outside.tmp");
+        File.WriteAllText(partial, "partial");
+        File.WriteAllText(interrupted, "partial");
+        File.WriteAllText(completed, "complete");
+        File.WriteAllText(outside, "outside");
+        var recovery = new RuntimeTemporaryOutputRecovery(temporaryRoot);
+
+        var first = recovery.Recover();
+        var second = recovery.Recover();
+
+        first.IsSuccess.ShouldBeTrue();
+        first.Value.ShouldBe(2);
+        second.IsSuccess.ShouldBeTrue();
+        second.Value.ShouldBe(0);
+        File.Exists(completed).ShouldBeTrue();
+        File.Exists(outside).ShouldBeTrue();
     }
 }

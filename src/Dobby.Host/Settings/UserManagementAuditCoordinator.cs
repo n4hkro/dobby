@@ -86,7 +86,8 @@ public sealed class UserManagementAuditCoordinator(
                     ["actorId"] = actorId,
                     ["permissionKey"] = permissionKey,
                     ["targetUserId"] = targetUserId
-                }));
+                },
+                correlationId.ToString()));
             return result;
         });
     }
@@ -195,7 +196,8 @@ public sealed class UserManagementAuditCoordinator(
             {
                 ["actorId"] = actorId,
                 ["targetUserId"] = targetUserId
-            });
+            },
+            correlationId.ToString());
     }
 
     private static string ToEventName(ManagedUserAuditAction action)

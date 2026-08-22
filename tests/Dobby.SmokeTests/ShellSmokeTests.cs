@@ -253,38 +253,73 @@ public sealed class ShellSmokeTests
         var shell = ShellViewModel.CreateDefault(new HostStringCatalog());
         shell.ApplyPluginNavigationContributions(
             PluginNavigationContributionMapper.Map(activation.Value.Run.NavigationContributions));
+        var activatedPage = extensionRegistry.GetRegistrations<IPluginPage>().Single().Instance;
+        var directLoad = await activatedPage.LoadAsync(
+            new PluginPageContext(
+                "com.dobby.sample",
+                "sample.greet.page",
+                "plugin/com.dobby.sample/greet",
+                Guid.Empty.ToString(),
+                "managed"),
+            CancellationToken.None);
+        directLoad.IsSuccess.ShouldBeTrue(directLoad.IsSuccess ? null : directLoad.ErrorCode.ToString());
+        PluginComponentModelValidator.Validate(directLoad.Value.ShouldBeOfType<PluginComponentPageModel>())
+            .IsSuccess.ShouldBeTrue();
         var pageCoordinator = new PluginPageRouteCoordinator(extensionRegistry, shell, () => "managed");
         var route = await pageCoordinator.ActivateRouteAsync("plugin/com.dobby.sample/greet", CancellationToken.None);
-        route.IsSuccess.ShouldBeTrue();
-        var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginActionPageModel>();
+        route.IsSuccess.ShouldBeTrue(route.IsSuccess ? null : route.ErrorCode.ToString());
+        var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginComponentPageModel>();
+        var commandDispatcher = new HostPluginCommandDispatcher(
+            extensionRegistry,
+            authorization,
+            new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.FullAccess)),
+            reporter,
+            CancellationToken.None);
 
-        var greet = pageModel.Actions.Single(action => action.ActionId == "sample.greet");
-        var denied = await greet.ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var submit = CommandRequest(pageModel, "sample.submit", new Dictionary<string, string>
+        {
+            ["customer-name"] = "Ada",
+            ["quantity"] = "2"
+        });
+        var denied = await commandDispatcher.DispatchAsync(
+            submit,
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         denied.IsSuccess.ShouldBeFalse();
         denied.ErrorCode.ShouldBe(ErrorCode.Forbidden);
 
         grants.Grant("managed", new OperationKey("com.dobby.sample.greet", OperationVerb.Execute));
-        var success = await greet.ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var success = await commandDispatcher.DispatchAsync(
+            submit,
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         success.IsSuccess.ShouldBeTrue();
-        success.Value.MessageKey.ShouldBe("sample.greet.success");
+        success.Value.Message!.Key.ShouldBe("command.submit.success");
 
-        var invalid = await pageModel.Actions.Single(action => action.ActionId == "sample.invalid-input")
-            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var invalid = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.invalid-input"),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         invalid.IsSuccess.ShouldBeFalse();
         invalid.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
-        var faultAction = pageModel.Actions.Single(action => action.ActionId == "sample.fault");
-        var fault = await Should.ThrowAsync<InvalidOperationException>(async () =>
-            await faultAction.ExecuteAsync(pageModel.Context, CancellationToken.None));
-        fault.Message.ShouldBe("sample.fault.unhandled");
-        var progress = await pageModel.Actions.Single(action => action.ActionId == "sample.progress")
-            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var fault = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.fault"),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+        fault.ErrorCode.ShouldBe(ErrorCode.PluginInternalError);
+        var progress = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.progress"),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         progress.IsSuccess.ShouldBeTrue();
         reporter.Snapshots.ShouldContain(snapshot =>
             snapshot.OwnerKind == BackgroundOperationOwnerKind.Plugin &&
             snapshot.OwnerId == "com.dobby.sample" &&
             snapshot.Status == BackgroundOperationStatus.Completed);
-        var workSession = await pageModel.Actions.Single(action => action.ActionId == "sample.work-session")
-            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var workSession = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.work-session"),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         workSession.IsSuccess.ShouldBeTrue();
         workSessions.Events.ShouldContain("open:com.dobby.sample:plugin/com.dobby.sample/greet:sample.work-session");
         workSessions.Events.ShouldContain("progress:50");
@@ -313,7 +348,11 @@ public sealed class ShellSmokeTests
             System.IO.Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", "Debug", "net10.0", "package")
         };
 
-        return candidates.FirstOrDefault(Directory.Exists)
+        return candidates
+            .Where(Directory.Exists)
+            .OrderByDescending(candidate => File.GetLastWriteTimeUtc(
+                Path.Combine(candidate, "bin", "plugins", "Dobby.Sample.Plugin.dll")))
+            .FirstOrDefault()
             ?? throw new DirectoryNotFoundException("Smoke requires the built sample plugin package candidate.");
     }
 
@@ -375,6 +414,22 @@ public sealed class ShellSmokeTests
         File.WriteAllText(requestPath, RecoveryRequestExporter.Serialize(created.Value), new UTF8Encoding(false));
         File.WriteAllBytes(publicKeyPath, publicKey);
         return new RecoveryRequestFiles(requestPath, publicKeyPath);
+    }
+
+    private static PluginCommandRequest CommandRequest(
+        PluginComponentPageModel model,
+        string commandId,
+        IReadOnlyDictionary<string, string>? values = null)
+    {
+        var command = model.Commands.Single(item => item.CommandId.Equals(commandId, StringComparison.Ordinal));
+        return new PluginCommandRequest(
+            model.Context.PluginId,
+            model.Context.RouteKey,
+            model.Context.UserId,
+            model.Context.CorrelationId,
+            command.CommandId,
+            command.OperationKey,
+            values ?? new Dictionary<string, string>());
     }
 
     private sealed record AdminProcessResult(

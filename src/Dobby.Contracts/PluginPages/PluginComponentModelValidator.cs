@@ -73,6 +73,60 @@ public static partial class PluginComponentModelValidator
         }
     }
 
+    public static Result ValidateCommandResult(
+        PluginCommandResult result,
+        PluginPageCommandContext expectedContext)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(expectedContext);
+
+        try
+        {
+            var updatedPage = result.UpdatedPage;
+            if (updatedPage is not null)
+            {
+                var pageValidation = Validate(updatedPage);
+                if (!pageValidation.IsSuccess || updatedPage.Context != expectedContext)
+                {
+                    return Result.Failure(ErrorCode.ValidationFailed);
+                }
+            }
+
+            ValidateResultLocalizedText(result.Message, updatedPage?.Localization);
+            if ((result.ValidationMessages?.Count ?? 0) > 64)
+            {
+                return Result.Failure(ErrorCode.ValidationFailed);
+            }
+
+            var componentIds = updatedPage is null
+                ? null
+                : GetComponentIds(updatedPage);
+            foreach (var message in result.ValidationMessages ?? [])
+            {
+                ArgumentNullException.ThrowIfNull(message);
+                if (!Enum.IsDefined(message.Severity))
+                {
+                    return Result.Failure(ErrorCode.ValidationFailed);
+                }
+                if (message.ComponentId is not null)
+                {
+                    ValidateToken(message.ComponentId, 80);
+                    if (componentIds is not null && !componentIds.Contains(message.ComponentId))
+                    {
+                        return Result.Failure(ErrorCode.ValidationFailed);
+                    }
+                }
+                ValidateResultLocalizedText(message.Message, updatedPage?.Localization);
+            }
+
+            return Result.Success();
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            return Result.Failure(ErrorCode.ValidationFailed);
+        }
+    }
+
     private static void ValidateContext(PluginPageCommandContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -256,6 +310,39 @@ public static partial class PluginComponentModelValidator
         if (!catalog.Bundles[0].Entries.ContainsKey(text.Key) || (text.Arguments?.Count ?? 0) > 8)
             throw new InvalidOperationException();
         foreach (var argument in text.Arguments ?? []) ValidateText(argument, 128);
+    }
+
+    private static void ValidateResultLocalizedText(
+        PluginLocalizedText? text,
+        PluginLocalizationCatalog? catalog)
+    {
+        if (text is null)
+        {
+            return;
+        }
+        if (catalog is not null)
+        {
+            ValidateLocalizedText(text, catalog);
+            return;
+        }
+
+        ValidateToken(text.Key, 128);
+        if ((text.Arguments?.Count ?? 0) > 8)
+        {
+            throw new InvalidOperationException("Localized text has too many arguments.");
+        }
+        foreach (var argument in text.Arguments ?? []) ValidateText(argument, 128);
+    }
+
+    private static HashSet<string> GetComponentIds(PluginComponentPageModel model)
+    {
+        var componentIds = model.Components.Select(component => component.ComponentId)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var group in model.Components.OfType<PluginFieldGroupComponent>())
+        {
+            componentIds.UnionWith(group.Inputs.Select(input => input.ComponentId));
+        }
+        return componentIds;
     }
 
     private static void ValidateToken(string value, int maximumLength)

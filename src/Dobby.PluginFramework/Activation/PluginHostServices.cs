@@ -17,6 +17,7 @@ public sealed class PluginHostServices
     private readonly Func<string, ICapabilityLicensing>? licensingFactory;
     private readonly Func<string, IPluginStorage?>? pluginStorageFactory;
     private readonly Action<string, Type, ErrorCode>? pluginEventHandlerFaultSink;
+    private readonly Func<string, Type, ErrorCode, PluginInvocationOutcomeKind, ValueTask>? pluginEventHandlerOutcomeSink;
     private long nextLeaseGeneration;
 
     public PluginHostServices(
@@ -27,7 +28,8 @@ public sealed class PluginHostServices
         ICapabilityPolicy<OperationPermissionCapability>? operationAuthorizationPolicy = null,
         IPluginWorkSessionService? pluginWorkSessions = null,
         Func<string, IPluginStorage?>? pluginStorageFactory = null,
-        Action<string, Type, ErrorCode>? pluginEventHandlerFaultSink = null)
+        Action<string, Type, ErrorCode>? pluginEventHandlerFaultSink = null,
+        Func<string, Type, ErrorCode, PluginInvocationOutcomeKind, ValueTask>? pluginEventHandlerOutcomeSink = null)
     {
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         BackgroundOperations = backgroundOperations ?? throw new ArgumentNullException(nameof(backgroundOperations));
@@ -37,6 +39,7 @@ public sealed class PluginHostServices
         this.licensingFactory = licensingFactory;
         this.pluginStorageFactory = pluginStorageFactory;
         this.pluginEventHandlerFaultSink = pluginEventHandlerFaultSink;
+        this.pluginEventHandlerOutcomeSink = pluginEventHandlerOutcomeSink;
         services = new Dictionary<Type, object>
         {
             [typeof(IEventBus)] = EventBus,
@@ -115,7 +118,12 @@ public sealed class PluginHostServices
                 pluginSubscriptionLeases[pluginId] = lease;
             }
 
-            return new PluginScopedEventBus(this, EventBus, lease, pluginEventHandlerFaultSink);
+            return new PluginScopedEventBus(
+                this,
+                EventBus,
+                lease,
+                pluginEventHandlerFaultSink,
+                pluginEventHandlerOutcomeSink);
         }
     }
 
@@ -215,7 +223,8 @@ public sealed class PluginHostServices
         PluginHostServices owner,
         IEventBus inner,
         PluginSubscriptionLease lease,
-        Action<string, Type, ErrorCode>? handlerFaultSink) : IEventBus
+        Action<string, Type, ErrorCode>? handlerFaultSink,
+        Func<string, Type, ErrorCode, PluginInvocationOutcomeKind, ValueTask>? handlerOutcomeSink) : IEventBus
     {
         public Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
             where TEvent : PublicIntegrationEvent
@@ -230,17 +239,23 @@ public sealed class PluginHostServices
 
             return owner.TryTrackPluginSubscription(
                 lease,
-                () => handlerFaultSink is null
+                () => handlerFaultSink is null && handlerOutcomeSink is null
                     ? inner.Subscribe(handler)
                     : inner.Subscribe<TEvent>((@event, cancellationToken) =>
-                        InvokePluginHandlerAsync(handler, @event, cancellationToken, handlerFaultSink)));
+                        InvokePluginHandlerAsync(
+                            handler,
+                            @event,
+                            cancellationToken,
+                            handlerFaultSink,
+                            handlerOutcomeSink)));
         }
 
         private async Task InvokePluginHandlerAsync<TEvent>(
             Func<TEvent, CancellationToken, Task> handler,
             TEvent @event,
             CancellationToken cancellationToken,
-            Action<string, Type, ErrorCode> handlerFaultSink)
+            Action<string, Type, ErrorCode>? handlerFaultSink,
+            Func<string, Type, ErrorCode, PluginInvocationOutcomeKind, ValueTask>? handlerOutcomeSink)
             where TEvent : PublicIntegrationEvent
         {
             try
@@ -253,19 +268,57 @@ public sealed class PluginHostServices
             }
             catch (OperationCanceledException)
             {
-                handlerFaultSink(lease.PluginId, typeof(TEvent), ErrorCode.Cancelled);
+                await ReportHandlerOutcomeAsync(
+                    typeof(TEvent),
+                    ErrorCode.Cancelled,
+                    PluginInvocationOutcomeKind.Cancelled,
+                    handlerFaultSink,
+                    handlerOutcomeSink).ConfigureAwait(false);
             }
             catch (ArgumentException)
             {
-                handlerFaultSink(lease.PluginId, typeof(TEvent), ErrorCode.InvalidInput);
+                await ReportHandlerOutcomeAsync(
+                    typeof(TEvent),
+                    ErrorCode.InvalidInput,
+                    PluginInvocationOutcomeKind.PluginException,
+                    handlerFaultSink,
+                    handlerOutcomeSink).ConfigureAwait(false);
             }
             catch (NotSupportedException)
             {
-                handlerFaultSink(lease.PluginId, typeof(TEvent), ErrorCode.UnsupportedOperation);
+                await ReportHandlerOutcomeAsync(
+                    typeof(TEvent),
+                    ErrorCode.UnsupportedOperation,
+                    PluginInvocationOutcomeKind.PluginException,
+                    handlerFaultSink,
+                    handlerOutcomeSink).ConfigureAwait(false);
             }
             catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
             {
-                handlerFaultSink(lease.PluginId, typeof(TEvent), ErrorCode.PluginInternalError);
+                await ReportHandlerOutcomeAsync(
+                    typeof(TEvent),
+                    ErrorCode.PluginInternalError,
+                    PluginInvocationOutcomeKind.PluginException,
+                    handlerFaultSink,
+                    handlerOutcomeSink).ConfigureAwait(false);
+            }
+        }
+
+        private async ValueTask ReportHandlerOutcomeAsync(
+            Type eventType,
+            ErrorCode errorCode,
+            PluginInvocationOutcomeKind outcomeKind,
+            Action<string, Type, ErrorCode>? handlerFaultSink,
+            Func<string, Type, ErrorCode, PluginInvocationOutcomeKind, ValueTask>? handlerOutcomeSink)
+        {
+            handlerFaultSink?.Invoke(lease.PluginId, eventType, errorCode);
+            if (handlerOutcomeSink is not null)
+            {
+                await handlerOutcomeSink(
+                    lease.PluginId,
+                    eventType,
+                    errorCode,
+                    outcomeKind).ConfigureAwait(false);
             }
         }
 

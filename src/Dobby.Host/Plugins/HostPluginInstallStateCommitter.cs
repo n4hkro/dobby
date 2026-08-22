@@ -119,7 +119,8 @@ public sealed class HostPluginInstallStateCommitter(
                         ["pluginId"] = installedState.PluginId,
                         ["version"] = installedState.Version,
                         ["correlationId"] = context.CorrelationId.ToString()
-                    }));
+                    },
+                    context.CorrelationId.ToString()));
                 return Result.Success();
             });
         }

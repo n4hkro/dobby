@@ -62,7 +62,8 @@ public sealed class SessionLifecycleAuditCoordinator(
                         ["reason"] = reason,
                         ["sessionId"] = sessionId,
                         ["userId"] = userId
-                    }));
+                    },
+                    correlationId.ToString()));
                 return Result.Success();
             });
         }

@@ -100,6 +100,36 @@ public sealed class PluginActivationCoreTests
     }
 
     [Fact]
+    public async Task Plugin_event_boundary_awaits_classified_outcome_sink_and_preserves_exception_origin()
+    {
+        var eventBus = new InMemoryEventBus();
+        var outcomes = new List<(string PluginId, ErrorCode ErrorCode, PluginInvocationOutcomeKind Kind)>();
+        var services = new PluginHostServices(
+            eventBus,
+            new RecordingBackgroundOperationReporter(),
+            new RecordingBackgroundOperationCancellation(),
+            pluginEventHandlerOutcomeSink: async (pluginId, _, errorCode, kind) =>
+            {
+                await Task.Yield();
+                outcomes.Add((pluginId, errorCode, kind));
+            });
+        var scopedBus = services.ResolveEventBus("com.dobby.sample");
+        using var subscription = scopedBus.Subscribe<SampleEvent>((_, _) =>
+            throw new ArgumentException("raw plugin detail"));
+
+        await eventBus.PublishAsync(new SampleEvent("payload")
+        {
+            CorrelationId = CorrelationId.New(),
+            OccurredAt = DateTimeOffset.UtcNow
+        });
+
+        outcomes.ShouldBe(
+        [
+            ("com.dobby.sample", ErrorCode.InvalidInput, PluginInvocationOutcomeKind.PluginException)
+        ]);
+    }
+
+    [Fact]
     public async Task Registration_bridge_keeps_private_services_out_of_host_registry_and_disposes_plugin_scope()
     {
         var registry = new PluginExtensionPointRegistry();

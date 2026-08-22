@@ -58,6 +58,11 @@ public sealed class HostPersistenceTests
         fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0010_prelogin_recovery_requests';")
             .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0011_prelogin_outbox_evidence';")
+            .ShouldBe(1);
+        fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('HostOutbox');")
+            .ShouldContain("EvidenceCorrelationId");
 
         fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('RememberMeSlot') ORDER BY cid;")
             .ShouldBe([
@@ -459,7 +464,8 @@ public sealed class HostPersistenceTests
                 "0007_prelogin_remembered_account",
                 "0008_prelogin_login_throttle",
                 "0009_prelogin_host_outbox",
-                "0010_prelogin_recovery_requests"
+                "0010_prelogin_recovery_requests",
+                "0011_prelogin_outbox_evidence"
             ]);
         fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='PostLoginOnly';")
@@ -489,6 +495,27 @@ public sealed class HostPersistenceTests
         result.IsSuccess.ShouldBeTrue(result.IsSuccess ? null : result.Error.Message);
         fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='FutureConsumerState';")
+            .ShouldBe(1);
+    }
+
+    [Fact]
+    public void Pre_login_outbox_evidence_migration_repairs_prebuilt_column_without_metadata()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "DELETE FROM StorageMetadata WHERE MigrationId = '0011_prelogin_outbox_evidence';");
+
+        var recovered = fixture.Migrator.ApplyPreLoginMigrations();
+        var repeated = fixture.Migrator.ApplyPreLoginMigrations();
+
+        recovered.IsSuccess.ShouldBeTrue();
+        repeated.IsSuccess.ShouldBeTrue();
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0011_prelogin_outbox_evidence';")
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'IX_HostOutbox_PendingEvidence';")
             .ShouldBe(1);
     }
 
@@ -569,6 +596,226 @@ public sealed class HostPersistenceTests
         }
     }
 
+    [Fact]
+    public void Support_snapshot_is_integrity_checked_encrypted_and_has_hash_metadata()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('snapshot.proof', 'preserved', 'string', 'None', 'test', @UpdatedAtUtc);",
+            new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+        var snapshotPath = Path.Combine(fixture.Root, "backup", "host-backup-proof.db");
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+
+        var snapshot = maintenance.CreateSupportSnapshot(
+            snapshotPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None);
+
+        snapshot.IsSuccess.ShouldBeTrue(snapshot.IsSuccess ? null : snapshot.Error.Message);
+        File.Exists(snapshot.Value.MetadataPath).ShouldBeTrue();
+        snapshot.Value.Sha256.ShouldBe(
+            Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(snapshotPath))).ToLowerInvariant());
+        new FileInfo(snapshotPath).Length.ShouldBe(snapshot.Value.Length);
+        using var plaintext = new SqliteConnection($"Data Source={snapshotPath};Mode=ReadOnly;Pooling=False");
+        plaintext.Open();
+        Should.Throw<SqliteException>(() =>
+        {
+            using var command = plaintext.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_master;";
+            command.ExecuteScalar();
+        });
+    }
+
+    [Fact]
+    public void Verified_snapshot_restore_quarantines_current_store_and_restores_snapshot_state()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('restore.proof', 'snapshot', 'string', 'None', 'test', @UpdatedAtUtc);",
+            new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+        new HostTransactionOutbox(TimeProvider.System).EnqueueInScope(
+            fixture.Executor,
+            new HostOutboxMessage(
+                "restore-completed-current",
+                "audit",
+                "persistence.snapshot.created",
+                new Dictionary<string, string> { ["result"] = "success" }));
+        var snapshotPath = Path.Combine(fixture.Root, "backup", "host-backup-restore.db");
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+        maintenance.CreateSupportSnapshot(
+            snapshotPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None).IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "UPDATE HostConfiguration SET ConfigValue = 'current' WHERE ConfigKey = 'restore.proof';");
+        fixture.Executor.Execute(
+            "UPDATE HostOutbox SET CompletedAtUtc = @CompletedAtUtc WHERE IdempotencyKey = 'restore-completed-current';",
+            new { CompletedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+        var evidenceCorrelationId = Guid.NewGuid().ToString("D");
+        fixture.Executor.Execute(
+            "INSERT INTO AuditLog(AuditId, OccurredAtUtc, EventName, ActorId, Target, Result, CorrelationId, DetailsJson) VALUES ('restore-current-evidence', @OccurredAtUtc, 'persistence.restore.requested', 'owner', 'persistence', 'success', @CorrelationId, '{}');",
+            new
+            {
+                OccurredAtUtc = DateTimeOffset.UtcNow.ToString("O"),
+                CorrelationId = evidenceCorrelationId
+            });
+        new HostTransactionOutbox(TimeProvider.System).EnqueueInScope(
+            fixture.Executor,
+            new HostOutboxMessage(
+                "restore-current-evidence",
+                "audit",
+                "persistence.restore.requested",
+                new Dictionary<string, string> { ["result"] = "success" },
+                evidenceCorrelationId));
+
+        var restored = maintenance.RestoreSupportSnapshot(snapshotPath, CancellationToken.None);
+
+        restored.IsSuccess.ShouldBeTrue(restored.IsSuccess ? null : restored.Error.Message);
+        fixture.Executor.QueryScalar<string>(
+            "SELECT ConfigValue FROM HostConfiguration WHERE ConfigKey = 'restore.proof';")
+            .ShouldBe("snapshot");
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM AuditLog WHERE AuditId = 'restore-current-evidence';")
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostOutbox WHERE IdempotencyKey = 'restore-current-evidence' AND CompletedAtUtc IS NULL AND EvidenceCorrelationId = @EvidenceCorrelationId;",
+            new { EvidenceCorrelationId = evidenceCorrelationId })
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostOutbox WHERE IdempotencyKey = 'restore-completed-current' AND CompletedAtUtc IS NOT NULL;")
+            .ShouldBe(1);
+        File.Exists(Path.Combine(restored.Value.QuarantinedPreviousStoreDirectory, "host.db"))
+            .ShouldBeTrue();
+        fixture.Executor.QueryScalar<string>("PRAGMA integrity_check;").ShouldBe("ok");
+    }
+
+    [Theory]
+    [InlineData(HostPersistenceRestoreFaultPoint.AfterCurrentStoreQuarantined)]
+    [InlineData(HostPersistenceRestoreFaultPoint.AfterCandidatePromoted)]
+    public void Restore_fault_rolls_back_original_store_without_partial_live_state(
+        HostPersistenceRestoreFaultPoint faultPoint)
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('restore.rollback', 'snapshot', 'string', 'None', 'test', @UpdatedAtUtc);",
+            new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+        var snapshotPath = Path.Combine(fixture.Root, "backup", $"host-backup-rollback-{faultPoint}.db");
+        var creator = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+        creator.CreateSupportSnapshot(
+            snapshotPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None).IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "UPDATE HostConfiguration SET ConfigValue = 'current' WHERE ConfigKey = 'restore.rollback';");
+        var maintenance = new HostPersistenceMaintenanceService(
+            fixture.Options,
+            fixture.Probe,
+            fixture.Factory,
+            faultInjector: new ThrowingRestoreFaultInjector(faultPoint));
+
+        var restored = maintenance.RestoreSupportSnapshot(snapshotPath, CancellationToken.None);
+
+        restored.IsSuccess.ShouldBeFalse();
+        fixture.Executor.QueryScalar<string>(
+            "SELECT ConfigValue FROM HostConfiguration WHERE ConfigKey = 'restore.rollback';")
+            .ShouldBe("current");
+        fixture.Executor.QueryScalar<string>("PRAGMA integrity_check;").ShouldBe("ok");
+        Directory.EnumerateFiles(Path.Combine(fixture.Root, "data"), "*.partial")
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Corrupt_restore_candidate_is_rejected_before_current_store_is_quarantined()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('restore.unchanged', 'current', 'string', 'None', 'test', @UpdatedAtUtc);",
+            new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+        var corruptPath = Path.Combine(fixture.Root, "backup", "corrupt.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(corruptPath)!);
+        File.WriteAllBytes(corruptPath, RandomBytes(4096));
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+
+        var restored = maintenance.RestoreSupportSnapshot(corruptPath, CancellationToken.None);
+
+        restored.IsSuccess.ShouldBeFalse();
+        fixture.Executor.QueryScalar<string>(
+            "SELECT ConfigValue FROM HostConfiguration WHERE ConfigKey = 'restore.unchanged';")
+            .ShouldBe("current");
+        Directory.Exists(Path.Combine(fixture.Root, "backup", "restore-quarantine"))
+            .ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Snapshot_low_disk_and_pre_cancel_paths_leave_no_partial_output()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        var backupRoot = Path.Combine(fixture.Root, "backup");
+        var lowDiskPath = Path.Combine(backupRoot, "low-disk.db");
+        var lowDisk = new HostPersistenceMaintenanceService(
+            fixture.Options,
+            fixture.Probe,
+            fixture.Factory,
+            _ => 0);
+
+        lowDisk.CreateSupportSnapshot(
+            lowDiskPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None).IsSuccess.ShouldBeFalse();
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        var cancelledPath = Path.Combine(backupRoot, "cancelled.db");
+        var cancelledResult = new HostPersistenceMaintenanceService(
+            fixture.Options,
+            fixture.Probe,
+            fixture.Factory).CreateSupportSnapshot(
+                cancelledPath,
+                new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+                cancelled.Token);
+
+        cancelledResult.IsSuccess.ShouldBeFalse();
+        File.Exists(lowDiskPath).ShouldBeFalse();
+        File.Exists(cancelledPath).ShouldBeFalse();
+        Directory.EnumerateFiles(backupRoot, "*.partial.*", SearchOption.AllDirectories)
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Snapshot_retention_keeps_configured_floor_and_removes_matching_metadata()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        var backupRoot = Path.Combine(fixture.Root, "backup");
+        Directory.CreateDirectory(backupRoot);
+        var oldest = Path.Combine(backupRoot, "host-backup-oldest.db");
+        var recent = Path.Combine(backupRoot, "host-backup-recent.db");
+        File.WriteAllText(oldest, "oldest");
+        File.WriteAllText(oldest + ".metadata.json", "{}");
+        File.WriteAllText(recent, "recent");
+        File.SetLastWriteTimeUtc(oldest, DateTime.UtcNow.AddDays(-2));
+        File.SetLastWriteTimeUtc(recent, DateTime.UtcNow.AddDays(-1));
+        var newest = Path.Combine(backupRoot, "host-backup-newest.db");
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+
+        var created = maintenance.CreateSupportSnapshot(
+            newest,
+            new HostPersistenceBackupPolicy(
+                MaximumRetainedSnapshots: 2,
+                MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None);
+
+        created.IsSuccess.ShouldBeTrue();
+        File.Exists(newest).ShouldBeTrue();
+        File.Exists(recent).ShouldBeTrue();
+        File.Exists(oldest).ShouldBeFalse();
+        File.Exists(oldest + ".metadata.json").ShouldBeFalse();
+    }
+
     private sealed class HostPersistenceFixture : IDisposable
     {
         private HostPersistenceFixture(string root)
@@ -619,6 +866,18 @@ public sealed class HostPersistenceTests
     private sealed class StaticProtectedMaterialSource(ProtectedMaterialSet material) : IProtectedMaterialSource
     {
         public ProtectedMaterialSet LoadRequired() => material;
+    }
+
+    private sealed class ThrowingRestoreFaultInjector(HostPersistenceRestoreFaultPoint faultPoint)
+        : IHostPersistenceMaintenanceFaultInjector
+    {
+        public void OnRestore(HostPersistenceRestoreFaultPoint current)
+        {
+            if (current == faultPoint)
+            {
+                throw new IOException("Injected restore fault.");
+            }
+        }
     }
 
     private static byte[] RandomBytes(int length)

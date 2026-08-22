@@ -1,5 +1,6 @@
 using Dobby.Application;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core;
 using Dobby.Core.Versioning;
@@ -92,9 +93,25 @@ public sealed class PluginBackgroundOperationReportingTests
         route.IsSuccess.ShouldBeTrue(route.IsSuccess ? null : route.ErrorCode.ToString());
         dispatcher.RunPostedActions();
 
-        var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginActionPageModel>();
-        var progress = await pageModel.Actions.Single(action => action.ActionId == "sample.progress")
-            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginComponentPageModel>();
+        var progressCommand = pageModel.Commands.Single(command => command.CommandId == "sample.progress");
+        var commandDispatcher = new HostPluginCommandDispatcher(
+            extensionRegistry,
+            operationAuthorization,
+            new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.FullAccess)),
+            reporter,
+            CancellationToken.None);
+        var progress = await commandDispatcher.DispatchAsync(
+            new PluginCommandRequest(
+                pageModel.Context.PluginId,
+                pageModel.Context.RouteKey,
+                pageModel.Context.UserId,
+                pageModel.Context.CorrelationId,
+                progressCommand.CommandId,
+                progressCommand.OperationKey,
+                new Dictionary<string, string>()),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
 
         progress.IsSuccess.ShouldBeTrue(progress.IsSuccess ? null : progress.ErrorCode.ToString());
         snapshots.ShouldContain(snapshot =>
@@ -108,6 +125,7 @@ public sealed class PluginBackgroundOperationReportingTests
             snapshot.Status == BackgroundOperationStatus.Completed &&
             snapshot.Progress.Percent == 100);
 
+        dispatcher.RunNextPostedAction();
         dispatcher.RunNextPostedAction();
         shell.BackgroundOperationText.ShouldContain("sample.greet.progress");
         shell.BackgroundOperationPercent.ShouldBe(50);

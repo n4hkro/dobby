@@ -1,8 +1,11 @@
+using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.Events;
 using Dobby.Contracts.PluginFramework;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core;
 using Dobby.Host.Plugins;
 using Dobby.Localization;
+using Dobby.Messaging;
 using Dobby.Navigation;
 using Dobby.PluginFramework.Activation;
 using Dobby.Shell;
@@ -280,6 +283,92 @@ public sealed class PluginPageRouteCoordinatorTests
         ]);
     }
 
+    [Fact]
+    public async Task Repeated_expected_page_rejections_do_not_increment_fault_count_or_emit_diagnostics()
+    {
+        var registry = new PluginExtensionPointRegistry();
+        await using var lifetimes = new PluginLifetimeManager();
+        var bridge = new PluginServiceRegistrationBridge(registry, lifetimes);
+        bridge.Register("com.dobby.sample", new ExpectedRejectingLoadPluginModule()).IsSuccess.ShouldBeTrue();
+        await using var activator = new PostLoginPluginActivator(bridge);
+        var policy = new PluginRuntimeFaultPolicy(quarantineThreshold: 3);
+        var entries = new List<PluginRuntimeDiagnosticEntry>();
+        var coordinator = new PluginPageRouteCoordinator(
+            registry,
+            CreateShellWithSampleContribution(),
+            diagnosticsCoordinator: new PluginRuntimeDiagnosticsCoordinator(entries.Add),
+            faultPolicy: policy,
+            lifecycleControl: activator);
+
+        for (var index = 0; index < 10; index++)
+        {
+            var result = await coordinator.ActivateRouteAsync(
+                "plugin/com.dobby.sample/sample.home",
+                CancellationToken.None);
+            result.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+        }
+
+        policy.Snapshot("com.dobby.sample").DefectCount.ShouldBe(0);
+        policy.IsQuarantined("com.dobby.sample").ShouldBeFalse();
+        entries.ShouldBeEmpty();
+        registry.GetRegistrationsSnapshot<IPluginPage>().Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Repeated_page_exceptions_quarantine_and_remove_plugin_routes()
+    {
+        var registry = new PluginExtensionPointRegistry();
+        await using var lifetimes = new PluginLifetimeManager();
+        var eventBus = new InMemoryEventBus();
+        var workSessions = new RecordingWorkSessionService();
+        var bridge = new PluginServiceRegistrationBridge(
+            registry,
+            lifetimes,
+            new PluginHostServices(
+                eventBus,
+                new RecordingBackgroundReporter(),
+                new RecordingBackgroundCancellation(),
+                pluginWorkSessions: workSessions));
+        await using var activator = new PostLoginPluginActivator(bridge);
+        var module = new QuarantineProbeModule();
+        var activation = await activator.ActivateAsync(
+        [
+            new PluginActivationCandidate(
+                "com.dobby.sample",
+                "1.0.0",
+                true,
+                [],
+                _ => Result.Success<IPluginModule>(module))
+        ],
+        new Dobby.Core.Versioning.HostVersion(1, 0, 0),
+        CancellationToken.None);
+        activation.Value.Run.ActivatedPluginIds.ShouldBe(["com.dobby.sample"]);
+        var policy = new PluginRuntimeFaultPolicy(quarantineThreshold: 3);
+        var coordinator = new PluginPageRouteCoordinator(
+            registry,
+            CreateShellWithSampleContribution(),
+            faultPolicy: policy,
+            lifecycleControl: activator);
+
+        for (var index = 0; index < 3; index++)
+        {
+            var result = await coordinator.ActivateRouteAsync(
+                "plugin/com.dobby.sample/sample.home",
+                CancellationToken.None);
+            result.ErrorCode.ShouldBe(ErrorCode.PluginInternalError);
+        }
+
+        policy.IsQuarantined("com.dobby.sample").ShouldBeTrue();
+        registry.GetRegistrationsSnapshot<IPluginPage>().ShouldBeEmpty();
+        workSessions.ClosedOwners.ShouldBe(["com.dobby.sample"]);
+        await eventBus.PublishAsync(new QuarantineProbeEvent());
+        module.EventHandlerCalls.ShouldBe(0);
+        var blocked = await coordinator.ActivateRouteAsync(
+            "plugin/com.dobby.sample/sample.home",
+            CancellationToken.None);
+        blocked.ErrorCode.ShouldBe(ErrorCode.NotFound);
+    }
+
     [Theory]
     [InlineData(typeof(FailingActivatePluginModule))]
     [InlineData(typeof(ThrowingActivatePluginModule))]
@@ -465,6 +554,37 @@ public sealed class PluginPageRouteCoordinatorTests
 
         public void OnActivated(IPluginActivationContext context)
         {
+        }
+    }
+
+    private sealed class ExpectedRejectingLoadPluginModule : IPluginModule
+    {
+        public void RegisterServices(IPluginServiceCollection services)
+        {
+            services.AddExtensionPoint<IPluginPage, ExpectedRejectingLoadPage>();
+        }
+
+        public void OnActivated(IPluginActivationContext context)
+        {
+        }
+    }
+
+    private sealed class QuarantineProbeModule : IPluginModule
+    {
+        public int EventHandlerCalls { get; private set; }
+
+        public void RegisterServices(IPluginServiceCollection services)
+        {
+            services.AddExtensionPoint<IPluginPage, QuarantineProbePage>();
+        }
+
+        public void OnActivated(IPluginActivationContext context)
+        {
+            context.EventBus.Subscribe<QuarantineProbeEvent>((_, _) =>
+            {
+                EventHandlerCalls++;
+                return Task.CompletedTask;
+            });
         }
     }
 
@@ -763,6 +883,93 @@ public sealed class PluginPageRouteCoordinatorTests
         private Result RecordUnload()
         {
             UnloadCount++;
+            return Result.Success();
+        }
+    }
+
+    private sealed class ExpectedRejectingLoadPage : IPluginPage
+    {
+        public PluginPageDescriptor Descriptor { get; } = new("sample.home", "sample.home", "sample.home.label");
+
+        public ValueTask<Result<IPluginPageModel>> LoadAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Failure<IPluginPageModel>(ErrorCode.InvalidInput));
+
+        public ValueTask<Result> ActivateAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
+
+        public ValueTask<Result> DeactivateAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
+
+        public ValueTask<Result> UnloadAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
+    }
+
+    private sealed class QuarantineProbePage(IPluginWorkSessionService workSessions) : IPluginPage
+    {
+        public PluginPageDescriptor Descriptor { get; } = new("sample.home", "sample.home", "sample.home.label");
+
+        public ValueTask<Result<IPluginPageModel>> LoadAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken)
+        {
+            _ = workSessions;
+            throw new InvalidOperationException("raw load detail");
+        }
+
+        public ValueTask<Result> ActivateAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
+
+        public ValueTask<Result> DeactivateAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
+
+        public ValueTask<Result> UnloadAsync(
+            PluginPageContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
+    }
+
+    private sealed record QuarantineProbeEvent : PublicIntegrationEvent;
+
+    private sealed class RecordingBackgroundReporter : IBackgroundOperationReporter
+    {
+        public IProgress<BackgroundOperationSnapshot> Progress { get; } = new Progress<BackgroundOperationSnapshot>();
+    }
+
+    private sealed class RecordingBackgroundCancellation : IBackgroundOperationCancellation
+    {
+        public CancellationToken CancellationToken => CancellationToken.None;
+    }
+
+    private sealed class RecordingWorkSessionService : IPluginWorkSessionService, IPluginWorkSessionCleanup
+    {
+        public List<string> ClosedOwners { get; } = [];
+
+        public Result<PluginWorkSessionHandle> Open(string ownerId, string routeKey, string labelKey) =>
+            Result.Success(new PluginWorkSessionHandle(Guid.CreateVersion7(), ownerId, routeKey, labelKey));
+
+        public Result UpdateProgress(Guid sessionId, int percent) => Result.Success();
+
+        public Result RecordResult(Guid sessionId, string resultSummaryKey) => Result.Success();
+
+        public Result RecordError(Guid sessionId, string errorSummaryKey) => Result.Success();
+
+        public Result Close(Guid sessionId) => Result.Success();
+
+        public Result CloseOwnedBy(string ownerId)
+        {
+            ClosedOwners.Add(ownerId);
             return Result.Success();
         }
     }

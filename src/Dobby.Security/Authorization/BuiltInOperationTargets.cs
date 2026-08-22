@@ -6,6 +6,7 @@ public static class BuiltInOperationTargets
     public const string PluginManagementTargetId = "plugins.management";
     public const string CustomerDeploymentContextTargetId = "customer-deployment.context";
     public const string UserManagementTargetId = "users.management";
+    public const string PersistenceMaintenanceTargetId = "persistence.maintenance";
 
     public static IReadOnlyList<OperationTarget> All { get; } =
     [
@@ -28,6 +29,11 @@ public static class BuiltInOperationTargets
             UserManagementTargetId,
             [OperationVerb.View, OperationVerb.Create, OperationVerb.Update, OperationVerb.Delete, OperationVerb.Execute, OperationVerb.Grant],
             "Dobby.Settings.UserManagement",
+            OperationTargetOrigin.BuiltIn),
+        new OperationTarget(
+            PersistenceMaintenanceTargetId,
+            [OperationVerb.Export, OperationVerb.Import],
+            "Dobby.Persistence.Maintenance",
             OperationTargetOrigin.BuiltIn)
     ];
 }

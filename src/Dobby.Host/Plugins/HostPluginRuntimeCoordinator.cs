@@ -14,6 +14,7 @@ using Dobby.Security.Authorization;
 using Dobby.Security.Trust;
 using System.Reflection;
 using System.IO;
+using Dobby.Host.Startup;
 
 namespace Dobby.Host.Plugins;
 
@@ -34,7 +35,10 @@ public sealed class HostPluginRuntimeCoordinator(
     PluginRuntimeAuditCoordinator? auditCoordinator = null,
     IBackgroundOperationReporter? backgroundOperations = null,
     PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
-    ILicenseRuntimeModeProvider? licenseRuntimeModeProvider = null)
+    ILicenseRuntimeModeProvider? licenseRuntimeModeProvider = null,
+    PluginRuntimeFaultPolicy? runtimeFaultPolicy = null,
+    IHostPersistenceMaintenanceService? persistenceMaintenanceService = null,
+    IRuntimeTemporaryOutputRecovery? temporaryOutputRecovery = null)
 {
     private readonly object activationGate = new();
     private Task<Result<PluginActivationExecutionOutcome>>? activationTask;
@@ -70,13 +74,24 @@ public sealed class HostPluginRuntimeCoordinator(
 
     public PluginRuntimeDiagnosticsCoordinator? DiagnosticsCoordinator { get; } = diagnosticsCoordinator;
 
+    public PluginRuntimeFaultPolicy RuntimeFaultPolicy { get; } =
+        runtimeFaultPolicy ?? new PluginRuntimeFaultPolicy();
+
     public IPluginTrustVerifier TrustVerifier { get; } = pluginTrustVerifier ?? throw new ArgumentNullException(nameof(pluginTrustVerifier));
 
     public ILicenseRuntimeModeProvider LicenseRuntimeModeProvider { get; } =
         licenseRuntimeModeProvider ?? new AllowAllLicenseRuntimeModeProvider();
 
-    public PersistenceResult ApplyPostLoginMigrations()
+    public PersistenceResult ApplyPostLoginMigrations() => ApplyAuthenticatedStartupRecovery();
+
+    public PersistenceResult ApplyAuthenticatedStartupRecovery()
     {
+        var databaseRecovery = persistenceMaintenanceService?.ForceWalCheckpoint();
+        if (databaseRecovery is { IsSuccess: false })
+        {
+            return databaseRecovery;
+        }
+
         var migration = migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All);
         if (!migration.IsSuccess)
         {
@@ -159,6 +174,14 @@ public sealed class HostPluginRuntimeCoordinator(
                 "Installed plugin metadata cache rebuild failed during post-login recovery."));
         }
 
+        var temporaryRecovery = temporaryOutputRecovery?.Recover();
+        if (temporaryRecovery is { IsSuccess: false })
+        {
+            return PersistenceResult.Failure(ToPersistenceError(
+                temporaryRecovery.ErrorCode,
+                "Temporary output recovery failed during authenticated startup."));
+        }
+
         ActivationCancellation.Reset();
         return PersistenceResult.Success();
     }
@@ -212,6 +235,13 @@ public sealed class HostPluginRuntimeCoordinator(
         if (result.IsSuccess)
         {
             DiagnosticsCoordinator?.RecordActivationOutcomes(result.Value.Run.Outcomes);
+            foreach (var outcome in result.Value.Run.Outcomes)
+            {
+                if (outcome.InvocationKind is { } invocationKind)
+                {
+                    RuntimeFaultPolicy.Observe(outcome.PluginId, invocationKind);
+                }
+            }
             if (result.Value.Completion == PluginActivationCompletion.Completed)
             {
                 AuditCoordinator?.AppendActivationOutcomes(actorId, result.Value.Run.Outcomes, CorrelationId.New());
@@ -317,8 +347,9 @@ public sealed class HostPluginRuntimeCoordinator(
             {
                 preActivationOutcomes[state.PluginId] = new PluginActivationOutcome(
                     state.PluginId,
-                    PluginActivationStatus.Faulted,
-                    "installed-manifest-unreadable");
+                    PluginActivationStatus.Rejected,
+                    "installed-manifest-unreadable",
+                    InvocationKind: PluginInvocationOutcomeKind.HostInfrastructureFailure);
                 continue;
             }
 

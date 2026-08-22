@@ -4,10 +4,16 @@ namespace Dobby.Infrastructure.Persistence;
 
 public sealed class HostPersistenceConnection : IDisposable
 {
-    internal HostPersistenceConnection(SqliteConnection connection, SqliteTransaction? transaction = null)
+    private readonly IDisposable? accessLease;
+
+    internal HostPersistenceConnection(
+        SqliteConnection connection,
+        SqliteTransaction? transaction = null,
+        IDisposable? accessLease = null)
     {
         Connection = connection;
         Transaction = transaction;
+        this.accessLease = accessLease;
     }
 
     internal SqliteConnection Connection { get; }
@@ -16,7 +22,14 @@ public sealed class HostPersistenceConnection : IDisposable
 
     public void Dispose()
     {
-        Transaction?.Dispose();
-        Connection.Dispose();
+        try
+        {
+            Transaction?.Dispose();
+            Connection.Dispose();
+        }
+        finally
+        {
+            accessLease?.Dispose();
+        }
     }
 }

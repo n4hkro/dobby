@@ -5,6 +5,7 @@ using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text;
 using Dobby.Contracts.BackgroundOperations;
+using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core;
 using Dobby.Core.Versioning;
@@ -128,39 +129,64 @@ public sealed class PluginIntegrationSuiteTests
 
         route.IsSuccess.ShouldBeTrue();
         shell.HasActivePluginPage.ShouldBeTrue();
-        var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginActionPageModel>();
-        pageModel.MessageKey.ShouldBe("sample.home.ready");
+        var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginComponentPageModel>();
         pageModel.Context.UserId.ShouldBe("managed");
-        pageModel.Actions.Select(action => action.ActionId).ShouldBe([
-            "sample.greet",
+        pageModel.Commands.Select(command => command.CommandId).ShouldBe([
+            "sample.submit",
             "sample.invalid-input",
             "sample.fault",
             "sample.progress",
-            "sample.work-session"
+            "sample.work-session",
+            "sample.page"
         ]);
+        pageModel.Components.OfType<PluginFieldGroupComponent>().Single().Inputs.Count.ShouldBe(5);
+        pageModel.Components.OfType<PluginTableComponent>().Single().Rows.Count.ShouldBe(3);
 
-        var greet = pageModel.Actions.Single(action => action.ActionId == "sample.greet");
-        var denied = await greet.ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var commandDispatcher = new HostPluginCommandDispatcher(
+            extensionRegistry,
+            operationAuthorization,
+            new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.FullAccess)),
+            reporter,
+            CancellationToken.None);
+
+        var submitRequest = CommandRequest(pageModel, "sample.submit", new Dictionary<string, string>
+        {
+            ["customer-name"] = "Ada",
+            ["quantity"] = "2"
+        });
+        var denied = await commandDispatcher.DispatchAsync(
+            submitRequest,
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         denied.IsSuccess.ShouldBeFalse();
         denied.ErrorCode.ShouldBe(ErrorCode.Forbidden);
 
         grants.Grant("managed", new OperationKey("com.dobby.sample.greet", OperationVerb.Execute));
-        var success = await greet.ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var success = await commandDispatcher.DispatchAsync(
+            submitRequest,
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         success.IsSuccess.ShouldBeTrue();
-        success.Value.MessageKey.ShouldBe("sample.greet.success");
+        success.Value.Message!.Key.ShouldBe("command.submit.success");
 
-        var invalid = await pageModel.Actions.Single(action => action.ActionId == "sample.invalid-input")
-            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var invalid = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.invalid-input"),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         invalid.IsSuccess.ShouldBeFalse();
         invalid.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
 
-        var faultAction = pageModel.Actions.Single(action => action.ActionId == "sample.fault");
-        var fault = await Should.ThrowAsync<InvalidOperationException>(async () =>
-            await faultAction.ExecuteAsync(pageModel.Context, CancellationToken.None));
-        fault.Message.ShouldBe("sample.fault.unhandled");
+        var fault = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.fault"),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+        fault.IsSuccess.ShouldBeFalse();
+        fault.ErrorCode.ShouldBe(ErrorCode.PluginInternalError);
 
-        var progress = await pageModel.Actions.Single(action => action.ActionId == "sample.progress")
-            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var progress = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.progress"),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         progress.IsSuccess.ShouldBeTrue();
         reporter.Snapshots.ShouldContain(snapshot =>
             snapshot.OwnerKind == BackgroundOperationOwnerKind.Plugin &&
@@ -173,8 +199,10 @@ public sealed class PluginIntegrationSuiteTests
             snapshot.DisplayNameKey == "sample.greet.progress" &&
             snapshot.Status == BackgroundOperationStatus.Completed);
 
-        var workSession = await pageModel.Actions.Single(action => action.ActionId == "sample.work-session")
-            .ExecuteAsync(pageModel.Context, CancellationToken.None);
+        var workSession = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.work-session"),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         workSession.IsSuccess.ShouldBeTrue();
         workSessions.Events.ShouldContain("open:com.dobby.sample:plugin/com.dobby.sample/greet:sample.work-session");
         workSessions.Events.ShouldContain("progress:50");
@@ -188,6 +216,22 @@ public sealed class PluginIntegrationSuiteTests
         loadContext.ShouldNotBeNull();
         loadContext.ShouldNotBeSameAs(AssemblyLoadContext.Default);
         loadContext!.Name.ShouldStartWith("Dobby.Plugin:com.dobby.sample");
+    }
+
+    private static PluginCommandRequest CommandRequest(
+        PluginComponentPageModel model,
+        string commandId,
+        IReadOnlyDictionary<string, string>? values = null)
+    {
+        var command = model.Commands.Single(item => item.CommandId.Equals(commandId, StringComparison.Ordinal));
+        return new PluginCommandRequest(
+            model.Context.PluginId,
+            model.Context.RouteKey,
+            model.Context.UserId,
+            model.Context.CorrelationId,
+            command.CommandId,
+            command.OperationKey,
+            values ?? new Dictionary<string, string>());
     }
 
     [Fact]

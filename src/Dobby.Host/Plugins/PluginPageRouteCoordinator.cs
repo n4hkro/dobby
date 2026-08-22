@@ -11,7 +11,10 @@ public sealed class PluginPageRouteCoordinator(
     ShellViewModel shellViewModel,
     Func<string?>? currentUserIdProvider = null,
     Action<string, string, string, ErrorCode>? pageFaultSink = null,
-    PluginLifecycleExecutionOptions? lifecycleOptions = null)
+    PluginLifecycleExecutionOptions? lifecycleOptions = null,
+    PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
+    PluginRuntimeFaultPolicy? faultPolicy = null,
+    IPluginRuntimeLifecycleControl? lifecycleControl = null)
 {
     private readonly PluginLifecycleExecutionOptions lifecycleOptions =
         ValidateOptions(lifecycleOptions ?? PluginLifecycleExecutionOptions.Default);
@@ -51,6 +54,10 @@ public sealed class PluginPageRouteCoordinator(
 
         var page = registration.Page;
         var descriptor = registration.Descriptor;
+        if (faultPolicy?.IsQuarantined(registration.PluginId) == true)
+        {
+            return Result.Failure(ErrorCode.PluginInternalError);
+        }
         if (activePage is not null &&
             activePage.RouteKey.Equals(registration.RouteKey, StringComparison.Ordinal))
         {
@@ -69,10 +76,12 @@ public sealed class PluginPageRouteCoordinator(
                 activePage = activePage with { Phase = ActivePluginPagePhase.Active };
                 shellViewModel.ActivateResolvedRoute(activeRouteKey);
                 shellViewModel.SetActivePluginPage(activePage.Model);
+                faultPolicy?.Observe(activePage.PluginId, PluginInvocationOutcomeKind.Success);
                 return Result.Success();
             }
 
             shellViewModel.ActivateResolvedRoute(activeRouteKey);
+            faultPolicy?.Observe(activePage.PluginId, PluginInvocationOutcomeKind.Success);
             return Result.Success();
         }
 
@@ -91,7 +100,8 @@ public sealed class PluginPageRouteCoordinator(
         {
             return Result.Failure(load.ErrorCode ?? ErrorCode.PluginInternalError);
         }
-        if (load.Value is PluginComponentPageModel componentModel &&
+        if (load.Value is null ||
+            load.Value is PluginComponentPageModel componentModel &&
             (!componentModel.Context.PluginId.Equals(context.PluginId, StringComparison.Ordinal) ||
              !componentModel.Context.RouteKey.Equals(context.RouteKey, StringComparison.Ordinal) ||
              PluginComponentModelValidator.Validate(componentModel).IsSuccess is false))
@@ -101,7 +111,12 @@ public sealed class PluginPageRouteCoordinator(
                 context.RouteKey,
                 "load-contract",
                 ErrorCode.ValidationFailed,
+                PluginInvocationOutcomeKind.ContractBreach,
+                context.CorrelationId,
                 cancellationToken);
+            await ObserveFaultPolicyAsync(
+                context.PluginId,
+                PluginInvocationOutcomeKind.ContractBreach).ConfigureAwait(false);
             return Result.Failure(ErrorCode.ValidationFailed);
         }
 
@@ -136,6 +151,7 @@ public sealed class PluginPageRouteCoordinator(
             load.Value,
             ActivePluginPagePhase.Active);
         shellViewModel.SetActivePluginPage(load.Value);
+        faultPolicy?.Observe(context.PluginId, PluginInvocationOutcomeKind.Success);
         return Result.Success();
     }
 
@@ -171,31 +187,36 @@ public sealed class PluginPageRouteCoordinator(
         PluginExtensionPointRegistration<IPluginPage> item,
         CancellationToken cancellationToken)
     {
-        var bounded = await PluginExceptionBoundary.InvokeAsync(
-            () =>
+        var bounded = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
+            token => new ValueTask<Result<PluginPageRouteRegistration>>(Task.Run(() =>
             {
+                token.ThrowIfCancellationRequested();
                 var descriptor = item.Instance.Descriptor;
                 var routeKey = PluginRouteNormalizer.Normalize(item.PluginId, descriptor.RouteKey);
-                return Task.FromResult(new PluginPageRouteRegistration(
+                return Result.Success(new PluginPageRouteRegistration(
                     item.PluginId,
                     item.Instance,
                     descriptor,
                     routeKey));
-            },
-            cancellationToken).ConfigureAwait(false);
+            }, token)),
+            cancellationToken,
+            lifecycleOptions.InitializationTimeout).ConfigureAwait(false);
 
-        if (bounded.IsSuccess)
+        if (bounded.Result.IsSuccess)
         {
-            return Result.Success(bounded.Value);
+            return bounded.Result;
         }
 
-        var errorCode = bounded.ErrorCode ?? ErrorCode.PluginInternalError;
+        var errorCode = bounded.Result.ErrorCode ?? ErrorCode.PluginInternalError;
         RecordPageFault(
             item.PluginId,
             $"plugin/{item.PluginId}/unknown",
             "descriptor",
             errorCode,
+            bounded.Kind,
+            correlationId: null,
             cancellationToken);
+        await ObserveFaultPolicyAsync(item.PluginId, bounded.Kind).ConfigureAwait(false);
         return Result.Failure<PluginPageRouteRegistration>(errorCode);
     }
 
@@ -279,10 +300,11 @@ public sealed class PluginPageRouteCoordinator(
             : operation.Equals("deactivate", StringComparison.Ordinal)
                 ? lifecycleOptions.DeactivationTimeout
                 : lifecycleOptions.ActivationTimeout;
-        var result = await PluginExceptionBoundary.InvokeLifecycleAsync(
+        var outcome = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
             pluginCall,
             cancellationToken,
             timeout).ConfigureAwait(false);
+        var result = outcome.Result;
         if (!result.IsSuccess)
         {
             RecordPageFault(
@@ -290,7 +312,13 @@ public sealed class PluginPageRouteCoordinator(
                 context.RouteKey,
                 operation,
                 result.ErrorCode ?? ErrorCode.PluginInternalError,
+                outcome.Kind,
+                context.CorrelationId,
                 cancellationToken);
+        }
+        if (outcome.Kind != PluginInvocationOutcomeKind.Success)
+        {
+            await ObserveFaultPolicyAsync(context.PluginId, outcome.Kind).ConfigureAwait(false);
         }
 
         return result;
@@ -301,10 +329,11 @@ public sealed class PluginPageRouteCoordinator(
         PluginPageContext context,
         CancellationToken cancellationToken)
     {
-        var result = await PluginExceptionBoundary.InvokeLifecycleAsync(
+        var outcome = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
             pluginCall,
             cancellationToken,
             lifecycleOptions.InitializationTimeout).ConfigureAwait(false);
+        var result = outcome.Result;
         if (!result.IsSuccess)
         {
             RecordPageFault(
@@ -312,7 +341,13 @@ public sealed class PluginPageRouteCoordinator(
                 context.RouteKey,
                 "load",
                 result.ErrorCode ?? ErrorCode.PluginInternalError,
+                outcome.Kind,
+                context.CorrelationId,
                 cancellationToken);
+        }
+        if (outcome.Kind != PluginInvocationOutcomeKind.Success)
+        {
+            await ObserveFaultPolicyAsync(context.PluginId, outcome.Kind).ConfigureAwait(false);
         }
 
         return result;
@@ -323,6 +358,8 @@ public sealed class PluginPageRouteCoordinator(
         string routeKey,
         string operation,
         ErrorCode errorCode,
+        PluginInvocationOutcomeKind outcomeKind,
+        string? correlationId,
         CancellationToken cancellationToken)
     {
         if (errorCode == ErrorCode.Cancelled && cancellationToken.IsCancellationRequested)
@@ -330,7 +367,49 @@ public sealed class PluginPageRouteCoordinator(
             return;
         }
 
-        pageFaultSink?.Invoke(pluginId, routeKey, operation, errorCode);
+        if (PluginExceptionBoundary.IsPluginDefect(outcomeKind) ||
+            outcomeKind == PluginInvocationOutcomeKind.HostInfrastructureFailure)
+        {
+            pageFaultSink?.Invoke(pluginId, routeKey, operation, errorCode);
+        }
+        diagnosticsCoordinator?.RecordPageOutcome(
+            pluginId,
+            routeKey,
+            operation,
+            errorCode,
+            outcomeKind,
+            correlationId);
+    }
+
+    private async ValueTask ObserveFaultPolicyAsync(
+        string pluginId,
+        PluginInvocationOutcomeKind outcomeKind)
+    {
+        if (faultPolicy is null)
+        {
+            return;
+        }
+
+        var decision = faultPolicy.Observe(pluginId, outcomeKind);
+        if (!decision.QuarantineStarted || lifecycleControl is null)
+        {
+            return;
+        }
+
+        var cleanupTimeout = lifecycleOptions.DeactivationTimeout + lifecycleOptions.UnloadTimeout;
+        var result = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
+            token => lifecycleControl.DeactivateAndUnloadAsync(pluginId, token),
+            CancellationToken.None,
+            cleanupTimeout).ConfigureAwait(false);
+        if (!result.Result.IsSuccess && result.Result.ErrorCode != ErrorCode.Cancelled)
+        {
+            diagnosticsCoordinator?.RecordRuntimeFailure("plugin-quarantine-cleanup-failed");
+        }
+        if (activePage?.PluginId.Equals(pluginId, StringComparison.Ordinal) == true)
+        {
+            activePage = null;
+            shellViewModel.SetActivePluginPage(null);
+        }
     }
 
     private static bool IsBuiltInRoute(string routeKey)

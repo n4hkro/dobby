@@ -22,6 +22,7 @@ public static class LoginRuntimeCompositionEvents
     public const string LicensingConstructed = "licensing-constructed";
     public const string AuditRetentionStarted = "audit-retention-started";
     public const string PluginRuntimeConstructed = "plugin-runtime-constructed";
+    public const string PersistenceMaintenanceConstructed = "persistence-maintenance-constructed";
     public const string AuthenticatedRuntimeConstructed = "authenticated-runtime-constructed";
 
     public static IReadOnlySet<string> ForbiddenBeforeAuthentication { get; } = new HashSet<string>(StringComparer.Ordinal)
@@ -31,6 +32,7 @@ public static class LoginRuntimeCompositionEvents
         LicensingConstructed,
         AuditRetentionStarted,
         PluginRuntimeConstructed,
+        PersistenceMaintenanceConstructed,
         AuthenticatedRuntimeConstructed
     };
 }
@@ -75,6 +77,7 @@ public sealed record HostLoginRuntime(
     IPrintTargetClassifier PrintTargetClassifier,
     HostPrintOutputCoordinator PrintOutputCoordinator,
     HostPrintOutputService PrintOutputService,
+    AuthenticatedPersistenceMaintenanceCoordinator PersistenceMaintenanceCoordinator,
     IBackgroundOperationReporter BackgroundOperations,
     string DiagnosticsSourceDirectory,
     string DiagnosticsOutputZipPath) : IAsyncDisposable

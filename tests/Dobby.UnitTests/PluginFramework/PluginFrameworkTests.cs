@@ -127,6 +127,49 @@ public sealed class PluginFrameworkTests
         result.ErrorCode.ShouldBe(ErrorCode.PluginInternalError);
     }
 
+    [Fact]
+    public async Task Classified_boundary_distinguishes_expected_return_from_thrown_argument_exception()
+    {
+        var returned = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
+            _ => ValueTask.FromResult(Result.Failure(ErrorCode.InvalidInput)),
+            CancellationToken.None,
+            TimeSpan.FromSeconds(1));
+        var thrown = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
+            _ => throw new ArgumentException("raw detail"),
+            CancellationToken.None,
+            TimeSpan.FromSeconds(1));
+
+        returned.Kind.ShouldBe(PluginInvocationOutcomeKind.ExpectedRejection);
+        thrown.Result.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+        thrown.Kind.ShouldBe(PluginInvocationOutcomeKind.PluginException);
+    }
+
+    [Fact]
+    public async Task Classified_boundary_attributes_host_infrastructure_result_without_plugin_fault()
+    {
+        var outcome = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
+            _ => ValueTask.FromResult(Result.Failure(ErrorCode.DatabaseUnavailable)),
+            CancellationToken.None,
+            TimeSpan.FromSeconds(1));
+
+        outcome.Kind.ShouldBe(PluginInvocationOutcomeKind.HostInfrastructureFailure);
+        PluginExceptionBoundary.IsPluginDefect(outcome.Kind).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Classified_boundary_enforces_timeout_when_plugin_ignores_its_token()
+    {
+        var completion = new TaskCompletionSource<Result>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var outcome = await PluginExceptionBoundary.InvokeLifecycleClassifiedAsync(
+            _ => new ValueTask<Result>(completion.Task),
+            CancellationToken.None,
+            TimeSpan.FromMilliseconds(100));
+        completion.TrySetResult(Result.Success());
+
+        outcome.Result.ErrorCode.ShouldBe(ErrorCode.Timeout);
+        outcome.Kind.ShouldBe(PluginInvocationOutcomeKind.TimedOut);
+    }
+
     public static TheoryData<Exception> ArgumentExceptions()
     {
         return

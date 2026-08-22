@@ -171,7 +171,8 @@ public sealed class SelfServicePasswordChangeCoordinator(
                 ["currentSessionId"] = sessionId,
                 ["sessionPolicy"] = "preserve-current-revoke-others",
                 ["userId"] = userId
-            }));
+            },
+            correlationId.ToString()));
 
         return Result.Success();
     }
