@@ -2,9 +2,11 @@ using Dobby.Audit;
 using Dobby.Core;
 using Dobby.Diagnostics;
 using System.IO;
+using Dobby.Contracts.Licensing;
 
 namespace Dobby.Host;
 
+[PluginRuntimeActionOwner(PluginRuntimeAction.HostDiagnostics)]
 public sealed class ShellDiagnosticsExportCoordinator(
     DiagnosticsExportPackageBuilder packageBuilder,
     IAuditTrail auditTrail,
@@ -51,7 +53,7 @@ public sealed class ShellDiagnosticsExportCoordinator(
                 timeProvider.GetUtcNow(),
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
-                    ["path"] = package.Path,
+                    ["outputName"] = Path.GetFileName(package.Path),
                     ["included"] = package.IncludedEntries.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ["excluded"] = package.ExcludedEntries.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ["uploaded"] = package.Uploaded.ToString().ToLowerInvariant()

@@ -220,10 +220,12 @@ public sealed class HostPluginStorageTests
 
         var set = await denied.SharedDomainStorage.SetAsync(key, replacement);
         var delete = await denied.SharedDomainStorage.DeleteAsync(key);
-        var persisted = await denied.SharedDomainStorage.GetAsync(key);
+        var deniedRead = await denied.SharedDomainStorage.GetAsync(key);
+        var persisted = await writable.SharedDomainStorage.GetAsync(key);
 
         set.ErrorCode.ShouldBe(ErrorCode.LicenseDenied);
         delete.ErrorCode.ShouldBe(ErrorCode.LicenseDenied);
+        deniedRead.ErrorCode.ShouldBe(ErrorCode.LicenseDenied);
         persisted.IsSuccess.ShouldBeTrue();
         persisted.Value.ShouldNotBeNull();
         persisted.Value.Payload.ToArray().ShouldBe(original.Payload.ToArray());

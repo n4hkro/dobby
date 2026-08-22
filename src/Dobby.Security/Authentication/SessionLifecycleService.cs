@@ -44,6 +44,8 @@ public sealed class SessionLifecycleService(
 {
     private readonly object sessionGate = new();
 
+    public bool CommitsMutationAudit => mutationCoordinator is not null;
+
     public bool IsLocked { get; private set; }
 
     public Result<SessionRecord> Create(string userId)

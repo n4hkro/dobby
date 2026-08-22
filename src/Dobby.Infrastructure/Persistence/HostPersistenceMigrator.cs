@@ -34,8 +34,7 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
         catch (Exception ex) when (ex is InvalidOperationException or IOException)
         {
             return PersistenceResult.Failure(PersistenceError.Create(
-                PersistenceError.MigrationFailed,
-                $"Pre-login persistence migration failed: {ex.GetType().Name}: {ex.Message}"));
+                PersistenceError.MigrationFailed));
         }
     }
 
@@ -148,8 +147,7 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
         catch (Exception ex) when (ex is InvalidOperationException or IOException)
         {
             return PersistenceResult.Failure(PersistenceError.Create(
-                PersistenceError.MigrationFailed,
-                $"Post-login persistence migration failed: {ex.GetType().Name}: {ex.Message}"));
+                PersistenceError.MigrationFailed));
         }
     }
 

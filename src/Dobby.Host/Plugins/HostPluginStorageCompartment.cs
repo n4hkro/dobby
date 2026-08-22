@@ -3,9 +3,11 @@ using Dobby.Core;
 using Dobby.Infrastructure.Persistence;
 using System.Data.Common;
 using System.IO;
+using Dobby.Contracts.Licensing;
 
 namespace Dobby.Host.Plugins;
 
+[PluginRuntimeActionOwner(PluginRuntimeAction.StorageRead, PluginRuntimeAction.StorageWrite)]
 public sealed class HostPluginStorageCompartment : IPluginStorageCompartment
 {
     private readonly string pluginId;
@@ -56,6 +58,12 @@ public sealed class HostPluginStorageCompartment : IPluginStorageCompartment
         if (!userScopeHash.IsSuccess)
         {
             return ValueTask.FromResult(Result.Failure<PluginStorageValue?>(userScopeHash.ErrorCode!.Value));
+        }
+
+        var readAllowed = mutationGate.EnsurePluginStorageReadAllowed(pluginId);
+        if (!readAllowed.IsSuccess)
+        {
+            return ValueTask.FromResult(Result.Failure<PluginStorageValue?>(readAllowed.ErrorCode!.Value));
         }
 
         try
@@ -249,6 +257,12 @@ public sealed class HostPluginStorageCompartment : IPluginStorageCompartment
             return ValueTask.FromResult(Result.Failure<bool>(userScopeHash.ErrorCode!.Value));
         }
 
+        var readAllowed = mutationGate.EnsurePluginStorageReadAllowed(pluginId);
+        if (!readAllowed.IsSuccess)
+        {
+            return ValueTask.FromResult(Result.Failure<bool>(readAllowed.ErrorCode!.Value));
+        }
+
         try
         {
             var count = executor.QueryScalar<int>(
@@ -294,6 +308,12 @@ public sealed class HostPluginStorageCompartment : IPluginStorageCompartment
         if (!userScopeHash.IsSuccess)
         {
             return ValueTask.FromResult(Result.Failure<IReadOnlyList<PluginStorageKey>>(userScopeHash.ErrorCode!.Value));
+        }
+
+        var readAllowed = mutationGate.EnsurePluginStorageReadAllowed(pluginId);
+        if (!readAllowed.IsSuccess)
+        {
+            return ValueTask.FromResult(Result.Failure<IReadOnlyList<PluginStorageKey>>(readAllowed.ErrorCode!.Value));
         }
 
         try

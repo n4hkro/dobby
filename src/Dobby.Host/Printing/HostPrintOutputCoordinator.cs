@@ -32,21 +32,22 @@ public sealed class HostPrintOutputCoordinator(
             return Result.Failure(ErrorCode.Cancelled);
         }
 
-        if (runtimeMode == PluginRuntimeMode.Denied)
+        var action = isPrintToFile
+            ? PluginRuntimeAction.VirtualOrFileOutput
+            : targetClassifier.Classify(target) == PrintTargetClass.PhysicalPrinter
+                ? PluginRuntimeAction.PhysicalPrint
+                : PluginRuntimeAction.VirtualOrFileOutput;
+        var runtimeDecision = PluginRuntimeActionPolicy.Evaluate(runtimeMode, action);
+        if (runtimeDecision == PluginRuntimeActionDecision.Denied)
         {
-            return Result.Failure(ErrorCode.LicenseDenied);
+            return Result.Failure(runtimeMode == PluginRuntimeMode.ReadOnlyExpired
+                ? ErrorCode.LicenseReadOnly
+                : ErrorCode.LicenseDenied);
         }
 
-        if (runtimeMode == PluginRuntimeMode.FullAccess)
+        if (runtimeDecision == PluginRuntimeActionDecision.Allowed)
         {
             return await execute(cancellationToken);
-        }
-
-        var targetClass = targetClassifier.Classify(target);
-        var decision = PrintOutputPolicy.EvaluateReadOnlyExpiredOutput(targetClass, isPrintToFile);
-        if (decision == PrintOutputDecision.Denied)
-        {
-            return Result.Failure(ErrorCode.LicenseReadOnly);
         }
 
         var confirmed = await confirmation.ConfirmAsync(target, cancellationToken);

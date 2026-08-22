@@ -26,7 +26,7 @@ internal static class CrashRecoverySmokeHook
         }
         catch (Exception ex) when (ex is InvalidOperationException or IOException)
         {
-            Console.Error.WriteLine(ex.Message);
+            Console.Error.WriteLine("crash-recovery-failed:" + ex.GetType().Name);
             exitCode = 1;
         }
 

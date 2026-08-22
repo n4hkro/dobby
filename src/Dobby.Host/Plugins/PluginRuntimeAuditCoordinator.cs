@@ -21,7 +21,6 @@ public sealed class PluginRuntimeAuditCoordinator(
             correlationId,
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["packageName"] = Path.GetFileName(packagePath),
                 ["diagnosticMarker"] = "plugin.install.attempted"
             });
     }
@@ -189,11 +188,6 @@ public sealed class PluginRuntimeAuditCoordinator(
             ["reasonCode"] = reason.Code,
             ["diagnosticMarker"] = $"{eventName}:{reason.Code}"
         };
-        if (!string.IsNullOrWhiteSpace(reason.Path))
-        {
-            details["reasonPath"] = reason.Path;
-        }
-
         return details;
     }
 
@@ -207,7 +201,7 @@ public sealed class PluginRuntimeAuditCoordinator(
 
     private static string PackageTarget(string packagePath)
     {
-        return $"package:{Path.GetFileName(packagePath)}";
+        return "plugin-package";
     }
 
     private static string PluginTarget(string pluginId)

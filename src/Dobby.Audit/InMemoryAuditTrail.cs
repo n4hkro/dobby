@@ -8,10 +8,7 @@ public sealed class InMemoryAuditTrail : IAuditTrail
     {
         ArgumentNullException.ThrowIfNull(auditEvent);
 
-        var sanitized = auditEvent with
-        {
-            Details = AuditDetailsSanitizer.Sanitize(auditEvent.Details)
-        };
+        var sanitized = AuditDetailsSanitizer.Sanitize(auditEvent);
 
         _events.Add(sanitized);
     }

@@ -1,6 +1,7 @@
 using Dobby.Audit;
 using Dobby.Core;
 using Dobby.Host;
+using Dobby.Host.Plugins;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
 using Dobby.Licensing;
@@ -93,6 +94,38 @@ public sealed class LicenseImportAtomicityTests
         fixture.Count("PluginLicenseImportAttestation").ShouldBe(1);
     }
 
+    [Fact]
+    public async Task Post_commit_refresh_failure_retries_without_rolling_back_or_duplicating_effect()
+    {
+        using var fixture = Fixture.Create();
+        var store = fixture.CreateStore();
+        store.CommitSuccessfulImport(
+            CreateState(fixture.Time),
+            CreateAttestation(fixture.Time),
+            CreateMetadata());
+        var handler = new LicenseActivationRefreshOutboxHandler();
+
+        var failed = await fixture.CreateDispatcher(handler).DispatchBatchAsync(CancellationToken.None);
+        fixture.Time.Advance(TimeSpan.FromSeconds(1));
+        var effectiveRefreshes = 0;
+        handler.Register(pluginId =>
+        {
+            pluginId.ShouldBe("plugin.sample");
+            effectiveRefreshes++;
+            return ValueTask.CompletedTask;
+        });
+        var retried = await fixture.CreateDispatcher(handler).DispatchBatchAsync(CancellationToken.None);
+        var afterCompletion = await fixture.CreateDispatcher(handler).DispatchBatchAsync(CancellationToken.None);
+
+        failed.ShouldBe(new HostOutboxDispatchResult(1, 0, 1));
+        retried.ShouldBe(new HostOutboxDispatchResult(1, 1, 0));
+        afterCompletion.ShouldBe(new HostOutboxDispatchResult(0, 0, 0));
+        effectiveRefreshes.ShouldBe(1);
+        fixture.Count("PluginLicenseState").ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostOutbox WHERE CompletedAtUtc IS NOT NULL;").ShouldBe(1);
+    }
+
     private static LicenseStateRecord CreateState(FakeTimeProvider time)
     {
         var now = time.GetUtcNow();
@@ -167,6 +200,17 @@ public sealed class LicenseImportAtomicityTests
                 new DurableAuditTrail(Executor),
                 new HostTransactionOutbox(Time));
             return new HostLicenseStateStore(Executor, transactionScope, unitOfWork);
+        }
+
+        public HostOutboxDispatcher CreateDispatcher(IHostOutboxMessageHandler handler)
+        {
+            return new HostOutboxDispatcher(
+                new HostPersistenceTransactionScope(Factory),
+                new Dictionary<HostOutboxRoute, IHostOutboxMessageHandler>
+                {
+                    [LicenseActivationRefreshOutboxHandler.Route] = handler
+                },
+                Time);
         }
 
         public int Count(string tableName)

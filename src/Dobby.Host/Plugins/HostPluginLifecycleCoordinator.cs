@@ -2,6 +2,7 @@ using Dobby.Contracts.Policies;
 using Dobby.Core;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authorization;
+using Dobby.Contracts.Licensing;
 
 namespace Dobby.Host.Plugins;
 
@@ -11,6 +12,7 @@ public enum PluginUninstallDataChoice
     DeleteData
 }
 
+[PluginRuntimeActionOwner(PluginRuntimeAction.EnableDisableUninstall)]
 public sealed class HostPluginLifecycleCoordinator(
     IInstalledPluginStateStore stateStore,
     IInstalledPluginMetadataCache metadataCache,
@@ -58,7 +60,7 @@ public sealed class HostPluginLifecycleCoordinator(
             return authorized;
         }
 
-        var mutationAllowed = runtimeModeMutationGate.EnsurePluginMutationAllowed(pluginId);
+        var mutationAllowed = runtimeModeMutationGate.EnsurePluginLifecycleMutationAllowed(pluginId);
         if (!mutationAllowed.IsSuccess)
         {
             return mutationAllowed;
@@ -163,7 +165,7 @@ public sealed class HostPluginLifecycleCoordinator(
             return authorized;
         }
 
-        var mutationAllowed = runtimeModeMutationGate.EnsurePluginMutationAllowed(pluginId);
+        var mutationAllowed = runtimeModeMutationGate.EnsurePluginLifecycleMutationAllowed(pluginId);
         if (!mutationAllowed.IsSuccess)
         {
             return mutationAllowed;

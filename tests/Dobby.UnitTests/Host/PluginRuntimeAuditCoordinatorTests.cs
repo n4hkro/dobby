@@ -27,8 +27,8 @@ public sealed class PluginRuntimeAuditCoordinatorTests
             AuditEventName.PluginInstallAttempted,
             AuditEventName.PluginInstallVerified
         ]);
-        events[0].Target.ShouldBe("package:sample.dobbyplugin");
-        events[0].Details!["packageName"].ShouldBe("sample.dobbyplugin");
+        events[0].Target.ShouldBe("plugin-package");
+        events[0].Details!.ContainsKey("packageName").ShouldBeFalse();
         events[1].Target.ShouldBe("plugin:com.dobby.sample");
         events[1].Details!["fingerprint"].ShouldBe(descriptor.Fingerprint);
     }

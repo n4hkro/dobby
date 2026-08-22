@@ -2,9 +2,11 @@ using System.Windows;
 using System.Windows.Controls;
 using Dobby.Contracts.PluginPages;
 using Dobby.Core;
+using Dobby.Contracts.Licensing;
 
 namespace Dobby.Shell.PluginPages;
 
+[PluginRuntimeActionOwner(PluginRuntimeAction.PluginAction)]
 public sealed class PluginPageRenderRegistry
 {
     private readonly Action<string, string, string, ErrorCode>? actionFaultSink;
@@ -112,7 +114,8 @@ public sealed class PluginPageRenderRegistry
         {
             var button = new Button
             {
-                Content = action.LabelKey
+                Content = action.LabelKey,
+                IsEnabled = actionExecutionGate(model.Context.PluginId).IsSuccess
             };
             button.Click += async (_, _) =>
             {
@@ -138,7 +141,7 @@ public sealed class PluginPageRenderRegistry
                 }
                 finally
                 {
-                    button.IsEnabled = true;
+                    button.IsEnabled = actionExecutionGate(model.Context.PluginId).IsSuccess;
                 }
             };
             panel.Children.Add(button);

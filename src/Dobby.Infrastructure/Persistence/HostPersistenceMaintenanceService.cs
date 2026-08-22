@@ -38,8 +38,7 @@ public sealed class HostPersistenceMaintenanceService
         catch (Exception exception) when (exception is SqliteException or InvalidOperationException or IOException or UnauthorizedAccessException)
         {
             return PersistenceResult.Failure(PersistenceError.Create(
-                PersistenceError.IoFailed,
-                $"WAL checkpoint failed: {exception.GetType().Name}: {exception.Message}"));
+                PersistenceError.IoFailed));
         }
     }
 
@@ -88,8 +87,7 @@ public sealed class HostPersistenceMaintenanceService
         catch (Exception exception) when (exception is SqliteException or InvalidOperationException or IOException or UnauthorizedAccessException)
         {
             return PersistenceResult<string>.Failure(PersistenceError.Create(
-                PersistenceError.IoFailed,
-                $"Support snapshot failed: {exception.GetType().Name}: {exception.Message}"));
+                PersistenceError.IoFailed));
         }
     }
 

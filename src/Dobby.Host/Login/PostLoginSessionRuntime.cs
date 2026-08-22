@@ -71,6 +71,11 @@ public sealed class PostLoginSessionRuntime(
 
         if (result.IsSuccess)
         {
+            if (!sessionLifecycleService.CommitsMutationAudit)
+            {
+                auditCoordinator.AppendLogout(session.UserId, result, correlationId);
+            }
+
             CancelInFlightPostLoginWork();
         }
 

@@ -127,6 +127,7 @@ public sealed class PluginPageRenderRegistryTests
 
             var panel = registry.Render(model).Value.ShouldBeOfType<StackPanel>();
             var button = panel.Children.OfType<Button>().Single();
+            button.IsEnabled.ShouldBeFalse();
             button.RaiseEvent(new System.Windows.RoutedEventArgs(ButtonBase.ClickEvent, button));
 
             executionCalls.ShouldBe(0);

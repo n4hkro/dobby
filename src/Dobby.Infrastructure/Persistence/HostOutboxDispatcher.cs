@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Dapper;
 
 namespace Dobby.Infrastructure.Persistence;
 
@@ -75,23 +76,43 @@ public sealed class HostOutboxDispatcher(
 
     private IReadOnlyList<OutboxRow> Claim(string leaseId)
     {
+        if (handlers.Count is < 1 or > 64)
+        {
+            throw new InvalidOperationException("The outbox route registry is empty or exceeds its bound.");
+        }
+
         var claimed = new List<OutboxRow>();
         var now = timeProvider.GetUtcNow();
         var nowText = now.ToString("O");
         var leaseExpiresAt = now.Add(effectiveLeaseDuration).ToString("O");
+        var parameters = new DynamicParameters();
+        parameters.Add("NowUtc", nowText);
+        parameters.Add("MaximumBatchSize", maximumBatchSize);
+        var routePredicates = handlers.Keys
+            .OrderBy(route => route.Purpose, StringComparer.Ordinal)
+            .ThenBy(route => route.MessageType, StringComparer.Ordinal)
+            .Select((route, index) =>
+            {
+                parameters.Add($"Purpose{index}", route.Purpose);
+                parameters.Add($"MessageType{index}", route.MessageType);
+                return $"(Purpose = @Purpose{index} AND MessageType = @MessageType{index})";
+            })
+            .ToArray();
+        var routeFilter = string.Join(" OR ", routePredicates);
         transactionScope.ExecuteInTransaction(executor =>
         {
             var candidates = executor.Query<OutboxRow>(
-                """
+                $"""
                 SELECT OutboxId, IdempotencyKey, Purpose, MessageType, PayloadJson, AttemptCount
                 FROM HostOutbox
                 WHERE CompletedAtUtc IS NULL
                   AND NextAttemptAtUtc <= @NowUtc
                   AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @NowUtc)
+                  AND ({routeFilter})
                 ORDER BY CreatedAtUtc, OutboxId
                 LIMIT @MaximumBatchSize;
                 """,
-                new { NowUtc = nowText, MaximumBatchSize = maximumBatchSize });
+                parameters);
             foreach (var candidate in candidates)
             {
                 var updated = executor.Execute(

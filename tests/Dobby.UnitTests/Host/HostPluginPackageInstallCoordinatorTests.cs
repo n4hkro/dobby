@@ -125,6 +125,57 @@ public sealed class HostPluginPackageInstallCoordinatorTests
     }
 
     [Fact]
+    public void Package_update_fails_closed_when_existing_plugin_license_is_denied()
+    {
+        var packagePath = CreatePackageZip(
+            PluginPackageTestData.CreateManifestJson(),
+            PluginPackageTestData.FilePath,
+            PluginPackageTestData.FileContent);
+        try
+        {
+            var audit = new InMemoryAuditTrail();
+            var staging = CreateSuccessfulStaging();
+            var stateStore = CreateSuccessfulStateStore();
+            var now = DateTimeOffset.Parse("2026-06-09T00:00:00Z");
+            stateStore.Get(PluginPackageTestData.PluginId).Returns(Result.Success<InstalledPluginState?>(
+                new InstalledPluginState(
+                    PluginPackageTestData.PluginId,
+                    "1.0.0",
+                    "existing-fingerprint",
+                    "Sample",
+                    "Installed sample",
+                    true,
+                    "verified",
+                    "runtime-path",
+                    "Enabled",
+                    now,
+                    now)));
+            var coordinator = new HostPluginPackageInstallCoordinator(
+                stateStore,
+                CreateSuccessfulMetadataCache(),
+                staging,
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
+                CreateAuditCoordinator(audit),
+                new AllowAllTrustVerifier(),
+                new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.Denied)));
+
+            var result = coordinator.InstallPackage(
+                "owner",
+                packagePath,
+                new HostVersion(1, 0, 0),
+                CorrelationId.New());
+
+            result.ErrorCode.ShouldBe(ErrorCode.LicenseDenied);
+            staging.DidNotReceive().Stage(Arg.Any<PluginPackageDescriptor>());
+            audit.Snapshot().Last().EventName.ShouldBe(AuditEventName.PluginInstallRejected);
+        }
+        finally
+        {
+            DeletePackage(packagePath);
+        }
+    }
+
+    [Fact]
     public void Install_package_rejects_forbidden_content_before_staging_and_audits_rejection()
     {
         var forbiddenPath = "customer-data/export.json";
@@ -424,6 +475,7 @@ public sealed class HostPluginPackageInstallCoordinatorTests
     private static IInstalledPluginStateStore CreateSuccessfulStateStore()
     {
         var store = Substitute.For<IInstalledPluginStateStore>();
+        store.Get(Arg.Any<string>()).Returns(Result.Success<InstalledPluginState?>(null));
         store.Upsert(Arg.Any<InstalledPluginState>()).Returns(Result.Success());
         store.Remove(Arg.Any<string>()).Returns(Result.Success());
         return store;

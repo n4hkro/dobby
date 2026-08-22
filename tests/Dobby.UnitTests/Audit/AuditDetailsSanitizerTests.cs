@@ -29,7 +29,7 @@ public sealed class AuditDetailsSanitizerTests
             new Dictionary<string, string> { [forbiddenKey] = "raw-secret" });
 
         Should.Throw<InvalidOperationException>(() => trail.Append(auditEvent))
-            .Message.ShouldContain(forbiddenKey, Case.Insensitive);
+            .Message.ShouldBe("Audit detail field is not approved for this event.");
     }
 
     [Fact]
@@ -43,11 +43,11 @@ public sealed class AuditDetailsSanitizerTests
             AuditResult.Success,
             CorrelationId.New(),
             DateTimeOffset.UtcNow,
-            new Dictionary<string, string> { ["fileCount"] = "3", ["note"] = "şəxsi məlumat yoxdur" });
+            new Dictionary<string, string> { ["included"] = "3", ["outputName"] = "dəstək.zip" });
 
         trail.Append(auditEvent);
 
-        trail.Snapshot().Single().Details!["note"].ShouldBe("şəxsi məlumat yoxdur");
+        trail.Snapshot().Single().Details!["outputName"].ShouldBe("dəstək.zip");
     }
 
     [Theory]
@@ -62,10 +62,10 @@ public sealed class AuditDetailsSanitizerTests
             AuditResult.Failed,
             CorrelationId.New(),
             DateTimeOffset.UtcNow,
-            new Dictionary<string, string> { ["message"] = detailValue });
+            new Dictionary<string, string> { ["reason"] = detailValue });
 
         Should.Throw<InvalidOperationException>(() => trail.Append(auditEvent))
-            .Message.ShouldContain("message", Case.Insensitive);
+            .Message.ShouldBe("Audit detail value is malformed or contains unapproved diagnostic data.");
     }
 
     public static IEnumerable<object[]> ForbiddenAssignmentDetails()
@@ -106,6 +106,56 @@ public sealed class AuditDetailsSanitizerTests
 
         trail.Append(auditEvent);
 
-        trail.Snapshot().Single().Details.ShouldBe(details);
+        var saved = trail.Snapshot().Single().Details!;
+        saved.Count.ShouldBe(details.Count);
+        foreach (var detail in details)
+        {
+            saved[detail.Key].ShouldBe(detail.Value);
+        }
+    }
+
+    [Theory]
+    [InlineData("C:\\private\\artifact.json")]
+    [InlineData("\\\\server\\share\\artifact.json")]
+    [InlineData("-----BEGIN PRIVATE KEY-----raw-----END PRIVATE KEY-----")]
+    [InlineData("SELECT PasswordHash FROM Users")]
+    [InlineData("line-one\nline-two")]
+    [InlineData("line-one\u2028line-two")]
+    public void Append_rejects_paths_private_material_sql_and_multiline_values(string unsafeValue)
+    {
+        IAuditTrail trail = new InMemoryAuditTrail();
+        var auditEvent = new AuditEvent(
+            AuditEventName.SecurityVerificationFailed,
+            "system",
+            "startup",
+            AuditResult.Failed,
+            CorrelationId.New(),
+            DateTimeOffset.UtcNow,
+            new Dictionary<string, string> { ["reason"] = unsafeValue });
+
+        Should.Throw<InvalidOperationException>(() => trail.Append(auditEvent));
+        trail.Snapshot().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Append_rejects_unknown_fields_and_oversized_values_at_the_boundary()
+    {
+        IAuditTrail trail = new InMemoryAuditTrail();
+        var unknown = new AuditEvent(
+            AuditEventName.DiagnosticsExportCreated,
+            "owner",
+            "diagnostics.export",
+            AuditResult.Success,
+            CorrelationId.New(),
+            DateTimeOffset.UtcNow,
+            new Dictionary<string, string> { ["note"] = "not-approved" });
+        var oversized = unknown with
+        {
+            Details = new Dictionary<string, string> { ["outputName"] = new string('x', 257) }
+        };
+
+        Should.Throw<InvalidOperationException>(() => trail.Append(unknown));
+        Should.Throw<InvalidOperationException>(() => trail.Append(oversized));
+        trail.Snapshot().ShouldBeEmpty();
     }
 }

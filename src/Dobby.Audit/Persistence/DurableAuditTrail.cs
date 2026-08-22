@@ -30,10 +30,7 @@ public sealed class DurableAuditTrail : IAuditTrail, IHostTransactionAuditTrail
 
     private static void Append(IHostPersistenceCommandExecutor executor, AuditEvent auditEvent)
     {
-        var sanitized = auditEvent with
-        {
-            Details = AuditDetailsSanitizer.Sanitize(auditEvent.Details)
-        };
+        var sanitized = AuditDetailsSanitizer.Sanitize(auditEvent);
 
         executor.Execute(
             "INSERT INTO AuditLog(AuditId, OccurredAtUtc, EventName, ActorId, Target, Result, CorrelationId, DetailsJson) VALUES (@AuditId, @OccurredAtUtc, @EventName, @ActorId, @Target, @Result, @CorrelationId, @DetailsJson);",

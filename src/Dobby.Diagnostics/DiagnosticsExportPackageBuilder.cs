@@ -14,7 +14,8 @@ public sealed class DiagnosticsExportPackageBuilder
         "recovery",
         "licensepayload",
         "licenseartifact",
-        "licensebinding"
+        "licensebinding",
+        "pluginruntimediagnostics"
     ];
 
     public DiagnosticsExportPackage Build(string sourceDirectory, string outputZipPath)

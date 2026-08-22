@@ -95,9 +95,9 @@ public sealed class PluginTrustPublicKeyProvider
                     RetiredAtUtc: null,
                     IsTestOnly: profile == DobbyPluginTrustProfile.DevQa));
         }
-        catch (FormatException exception)
+        catch (FormatException)
         {
-            return PluginTrustPublicKeyResolutionResult.Failure("trust-failed", $"Trust resource '{resourceName}' is malformed: {exception.Message}");
+            return PluginTrustPublicKeyResolutionResult.Failure("trust-failed", "Trust key material is malformed.");
         }
     }
 

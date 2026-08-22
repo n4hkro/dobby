@@ -1,10 +1,16 @@
-using System.Text.RegularExpressions;
+using System.Reflection;
+using Dobby.Audit;
 using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginStorage;
 using Dobby.Core;
+using Dobby.Diagnostics;
+using Dobby.Host;
 using Dobby.Host.Plugins;
+using Dobby.Host.Printing;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
+using Dobby.Licensing;
+using Dobby.Shell.PluginPages;
 using Shouldly;
 
 namespace Dobby.IntegrationTests.Licensing;
@@ -50,66 +56,72 @@ public sealed class ReadOnlyExpiredEnforcementIntegrationTests
     }
 
     [Fact]
-    public void Readonly_expired_matrix_has_gate_tests_or_explicit_absent_surface_proof()
+    public void Runtime_action_command_owners_declare_their_central_policy_surfaces()
     {
-        var root = RepoRoot();
-        var sourceFiles = SourceFiles(root).ToArray();
-        var actionPipeline = File.ReadAllText(Path.Combine(
-            root.FullName,
-            "src",
-            "Dobby.Shell",
-            "PluginPages",
-            "PluginPageRenderRegistry.cs"));
-        var lifecycleCoordinator = File.ReadAllText(Path.Combine(
-            root.FullName,
-            "src",
-            "Dobby.Host",
-            "Plugins",
-            "HostPluginLifecycleCoordinator.cs"));
-        var printOutputService = File.ReadAllText(Path.Combine(
-            root.FullName,
-            "src",
-            "Dobby.Host",
-            "Printing",
-            "HostPrintOutputService.cs"));
-        var diagnosticsExportCoordinator = File.ReadAllText(Path.Combine(
-            root.FullName,
-            "src",
-            "Dobby.Host",
-            "ShellDiagnosticsExportCoordinator.cs"));
-        var loginRuntimeFactory = File.ReadAllText(Path.Combine(
-            root.FullName,
-            "src",
-            "Dobby.Host",
-            "Login",
-            "HostLoginRuntimeFactory.cs"));
-        var loginRuntime = File.ReadAllText(Path.Combine(
-            root.FullName,
-            "src",
-            "Dobby.Host",
-            "Login",
-            "HostLoginRuntime.cs"));
+        AssertOwner<HostPluginStorageCompartment>(PluginRuntimeAction.StorageRead, PluginRuntimeAction.StorageWrite);
+        AssertOwner<HostPluginPackageInstallCoordinator>(PluginRuntimeAction.InitialPackageInstall, PluginRuntimeAction.PackageUpdate);
+        AssertOwner<HostPluginLifecycleCoordinator>(PluginRuntimeAction.EnableDisableUninstall);
+        AssertOwner<HostPrintOutputService>(PluginRuntimeAction.PhysicalPrint, PluginRuntimeAction.VirtualOrFileOutput);
+        AssertOwner<PluginPageRenderRegistry>(PluginRuntimeAction.PluginAction);
+        AssertOwner<ShellDiagnosticsExportCoordinator>(PluginRuntimeAction.HostDiagnostics);
 
-        actionPipeline.ShouldContain("actionExecutionGate(model.Context.PluginId)");
-        lifecycleCoordinator.ShouldContain("EnsurePluginMutationAllowed(pluginId)");
-        printOutputService.ShouldContain("runtimeModeProvider.GetCurrentMode(pluginId, packageFingerprint)");
-        printOutputService.ShouldContain("printOutputCoordinator.ExecuteAsync");
-        diagnosticsExportCoordinator.ShouldContain("outputGate?.Invoke()");
-        diagnosticsExportCoordinator.ShouldContain("AuditResult.Denied");
-        loginRuntimeFactory.ShouldContain("EnsureDiagnosticsExportAllowed(licenseRuntimeModeProvider, installedPluginStateStore)");
-        loginRuntimeFactory.ShouldContain("PluginRuntimeMode.ReadOnlyExpired");
-        loginRuntime.ShouldContain("ExecutePluginPrintAsync");
-        loginRuntime.ShouldContain("PrintOutputService.ExecuteAsync");
-        ConcreteSourceOwners(sourceFiles, @"\bclass\s+\w*PluginBackground(Task|Operation)\w*(Starter|Coordinator|Runner)\w*")
-            .ShouldBeEmpty("plugin background task start has no concrete owner yet; add a ReadOnlyExpired gate test when one appears.");
-        ConcreteSourceOwners(sourceFiles, @"\bclass\s+\w*Plugin(Domain)?Import\w*(Coordinator|Service|Writer)\w*")
-            .ShouldBeEmpty("plugin/domain import has no concrete owner yet; add a ReadOnlyExpired gate test when one appears.");
-        ConcreteSourceOwners(sourceFiles, @"\bclass\s+\w*Plugin(Domain)?Export\w*(Coordinator|Service|Writer)\w*")
-            .ShouldBeEmpty("plugin/domain export has no concrete owner yet; add a ReadOnlyExpired gate test when one appears.");
-        ConcreteSourceOwners(sourceFiles, @"\bclass\s+\w*PluginReport\w*(Coordinator|Service|Writer)\w*")
-            .ShouldBeEmpty("plugin/domain report output has no concrete owner yet; add a ReadOnlyExpired gate test when one appears.");
-        ConcreteSourceOwners(sourceFiles, @"\bclass\s+\w*PluginFile(Output|Export)\w*(Coordinator|Service|Writer)\w*")
-            .ShouldBeEmpty("plugin/domain file output has no concrete owner yet; add a ReadOnlyExpired gate test when one appears.");
+        var futurePolicyOwnerNames = new[] { "Background", "DomainImport", "DomainExport", "Report", "FileOutput" };
+        var unowned = new[] { typeof(HostPluginStorageCompartment).Assembly, typeof(PluginPageRenderRegistry).Assembly }
+            .SelectMany(assembly => assembly.GetTypes())
+            .Where(type => type.IsClass && !type.IsAbstract && type.Name.Contains("Plugin", StringComparison.Ordinal))
+            .Where(type => futurePolicyOwnerNames.Any(marker => type.Name.Contains(marker, StringComparison.Ordinal)))
+            .Where(type => type.GetCustomAttribute<PluginRuntimeActionOwnerAttribute>() is null)
+            .Select(type => type.FullName)
+            .ToArray();
+        unowned.ShouldBeEmpty("future plugin background/import/export/report/file-output owners must declare their runtime action policy.");
+    }
+
+    [Theory]
+    [InlineData(LicenseLifecycleState.Pending)]
+    [InlineData(LicenseLifecycleState.Active)]
+    [InlineData(LicenseLifecycleState.Grace)]
+    [InlineData(LicenseLifecycleState.ReadOnlyExpired)]
+    [InlineData(LicenseLifecycleState.Denied)]
+    public void Minimal_host_diagnostics_export_is_independent_of_plugin_license_lifecycle(
+        LicenseLifecycleState lifecycle)
+    {
+        var mode = LicenseRuntimeModeMapper.Map(lifecycle);
+        PluginRuntimeActionPolicy.Evaluate(mode, PluginRuntimeAction.HostDiagnostics)
+            .ShouldBe(PluginRuntimeActionDecision.Allowed);
+
+        var root = Path.Combine(Path.GetTempPath(), "dobby-host-diagnostics-license-" + Guid.NewGuid().ToString("N"));
+        var source = Path.Combine(root, "logs");
+        var output = Path.Combine(root, "support.zip");
+        try
+        {
+            Directory.CreateDirectory(source);
+            File.WriteAllText(Path.Combine(source, "dobby.log"), "safe=value");
+            var result = new ShellDiagnosticsExportCoordinator(
+                new DiagnosticsExportPackageBuilder(),
+                new InMemoryAuditTrail(),
+                TimeProvider.System).Export(
+                    "owner-1",
+                    source,
+                    output,
+                    CorrelationId.New());
+
+            result.IsSuccess.ShouldBeTrue();
+            File.Exists(output).ShouldBeTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    private static void AssertOwner<TOwner>(params PluginRuntimeAction[] expected)
+    {
+        var attribute = typeof(TOwner).GetCustomAttribute<PluginRuntimeActionOwnerAttribute>();
+        attribute.ShouldNotBeNull();
+        attribute.Actions.Order().ShouldBe(expected.Order());
     }
 
     private sealed class PluginStoragePersistenceFixture : IDisposable
@@ -150,32 +162,4 @@ public sealed class ReadOnlyExpiredEnforcementIntegrationTests
         }
     }
 
-    private static IEnumerable<string> ConcreteSourceOwners(IEnumerable<FileInfo> sourceFiles, string pattern)
-    {
-        var regex = new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant);
-        return sourceFiles
-            .Where(file => regex.IsMatch(File.ReadAllText(file.FullName)))
-            .Select(file => file.FullName)
-            .ToArray();
-    }
-
-    private static IEnumerable<FileInfo> SourceFiles(DirectoryInfo root)
-    {
-        return root.GetDirectories("src").Single()
-            .EnumerateFiles("*.cs", SearchOption.AllDirectories)
-            .Where(file =>
-                !file.FullName.Contains($"{Path.DirectorySeparatorChar}Dobby.Contracts{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
-                !file.FullName.Contains($"{Path.DirectorySeparatorChar}Dobby.SDK{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
-    }
-
-    private static DirectoryInfo RepoRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Dobby.sln")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory ?? throw new InvalidOperationException("Could not locate repository root.");
-    }
 }

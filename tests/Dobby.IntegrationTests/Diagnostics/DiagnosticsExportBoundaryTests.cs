@@ -14,6 +14,7 @@ public sealed class DiagnosticsExportBoundaryTests
         Directory.CreateDirectory(source);
         File.WriteAllText(Path.Combine(source, "dobby.log"), "password=secret safe=value");
         File.WriteAllText(Path.Combine(source, "token.txt"), "raw-token");
+        File.WriteAllText(Path.Combine(source, "plugin-runtime-diagnostics.log"), "plugin domain details");
         var output = Path.Combine(temp.Path, "support.zip");
 
         var package = new DiagnosticsExportPackageBuilder().Build(source, output);
@@ -21,6 +22,7 @@ public sealed class DiagnosticsExportBoundaryTests
         package.Uploaded.ShouldBeFalse();
         package.IncludedEntries.ShouldBe(["dobby.log"]);
         package.ExcludedEntries.ShouldContain("token.txt");
+        package.ExcludedEntries.ShouldContain("plugin-runtime-diagnostics.log");
 
         using var archive = ZipFile.OpenRead(output);
         var entry = archive.GetEntry("dobby.log");

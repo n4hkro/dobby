@@ -87,8 +87,7 @@ public sealed class EncryptedSqliteConnectionFactory : IHostPersistenceConnectio
         catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             return PersistenceResult<HostPersistenceConnection>.Failure(PersistenceError.Create(
-                PersistenceError.ProviderUnavailable,
-                $"Encrypted SQLite provider open failed closed: {ex.GetType().Name}: {ex.Message}"));
+                PersistenceError.ProviderUnavailable));
         }
     }
 

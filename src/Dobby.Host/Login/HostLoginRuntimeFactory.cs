@@ -548,8 +548,7 @@ public static class HostLoginRuntimeFactory
         var diagnosticsExportCoordinator = new ShellDiagnosticsExportCoordinator(
             new DiagnosticsExportPackageBuilder(),
             auditTrail,
-            timeProvider,
-            () => EnsureDiagnosticsExportAllowed(licenseRuntimeModeProvider, installedPluginStateStore));
+            timeProvider);
         var diagnosticsOutputZipPath = Path.Combine(options.Runtime.DataRoot, "temp", "dobby-diagnostics.zip");
         var printTargetClassifier = new WindowsPrintTargetClassifierAdapter(new WindowsPrintTargetClassifier());
         var printOutputCoordinator = new HostPrintOutputCoordinator(
@@ -648,40 +647,6 @@ public static class HostLoginRuntimeFactory
         return installed is null
             ? Result.Success(PluginRuntimeMode.Denied)
             : licenseRuntimeModeProvider.GetCurrentMode(pluginId, installed.PackageFingerprint);
-    }
-
-    private static Result EnsureDiagnosticsExportAllowed(
-        ILicenseRuntimeModeProvider licenseRuntimeModeProvider,
-        IInstalledPluginStateStore installedPluginStateStore)
-    {
-        var snapshot = installedPluginStateStore.Snapshot();
-        if (!snapshot.IsSuccess)
-        {
-            return Result.Failure(snapshot.ErrorCode ?? ErrorCode.LicenseDenied);
-        }
-
-        foreach (var installed in snapshot.Value)
-        {
-            var runtimeMode = licenseRuntimeModeProvider.GetCurrentMode(installed.PluginId, installed.PackageFingerprint);
-            if (!runtimeMode.IsSuccess)
-            {
-                return runtimeMode.ErrorCode == ErrorCode.LicenseBindingMismatch
-                    ? Result.Failure(ErrorCode.LicenseBindingMismatch)
-                    : Result.Failure(ErrorCode.LicenseDenied);
-            }
-
-            if (runtimeMode.Value == PluginRuntimeMode.ReadOnlyExpired)
-            {
-                return Result.Failure(ErrorCode.LicenseReadOnly);
-            }
-
-            if (runtimeMode.Value == PluginRuntimeMode.Denied)
-            {
-                return Result.Failure(ErrorCode.LicenseDenied);
-            }
-        }
-
-        return Result.Success();
     }
 
     private static SessionOptions ResolveSessionOptions(

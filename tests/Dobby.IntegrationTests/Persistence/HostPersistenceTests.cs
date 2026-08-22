@@ -158,7 +158,7 @@ public sealed class HostPersistenceTests
     }
 
     [Fact]
-    public void Persistence_error_accepts_all_approved_sprint4_subcodes()
+    public void Persistence_error_accepts_approved_codes_and_never_exposes_diagnostic_detail()
     {
         string[] approvedCodes =
         [
@@ -175,7 +175,14 @@ public sealed class HostPersistenceTests
 
         foreach (var code in approvedCodes)
         {
-            PersistenceError.Create(code, "approved code").Code.ShouldBe(code);
+            var error = PersistenceError.Create(
+                code,
+                "C:\\private\\host.db SELECT PasswordHash FROM Users token=abc");
+            error.Code.ShouldBe(code);
+            error.Message.ShouldNotContain("private");
+            error.Message.ShouldNotContain("PasswordHash");
+            error.Message.ShouldNotContain("abc");
+            Enum.IsDefined(error.Category).ShouldBeTrue();
         }
     }
 
@@ -497,7 +504,9 @@ public sealed class HostPersistenceTests
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.Code.ShouldBe(PersistenceError.MigrationFailed);
-        result.Error.Message.ShouldContain("DeviceIdentity", Case.Sensitive);
+        result.Error.Message.ShouldBe("The persistence migration could not be completed.");
+        result.Error.Category.ShouldBe(PersistenceErrorCategory.Schema);
+        result.Error.IsRetryable.ShouldBeFalse();
     }
 
     [Fact]

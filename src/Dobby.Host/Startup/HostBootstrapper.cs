@@ -139,7 +139,7 @@ public static class HostBootstrapper
             DateTimeOffset.UtcNow,
             new Dictionary<string, string>
             {
-                ["packageName"] = Path.GetFileName(packagePath)
+                ["outputName"] = Path.GetFileName(packagePath)
             }));
     }
 

@@ -9,6 +9,7 @@ using System.IO;
 
 namespace Dobby.Host.Plugins;
 
+[PluginRuntimeActionOwner(PluginRuntimeAction.InitialPackageInstall, PluginRuntimeAction.PackageUpdate)]
 public sealed class HostPluginPackageInstallCoordinator(
     IInstalledPluginStateStore stateStore,
     IInstalledPluginMetadataCache metadataCache,
@@ -94,7 +95,27 @@ public sealed class HostPluginPackageInstallCoordinator(
         }
 
         var descriptor = validation.Descriptor!;
-        var mutationAllowed = runtimeModeMutationGate.EnsurePackageInstallAllowed(descriptor.Manifest.PluginId);
+        var existing = stateStore.Get(descriptor.Manifest.PluginId);
+        if (!existing.IsSuccess)
+        {
+            var reasons = new[]
+            {
+                new PluginPackageValidationReason(
+                    "install-state-unavailable",
+                    "Plugin installation state could not be verified.")
+            };
+            auditCoordinator.AppendInstallRejected(
+                actorId,
+                descriptor.Manifest.PluginId,
+                reasons,
+                correlationId);
+            diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
+            return Result.Failure<InstalledPluginState>(existing.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        var mutationAllowed = runtimeModeMutationGate.EnsurePackageInstallAllowed(
+            descriptor.Manifest.PluginId,
+            isUpdate: existing.Value is not null);
         if (!mutationAllowed.IsSuccess)
         {
             var rejection = RuntimeModeFailureRejection(mutationAllowed.ErrorCode);

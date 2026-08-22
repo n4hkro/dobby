@@ -432,10 +432,10 @@ public static class PluginPackageReader
                 NativeLibraries = nativeLibraries
             });
         }
-        catch (InvalidOperationException exception)
+        catch (InvalidOperationException)
         {
             return PluginManifestValidationOutcome.Failure([
-                new PluginManifestValidationReason("invalid-manifest", exception.Message)
+                new PluginManifestValidationReason("invalid-manifest", "Plugin manifest JSON is malformed.")
             ]);
         }
     }

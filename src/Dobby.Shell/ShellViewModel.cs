@@ -298,7 +298,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public bool PluginsManagerInstallIsEnabled => canImportPluginsManager &&
         !pluginsManagerBusy &&
-        (!canViewLicenseStatus || licenseRuntimeMode == PluginRuntimeMode.FullAccess);
+        (!canViewLicenseStatus || IsRuntimeActionAllowed(PluginRuntimeAction.InitialPackageInstall));
 
     public bool PluginsManagerEnableIsEnabled => CanUseSelectedPluginAction(canConfigurePluginsManager) &&
         PluginsManagerSelectedItem is { IsEnabled: false, IsPendingUninstall: false };
@@ -993,6 +993,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(LicenseRuntimeModeText));
         OnPropertyChanged(nameof(LicenseDetailText));
         OnPropertyChanged(nameof(LicenseFeedbackText));
+        OnPropertyChanged(nameof(PluginsManagerInstallIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerEnableIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerDisableIsEnabled));
+        OnPropertyChanged(nameof(PluginsManagerUninstallIsEnabled));
     }
 
     public void ApplyPluginNavigationContributions(IEnumerable<NavigationContribution> pluginContributions)
@@ -1327,8 +1331,14 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         return hasPermission &&
             canViewPluginsManager &&
             !pluginsManagerBusy &&
-            (!canViewLicenseStatus || licenseRuntimeMode == PluginRuntimeMode.FullAccess) &&
+            (!canViewLicenseStatus || IsRuntimeActionAllowed(PluginRuntimeAction.EnableDisableUninstall)) &&
             PluginsManagerSelectedItem is not null;
+    }
+
+    private bool IsRuntimeActionAllowed(PluginRuntimeAction action)
+    {
+        return PluginRuntimeActionPolicy.Evaluate(licenseRuntimeMode, action) ==
+            PluginRuntimeActionDecision.Allowed;
     }
 
     private string PluginManagerDetailText(ShellPluginManagerItem plugin)

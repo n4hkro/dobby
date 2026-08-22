@@ -199,6 +199,38 @@ public sealed class ShellViewModelPluginsManagerTests
     }
 
     [Fact]
+    public void Denied_mode_allows_initial_install_but_keeps_existing_plugin_lifecycle_actions_disabled()
+    {
+        var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());
+        shell.SetPluginsManagerSurface(
+            canView: true,
+            canImport: true,
+            canConfigure: true,
+            canDelete: true,
+            [
+                new ShellPluginManagerItem(
+                    "com.dobby.sample",
+                    "Sample plugin",
+                    "1.0.0",
+                    "Verification plugin",
+                    IsEnabled: true,
+                    "Enabled",
+                    IsPendingUninstall: false,
+                    RestartRequired: false)
+            ]);
+        shell.SetLicenseSurface(
+            canViewStatus: true,
+            canImport: true,
+            Dobby.Contracts.Licensing.PluginRuntimeMode.Denied);
+        shell.SelectPlugin("com.dobby.sample");
+
+        shell.PluginsManagerInstallIsEnabled.ShouldBeTrue();
+        shell.PluginsManagerEnableIsEnabled.ShouldBeFalse();
+        shell.PluginsManagerDisableIsEnabled.ShouldBeFalse();
+        shell.PluginsManagerUninstallIsEnabled.ShouldBeFalse();
+    }
+
+    [Fact]
     public void Plugins_manager_replaces_raw_rejection_details_with_localized_safe_summaries()
     {
         var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());

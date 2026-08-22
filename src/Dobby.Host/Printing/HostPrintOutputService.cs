@@ -1,9 +1,11 @@
 using Dobby.Application.Printing;
 using Dobby.Core;
 using Dobby.Licensing;
+using Dobby.Contracts.Licensing;
 
 namespace Dobby.Host.Printing;
 
+[PluginRuntimeActionOwner(PluginRuntimeAction.PhysicalPrint, PluginRuntimeAction.VirtualOrFileOutput)]
 public sealed class HostPrintOutputService(
     ILicenseRuntimeModeProvider runtimeModeProvider,
     HostPrintOutputCoordinator printOutputCoordinator)
