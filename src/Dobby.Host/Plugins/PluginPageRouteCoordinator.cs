@@ -10,8 +10,11 @@ public sealed class PluginPageRouteCoordinator(
     PluginExtensionPointRegistry extensionPointRegistry,
     ShellViewModel shellViewModel,
     Func<string?>? currentUserIdProvider = null,
-    Action<string, string, string, ErrorCode>? pageFaultSink = null)
+    Action<string, string, string, ErrorCode>? pageFaultSink = null,
+    PluginLifecycleExecutionOptions? lifecycleOptions = null)
 {
+    private readonly PluginLifecycleExecutionOptions lifecycleOptions =
+        ValidateOptions(lifecycleOptions ?? PluginLifecycleExecutionOptions.Default);
     private ActivePluginPage? activePage;
 
     public async ValueTask<Result> ActivateRouteAsync(
@@ -54,7 +57,7 @@ public sealed class PluginPageRouteCoordinator(
             if (activePage.Phase == ActivePluginPagePhase.Deactivated)
             {
                 var reactivate = await InvokePageLifecycleAsync(
-                    () => activePage.Page.ActivateAsync(activePage.Context, cancellationToken),
+                    token => activePage.Page.ActivateAsync(activePage.Context, token),
                     activePage.Context,
                     "activate",
                     cancellationToken).ConfigureAwait(false);
@@ -81,16 +84,29 @@ public sealed class PluginPageRouteCoordinator(
             currentUserIdProvider?.Invoke());
 
         var load = await InvokePageLoadAsync(
-            () => page.LoadAsync(context, cancellationToken),
+            token => page.LoadAsync(context, token),
             context,
             cancellationToken).ConfigureAwait(false);
         if (!load.IsSuccess)
         {
             return Result.Failure(load.ErrorCode ?? ErrorCode.PluginInternalError);
         }
+        if (load.Value is PluginComponentPageModel componentModel &&
+            (!componentModel.Context.PluginId.Equals(context.PluginId, StringComparison.Ordinal) ||
+             !componentModel.Context.RouteKey.Equals(context.RouteKey, StringComparison.Ordinal) ||
+             PluginComponentModelValidator.Validate(componentModel).IsSuccess is false))
+        {
+            RecordPageFault(
+                context.PluginId,
+                context.RouteKey,
+                "load-contract",
+                ErrorCode.ValidationFailed,
+                cancellationToken);
+            return Result.Failure(ErrorCode.ValidationFailed);
+        }
 
         var activate = await InvokePageLifecycleAsync(
-            () => page.ActivateAsync(context, cancellationToken),
+            token => page.ActivateAsync(context, token),
             context,
             "activate",
             cancellationToken).ConfigureAwait(false);
@@ -193,7 +209,7 @@ public sealed class PluginPageRouteCoordinator(
         if (activePage.Phase == ActivePluginPagePhase.Active)
         {
             var deactivate = await InvokePageLifecycleAsync(
-                () => activePage.Page.DeactivateAsync(activePage.Context, cancellationToken),
+                token => activePage.Page.DeactivateAsync(activePage.Context, token),
                 activePage.Context,
                 "deactivate",
                 cancellationToken).ConfigureAwait(false);
@@ -207,7 +223,7 @@ public sealed class PluginPageRouteCoordinator(
         }
 
         var unload = await InvokePageLifecycleAsync(
-            () => activePage.Page.UnloadAsync(activePage.Context, cancellationToken),
+            token => activePage.Page.UnloadAsync(activePage.Context, token),
             activePage.Context,
             "unload",
             cancellationToken).ConfigureAwait(false);
@@ -225,11 +241,12 @@ public sealed class PluginPageRouteCoordinator(
         PluginPageContext context,
         CancellationToken cancellationToken)
     {
+        using var cleanup = new CancellationTokenSource(lifecycleOptions.UnloadTimeout);
         _ = await InvokePageLifecycleAsync(
-            () => page.UnloadAsync(context, cancellationToken),
+            token => page.UnloadAsync(context, token),
             context,
             "unload",
-            cancellationToken).ConfigureAwait(false);
+            cleanup.Token).ConfigureAwait(false);
     }
 
     private async ValueTask CleanupUncommittedPageAsync(
@@ -237,30 +254,35 @@ public sealed class PluginPageRouteCoordinator(
         PluginPageContext context,
         CancellationToken cancellationToken)
     {
+        using var cleanup = new CancellationTokenSource(
+            lifecycleOptions.DeactivationTimeout + lifecycleOptions.UnloadTimeout);
         _ = await InvokePageLifecycleAsync(
-            () => page.DeactivateAsync(context, cancellationToken),
+            token => page.DeactivateAsync(context, token),
             context,
             "deactivate",
-            cancellationToken).ConfigureAwait(false);
+            cleanup.Token).ConfigureAwait(false);
         _ = await InvokePageLifecycleAsync(
-            () => page.UnloadAsync(context, cancellationToken),
+            token => page.UnloadAsync(context, token),
             context,
             "unload",
-            cancellationToken).ConfigureAwait(false);
+            cleanup.Token).ConfigureAwait(false);
     }
 
     private async ValueTask<Result> InvokePageLifecycleAsync(
-        Func<ValueTask<Result>> pluginCall,
+        Func<CancellationToken, ValueTask<Result>> pluginCall,
         PluginPageContext context,
         string operation,
         CancellationToken cancellationToken)
     {
-        var bounded = await PluginExceptionBoundary.InvokeAsync(
-            async () => await pluginCall().ConfigureAwait(false),
-            cancellationToken).ConfigureAwait(false);
-        var result = bounded.IsSuccess
-            ? bounded.Value
-            : Result.Failure(bounded.ErrorCode ?? ErrorCode.PluginInternalError);
+        var timeout = operation.Equals("unload", StringComparison.Ordinal)
+            ? lifecycleOptions.UnloadTimeout
+            : operation.Equals("deactivate", StringComparison.Ordinal)
+                ? lifecycleOptions.DeactivationTimeout
+                : lifecycleOptions.ActivationTimeout;
+        var result = await PluginExceptionBoundary.InvokeLifecycleAsync(
+            pluginCall,
+            cancellationToken,
+            timeout).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
             RecordPageFault(
@@ -275,16 +297,14 @@ public sealed class PluginPageRouteCoordinator(
     }
 
     private async ValueTask<Result<IPluginPageModel>> InvokePageLoadAsync(
-        Func<ValueTask<Result<IPluginPageModel>>> pluginCall,
+        Func<CancellationToken, ValueTask<Result<IPluginPageModel>>> pluginCall,
         PluginPageContext context,
         CancellationToken cancellationToken)
     {
-        var bounded = await PluginExceptionBoundary.InvokeAsync(
-            async () => await pluginCall().ConfigureAwait(false),
-            cancellationToken).ConfigureAwait(false);
-        var result = bounded.IsSuccess
-            ? bounded.Value
-            : Result.Failure<IPluginPageModel>(bounded.ErrorCode ?? ErrorCode.PluginInternalError);
+        var result = await PluginExceptionBoundary.InvokeLifecycleAsync(
+            pluginCall,
+            cancellationToken,
+            lifecycleOptions.InitializationTimeout).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
             RecordPageFault(
@@ -319,6 +339,13 @@ public sealed class PluginPageRouteCoordinator(
             RouteRegistry.HomeRouteKey or
             RouteRegistry.PluginsRouteKey or
             RouteRegistry.SettingsRouteKey;
+    }
+
+    private static PluginLifecycleExecutionOptions ValidateOptions(
+        PluginLifecycleExecutionOptions options)
+    {
+        options.Validate();
+        return options;
     }
 
     private sealed record ActivePluginPage(

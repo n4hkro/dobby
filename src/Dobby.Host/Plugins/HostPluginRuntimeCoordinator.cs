@@ -205,7 +205,7 @@ public sealed class HostPluginRuntimeCoordinator(
     {
         var bounded = await PluginExceptionBoundary.InvokeAsync(
             async () => await ActivateInstalledPluginsAsync(hostVersion, ActivationCancellation.Token).ConfigureAwait(false),
-            CancellationToken.None).ConfigureAwait(false);
+            ActivationCancellation.Token).ConfigureAwait(false);
         var result = bounded.IsSuccess
             ? bounded.Value
             : Result.Failure<PluginActivationExecutionOutcome>(bounded.ErrorCode ?? ErrorCode.PluginInternalError);

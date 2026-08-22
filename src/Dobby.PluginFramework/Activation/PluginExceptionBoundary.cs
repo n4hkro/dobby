@@ -22,7 +22,10 @@ public static class PluginExceptionBoundary
         try
         {
             linkedSource.Token.ThrowIfCancellationRequested();
-            return await pluginCall(linkedSource.Token).ConfigureAwait(false);
+            return await pluginCall(linkedSource.Token)
+                .AsTask()
+                .WaitAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -30,6 +33,10 @@ public static class PluginExceptionBoundary
                 cancellationToken.IsCancellationRequested
                     ? ErrorCode.Cancelled
                     : ErrorCode.Timeout);
+        }
+        catch (TimeoutException)
+        {
+            return Result.Failure(ErrorCode.Timeout);
         }
         catch (ArgumentException)
         {
@@ -42,6 +49,54 @@ public static class PluginExceptionBoundary
         catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
             return Result.Failure(ErrorCode.PluginInternalError);
+        }
+    }
+
+    public static async ValueTask<Result<T>> InvokeLifecycleAsync<T>(
+        Func<CancellationToken, ValueTask<Result<T>>> pluginCall,
+        CancellationToken cancellationToken,
+        TimeSpan timeout)
+    {
+        ArgumentNullException.ThrowIfNull(pluginCall);
+        if (timeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeout));
+        }
+
+        using var timeoutSource = new CancellationTokenSource(timeout);
+        using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutSource.Token);
+        try
+        {
+            linkedSource.Token.ThrowIfCancellationRequested();
+            return await pluginCall(linkedSource.Token)
+                .AsTask()
+                .WaitAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return Result.Failure<T>(
+                cancellationToken.IsCancellationRequested
+                    ? ErrorCode.Cancelled
+                    : ErrorCode.Timeout);
+        }
+        catch (TimeoutException)
+        {
+            return Result.Failure<T>(ErrorCode.Timeout);
+        }
+        catch (ArgumentException)
+        {
+            return Result.Failure<T>(ErrorCode.InvalidInput);
+        }
+        catch (NotSupportedException)
+        {
+            return Result.Failure<T>(ErrorCode.UnsupportedOperation);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure<T>(ErrorCode.PluginInternalError);
         }
     }
 

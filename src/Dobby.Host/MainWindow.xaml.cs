@@ -38,8 +38,7 @@ public partial class MainWindow : Window
 
     private readonly IShellWindowCloseConfirmation shellWindowCloseConfirmation;
     private readonly SemaphoreSlim preferencePersistGate = new(1, 1);
-    private PluginPageRenderRegistry pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault(
-        _ => Result.Failure(ErrorCode.LicenseDenied));
+    private PluginPageRenderRegistry pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault();
     private readonly ShellActionOverrides actionOverrides;
 
     private HostLoginRuntime? loginRuntime;
@@ -145,13 +144,21 @@ public partial class MainWindow : Window
         ArgumentNullException.ThrowIfNull(runtimeThemeCoordinator);
 
         this.loginRuntime = loginRuntime;
+        var authenticatedLifetime = loginRuntime.AuthenticatedLifetime?.Token ??
+            throw new InvalidOperationException("Authenticated host lifetime is unavailable.");
+        var commandDispatcher = new HostPluginCommandDispatcher(
+            loginRuntime.PluginRuntimeCoordinator.ExtensionPointRegistry,
+            loginRuntime.OperationAuthorizationPolicy,
+            loginRuntime.RuntimeModeMutationGate,
+            loginRuntime.BackgroundOperations,
+            authenticatedLifetime,
+            loginRuntime.PluginRuntimeCoordinator.DiagnosticsCoordinator);
+        pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault(
+            commandDispatcher);
         Action<string, string, string, ErrorCode>? actionFaultSink =
             loginRuntime.PluginRuntimeCoordinator.DiagnosticsCoordinator is { } diagnostics
                 ? diagnostics.RecordPageActionFault
                 : null;
-        pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault(
-            pluginId => loginRuntime.RuntimeModeMutationGate.EnsurePluginMutationAllowed(pluginId),
-            actionFaultSink);
         sessionRuntime = loginRuntime.PostLoginSessionRuntime;
         session = authenticatedSession;
         preferenceSource = scopedPreferenceSource;

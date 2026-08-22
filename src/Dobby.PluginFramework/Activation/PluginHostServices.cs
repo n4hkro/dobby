@@ -12,6 +12,7 @@ public sealed class PluginHostServices
 {
     private readonly object pluginSubscriptionGate = new();
     private readonly Dictionary<string, PluginSubscriptionLease> pluginSubscriptionLeases = new(StringComparer.Ordinal);
+    private readonly HashSet<string> pluginWorkSessionOwners = new(StringComparer.Ordinal);
     private readonly IReadOnlyDictionary<Type, object> services;
     private readonly Func<string, ICapabilityLicensing>? licensingFactory;
     private readonly Func<string, IPluginStorage?>? pluginStorageFactory;
@@ -74,6 +75,11 @@ public sealed class PluginHostServices
 
         if (serviceType == typeof(IPluginWorkSessionService))
         {
+            lock (pluginSubscriptionGate)
+            {
+                pluginWorkSessionOwners.Add(pluginId);
+            }
+
             service = new PluginScopedWorkSessionService(pluginId, PluginWorkSessions);
             return true;
         }
@@ -117,30 +123,37 @@ public sealed class PluginHostServices
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
 
-        IReadOnlyList<IDisposable> subscriptions;
+        IReadOnlyList<IDisposable> subscriptions = [];
         lock (pluginSubscriptionGate)
         {
-            if (!pluginSubscriptionLeases.Remove(pluginId, out var lease))
+            pluginWorkSessionOwners.Remove(pluginId);
+            if (pluginSubscriptionLeases.Remove(pluginId, out var lease))
             {
-                return;
+                lease.IsClosed = true;
+                subscriptions = lease.Subscriptions.ToArray();
+                lease.Subscriptions.Clear();
             }
-
-            lease.IsClosed = true;
-            subscriptions = lease.Subscriptions.ToArray();
-            lease.Subscriptions.Clear();
         }
 
         foreach (var subscription in subscriptions)
         {
             subscription.Dispose();
         }
+
+        if (PluginWorkSessions is IPluginWorkSessionCleanup cleanup)
+        {
+            cleanup.CloseOwnedBy(pluginId);
+        }
     }
 
     internal void CleanupAllPluginSubscriptions()
     {
         IReadOnlyList<IDisposable> subscriptions;
+        string[] workSessionOwners;
         lock (pluginSubscriptionGate)
         {
+            workSessionOwners = pluginWorkSessionOwners.ToArray();
+            pluginWorkSessionOwners.Clear();
             subscriptions = pluginSubscriptionLeases.Values
                 .SelectMany(lease =>
                 {
@@ -156,6 +169,14 @@ public sealed class PluginHostServices
         foreach (var subscription in subscriptions)
         {
             subscription.Dispose();
+        }
+
+        if (PluginWorkSessions is IPluginWorkSessionCleanup cleanup)
+        {
+            foreach (var ownerId in workSessionOwners)
+            {
+                cleanup.CloseOwnedBy(ownerId);
+            }
         }
     }
 
@@ -325,7 +346,9 @@ public sealed class PluginHostServices
 
     private sealed class NoopBackgroundOperationCancellation : IBackgroundOperationCancellation
     {
-        public CancellationToken CancellationToken => System.Threading.CancellationToken.None;
+        private static readonly CancellationTokenSource HostLifetime = new();
+
+        public CancellationToken CancellationToken => HostLifetime.Token;
     }
 
     private sealed class DenyAllOperationAuthorizationPolicy : ICapabilityPolicy<OperationPermissionCapability>

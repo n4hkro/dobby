@@ -211,6 +211,7 @@ amma bu public names və semantic shape-i dəyişdirə bilməz.
 **Control flow**
 - `Cancelled` — cooperative cancellation (internal bubble; boundary-də Result)
 - `ResourceBusy` — bounded security/concurrency capacity is currently occupied; the caller may retry without treating the condition as an authentication failure
+- `Timeout` — a host-bounded operation exceeded its declared deadline; distinct from caller cancellation and plugin exception
 
 **Plugin boundary**
 - `PluginInternalError` — plugin unhandled exception (fallback)

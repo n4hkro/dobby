@@ -4,7 +4,9 @@ using Dobby.Shell.WorkSessions;
 
 namespace Dobby.Host.Plugins;
 
-public sealed class ShellPluginWorkSessionService(WorkSessionRegistry registry) : IPluginWorkSessionService
+public sealed class ShellPluginWorkSessionService(WorkSessionRegistry registry) :
+    IPluginWorkSessionService,
+    IPluginWorkSessionCleanup
 {
     public Result<PluginWorkSessionHandle> Open(string ownerId, string routeKey, string labelKey)
     {
@@ -65,6 +67,20 @@ public sealed class ShellPluginWorkSessionService(WorkSessionRegistry registry) 
     public Result Close(Guid sessionId)
     {
         registry.Close(sessionId);
+        return Result.Success();
+    }
+
+    public Result CloseOwnedBy(string ownerId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        foreach (var sessionId in registry.Snapshot()
+                     .Where(session => session.OwnerId.Equals(ownerId, StringComparison.Ordinal))
+                     .Select(session => session.SessionId)
+                     .ToArray())
+        {
+            registry.Close(sessionId);
+        }
+
         return Result.Success();
     }
 }

@@ -121,6 +121,8 @@ public sealed record PluginActivationContext(
 
     private sealed class NoopBackgroundOperationCancellation : IBackgroundOperationCancellation
     {
-        public CancellationToken CancellationToken => System.Threading.CancellationToken.None;
+        private static readonly CancellationTokenSource HostLifetime = new();
+
+        public CancellationToken CancellationToken => HostLifetime.Token;
     }
 }

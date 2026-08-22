@@ -9,6 +9,7 @@ using Dobby.Core.Versioning;
 using Dobby.Messaging;
 using Dobby.PluginFramework.Activation;
 using Dobby.UnitTests.PluginFramework.Packaging;
+using NSubstitute;
 using Shouldly;
 
 namespace Dobby.UnitTests.PluginFramework.Activation;
@@ -75,6 +76,27 @@ public sealed class PluginActivationCoreTests
             .Select(outcome => outcome.PluginId)
             .Order(StringComparer.Ordinal)
             .ShouldBe(["a", "b"]);
+    }
+
+    [Fact]
+    public void Plugin_runtime_cleanup_closes_work_sessions_owned_by_the_plugin()
+    {
+        var workSessions = Substitute.For<IPluginWorkSessionService, IPluginWorkSessionCleanup>();
+        var cleanup = (IPluginWorkSessionCleanup)workSessions;
+        cleanup.CloseOwnedBy("com.dobby.sample").Returns(Result.Success());
+        var services = new PluginHostServices(
+            new InMemoryEventBus(),
+            new RecordingBackgroundOperationReporter(),
+            new RecordingBackgroundOperationCancellation(),
+            pluginWorkSessions: workSessions);
+        services.TryResolve(
+            "com.dobby.sample",
+            typeof(IPluginWorkSessionService),
+            out _).ShouldBeTrue();
+
+        services.CleanupPluginSubscriptions("com.dobby.sample");
+
+        cleanup.Received(1).CloseOwnedBy("com.dobby.sample");
     }
 
     [Fact]

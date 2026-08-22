@@ -4,6 +4,7 @@ using Dobby.Contracts.Policies;
 using Dobby.Core;
 using Dobby.Host.Plugins;
 using Dobby.Infrastructure.Persistence;
+using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authorization;
 using Microsoft.Extensions.Time.Testing;
@@ -111,6 +112,37 @@ public sealed class HostPluginLifecycleCoordinatorTests
         var auditEvent = audit.Snapshot().Single();
         auditEvent.EventName.ShouldBe(AuditEventName.PluginDisable);
         auditEvent.Target.ShouldBe($"plugin:{state.PluginId}");
+    }
+
+    [Fact]
+    public void Disable_active_plugin_cancels_inflight_activation_and_runs_bounded_runtime_cleanup()
+    {
+        var stateStore = Substitute.For<IInstalledPluginStateStore>();
+        var metadataCache = Substitute.For<IInstalledPluginMetadataCache>();
+        var activationTracker = Substitute.For<IPluginCurrentProcessActivationTracker>();
+        var lifecycleControl = Substitute.For<IPluginRuntimeLifecycleControl>();
+        using var cancellation = new HostPluginActivationCancellation();
+        var state = CreateState(isEnabled: true);
+        stateStore.Get(state.PluginId).Returns(Result.Success<InstalledPluginState?>(state));
+        stateStore.SetEnabled(state.PluginId, false, "Disabled").Returns(Result.Success());
+        metadataCache.Upsert(Arg.Any<InstalledPluginMetadata>()).Returns(Result.Success());
+        activationTracker.IsActivatedInCurrentProcess(state.PluginId).Returns(true);
+        lifecycleControl.DeactivateAndUnloadAsync(state.PluginId, Arg.Any<CancellationToken>())
+            .Returns(ValueTask.FromResult(Result.Success()));
+        var coordinator = CreateCoordinator(
+            stateStore,
+            metadataCache,
+            activationTracker: activationTracker,
+            lifecycleControl: lifecycleControl,
+            activationCancellation: cancellation);
+
+        var result = coordinator.DisablePlugin("owner", state.PluginId, CorrelationId.New());
+
+        result.IsSuccess.ShouldBeTrue();
+        cancellation.Token.IsCancellationRequested.ShouldBeTrue();
+        lifecycleControl.Received(1).DeactivateAndUnloadAsync(
+            state.PluginId,
+            Arg.Is<CancellationToken>(token => token.CanBeCanceled));
     }
 
     [Fact]
@@ -408,7 +440,9 @@ public sealed class HostPluginLifecycleCoordinatorTests
         IPluginCurrentProcessActivationTracker? activationTracker = null,
         OperationAuthorizationPolicy? policy = null,
         InMemoryAuditTrail? auditTrail = null,
-        HostRuntimeModeMutationGate? mutationGate = null)
+        HostRuntimeModeMutationGate? mutationGate = null,
+        IPluginRuntimeLifecycleControl? lifecycleControl = null,
+        HostPluginActivationCancellation? activationCancellation = null)
     {
         activationTracker ??= Substitute.For<IPluginCurrentProcessActivationTracker>();
         return new HostPluginLifecycleCoordinator(
@@ -422,7 +456,9 @@ public sealed class HostPluginLifecycleCoordinatorTests
                 auditTrail ?? new InMemoryAuditTrail(),
                 new FakeTimeProvider(DateTimeOffset.Parse("2026-06-20T00:00:00Z"))),
             mutationGate ?? new HostRuntimeModeMutationGate(_ =>
-                Result.Success(PluginRuntimeMode.FullAccess)));
+                Result.Success(PluginRuntimeMode.FullAccess)),
+            lifecycleControl,
+            activationCancellation);
     }
 
     private static OperationAuthorizationPolicy CreatePolicy(UserPermissionState state)

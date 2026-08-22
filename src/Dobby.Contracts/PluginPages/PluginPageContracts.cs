@@ -20,23 +20,11 @@ public interface IPluginPageModel
 
 public sealed record PluginTextPageModel(string MessageKey) : IPluginPageModel;
 
-public sealed record PluginPageActionContext(
+public sealed record PluginPageCommandContext(
     string PluginId,
     string RouteKey,
     string? UserId,
     string CorrelationId);
-
-public sealed record PluginPageActionResult(string MessageKey);
-
-public sealed record PluginPageAction(
-    string ActionId,
-    string LabelKey,
-    Func<PluginPageActionContext, CancellationToken, ValueTask<Result<PluginPageActionResult>>> ExecuteAsync);
-
-public sealed record PluginActionPageModel(
-    string MessageKey,
-    PluginPageActionContext Context,
-    IReadOnlyList<PluginPageAction> Actions) : IPluginPageModel;
 
 public sealed record PluginWorkSessionHandle(
     Guid SessionId,
@@ -55,6 +43,11 @@ public interface IPluginWorkSessionService
     Result RecordError(Guid sessionId, string errorSummaryKey);
 
     Result Close(Guid sessionId);
+}
+
+public interface IPluginWorkSessionCleanup
+{
+    Result CloseOwnedBy(string ownerId);
 }
 
 public interface IPluginPage

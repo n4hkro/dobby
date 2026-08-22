@@ -89,14 +89,32 @@ public sealed class ArchitectureDependencyBoundaryTests
             "NotFound",
             "PluginInternalError",
             "ResourceBusy",
-            "Timeout",
             "SerializationFailed",
+            "Timeout",
             "Unauthorized",
             "UnsupportedOperation",
             "ValidationFailed"
         ];
 
         declared.ShouldBe(baseline, "docs/04_RESULT_VS_EXCEPTION_POLICY.md defines the Dobby.Core/ErrorCodes baseline registry.");
+    }
+
+    [Fact]
+    public void Plugin_lifecycle_production_paths_do_not_use_uncancellable_none_token()
+    {
+        var root = RepoRoot().FullName;
+        string[] lifecycleFiles =
+        [
+            Path.Combine(root, "src", "Dobby.Contracts", "PluginFramework", "PluginContracts.cs"),
+            Path.Combine(root, "src", "Dobby.PluginFramework", "Activation", "PluginHostServices.cs"),
+            Path.Combine(root, "src", "Dobby.PluginFramework", "Activation", "PluginServiceRegistrationBridge.cs"),
+            Path.Combine(root, "src", "Dobby.PluginFramework", "Activation", "PostLoginPluginActivator.cs"),
+            Path.Combine(root, "src", "Dobby.Host", "Plugins", "HostPluginRuntimeCoordinator.cs")
+        ];
+
+        lifecycleFiles
+            .Where(path => File.ReadAllText(path).Contains("CancellationToken.None", StringComparison.Ordinal))
+            .ShouldBeEmpty();
     }
 
     [Fact]

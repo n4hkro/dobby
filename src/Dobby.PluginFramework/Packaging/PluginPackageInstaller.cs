@@ -29,7 +29,8 @@ public sealed class PluginPackageInstaller(
 {
     public Result<InstalledPluginState> Install(
         PluginPackageDescriptor package,
-        PluginInstallCommitContext? commitContext = null)
+        PluginInstallCommitContext? commitContext = null,
+        bool restartRequired = false)
     {
         ArgumentNullException.ThrowIfNull(package);
 
@@ -56,9 +57,10 @@ public sealed class PluginPackageInstaller(
             IsEnabled: true,
             ValidationSummary: "verified",
             RuntimePath: promoted.Value,
-            StatusSummary: "Enabled",
+            StatusSummary: restartRequired ? "Restart required" : "Enabled",
             InstalledAtUtc: now,
-            UpdatedAtUtc: now);
+            UpdatedAtUtc: now,
+            RestartRequired: restartRequired);
 
         var metadata = new InstalledPluginMetadata(
             package.Manifest.PluginId,
@@ -67,9 +69,10 @@ public sealed class PluginPackageInstaller(
             package.Manifest.Description,
             package.Fingerprint,
             IsEnabled: true,
-            StatusSummary: "Enabled",
+            StatusSummary: restartRequired ? "Restart required" : "Enabled",
             InstalledAtUtc: now,
-            UpdatedAtUtc: now);
+            UpdatedAtUtc: now,
+            RestartRequired: restartRequired);
 
         var committed = stateCommitter is null
             ? CommitLegacy(installed, metadata, promoted.Value, stage.Value)

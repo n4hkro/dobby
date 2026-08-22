@@ -494,7 +494,9 @@ public static class HostLoginRuntimeFactory
                 options.Plugins.MaximumEntryUncompressedMegabytes * 1024L * 1024,
                 options.Plugins.MaximumAggregateUncompressedMegabytes * 1024L * 1024,
                 options.Plugins.MaximumExpansionRatio),
-            pluginInstallStateCommitter);
+            pluginInstallStateCommitter,
+            pluginCurrentProcessActivationTracker);
+
         var postLoginPluginActivator = new PostLoginPluginActivator(
             new PluginServiceRegistrationBridge(
                 pluginExtensionPointRegistry,

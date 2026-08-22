@@ -20,7 +20,8 @@ public sealed class HostPluginPackageInstallCoordinator(
     HostRuntimeModeMutationGate mutationGate,
     PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
     PluginPackageLimits? packageLimits = null,
-    IPluginInstallStateCommitter? installStateCommitter = null)
+    IPluginInstallStateCommitter? installStateCommitter = null,
+    IPluginCurrentProcessActivationTracker? activationTracker = null)
 {
     private const int MaximumConcurrentPluginInstalls = 4;
     private readonly PluginInstallConcurrencyGate installConcurrency = new(MaximumConcurrentPluginInstalls);
@@ -29,6 +30,7 @@ public sealed class HostPluginPackageInstallCoordinator(
     private readonly PluginRuntimeDiagnosticsCoordinator? diagnostics = diagnosticsCoordinator;
     private readonly PluginPackageLimits limits = packageLimits ?? PluginPackageLimits.Default;
     private readonly IPluginInstallStateCommitter? stateCommitter = installStateCommitter;
+    private readonly IPluginCurrentProcessActivationTracker? currentProcessActivationTracker = activationTracker;
     private readonly HostRuntimeModeMutationGate runtimeModeMutationGate = mutationGate ??
         throw new ArgumentNullException(nameof(mutationGate));
 
@@ -162,7 +164,9 @@ public sealed class HostPluginPackageInstallCoordinator(
                 descriptor,
                 stateCommitter is null
                     ? null
-                    : new PluginInstallCommitContext(actorId, correlationId));
+                    : new PluginInstallCommitContext(actorId, correlationId),
+                restartRequired: existing.Value is not null &&
+                    currentProcessActivationTracker?.IsActivatedInCurrentProcess(descriptor.Manifest.PluginId) == true);
         if (!install.IsSuccess)
         {
             var reasons = new[]

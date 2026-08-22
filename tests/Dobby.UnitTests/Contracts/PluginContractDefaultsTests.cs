@@ -39,26 +39,43 @@ public sealed class PluginContractDefaultsTests
     }
 
     [Fact]
-    public async Task Plugin_action_page_model_carries_host_rendered_actions_and_execution_context()
+    public void Plugin_component_page_model_carries_opaque_commands_without_delegates()
     {
-        var actionContext = new PluginPageActionContext(
+        var commandContext = new PluginPageCommandContext(
             "sample.plugin",
             "sample.route",
             "managed",
             "correlation-id");
-        var action = new PluginPageAction(
-            "sample.greet",
-            "sample.greet.label",
-            (_, _) => ValueTask.FromResult(Result.Success(new PluginPageActionResult("sample.greet.ok"))));
-        var model = new PluginActionPageModel("sample.home.ready", actionContext, [action]);
+        var catalog = new PluginLocalizationCatalog(
+            "en-US",
+            [new PluginLocalizationBundle("en-US", new Dictionary<string, string>
+            {
+                ["title"] = "Title",
+                ["failure"] = "Failed",
+                ["cancelled"] = "Cancelled",
+                ["body"] = "Body",
+                ["command"] = "Run"
+            })]);
+        var model = new PluginComponentPageModel(
+            commandContext,
+            new PluginLocalizedText("title"),
+            new PluginLocalizedText("failure"),
+            new PluginLocalizedText("cancelled"),
+            catalog,
+            [new PluginTextComponent("body", new PluginLocalizedText("body"))],
+            [new PluginCommandDescriptor(
+                "sample.greet",
+                new PluginLocalizedText("command"),
+                "sample.plugin.greet.execute",
+                CanCancel: false)]);
 
-        var result = await model.Actions.Single().ExecuteAsync(model.Context, CancellationToken.None);
-
-        model.MessageKey.ShouldBe("sample.home.ready");
         model.Context.UserId.ShouldBe("managed");
-        model.Actions.Single().ActionId.ShouldBe("sample.greet");
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.MessageKey.ShouldBe("sample.greet.ok");
+        model.Commands.Single().CommandId.ShouldBe("sample.greet");
+        model.Commands.Single().OperationKey.ShouldBe("sample.plugin.greet.execute");
+        typeof(PluginCommandDescriptor).GetProperties()
+            .Any(property => typeof(Delegate).IsAssignableFrom(property.PropertyType))
+            .ShouldBeFalse();
+        PluginComponentModelValidator.Validate(model).IsSuccess.ShouldBeTrue();
     }
 
     [Fact]
