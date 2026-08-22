@@ -1,9 +1,11 @@
 # Release candidate evidence runner
 
 The runner requires a new/empty evidence directory and a clean tracked source
-tree. It records command, duration, exit code and raw log for format, Release
-build, unit/integration/smoke, flake-sensitive/security suites, SBOM/vulnerability
-evidence and the exact versioned portable artifact.
+tree. It records command, duration, exit code, raw log size and SHA-256 for
+format, Release build, unit/integration/smoke, flake-sensitive/security suites,
+SBOM/vulnerability evidence and the exact versioned portable artifact. Silent
+commands still receive an empty, hashed log. Supplied external evidence is
+copied into the evidence directory before its size and SHA-256 are recorded.
 
 ```powershell
 .\tools\verify-release-candidate\verify-release-candidate.ps1 `

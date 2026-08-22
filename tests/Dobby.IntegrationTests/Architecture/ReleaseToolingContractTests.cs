@@ -39,6 +39,20 @@ public sealed class ReleaseToolingContractTests
         runner.ShouldContain("license-review");
         runner.ShouldContain("releaseReady = $blockers.Count -eq 0");
         runner.ShouldContain("verify-portable-launch.ps1");
+        runner.ShouldContain("logSha256");
+        runner.ShouldContain("logLength");
+        runner.ShouldContain("evidenceFile");
+        runner.ShouldContain("Copy-Item -LiteralPath $resolved -Destination $capturedPath");
+    }
+
+    [Fact]
+    public void Release_runner_creates_each_gate_log_even_when_the_command_is_silent()
+    {
+        var runner = Read(RepoRoot(), "tools", "verify-release-candidate", "verify-release-candidate.ps1");
+
+        runner.ShouldContain("[System.IO.File]::WriteAllText($logPath, [string]::Empty)");
+        runner.IndexOf("[System.IO.File]::WriteAllText($logPath, [string]::Empty)", StringComparison.Ordinal)
+            .ShouldBeLessThan(runner.IndexOf("& $Action *>&1 | Tee-Object -FilePath $logPath", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -49,6 +49,7 @@ function Invoke-Gate {
     )
 
     $logPath = Join-Path $evidenceFull "$Name.log"
+    [System.IO.File]::WriteAllText($logPath, [string]::Empty)
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $exitCode = 0
     try {
@@ -68,12 +69,15 @@ function Invoke-Gate {
     }
     finally {
         $stopwatch.Stop()
+        $logFile = Get-Item -LiteralPath $logPath
         $results.Add([ordered]@{
             name = $Name
             command = $Command
             exitCode = $exitCode
             durationMilliseconds = $stopwatch.ElapsedMilliseconds
             log = [System.IO.Path]::GetRelativePath($evidenceFull, $logPath).Replace('\', '/')
+            logLength = $logFile.Length
+            logSha256 = (Get-FileHash -LiteralPath $logPath -Algorithm SHA256).Hash.ToLowerInvariant()
         })
     }
 }
@@ -91,13 +95,19 @@ function Add-ExternalEvidence {
     }
 
     $resolved = (Resolve-Path -LiteralPath $Path).Path
+    $capturedDirectory = Join-Path $evidenceFull 'external'
+    New-Item -ItemType Directory -Path $capturedDirectory -Force | Out-Null
+    $capturedPath = Join-Path $capturedDirectory "$Gate-$([System.IO.Path]::GetFileName($resolved))"
+    Copy-Item -LiteralPath $resolved -Destination $capturedPath
+    $capturedFile = Get-Item -LiteralPath $capturedPath
     $results.Add([ordered]@{
         name = $Gate
         command = 'external-evidence-validation'
         exitCode = 0
         durationMilliseconds = 0
-        evidenceFileName = [System.IO.Path]::GetFileName($resolved)
-        evidenceSha256 = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvariant()
+        evidenceFile = [System.IO.Path]::GetRelativePath($evidenceFull, $capturedPath).Replace('\', '/')
+        evidenceLength = $capturedFile.Length
+        evidenceSha256 = (Get-FileHash -LiteralPath $capturedPath -Algorithm SHA256).Hash.ToLowerInvariant()
     })
 }
 
