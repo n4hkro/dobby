@@ -6,6 +6,7 @@ public sealed record AboutInfo(
     string BuildDate,
     string HostEdition,
     string HostChannel,
+    string ArtifactModeText,
     string DeviceCode,
     IReadOnlyList<PluginAboutInfo> Plugins,
     string SupportContact,

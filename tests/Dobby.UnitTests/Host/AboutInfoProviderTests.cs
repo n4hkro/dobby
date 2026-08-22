@@ -1,4 +1,5 @@
 using Dobby.Core.Versioning;
+using Dobby.Configuration;
 using Dobby.Host.Settings;
 using Dobby.Localization;
 using Shouldly;
@@ -13,8 +14,7 @@ public sealed class AboutInfoProviderTests
         var provider = new AboutInfoProvider(
             new FixedHostVersionProvider(new HostVersion(0, 1, 0)),
             new FixedSupportDeviceCodeProvider("device-redacted-1234"),
-            "support@example.invalid",
-            "Copyright Dobby");
+            TestProductOptions());
 
         var info = provider.GetInfo(isOwner: true, ownerIdentity: "owner");
 
@@ -29,8 +29,7 @@ public sealed class AboutInfoProviderTests
         var provider = new AboutInfoProvider(
             new FixedHostVersionProvider(new HostVersion(0, 1, 0)),
             new FixedSupportDeviceCodeProvider("device-redacted-1234"),
-            "support@example.invalid",
-            "Copyright Dobby");
+            TestProductOptions());
 
         var info = provider.GetInfo(isOwner: false, ownerIdentity: "owner");
 
@@ -44,8 +43,7 @@ public sealed class AboutInfoProviderTests
         var provider = new AboutInfoProvider(
             new FixedHostVersionProvider(new HostVersion(0, 1, 0)),
             new FixedSupportDeviceCodeProvider("device-redacted-1234"),
-            "support@example.invalid",
-            "Copyright Dobby");
+            TestProductOptions());
 
         var info = provider.GetInfo(isOwner: true, ownerIdentity: "owner");
         var flattened = string.Join("|", [
@@ -59,5 +57,14 @@ public sealed class AboutInfoProviderTests
         flattened.ShouldNotContain("session");
         flattened.ShouldNotContain("license-payload");
         flattened.ShouldNotContain("private-key");
+    }
+
+    private static ProductOptions TestProductOptions()
+    {
+        return new ProductOptions
+        {
+            SupportContact = "https://support.test.local/dobby",
+            LegalLine = "TEST-ONLY Dobby"
+        };
     }
 }

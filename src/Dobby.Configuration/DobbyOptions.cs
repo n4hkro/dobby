@@ -20,5 +20,7 @@ public sealed class DobbyOptions
 
     public LicensingOptions Licensing { get; init; } = new();
 
+    public ProductOptions Product { get; init; } = new();
+
     public BranchSharedOptions BranchShared { get; init; } = new();
 }

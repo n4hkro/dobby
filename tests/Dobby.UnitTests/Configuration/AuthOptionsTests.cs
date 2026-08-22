@@ -17,7 +17,8 @@ public sealed class AuthOptionsTests
     {
         var result = Validate(new DobbyOptions
         {
-            Auth = new AuthOptions { PasswordKdfMode = "Pbkdf2Sha256" }
+            Auth = new AuthOptions { PasswordKdfMode = "Pbkdf2Sha256" },
+            Product = ProductionProduct()
         });
 
         result.Succeeded.ShouldBeTrue();
@@ -95,5 +96,14 @@ public sealed class AuthOptionsTests
     private static ValidateOptionsResult Validate(DobbyOptions options)
     {
         return new DobbyOptionsValidator().Validate(Options.DefaultName, options);
+    }
+
+    private static ProductOptions ProductionProduct()
+    {
+        return new ProductOptions
+        {
+            SupportContact = "https://github.com/n4hkro/dobby/issues",
+            LegalLine = "Copyright © 2026 Dobby contributors"
+        };
     }
 }

@@ -405,8 +405,35 @@
   <data name="Dobby.Host.About.HostChannel" xml:space="preserve">
     <value>Kanal</value>
   </data>
+  <data name="Dobby.Host.About.ArtifactMode" xml:space="preserve">
+    <value>Artefakt rejimi</value>
+  </data>
+  <data name="Dobby.Host.About.ArtifactMode.Installed" xml:space="preserve">
+    <value>Quraşdırılmış tətbiq</value>
+  </data>
+  <data name="Dobby.Host.About.ArtifactMode.PortableSupport" xml:space="preserve">
+    <value>Portativ dəstək paketi</value>
+  </data>
+  <data name="Dobby.Host.Recovery.ResetValidation" xml:space="preserve">
+    <value>Şifrələr boş olmamalı və bir-birinə uyğun gəlməlidir</value>
+  </data>
   <data name="Dobby.Host.About.DeviceCode" xml:space="preserve">
     <value>Cihaz kodu</value>
+  </data>
+  <data name="Dobby.Host.About.DeviceCode.Explanation" xml:space="preserve">
+    <value>Dəstək müraciətində cihazı şəxsi və maşın identifikatorlarını açıqlamadan tanımaq üçün bu təhlükəsiz koddan istifadə edin.</value>
+  </data>
+  <data name="Dobby.Host.About.DeviceCode.Copy" xml:space="preserve">
+    <value>Cihaz kodunu kopyala</value>
+  </data>
+  <data name="Dobby.Host.About.DeviceCode.Copied" xml:space="preserve">
+    <value>Cihaz kodu kopyalandı</value>
+  </data>
+  <data name="Dobby.Host.About.DeviceCode.CopyError" xml:space="preserve">
+    <value>Cihaz kodu kopyalana bilmədi</value>
+  </data>
+  <data name="Dobby.Shell.Plugins.Page.Unavailable" xml:space="preserve">
+    <value>Plugin səhifəsi əlçatan deyil</value>
   </data>
   <data name="Dobby.Host.About.Plugins" xml:space="preserve">
     <value>Pluginlər</value>
@@ -435,4 +462,4 @@
   <data name="Dobby.Host.AuditRetentionSweep" xml:space="preserve">
     <value>Audit saxlanma təmizliyi</value>
   </data>
-<data name="Dobby.Shell.Diagnostics.Export.Denied" xml:space="preserve"><value>Diaqnostika ixracı üçün icazə yoxdur</value></data><data name="Dobby.Shell.Profile.ManualLock.Denied" xml:space="preserve"><value>Sessiyanı kilidləmək üçün icazə yoxdur</value></data><data name="Dobby.Shell.Profile.PasswordChange.Denied" xml:space="preserve"><value>Şifrə dəyişmək üçün icazə yoxdur</value></data><data name="Dobby.Host.Settings.SecuritySession.Save" xml:space="preserve"><value>Saxla</value></data><data name="Dobby.Shell.Diagnostics.Export.Success" xml:space="preserve"><value>Diaqnostika ixrac edildi</value></data><data name="Dobby.Shell.Profile.PasswordChange.Error" xml:space="preserve"><value>Şifrə dəyişdirilə bilmədi</value></data><data name="Dobby.Shell.Profile.Logout.Busy" xml:space="preserve"><value>Çıxış edilir</value></data><data name="Dobby.Shell.Profile.Logout.Error" xml:space="preserve"><value>Çıxış etmək mümkün olmadı</value></data><data name="Dobby.Shell.Profile.ManualLock.Busy" xml:space="preserve"><value>Sessiya kilidlənir</value></data><data name="Dobby.Shell.Profile.PasswordChange.Success" xml:space="preserve"><value>Şifrə dəyişdirildi</value></data><data name="Dobby.Shell.Profile.Logout.Success" xml:space="preserve"><value>Çıxış edildi</value></data><data name="Dobby.Shell.Diagnostics.Export.Busy" xml:space="preserve"><value>Diaqnostika ixrac olunur</value></data><data name="Dobby.Shell.Profile.ManualLock.Success" xml:space="preserve"><value>Sessiya kilidləndi</value></data><data name="Dobby.Shell.Profile.Logout.Denied" xml:space="preserve"><value>Çıxış üçün icazə yoxdur</value></data><data name="Dobby.Shell.Profile.ManualLock.Error" xml:space="preserve"><value>Sessiya kilidlənə bilmədi</value></data><data name="Dobby.Shell.Profile.PasswordChange.Busy" xml:space="preserve"><value>Şifrə dəyişdirilir</value></data><data name="Dobby.Shell.Diagnostics.Export.Error" xml:space="preserve"><value>Diaqnostika ixrac edilə bilmədi</value></data><data name="Dobby.Shell.WorkSession.Restore" xml:space="preserve"><value>Bərpa et</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Title" xml:space="preserve"><value>Fiziki çapı təsdiqləyin</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Message" xml:space="preserve"><value>Lisenziya yalnız oxuma rejimindədir. Bu fiziki printerdə çap davam etsin?</value></data></root>
+<data name="Dobby.Shell.Diagnostics.Export.Denied" xml:space="preserve"><value>Diaqnostika ixracı üçün icazə yoxdur</value></data><data name="Dobby.Shell.Profile.ManualLock.Denied" xml:space="preserve"><value>Sessiyanı kilidləmək üçün icazə yoxdur</value></data><data name="Dobby.Shell.Profile.PasswordChange.Denied" xml:space="preserve"><value>Şifrə dəyişmək üçün icazə yoxdur</value></data><data name="Dobby.Host.Settings.SecuritySession.Save" xml:space="preserve"><value>Saxla</value></data><data name="Dobby.Shell.Diagnostics.Export.Success" xml:space="preserve"><value>Diaqnostika ixrac edildi</value></data><data name="Dobby.Shell.Profile.PasswordChange.Error" xml:space="preserve"><value>Şifrə dəyişdirilə bilmədi</value></data><data name="Dobby.Shell.Profile.Logout.Busy" xml:space="preserve"><value>Çıxış edilir</value></data><data name="Dobby.Shell.Profile.Logout.Error" xml:space="preserve"><value>Çıxış etmək mümkün olmadı</value></data><data name="Dobby.Shell.Profile.ManualLock.Busy" xml:space="preserve"><value>Sessiya kilidlənir</value></data><data name="Dobby.Shell.Profile.PasswordChange.Success" xml:space="preserve"><value>Şifrə dəyişdirildi</value></data><data name="Dobby.Shell.Profile.Logout.Success" xml:space="preserve"><value>Çıxış edildi</value></data><data name="Dobby.Shell.Diagnostics.Export.Busy" xml:space="preserve"><value>Diaqnostika ixrac olunur</value></data><data name="Dobby.Shell.Profile.ManualLock.Success" xml:space="preserve"><value>Sessiya kilidləndi</value></data><data name="Dobby.Shell.Profile.Logout.Denied" xml:space="preserve"><value>Çıxış üçün icazə yoxdur</value></data><data name="Dobby.Shell.Profile.ManualLock.Error" xml:space="preserve"><value>Sessiya kilidlənə bilmədi</value></data><data name="Dobby.Shell.Profile.PasswordChange.Busy" xml:space="preserve"><value>Şifrə dəyişdirilir</value></data><data name="Dobby.Shell.Diagnostics.Export.Error" xml:space="preserve"><value>Diaqnostika ixrac edilə bilmədi</value></data><data name="Dobby.Shell.WorkSession.Restore" xml:space="preserve"><value>Bərpa et</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Title" xml:space="preserve"><value>Fiziki çapı təsdiqləyin</value></data><data name="Dobby.Shell.Print.ReadOnlyConfirmation.Message" xml:space="preserve"><value>Lisenziya yalnız oxuma rejimindədir. Bu fiziki printerdə çap davam etsin?</value></data><data name="Dobby.Shell.Operation.Cancel" xml:space="preserve"><value>Əməliyyatı ləğv et</value></data></root>

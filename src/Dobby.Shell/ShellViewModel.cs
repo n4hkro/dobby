@@ -5,6 +5,7 @@ using Dobby.Contracts.PluginPages;
 using Dobby.Localization;
 using Dobby.Navigation;
 using Dobby.Shell.Layout;
+using Dobby.Shell.State;
 using Dobby.Shell.WorkspaceTabs;
 using Dobby.Shell.WorkSessions;
 using System.Windows;
@@ -21,21 +22,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private readonly HostStringCatalog strings;
     private NavigationComposition navigation;
     private IPluginPageModel? activePluginPageModel;
-    private bool canViewLicenseStatus;
-    private bool canImportLicense;
-    private bool licenseImportBusy;
-    private PluginRuntimeMode licenseRuntimeMode = PluginRuntimeMode.Denied;
-    private string? licenseFeedbackKey;
-    private string? licensePluginId;
-    private string? licensePluginName;
-    private bool canViewPluginsManager;
-    private bool canImportPluginsManager;
-    private bool canConfigurePluginsManager;
-    private bool canDeletePluginsManager;
-    private bool pluginsManagerBusy;
-    private IReadOnlyList<ShellPluginManagerItem> pluginsManagerItems = [];
-    private string? selectedPluginManagerPluginId;
-    private string? pluginsManagerFeedbackKey;
+    private readonly ShellLicenseState licenseState;
+    private readonly ShellPluginManagerState pluginManagerState;
     private IReadOnlyList<ShellMinimizedWorkSessionItem> minimizedWorkSessions = [];
     private readonly List<ShellWorkspaceTab> workspaceTabs = [];
     private string statusTextKey = HostResourceKeys.ShellStatusReady;
@@ -57,6 +45,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         ArgumentNullException.ThrowIfNull(contributions);
 
         this.strings = strings;
+        licenseState = new ShellLicenseState();
+        pluginManagerState = new ShellPluginManagerState(strings);
         this.contributions = contributions.ToArray();
         usesStaticNavigation = false;
         navigation = NavigationComposer.Compose(this.contributions);
@@ -71,6 +61,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         ArgumentNullException.ThrowIfNull(navigation);
 
         this.strings = strings;
+        licenseState = new ShellLicenseState();
+        pluginManagerState = new ShellPluginManagerState(strings);
         contributions = [];
         usesStaticNavigation = true;
         this.navigation = navigation;
@@ -186,6 +178,17 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string SettingsAboutLabel => strings.GetString(HostResourceKeys.SettingsAbout);
 
+    public string AboutDeviceCodeExplanation => strings.GetString(HostResourceKeys.AboutDeviceCodeExplanation);
+
+    public string AboutDeviceCodeCopyLabel => strings.GetString(HostResourceKeys.AboutDeviceCodeCopy);
+
+    public string AboutDeviceCode => AboutFields
+        .FirstOrDefault(aboutField => aboutField.Key.Equals("device-code", StringComparison.Ordinal))?.Value ?? string.Empty;
+
+    public Visibility AboutDeviceCodeActionsVisibility => string.IsNullOrWhiteSpace(AboutDeviceCode)
+        ? Visibility.Collapsed
+        : Visibility.Visible;
+
     public IReadOnlyList<ShellThemeOptionItem> AppearanceThemeOptions =>
     [
         new("Light", strings.GetString(HostResourceKeys.SettingsAppearanceThemeLight)),
@@ -250,64 +253,71 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string PluginsManagerUninstallLabel => strings.GetString(HostResourceKeys.PluginsManagerUninstall);
 
+    public string CancelOperationLabel => strings.GetString(HostResourceKeys.ShellCancelOperation);
+
     public string PluginsManagerEmptyText => strings.GetString(HostResourceKeys.PluginsManagerEmpty);
 
-    public string PluginsManagerFeedbackText => string.IsNullOrWhiteSpace(pluginsManagerFeedbackKey)
-        ? string.Empty
-        : strings.GetString(pluginsManagerFeedbackKey);
+    public string PluginPageUnavailableText => strings.GetString(HostResourceKeys.PluginPageUnavailable);
 
-    public IReadOnlyList<ShellPluginManagerItem> PluginsManagerItems => canViewPluginsManager
-        ? pluginsManagerItems
+    public string PluginsManagerFeedbackText => string.IsNullOrWhiteSpace(pluginManagerState.FeedbackKey)
+        ? string.Empty
+        : strings.GetString(pluginManagerState.FeedbackKey);
+
+    public IReadOnlyList<ShellPluginManagerItem> PluginsManagerItems => pluginManagerState.CanView
+        ? pluginManagerState.Items
         : [];
 
-    public ShellPluginManagerItem? PluginsManagerSelectedItem => pluginsManagerItems
-        .FirstOrDefault(item => item.PluginId.Equals(selectedPluginManagerPluginId, StringComparison.Ordinal));
+    public ShellPluginManagerItem? PluginsManagerSelectedItem => pluginManagerState.SelectedItem;
 
     public string PluginsManagerSelectedDetailText => PluginsManagerSelectedItem is { } selected
-        ? PluginManagerDetailText(selected)
+        ? pluginManagerState.DetailText(selected)
         : string.Empty;
 
     public IReadOnlyList<ShellPluginManagerDetailRow> PluginsManagerSelectedDetailRows => PluginsManagerSelectedItem is { } selected
-        ? PluginManagerDetailRows(selected)
+        ? pluginManagerState.DetailRows(selected)
         : [];
 
     public Visibility PluginsManagerPanelVisibility => PluginsSurfaceVisibility == Visibility.Visible &&
-        (canViewPluginsManager || canImportPluginsManager)
+        (pluginManagerState.CanView || pluginManagerState.CanImport)
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public Visibility PluginsManagerListVisibility => canViewPluginsManager && pluginsManagerItems.Count > 0
+    public Visibility PluginsManagerListVisibility => pluginManagerState.CanView && pluginManagerState.Items.Count > 0
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public Visibility PluginsManagerEmptyVisibility => canViewPluginsManager && pluginsManagerItems.Count == 0
+    public Visibility PluginsManagerEmptyVisibility => pluginManagerState.CanView && pluginManagerState.Items.Count == 0
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public Visibility PluginsManagerInstallVisibility => canImportPluginsManager
+    public Visibility PluginsManagerInstallVisibility => pluginManagerState.CanImport
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public bool PluginsManagerCanView => canViewPluginsManager;
+    public bool PluginsManagerCanView => pluginManagerState.CanView;
 
-    public bool PluginsManagerCanImport => canImportPluginsManager;
+    public bool PluginsManagerCanImport => pluginManagerState.CanImport;
 
-    public bool PluginsManagerCanConfigure => canConfigurePluginsManager;
+    public bool PluginsManagerCanConfigure => pluginManagerState.CanConfigure;
 
-    public bool PluginsManagerCanDelete => canDeletePluginsManager;
+    public bool PluginsManagerCanDelete => pluginManagerState.CanDelete;
 
-    public bool PluginsManagerInstallIsEnabled => canImportPluginsManager &&
-        !pluginsManagerBusy &&
-        (!canViewLicenseStatus || IsRuntimeActionAllowed(PluginRuntimeAction.InitialPackageInstall));
+    public bool PluginsManagerInstallIsEnabled => pluginManagerState.CanImport &&
+        !pluginManagerState.IsBusy &&
+        (!licenseState.CanViewStatus || licenseState.IsActionAllowed(PluginRuntimeAction.InitialPackageInstall));
 
-    public bool PluginsManagerEnableIsEnabled => CanUseSelectedPluginAction(canConfigurePluginsManager) &&
+    public bool PluginsManagerEnableIsEnabled => CanUseSelectedPluginAction(pluginManagerState.CanConfigure) &&
         PluginsManagerSelectedItem is { IsEnabled: false, IsPendingUninstall: false };
 
-    public bool PluginsManagerDisableIsEnabled => CanUseSelectedPluginAction(canConfigurePluginsManager) &&
+    public bool PluginsManagerDisableIsEnabled => CanUseSelectedPluginAction(pluginManagerState.CanConfigure) &&
         PluginsManagerSelectedItem is { IsEnabled: true, IsPendingUninstall: false };
 
-    public bool PluginsManagerUninstallIsEnabled => CanUseSelectedPluginAction(canDeletePluginsManager) &&
+    public bool PluginsManagerUninstallIsEnabled => CanUseSelectedPluginAction(pluginManagerState.CanDelete) &&
         PluginsManagerSelectedItem is { IsPendingUninstall: false };
+
+    public Visibility PluginsManagerCancelVisibility => pluginManagerState.IsBusy
+        ? Visibility.Visible
+        : Visibility.Collapsed;
 
     public string LicenseHeading => strings.GetString(HostResourceKeys.LicenseHeading);
 
@@ -319,44 +329,48 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string LicenseImportLabel => strings.GetString(HostResourceKeys.LicenseImportAction);
 
-    public string LicenseRuntimeModeText => canViewLicenseStatus
-        ? strings.GetString(LicenseModeKey(licenseRuntimeMode))
+    public string LicenseRuntimeModeText => licenseState.CanViewStatus
+        ? strings.GetString(LicenseModeKey(licenseState.RuntimeMode))
         : string.Empty;
 
-    public string LicenseListText => canViewLicenseStatus
-        ? LicenseListDisplayText()
+    public string LicenseListText => licenseState.CanViewStatus
+        ? licenseState.ListDisplayText(strings)
         : string.Empty;
 
-    public string LicenseDetailText => canViewLicenseStatus
+    public string LicenseDetailText => licenseState.CanViewStatus
         ? LicenseRuntimeModeText
         : string.Empty;
 
-    public string LicenseFeedbackText => string.IsNullOrWhiteSpace(licenseFeedbackKey)
+    public string LicenseFeedbackText => string.IsNullOrWhiteSpace(licenseState.FeedbackKey)
         ? string.Empty
-        : strings.GetString(licenseFeedbackKey);
+        : strings.GetString(licenseState.FeedbackKey);
 
     public Visibility LicensePanelVisibility => PluginsSurfaceVisibility == Visibility.Visible &&
-        (canViewLicenseStatus || canImportLicense)
+        (licenseState.CanViewStatus || licenseState.CanImport)
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public Visibility LicenseStatusVisibility => canViewLicenseStatus
+    public Visibility LicenseStatusVisibility => licenseState.CanViewStatus
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public Visibility LicenseListVisibility => canViewLicenseStatus
+    public Visibility LicenseListVisibility => licenseState.CanViewStatus
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public Visibility LicenseDetailVisibility => canViewLicenseStatus
+    public Visibility LicenseDetailVisibility => licenseState.CanViewStatus
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public Visibility LicenseImportVisibility => canImportLicense
+    public Visibility LicenseImportVisibility => licenseState.CanImport
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public bool LicenseImportIsEnabled => canImportLicense && !licenseImportBusy;
+    public bool LicenseImportIsEnabled => licenseState.CanImport && !licenseState.ImportBusy;
+
+    public Visibility LicenseImportCancelVisibility => licenseState.ImportBusy
+        ? Visibility.Visible
+        : Visibility.Collapsed;
 
     public ShellLayoutState Layout { get; private set; }
 
@@ -398,6 +412,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public int BackgroundOperationPercent => Layout.BackgroundOperationPercent ?? 0;
 
     public bool BackgroundOperationIsIndeterminate => Layout.BackgroundOperationIsIndeterminate;
+
+    public bool BackgroundOperationCanCancel => Layout.BackgroundOperationCanCancel;
 
     public IReadOnlyList<ShellMinimizedWorkSessionItem> MinimizedWorkSessions => minimizedWorkSessions;
 
@@ -740,6 +756,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             BackgroundOperationText = Layout.BackgroundOperationText,
             BackgroundOperationPercent = Layout.BackgroundOperationPercent,
             BackgroundOperationIsIndeterminate = Layout.BackgroundOperationIsIndeterminate,
+            BackgroundOperationCanCancel = Layout.BackgroundOperationCanCancel,
             Theme = Layout.Theme
         };
         ResetWorkspaceTabsToHome();
@@ -788,6 +805,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnLayoutChanged();
         OnPropertyChanged(nameof(SettingsCategories));
         OnPropertyChanged(nameof(AboutFields));
+        OnPropertyChanged(nameof(AboutDeviceCode));
+        OnPropertyChanged(nameof(AboutDeviceCodeActionsVisibility));
         NotifySettingsSurfaceChanged();
     }
 
@@ -798,6 +817,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(BackgroundOperationText));
         OnPropertyChanged(nameof(BackgroundOperationPercent));
         OnPropertyChanged(nameof(BackgroundOperationIsIndeterminate));
+        OnPropertyChanged(nameof(BackgroundOperationCanCancel));
     }
 
     public void SetMinimizedWorkSessions(IReadOnlyList<WorkSession> sessions)
@@ -871,12 +891,13 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         string? pluginId = null,
         string? pluginName = null)
     {
-        canViewLicenseStatus = canViewStatus;
-        canImportLicense = canImport;
-        licenseRuntimeMode = currentMode;
-        licenseFeedbackKey = feedbackKey;
-        licensePluginId = pluginId;
-        licensePluginName = pluginName;
+        licenseState.SetSurface(
+            canViewStatus,
+            canImport,
+            currentMode,
+            feedbackKey,
+            pluginId,
+            pluginName);
 
         OnPropertyChanged(nameof(LicensePanelVisibility));
         OnPropertyChanged(nameof(LicenseStatusVisibility));
@@ -903,93 +924,57 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         string? feedbackKey = null,
         bool isBusy = false)
     {
-        ArgumentNullException.ThrowIfNull(plugins);
-
-        canViewPluginsManager = canView;
-        canImportPluginsManager = canImport;
-        canConfigurePluginsManager = canConfigure;
-        canDeletePluginsManager = canDelete;
-        pluginsManagerBusy = isBusy;
-        pluginsManagerItems = plugins
-            .Select(ToPluginsManagerPresentation)
-            .OrderBy(plugin => plugin.DisplayName, StringComparer.Ordinal)
-            .ThenBy(plugin => plugin.PluginId, StringComparer.Ordinal)
-            .ToArray();
-        pluginsManagerFeedbackKey = feedbackKey;
-        if (selectedPluginManagerPluginId is null ||
-            pluginsManagerItems.All(item => !item.PluginId.Equals(selectedPluginManagerPluginId, StringComparison.Ordinal)))
-        {
-            selectedPluginManagerPluginId = pluginsManagerItems.FirstOrDefault()?.PluginId;
-        }
+        pluginManagerState.SetSurface(
+            canView,
+            canImport,
+            canConfigure,
+            canDelete,
+            plugins,
+            feedbackKey,
+            isBusy);
 
         NotifyPluginsManagerChanged();
+        OnPropertyChanged(nameof(PluginsManagerCancelVisibility));
     }
 
     public void SelectPlugin(string pluginId)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
-
-        selectedPluginManagerPluginId = pluginsManagerItems.Any(item => item.PluginId.Equals(pluginId, StringComparison.Ordinal))
-            ? pluginId
-            : null;
+        pluginManagerState.Select(pluginId);
         NotifyPluginsManagerChanged();
     }
 
     public void SetPluginsManagerBusy(bool isBusy, string? feedbackKey = null)
     {
-        pluginsManagerBusy = isBusy;
-        if (isBusy)
-        {
-            pluginsManagerFeedbackKey = feedbackKey ?? HostResourceKeys.PluginsManagerInstallBusy;
-        }
-        else if (IsPluginsManagerBusyFeedbackKey(pluginsManagerFeedbackKey))
-        {
-            pluginsManagerFeedbackKey = null;
-        }
+        pluginManagerState.SetBusy(isBusy, feedbackKey);
 
         NotifyPluginsManagerChanged();
+        OnPropertyChanged(nameof(PluginsManagerCancelVisibility));
     }
 
     public void SetPluginsManagerFeedback(string? feedbackKey)
     {
-        pluginsManagerFeedbackKey = feedbackKey;
+        pluginManagerState.SetFeedback(feedbackKey);
         OnPropertyChanged(nameof(PluginsManagerFeedbackText));
-    }
-
-    private static bool IsPluginsManagerBusyFeedbackKey(string? feedbackKey)
-    {
-        return feedbackKey is HostResourceKeys.PluginsManagerInstallBusy
-            or HostResourceKeys.PluginsManagerEnableBusy
-            or HostResourceKeys.PluginsManagerDisableBusy
-            or HostResourceKeys.PluginsManagerUninstallBusy;
     }
 
     public void SetLicenseImportFeedback(string? feedbackKey)
     {
-        licenseFeedbackKey = feedbackKey;
+        licenseState.SetFeedback(feedbackKey);
         OnPropertyChanged(nameof(LicenseFeedbackText));
     }
 
     public void SetLicenseImportBusy(bool isBusy)
     {
-        licenseImportBusy = isBusy;
-        if (isBusy)
-        {
-            licenseFeedbackKey = HostResourceKeys.LicenseImportBusy;
-        }
-        else if (licenseFeedbackKey == HostResourceKeys.LicenseImportBusy)
-        {
-            licenseFeedbackKey = null;
-        }
+        licenseState.SetImportBusy(isBusy);
 
         OnPropertyChanged(nameof(LicenseImportIsEnabled));
+        OnPropertyChanged(nameof(LicenseImportCancelVisibility));
         OnPropertyChanged(nameof(LicenseFeedbackText));
     }
 
     public void SetLicenseRuntimeMode(PluginRuntimeMode currentMode, string? feedbackKey = null)
     {
-        licenseRuntimeMode = currentMode;
-        licenseFeedbackKey = feedbackKey;
+        licenseState.SetRuntimeMode(currentMode, feedbackKey);
         OnPropertyChanged(nameof(LicenseRuntimeModeText));
         OnPropertyChanged(nameof(LicenseDetailText));
         OnPropertyChanged(nameof(LicenseFeedbackText));
@@ -1014,6 +999,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             BackgroundOperationText = Layout.BackgroundOperationText,
             BackgroundOperationPercent = Layout.BackgroundOperationPercent,
             BackgroundOperationIsIndeterminate = Layout.BackgroundOperationIsIndeterminate,
+            BackgroundOperationCanCancel = Layout.BackgroundOperationCanCancel,
             Theme = Layout.Theme
         };
         RebuildNavigationLevels(requestedRoute);
@@ -1166,6 +1152,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SettingsSecuritySessionSaveLabel));
         OnPropertyChanged(nameof(SettingsUserManagementLabel));
         OnPropertyChanged(nameof(SettingsAboutLabel));
+        OnPropertyChanged(nameof(AboutDeviceCodeExplanation));
+        OnPropertyChanged(nameof(AboutDeviceCodeCopyLabel));
         OnPropertyChanged(nameof(AppearanceThemeOptions));
         OnPropertyChanged(nameof(AppearanceSelectedTheme));
         OnPropertyChanged(nameof(SecurityAutoLockEnabled));
@@ -1309,134 +1297,12 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    private string LicenseListDisplayText()
-    {
-        if (!string.IsNullOrWhiteSpace(licensePluginName) && !string.IsNullOrWhiteSpace(licensePluginId))
-        {
-            return $"{licensePluginName} ({licensePluginId})";
-        }
-
-        if (!string.IsNullOrWhiteSpace(licensePluginName))
-        {
-            return licensePluginName;
-        }
-
-        return string.IsNullOrWhiteSpace(licensePluginId)
-            ? strings.GetString(HostResourceKeys.LicenseNoPlugin)
-            : licensePluginId;
-    }
-
     private bool CanUseSelectedPluginAction(bool hasPermission)
     {
-        return hasPermission &&
-            canViewPluginsManager &&
-            !pluginsManagerBusy &&
-            (!canViewLicenseStatus || IsRuntimeActionAllowed(PluginRuntimeAction.EnableDisableUninstall)) &&
-            PluginsManagerSelectedItem is not null;
-    }
-
-    private bool IsRuntimeActionAllowed(PluginRuntimeAction action)
-    {
-        return PluginRuntimeActionPolicy.Evaluate(licenseRuntimeMode, action) ==
-            PluginRuntimeActionDecision.Allowed;
-    }
-
-    private string PluginManagerDetailText(ShellPluginManagerItem plugin)
-    {
-        var detail = $"{plugin.DisplayName} {plugin.Version} - {plugin.StatusSummary}";
-        return plugin.RestartRequired
-            ? $"{detail} - {strings.GetString(HostResourceKeys.PluginsManagerRestartRequired)}"
-            : detail;
-    }
-
-    private IReadOnlyList<ShellPluginManagerDetailRow> PluginManagerDetailRows(ShellPluginManagerItem plugin)
-    {
-        var rows = new List<ShellPluginManagerDetailRow>
-        {
-            new("display-name", strings.GetString(HostResourceKeys.PluginsManagerDetailDisplayName), plugin.DisplayName),
-            new("plugin-id", strings.GetString(HostResourceKeys.PluginsManagerDetailPluginId), plugin.PluginId),
-            new("version", strings.GetString(HostResourceKeys.PluginsManagerDetailVersion), plugin.Version),
-            new("status", strings.GetString(HostResourceKeys.PluginsManagerDetailStatus), plugin.StatusSummary)
-        };
-
-        AddIfPresent(rows, "trust", strings.GetString(HostResourceKeys.PluginsManagerDetailTrust), plugin.TrustSummary);
-        AddIfPresent(rows, "license", strings.GetString(HostResourceKeys.PluginsManagerDetailLicense), plugin.LicenseSummary);
-        AddIfPresent(rows, "fault", strings.GetString(HostResourceKeys.PluginsManagerDetailFault), plugin.FaultSummary);
-        AddIfPresent(rows, "rejection", strings.GetString(HostResourceKeys.PluginsManagerDetailRejection), plugin.SafeRejectionText);
-
-        if (plugin.RestartRequired)
-        {
-            rows.Add(new ShellPluginManagerDetailRow(
-                "restart",
-                strings.GetString(HostResourceKeys.PluginsManagerRestartRequired),
-                strings.GetString(HostResourceKeys.PluginsManagerRestartRequired)));
-        }
-
-        return rows;
-    }
-
-    private static void AddIfPresent(
-        ICollection<ShellPluginManagerDetailRow> rows,
-        string key,
-        string label,
-        string? value)
-    {
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            rows.Add(new ShellPluginManagerDetailRow(key, label, value));
-        }
-    }
-
-    private ShellPluginManagerItem ToPluginsManagerPresentation(ShellPluginManagerItem plugin)
-    {
-        var status = plugin.IsPendingUninstall || Contains(plugin.StatusSummary, "pending uninstall")
-            ? strings.GetString(HostResourceKeys.PluginsManagerStatusPendingUninstall)
-            : Contains(plugin.StatusSummary, "enabled")
-                ? strings.GetString(HostResourceKeys.PluginsManagerStatusEnabled)
-                : Contains(plugin.StatusSummary, "disabled")
-                    ? strings.GetString(HostResourceKeys.PluginsManagerStatusDisabled)
-                    : Contains(plugin.StatusSummary, "fault")
-                        ? strings.GetString(HostResourceKeys.PluginsManagerStatusFaulted)
-                        : IsRejected(plugin.StatusSummary)
-                            ? strings.GetString(HostResourceKeys.PluginsManagerStatusRejected)
-                            : strings.GetString(HostResourceKeys.PluginsManagerStatusAvailable);
-        var trust = string.IsNullOrWhiteSpace(plugin.TrustSummary)
-            ? strings.GetString(HostResourceKeys.PluginsManagerTrustUnavailable)
-            : Contains(plugin.TrustSummary, "trusted") || Contains(plugin.TrustSummary, "verified")
-                ? strings.GetString(HostResourceKeys.PluginsManagerTrustTrusted)
-                : strings.GetString(HostResourceKeys.PluginsManagerTrustRejected);
-        var license = string.IsNullOrWhiteSpace(plugin.LicenseSummary)
-            ? strings.GetString(HostResourceKeys.PluginsManagerLicenseUnavailable)
-            : Contains(plugin.LicenseSummary, "read-only")
-                ? strings.GetString(HostResourceKeys.PluginsManagerLicenseReadOnly)
-                : Contains(plugin.LicenseSummary, "full")
-                    ? strings.GetString(HostResourceKeys.PluginsManagerLicenseFullAccess)
-                    : strings.GetString(HostResourceKeys.PluginsManagerLicenseDenied);
-        var fault = string.IsNullOrWhiteSpace(plugin.FaultSummary) || Contains(plugin.FaultSummary, "no runtime fault") || Contains(plugin.FaultSummary, "no faults")
-            ? strings.GetString(HostResourceKeys.PluginsManagerFaultNone)
-            : strings.GetString(HostResourceKeys.PluginsManagerFaultDetected);
-        var rejection = IsRejected(plugin.StatusSummary) || !string.IsNullOrWhiteSpace(plugin.SafeRejectionText)
-            ? strings.GetString(HostResourceKeys.PluginsManagerRejectionSafe)
-            : string.Empty;
-
-        return plugin with
-        {
-            StatusSummary = status,
-            TrustSummary = trust,
-            LicenseSummary = license,
-            FaultSummary = fault,
-            SafeRejectionText = rejection
-        };
-    }
-
-    private static bool IsRejected(string value)
-    {
-        return Contains(value, "rejected") || Contains(value, "invalid");
-    }
-
-    private static bool Contains(string value, string expected)
-    {
-        return value.Contains(expected, StringComparison.OrdinalIgnoreCase);
+        return pluginManagerState.CanUseSelectedAction(
+            hasPermission,
+            !licenseState.CanViewStatus ||
+                licenseState.IsActionAllowed(PluginRuntimeAction.EnableDisableUninstall));
     }
 
     private string ResolveWorkSessionText(string keyOrText)
@@ -1504,6 +1370,13 @@ public sealed record ShellDashboardMetric(
     string Caption,
     int Percent);
 
+public enum ShellPluginTrustState
+{
+    Unknown = 0,
+    Verified = 1,
+    Rejected = 2
+}
+
 public sealed record ShellPluginManagerItem(
     string PluginId,
     string DisplayName,
@@ -1516,7 +1389,8 @@ public sealed record ShellPluginManagerItem(
     string TrustSummary = "",
     string LicenseSummary = "",
     string FaultSummary = "",
-    string SafeRejectionText = "");
+    string SafeRejectionText = "",
+    ShellPluginTrustState TrustState = ShellPluginTrustState.Unknown);
 
 public sealed record ShellPluginManagerDetailRow(string Key, string Label, string Value);
 

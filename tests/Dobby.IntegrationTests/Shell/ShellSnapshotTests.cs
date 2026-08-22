@@ -109,8 +109,8 @@ public sealed class ShellSnapshotTests
         settingsEvidence.Text.ShouldContain("stable");
         settingsEvidence.Text.ShouldContain("device-redacted-1234");
         settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutPluginsEmpty));
-        settingsEvidence.Text.ShouldContain("support@example.invalid");
-        settingsEvidence.Text.ShouldContain("Copyright Dobby");
+        settingsEvidence.Text.ShouldContain("https://github.com/n4hkro/dobby/issues");
+        settingsEvidence.Text.ShouldContain("Copyright © 2026 Dobby contributors");
         settingsEvidence.Text.ShouldContain(strings.GetString(HostResourceKeys.AboutOwnerStatusManaged));
         settingsEvidence.Text.ShouldNotContain(strings.GetString(HostResourceKeys.LicenseStatusLabel));
         settingsEvidence.Text.ShouldNotContain(strings.GetString(HostResourceKeys.LicenseImportAction));
@@ -232,8 +232,8 @@ public sealed class ShellSnapshotTests
                 new ShellAboutField("host-channel", strings.GetString(HostResourceKeys.AboutHostChannel), "stable"),
                 new ShellAboutField("device-code", strings.GetString(HostResourceKeys.AboutDeviceCode), "device-redacted-1234"),
                 new ShellAboutField("plugins", strings.GetString(HostResourceKeys.AboutPlugins), strings.GetString(HostResourceKeys.AboutPluginsEmpty)),
-                new ShellAboutField("support-contact", strings.GetString(HostResourceKeys.AboutSupportContact), "support@example.invalid"),
-                new ShellAboutField("legal-line", strings.GetString(HostResourceKeys.AboutLegalLine), "Copyright Dobby"),
+                new ShellAboutField("support-contact", strings.GetString(HostResourceKeys.AboutSupportContact), "https://github.com/n4hkro/dobby/issues"),
+                new ShellAboutField("legal-line", strings.GetString(HostResourceKeys.AboutLegalLine), "Copyright © 2026 Dobby contributors"),
                 new ShellAboutField("owner-identity", strings.GetString(HostResourceKeys.AboutOwnerIdentity), strings.GetString(HostResourceKeys.AboutOwnerStatusManaged))
             ],
             autoLockEnabled: true,

@@ -444,14 +444,14 @@
       <Border x:Name="MainContent" Grid.Column="2" Margin="{DynamicResource Dobby.Spacing.Small}" Padding="{DynamicResource Dobby.Spacing.Medium}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel>
-            <Border x:Name="WorkSessionWarningPanel" Margin="{StaticResource Shell.Spacing.BottomLarge}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Control}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}" Visibility="Collapsed">
+            <Border x:Name="WorkSessionWarningPanel" Margin="{StaticResource Shell.Spacing.BottomLarge}" Padding="{DynamicResource Dobby.Spacing.Small}" AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="{Binding WorkSessionNavigationWarningLabel}" Background="{DynamicResource Dobby.Brush.Control}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}" Visibility="Collapsed">
               <StackPanel>
                 <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" Text="{Binding WorkSessionNavigationWarningLabel}" TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal">
-                  <Button x:Name="WorkSessionStayButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="WorkSessionStay_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding WorkSessionStayLabel}" />
-                  <Button x:Name="WorkSessionMinimizeButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="WorkSessionMinimize_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding WorkSessionMinimizeLabel}" Visibility="{Binding WorkSessionMinimizeVisibility}" />
-                  <Button x:Name="WorkSessionCloseButton" Click="WorkSessionClose_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding WorkSessionCloseLabel}" />
-                </StackPanel>
+                <WrapPanel>
+                  <Button x:Name="WorkSessionStayButton" Margin="{StaticResource Shell.Spacing.RightSmall}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="WorkSessionStay_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding WorkSessionStayLabel}" />
+                  <Button x:Name="WorkSessionMinimizeButton" Margin="{StaticResource Shell.Spacing.RightSmall}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="WorkSessionMinimize_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding WorkSessionMinimizeLabel}" Visibility="{Binding WorkSessionMinimizeVisibility}" />
+                  <Button x:Name="WorkSessionCloseButton" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="WorkSessionClose_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding WorkSessionCloseLabel}" />
+                </WrapPanel>
               </StackPanel>
             </Border>
 
@@ -462,8 +462,8 @@
 
             <StackPanel x:Name="PluginsSurface" Visibility="{Binding PluginsSurfaceVisibility}">
               <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" FontSize="{DynamicResource Dobby.FontSize.Heading}" FontWeight="SemiBold" Text="{Binding PluginsManagerHeading}" />
-              <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" Text="{Binding PluginsManagerFeedbackText}" TextWrapping="Wrap" />
-              <ListBox x:Name="PluginsManagerList" BorderThickness="0" ItemsSource="{Binding PluginsManagerItems}" SelectionChanged="PluginsManagerList_SelectionChanged" SelectedValuePath="PluginId" Visibility="{Binding PluginsManagerListVisibility}">
+              <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}" Text="{Binding PluginsManagerFeedbackText}" TextWrapping="Wrap" />
+              <ListBox x:Name="PluginsManagerList" AutomationProperties.Name="{Binding PluginsManagerHeading}" BorderThickness="0" ItemsSource="{Binding PluginsManagerItems}" SelectionChanged="PluginsManagerList_SelectionChanged" SelectedValuePath="PluginId" Visibility="{Binding PluginsManagerListVisibility}">
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <Border Margin="{StaticResource Shell.Spacing.BottomSmall}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Control}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
@@ -476,8 +476,8 @@
                   </DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
-              <TextBlock x:Name="PluginsManagerSelectedDetailTextBlock" Margin="{StaticResource Shell.Spacing.BottomMedium}" Text="{Binding PluginsManagerSelectedDetailText}" TextWrapping="Wrap" Visibility="{Binding PluginsManagerListVisibility}" />
-              <ItemsControl x:Name="PluginsManagerDetailRows" Margin="{StaticResource Shell.Spacing.BottomMedium}" ItemsSource="{Binding PluginsManagerSelectedDetailRows}" Visibility="{Binding PluginsManagerListVisibility}">
+              <TextBlock x:Name="PluginsManagerSelectedDetailTextBlock" Margin="{StaticResource Shell.Spacing.BottomMedium}" AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}" Text="{Binding PluginsManagerSelectedDetailText}" TextWrapping="Wrap" Visibility="{Binding PluginsManagerListVisibility}" />
+              <ItemsControl x:Name="PluginsManagerDetailRows" Margin="{StaticResource Shell.Spacing.BottomMedium}" AutomationProperties.Name="{Binding PluginsManagerHeading}" ItemsSource="{Binding PluginsManagerSelectedDetailRows}" Visibility="{Binding PluginsManagerListVisibility}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <StackPanel Margin="{StaticResource Shell.Spacing.BottomTiny}">
@@ -488,12 +488,13 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <TextBlock x:Name="PluginsManagerEmptyText" Margin="{StaticResource Shell.Spacing.BottomMedium}" Text="{Binding PluginsManagerEmptyText}" Visibility="{Binding PluginsManagerEmptyVisibility}" />
-              <StackPanel Orientation="Horizontal">
-                <Button x:Name="PluginsManagerInstallButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="PluginsManagerInstall_Click" Content="{Binding PluginsManagerInstallLabel}" IsEnabled="{Binding PluginsManagerInstallIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" Visibility="{Binding PluginsManagerInstallVisibility}" />
-                <Button x:Name="PluginsManagerEnableButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="PluginsManagerEnable_Click" Content="{Binding PluginsManagerEnableLabel}" IsEnabled="{Binding PluginsManagerEnableIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" />
-                <Button x:Name="PluginsManagerDisableButton" Margin="{StaticResource Shell.Spacing.RightSmall}" Click="PluginsManagerDisable_Click" Content="{Binding PluginsManagerDisableLabel}" IsEnabled="{Binding PluginsManagerDisableIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" />
-                <Button x:Name="PluginsManagerUninstallButton" Click="PluginsManagerUninstall_Click" Content="{Binding PluginsManagerUninstallLabel}" IsEnabled="{Binding PluginsManagerUninstallIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" />
-              </StackPanel>
+              <WrapPanel>
+                <Button x:Name="PluginsManagerInstallButton" Margin="{StaticResource Shell.Spacing.RightSmall}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="PluginsManagerInstall_Click" Content="{Binding PluginsManagerInstallLabel}" IsEnabled="{Binding PluginsManagerInstallIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" Visibility="{Binding PluginsManagerInstallVisibility}" />
+                <Button x:Name="PluginsManagerEnableButton" Margin="{StaticResource Shell.Spacing.RightSmall}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="PluginsManagerEnable_Click" Content="{Binding PluginsManagerEnableLabel}" IsEnabled="{Binding PluginsManagerEnableIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" />
+                <Button x:Name="PluginsManagerDisableButton" Margin="{StaticResource Shell.Spacing.RightSmall}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="PluginsManagerDisable_Click" Content="{Binding PluginsManagerDisableLabel}" IsEnabled="{Binding PluginsManagerDisableIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" />
+                <Button x:Name="PluginsManagerUninstallButton" Margin="{StaticResource Shell.Spacing.RightSmall}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="PluginsManagerUninstall_Click" Content="{Binding PluginsManagerUninstallLabel}" IsEnabled="{Binding PluginsManagerUninstallIsEnabled}" Style="{StaticResource FlatShellButtonStyle}" />
+                <Button x:Name="PluginsManagerCancelButton" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="PluginsManagerCancel_Click" Content="{Binding CancelOperationLabel}" IsEnabled="{Binding BackgroundOperationCanCancel}" Style="{StaticResource FlatShellButtonStyle}" Visibility="{Binding PluginsManagerCancelVisibility}" />
+              </WrapPanel>
               <StackPanel x:Name="LicensePanel" Margin="{StaticResource Shell.Spacing.TopLarge}" Visibility="{Binding LicensePanelVisibility}">
                 <TextBlock FontWeight="SemiBold" Text="{Binding LicenseHeading}" />
                 <TextBlock Margin="{StaticResource Shell.Spacing.TopSmall}" FontWeight="SemiBold" Text="{Binding LicenseStatusLabel}" Visibility="{Binding LicenseStatusVisibility}" />
@@ -502,15 +503,25 @@
                 <TextBlock Text="{Binding LicenseListText}" TextWrapping="Wrap" Visibility="{Binding LicenseListVisibility}" />
                 <TextBlock Margin="{StaticResource Shell.Spacing.TopSmall}" FontWeight="SemiBold" Text="{Binding LicenseDetailLabel}" Visibility="{Binding LicenseDetailVisibility}" />
                 <TextBlock Text="{Binding LicenseDetailText}" TextWrapping="Wrap" Visibility="{Binding LicenseDetailVisibility}" />
-                <Button
-                    x:Name="LicenseImportButton"
-                    Margin="{StaticResource Shell.Spacing.TopSmall}"
-                    Click="LicenseImport_Click"
-                    Content="{Binding LicenseImportLabel}"
-                    IsEnabled="{Binding LicenseImportIsEnabled}"
-                    Style="{StaticResource FlatShellButtonStyle}"
-                    Visibility="{Binding LicenseImportVisibility}" />
-                <TextBlock Margin="{StaticResource Shell.Spacing.TopSmall}" Text="{Binding LicenseFeedbackText}" TextWrapping="Wrap" />
+                <WrapPanel Margin="{StaticResource Shell.Spacing.TopSmall}">
+                  <Button
+                      x:Name="LicenseImportButton"
+                      Margin="{StaticResource Shell.Spacing.RightSmall}"
+                      AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"
+                      Click="LicenseImport_Click"
+                      Content="{Binding LicenseImportLabel}"
+                      IsEnabled="{Binding LicenseImportIsEnabled}"
+                      Style="{StaticResource FlatShellButtonStyle}"
+                      Visibility="{Binding LicenseImportVisibility}" />
+                  <Button
+                      x:Name="LicenseImportCancelButton"
+                      AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"
+                      Click="LicenseImportCancel_Click"
+                      Content="{Binding CancelOperationLabel}"
+                      Style="{StaticResource FlatShellButtonStyle}"
+                      Visibility="{Binding LicenseImportCancelVisibility}" />
+                </WrapPanel>
+                <TextBlock Margin="{StaticResource Shell.Spacing.TopSmall}" AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}" Text="{Binding LicenseFeedbackText}" TextWrapping="Wrap" />
               </StackPanel>
             </StackPanel>
 
@@ -529,6 +540,7 @@
                 <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding SettingsAppearanceThemeLabel}" />
                 <ComboBox
                     x:Name="AppearanceThemeSelector"
+                    AutomationProperties.Name="{Binding SettingsAppearanceThemeLabel}"
                     DisplayMemberPath="Label"
                     ItemsSource="{Binding AppearanceThemeOptions}"
                     SelectedValue="{Binding AppearanceSelectedTheme, Mode=OneWay}"
@@ -545,16 +557,16 @@
                 <PasswordBox x:Name="SettingsNewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding NewPasswordLabel}" />
                 <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding ConfirmNewPasswordLabel}" />
                 <PasswordBox x:Name="SettingsConfirmNewPasswordBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding ConfirmNewPasswordLabel}" />
-                <CheckBox x:Name="SettingsPasswordChangeRememberMeCheckBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" Content="{Binding RememberMeLabel}" />
-                <Button x:Name="SettingsChangePasswordButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" Click="SettingsChangePassword_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ChangePasswordLabel}" />
+                <CheckBox x:Name="SettingsPasswordChangeRememberMeCheckBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Content="{Binding RememberMeLabel}" />
+                <Button x:Name="SettingsChangePasswordButton" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="SettingsChangePassword_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding ChangePasswordLabel}" />
               </StackPanel>
 
               <StackPanel x:Name="SecuritySessionSettingsSurface" Margin="{StaticResource Shell.Spacing.BottomLarge}">
                 <TextBlock Margin="{StaticResource Shell.Spacing.BottomSmall}" FontWeight="SemiBold" Text="{Binding SettingsSecuritySessionLabel}" />
-                <CheckBox x:Name="SecurityAutoLockEnabledCheckBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" Content="{Binding SettingsSecuritySessionAutoLockEnabledLabel}" IsChecked="{Binding SecurityAutoLockEnabled, Mode=OneWay}" />
+                <CheckBox x:Name="SecurityAutoLockEnabledCheckBox" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Content="{Binding SettingsSecuritySessionAutoLockEnabledLabel}" IsChecked="{Binding SecurityAutoLockEnabled, Mode=OneWay}" />
                 <TextBlock Margin="{StaticResource Shell.Spacing.BottomTiny}" Text="{Binding SettingsSecuritySessionAutoLockMinutesLabel}" />
-                <TextBox x:Name="SecurityAutoLockMinutesInput" Margin="{StaticResource Shell.Spacing.BottomSmall}" Text="{Binding SecurityAutoLockMinutesText, Mode=OneWay}" />
-                <Button x:Name="SecurityAutoLockSaveButton" Click="SecurityAutoLockSave_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding SettingsSecuritySessionSaveLabel}" />
+                <TextBox x:Name="SecurityAutoLockMinutesInput" Margin="{StaticResource Shell.Spacing.BottomSmall}" AutomationProperties.Name="{Binding SettingsSecuritySessionAutoLockMinutesLabel}" Text="{Binding SecurityAutoLockMinutesText, Mode=OneWay}" />
+                <Button x:Name="SecurityAutoLockSaveButton" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="SecurityAutoLockSave_Click" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding SettingsSecuritySessionSaveLabel}" />
               </StackPanel>
 
               <StackPanel x:Name="UserManagementSettingsSurface" Margin="{StaticResource Shell.Spacing.BottomLarge}" Visibility="{Binding UserManagementSurfaceVisibility}">
@@ -566,7 +578,7 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock x:Name="UserManagementDeniedText" Margin="{StaticResource Shell.Spacing.TopSmall}" Text="{Binding UserManagementPermissionDeniedText}" TextWrapping="Wrap" Visibility="{Binding UserManagementDeniedVisibility}" />
+                <TextBlock x:Name="UserManagementDeniedText" Margin="{StaticResource Shell.Spacing.TopSmall}" AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}" Text="{Binding UserManagementPermissionDeniedText}" TextWrapping="Wrap" Visibility="{Binding UserManagementDeniedVisibility}" />
               </StackPanel>
 
               <StackPanel x:Name="AboutSettingsSurface">
@@ -581,6 +593,10 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <StackPanel Margin="{StaticResource Shell.Spacing.TopSmall}" Visibility="{Binding AboutDeviceCodeActionsVisibility}">
+                  <TextBlock Margin="{StaticResource Shell.Spacing.BottomSmall}" Text="{Binding AboutDeviceCodeExplanation}" TextWrapping="Wrap" />
+                  <Button x:Name="AboutCopyDeviceCodeButton" HorizontalAlignment="Left" AutomationProperties.HelpText="{Binding AboutDeviceCodeExplanation}" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="AboutCopyDeviceCode_Click" Content="{Binding AboutDeviceCodeCopyLabel}" Style="{StaticResource FlatShellButtonStyle}" />
+                </StackPanel>
               </StackPanel>
             </StackPanel>
 
@@ -593,7 +609,7 @@
     <Border x:Name="MinimizedWorkSessionStrip" Grid.Row="3" Margin="{DynamicResource Dobby.Spacing.Medium}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
       <StackPanel>
         <TextBlock Margin="{StaticResource Shell.Spacing.BottomMedium}" FontWeight="SemiBold" Text="{Binding MinimizedWorkStripLabel}" />
-        <ItemsControl x:Name="MinimizedWorkSessionList" ItemsSource="{Binding MinimizedWorkSessions}">
+        <ItemsControl x:Name="MinimizedWorkSessionList" AutomationProperties.Name="{Binding MinimizedWorkStripLabel}" ItemsSource="{Binding MinimizedWorkSessions}">
           <ItemsControl.ItemTemplate>
             <DataTemplate>
               <DockPanel Margin="{StaticResource Shell.Spacing.BottomSmall}" LastChildFill="False">
@@ -601,7 +617,7 @@
                   <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
                   <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" />
                 </StackPanel>
-                <Button Click="RestoreWorkSession_Click" Tag="{Binding SessionId}" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding DataContext.WorkSessionRestoreLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
+                <Button AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="RestoreWorkSession_Click" Tag="{Binding SessionId}" Style="{StaticResource FlatShellButtonStyle}" Content="{Binding DataContext.WorkSessionRestoreLabel, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
               </DockPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
@@ -618,13 +634,13 @@
 
       <Border Grid.Column="0" Margin="{StaticResource Shell.Spacing.RightMedium}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
         <StackPanel>
-          <TextBlock x:Name="BackgroundStatusText" FontWeight="SemiBold" Text="{Binding StatusText}" TextWrapping="Wrap" />
-          <TextBlock Text="{Binding BackgroundOperationText}" TextWrapping="Wrap" />
-          <ProgressBar x:Name="BackgroundProgressBar" Margin="{StaticResource Shell.Spacing.TopSmall}" Height="10" Minimum="0" Maximum="100" Value="{Binding BackgroundOperationPercent, Mode=OneWay}" IsIndeterminate="{Binding BackgroundOperationIsIndeterminate, Mode=OneWay}" />
+          <TextBlock x:Name="BackgroundStatusText" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}" FontWeight="SemiBold" Text="{Binding StatusText}" TextWrapping="Wrap" />
+          <TextBlock AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}" Text="{Binding BackgroundOperationText}" TextWrapping="Wrap" />
+          <ProgressBar x:Name="BackgroundProgressBar" Margin="{StaticResource Shell.Spacing.TopSmall}" Height="10" AutomationProperties.Name="{Binding BackgroundOperationText}" Minimum="0" Maximum="100" Value="{Binding BackgroundOperationPercent, Mode=OneWay}" IsIndeterminate="{Binding BackgroundOperationIsIndeterminate, Mode=OneWay}" />
         </StackPanel>
       </Border>
 
-      <Border x:Name="ShellNotificationHost" Grid.Column="1" Margin="{StaticResource Shell.Spacing.RightMedium}" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+      <Border x:Name="ShellNotificationHost" Grid.Column="1" Margin="{StaticResource Shell.Spacing.RightMedium}" Padding="{DynamicResource Dobby.Spacing.Small}" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="{Binding NotificationMessageText}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
         <StackPanel>
           <TextBlock Text="{Binding NotificationMessageText}" TextWrapping="Wrap" />
           <ListBox x:Name="NotificationPresentationList" BorderThickness="0" ItemsSource="{Binding NotificationPresentation}">
@@ -637,7 +653,7 @@
         </StackPanel>
       </Border>
 
-      <Border x:Name="ShellFeedbackHost" Grid.Column="2" Padding="{DynamicResource Dobby.Spacing.Small}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
+      <Border x:Name="ShellFeedbackHost" Grid.Column="2" Padding="{DynamicResource Dobby.Spacing.Small}" AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="{Binding FeedbackMessageText}" Background="{DynamicResource Dobby.Brush.Surface}" BorderBrush="{DynamicResource Dobby.Brush.Border}" BorderThickness="{DynamicResource Dobby.Focus.Thickness}" CornerRadius="{DynamicResource Dobby.Radius.Medium}">
         <StackPanel>
           <TextBlock Text="{Binding FeedbackMessageText}" TextWrapping="Wrap" />
           <ListBox x:Name="FeedbackStatePresentationList" BorderThickness="0" ItemsSource="{Binding FeedbackStatePresentation}">

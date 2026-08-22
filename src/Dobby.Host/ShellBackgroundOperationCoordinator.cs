@@ -8,29 +8,61 @@ namespace Dobby.Host;
 public sealed class ShellBackgroundOperationCoordinator(
     ShellViewModel shellViewModel,
     IBackgroundOperationReporter reporter,
-    IUiDispatcher dispatcher)
+    IUiDispatcher dispatcher) : IDisposable
 {
+    private BackgroundOperationReporter? observableReporter;
+    private int attached;
+    private int disposed;
+
     public void Attach()
     {
         ArgumentNullException.ThrowIfNull(shellViewModel);
         ArgumentNullException.ThrowIfNull(reporter);
         ArgumentNullException.ThrowIfNull(dispatcher);
 
-        if (reporter is not BackgroundOperationReporter observableReporter)
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        if (Interlocked.CompareExchange(ref attached, 1, 0) != 0 ||
+            reporter is not BackgroundOperationReporter concreteReporter)
+        {
+            return;
+        }
+        observableReporter = concreteReporter;
+
+        if (concreteReporter.LatestSnapshot is not null)
+        {
+            Post(concreteReporter.LatestSnapshot);
+        }
+
+        concreteReporter.SnapshotReported += Post;
+    }
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref disposed, 1) != 0)
         {
             return;
         }
 
-        if (observableReporter.LatestSnapshot is not null)
+        if (observableReporter is not null)
         {
-            Post(observableReporter.LatestSnapshot);
+            observableReporter.SnapshotReported -= Post;
+            observableReporter = null;
         }
-
-        observableReporter.SnapshotReported += Post;
     }
 
     private void Post(BackgroundOperationSnapshot snapshot)
     {
-        dispatcher.Post(() => shellViewModel.ShowBackgroundOperation(snapshot));
+        if (Volatile.Read(ref disposed) != 0)
+        {
+            return;
+        }
+
+        dispatcher.Post(() =>
+        {
+            if (Volatile.Read(ref disposed) == 0)
+            {
+                shellViewModel.ShowBackgroundOperation(snapshot);
+            }
+        });
     }
 }

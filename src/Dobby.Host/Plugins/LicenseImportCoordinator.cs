@@ -127,7 +127,7 @@ public sealed class LicenseImportCoordinator(
                 return Cancelled(actorId, correlationId);
             }
 
-            var result = importService.Import(new LicenseImportRequest(
+            var request = new LicenseImportRequest(
                 fileName,
                 bytes,
                 currentDeviceFingerprintProvider,
@@ -136,7 +136,12 @@ public sealed class LicenseImportCoordinator(
                 correlationId.ToString(),
                 timeProvider.GetUtcNow(),
                 linkedCancellation.Token,
-                actorId));
+                actorId);
+            var result = await Task.Factory.StartNew(
+                () => importService.Import(request),
+                CancellationToken.None,
+                TaskCreationOptions.DenyChildAttach,
+                TaskScheduler.Default).ConfigureAwait(false);
 
             if (result.IsSuccess)
             {

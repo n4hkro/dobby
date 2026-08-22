@@ -9,27 +9,35 @@
           Margin="0,0,0,12"
           FontSize="18"
           Foreground="{DynamicResource Dobby.Brush.Text}" />
-      <Button x:Name="ExportRequestButton" Margin="0,0,0,8" Click="Export_Click" />
+      <Button x:Name="ExportRequestButton" Margin="0,0,0,8" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="Export_Click" TabIndex="0" />
       <TextBlock
           x:Name="ExportPathText"
           Margin="0,0,0,8"
+          AutomationProperties.LiveSetting="Polite"
+          AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}"
           Foreground="{DynamicResource Dobby.Brush.Text}"
           TextWrapping="Wrap"
           Visibility="Collapsed" />
       <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
         <Button
             x:Name="OpenFolderButton"
+            AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"
             Click="OpenFolder_Click"
+            TabIndex="1"
             Visibility="Collapsed" />
         <Button
             x:Name="CopyPathButton"
             Margin="8,0,0,0"
+            AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"
             Click="CopyPath_Click"
+            TabIndex="2"
             Visibility="Collapsed" />
       </StackPanel>
-      <Button x:Name="ImportResponseButton" Margin="0,0,0,8" Click="Import_Click" />
+      <Button x:Name="ImportResponseButton" Margin="0,0,0,8" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}" Click="Import_Click" TabIndex="3" />
       <TextBlock
           x:Name="ImportPathText"
+          AutomationProperties.LiveSetting="Assertive"
+          AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}"
           Foreground="{DynamicResource Dobby.Brush.Text}"
           TextWrapping="Wrap"
           Visibility="Collapsed" />

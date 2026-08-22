@@ -43,12 +43,62 @@ public sealed class HostPluginLifecycleCoordinator(
 
     public Result EnablePlugin(string actorId, string pluginId, CorrelationId correlationId)
     {
-        return SetEnabled(actorId, pluginId, isEnabled: true, "Enabled", OperationVerb.Configure, correlationId);
+        return SetEnabled(
+            actorId,
+            pluginId,
+            isEnabled: true,
+            "Enabled",
+            OperationVerb.Configure,
+            correlationId,
+            CancellationToken.None);
     }
 
     public Result DisablePlugin(string actorId, string pluginId, CorrelationId correlationId)
     {
-        return SetEnabled(actorId, pluginId, isEnabled: false, "Disabled", OperationVerb.Configure, correlationId);
+        return SetEnabled(
+            actorId,
+            pluginId,
+            isEnabled: false,
+            "Disabled",
+            OperationVerb.Configure,
+            correlationId,
+            CancellationToken.None);
+    }
+
+    public Task<Result> EnablePluginAsync(
+        string actorId,
+        string pluginId,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        return RunAsync(
+            token => SetEnabled(
+                actorId,
+                pluginId,
+                isEnabled: true,
+                "Enabled",
+                OperationVerb.Configure,
+                correlationId,
+                token),
+            cancellationToken);
+    }
+
+    public Task<Result> DisablePluginAsync(
+        string actorId,
+        string pluginId,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        return RunAsync(
+            token => SetEnabled(
+                actorId,
+                pluginId,
+                isEnabled: false,
+                "Disabled",
+                OperationVerb.Configure,
+                correlationId,
+                token),
+            cancellationToken);
     }
 
     public Result UninstallPlugin(
@@ -57,7 +107,35 @@ public sealed class HostPluginLifecycleCoordinator(
         PluginUninstallDataChoice dataChoice,
         CorrelationId correlationId)
     {
+        return UninstallPluginCore(
+            actorId,
+            pluginId,
+            dataChoice,
+            correlationId,
+            CancellationToken.None);
+    }
+
+    public Task<Result> UninstallPluginAsync(
+        string actorId,
+        string pluginId,
+        PluginUninstallDataChoice dataChoice,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        return RunAsync(
+            token => UninstallPluginCore(actorId, pluginId, dataChoice, correlationId, token),
+            cancellationToken);
+    }
+
+    private Result UninstallPluginCore(
+        string actorId,
+        string pluginId,
+        PluginUninstallDataChoice dataChoice,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var authorized = Authorize(actorId, OperationVerb.Delete, correlationId);
         if (!authorized.IsSuccess)
@@ -91,7 +169,7 @@ public sealed class HostPluginLifecycleCoordinator(
         var wasActivatedInCurrentProcess = WasActivatedInCurrentProcess(pluginId);
         if (wasActivatedInCurrentProcess)
         {
-            var deactivate = DeactivateRuntime(pluginId);
+            var deactivate = DeactivateRuntime(pluginId, cancellationToken);
             if (!deactivate.IsSuccess)
             {
                 return deactivate;
@@ -123,6 +201,7 @@ public sealed class HostPluginLifecycleCoordinator(
             return Result.Success();
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var cleanup = stagingArea.RemoveRuntime(existing.Value.RuntimePath) ?? stagingArea.Cleanup(existing.Value.RuntimePath);
         if (!cleanup.IsSuccess)
         {
@@ -166,9 +245,11 @@ public sealed class HostPluginLifecycleCoordinator(
         bool isEnabled,
         string statusSummary,
         OperationVerb verb,
-        CorrelationId correlationId)
+        CorrelationId correlationId,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var authorized = Authorize(actorId, verb, correlationId);
         if (!authorized.IsSuccess)
@@ -200,13 +281,14 @@ public sealed class HostPluginLifecycleCoordinator(
 
         if (!isEnabled && WasActivatedInCurrentProcess(pluginId))
         {
-            var deactivate = DeactivateRuntime(pluginId);
+            var deactivate = DeactivateRuntime(pluginId, cancellationToken);
             if (!deactivate.IsSuccess)
             {
                 return deactivate;
             }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var updateState = stateStore.SetEnabled(pluginId, isEnabled, statusSummary);
         if (!updateState.IsSuccess)
         {
@@ -237,7 +319,7 @@ public sealed class HostPluginLifecycleCoordinator(
         return Result.Success();
     }
 
-    private Result DeactivateRuntime(string pluginId)
+    private Result DeactivateRuntime(string pluginId, CancellationToken cancellationToken)
     {
         activationCancellationSource?.CancelPostLoginActivation();
         if (lifecycleControl is null)
@@ -245,11 +327,43 @@ public sealed class HostPluginLifecycleCoordinator(
             return Result.Success();
         }
 
-        using var hostOperation = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        return lifecycleControl.DeactivateAndUnloadAsync(pluginId, hostOperation.Token)
-            .AsTask()
-            .GetAwaiter()
-            .GetResult();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        using var hostOperation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeout.Token);
+        try
+        {
+            return lifecycleControl.DeactivateAndUnloadAsync(pluginId, hostOperation.Token)
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            return Result.Failure(ErrorCode.Cancelled);
+        }
+    }
+
+    private static Task<Result> RunAsync(
+        Func<CancellationToken, Result> action,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return Task.Factory.StartNew(
+            () =>
+            {
+                try
+                {
+                    return action(cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return Result.Failure(ErrorCode.Cancelled);
+                }
+            },
+            CancellationToken.None,
+            TaskCreationOptions.DenyChildAttach,
+            TaskScheduler.Default);
     }
 
     private Result Authorize(string actorId, OperationVerb verb, CorrelationId correlationId)

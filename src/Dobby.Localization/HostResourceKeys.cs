@@ -40,6 +40,7 @@ public static class HostResourceKeys
     }
     public const string RecoveryResetConfirm = "Dobby.Host.Recovery.ResetConfirm";
     public const string RecoveryResetCancel = "Dobby.Host.Recovery.ResetCancel";
+    public const string RecoveryResetValidation = "Dobby.Host.Recovery.ResetValidation";
     public const string RecoveryOpenFolder = "Dobby.Host.Recovery.OpenFolder";
     public const string RecoveryCopyPath = "Dobby.Host.Recovery.CopyPath";
     public const string RecoveryExportSuccess = "Dobby.Host.Recovery.ExportSuccess";
@@ -115,6 +116,7 @@ public static class HostResourceKeys
     public const string PluginsManagerDisable = "Dobby.Shell.Plugins.Manager.Disable";
     public const string PluginsManagerUninstall = "Dobby.Shell.Plugins.Manager.Uninstall";
     public const string PluginsManagerEmpty = "Dobby.Shell.Plugins.Manager.Empty";
+    public const string PluginPageUnavailable = "Dobby.Shell.Plugins.Page.Unavailable";
     public const string PluginsManagerRestartRequired = "Dobby.Shell.Plugins.Manager.RestartRequired";
     public const string PluginsManagerInstallBusy = "Dobby.Shell.Plugins.Manager.InstallBusy";
     public const string PluginsManagerEnableBusy = "Dobby.Shell.Plugins.Manager.EnableBusy";
@@ -203,12 +205,21 @@ public static class HostResourceKeys
     public const string AboutBuildDate = "Dobby.Host.About.BuildDate";
     public const string AboutHostEdition = "Dobby.Host.About.HostEdition";
     public const string AboutHostChannel = "Dobby.Host.About.HostChannel";
+    public const string AboutArtifactMode = "Dobby.Host.About.ArtifactMode";
+    public const string AboutArtifactModeInstalled = "Dobby.Host.About.ArtifactMode.Installed";
+    public const string AboutArtifactModePortableSupport = "Dobby.Host.About.ArtifactMode.PortableSupport";
     public const string AboutDeviceCode = "Dobby.Host.About.DeviceCode";
+    public const string AboutDeviceCodeExplanation = "Dobby.Host.About.DeviceCode.Explanation";
+    public const string AboutDeviceCodeCopy = "Dobby.Host.About.DeviceCode.Copy";
+    public const string AboutDeviceCodeCopied = "Dobby.Host.About.DeviceCode.Copied";
+    public const string AboutDeviceCodeCopyError = "Dobby.Host.About.DeviceCode.CopyError";
     public const string AboutPlugins = "Dobby.Host.About.Plugins";
     public const string AboutPluginsEmpty = "Dobby.Host.About.PluginsEmpty";
     public const string AboutSupportContact = "Dobby.Host.About.SupportContact";
     public const string AboutLegalLine = "Dobby.Host.About.LegalLine";
     public const string AboutOwnerIdentity = "Dobby.Host.About.OwnerIdentity";
+
+    public const string ShellCancelOperation = "Dobby.Shell.Operation.Cancel";
     public const string AuditRetentionSweep = "Dobby.Host.AuditRetentionSweep";
 
     public static IReadOnlyList<string> Sprint7VisibleKeys { get; } =
@@ -283,6 +294,7 @@ public static class HostResourceKeys
         PluginsManagerDisable,
         PluginsManagerUninstall,
         PluginsManagerEmpty,
+        PluginPageUnavailable,
         PluginsManagerRestartRequired,
         PluginsManagerInstallBusy,
         PluginsManagerEnableBusy,
@@ -365,12 +377,20 @@ public static class HostResourceKeys
         AboutBuildDate,
         AboutHostEdition,
         AboutHostChannel,
+        AboutArtifactMode,
+        AboutArtifactModeInstalled,
+        AboutArtifactModePortableSupport,
         AboutDeviceCode,
+        AboutDeviceCodeExplanation,
+        AboutDeviceCodeCopy,
+        AboutDeviceCodeCopied,
+        AboutDeviceCodeCopyError,
         AboutPlugins,
         AboutPluginsEmpty,
         AboutSupportContact,
         AboutLegalLine,
         AboutOwnerIdentity,
+        ShellCancelOperation,
         AboutOwnerStatusManaged,
         AboutOwnerStatusRegistered,
         AuditRetentionSweep

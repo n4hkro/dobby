@@ -20,6 +20,20 @@ namespace Dobby.UnitTests.Host;
 public sealed class HostPluginRuntimeCoordinatorTests
 {
     [Fact]
+    public async Task Pre_cancelled_post_login_activation_returns_a_successful_cancelled_outcome()
+    {
+        using var cancellation = new HostPluginActivationCancellation();
+        cancellation.CancelPostLoginActivation();
+        await using var coordinator = CreateCoordinator(activationCancellation: cancellation);
+
+        var result = await coordinator.BeginPostLoginActivation(new HostVersion(1, 0, 0), "owner");
+
+        result.IsSuccess.ShouldBeTrue(result.IsSuccess ? null : result.ErrorCode.ToString());
+        result.Value.Completion.ShouldBe(PluginActivationCompletion.Cancelled);
+        result.Value.Run.Outcomes.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Constructor_requires_trust_verifier()
     {
         var extensionPointRegistry = new PluginExtensionPointRegistry();

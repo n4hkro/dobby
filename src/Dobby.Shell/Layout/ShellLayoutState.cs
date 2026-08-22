@@ -72,6 +72,8 @@ public sealed record ShellLayoutState(
     object Theme,
     NavigationComposition Navigation)
 {
+    public bool BackgroundOperationCanCancel { get; init; }
+
     public static ShellLayoutState CreateDefault(NavigationComposition? navigation = null)
     {
         navigation ??= NavigationComposer.Compose([]);
@@ -180,7 +182,8 @@ public sealed record ShellLayoutState(
         {
             BackgroundOperationText = snapshot.DisplayNameKey,
             BackgroundOperationPercent = snapshot.Progress.Percent,
-            BackgroundOperationIsIndeterminate = snapshot.Progress.IsIndeterminate
+            BackgroundOperationIsIndeterminate = snapshot.Progress.IsIndeterminate,
+            BackgroundOperationCanCancel = snapshot.CanCancel
         };
     }
 

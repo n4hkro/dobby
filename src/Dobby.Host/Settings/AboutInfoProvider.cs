@@ -1,4 +1,5 @@
 using Dobby.Core.Versioning;
+using Dobby.Configuration;
 using Dobby.Localization;
 
 namespace Dobby.Host.Settings;
@@ -6,8 +7,7 @@ namespace Dobby.Host.Settings;
 public sealed class AboutInfoProvider(
     IHostVersionProvider versionProvider,
     ISupportDeviceCodeProvider deviceCodeProvider,
-    string supportContact,
-    string legalLine,
+    ProductOptions productOptions,
     IHostBuildMetadataProvider? buildMetadataProvider = null)
 {
     public AboutInfo GetInfo(bool isOwner, string? ownerIdentity)
@@ -20,10 +20,13 @@ public sealed class AboutInfoProvider(
             buildMetadata.BuildDate,
             "local",
             "skeleton",
+            productOptions.ArtifactMode == ProductArtifactMode.PortableSupport
+                ? HostResourceKeys.AboutArtifactModePortableSupport
+                : HostResourceKeys.AboutArtifactModeInstalled,
             deviceCodeProvider.CurrentRedactedCode(),
             [],
-            supportContact,
-            legalLine,
+            productOptions.SupportContact,
+            productOptions.LegalLine,
             isOwner && !string.IsNullOrWhiteSpace(ownerIdentity)
                 ? ownerIdentity
                 : HostResourceKeys.AboutOwnerStatusManaged,

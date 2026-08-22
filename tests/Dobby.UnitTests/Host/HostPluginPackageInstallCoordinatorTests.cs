@@ -125,6 +125,53 @@ public sealed class HostPluginPackageInstallCoordinatorTests
     }
 
     [Fact]
+    public async Task Async_install_runs_off_the_caller_thread_and_reports_monotonic_cancellable_then_finishing_progress()
+    {
+        var packagePath = CreatePackageZip(
+            PluginPackageTestData.CreateManifestJson(),
+            PluginPackageTestData.FilePath,
+            PluginPackageTestData.FileContent);
+        try
+        {
+            var progress = new RecordingInstallProgress();
+            var coordinator = new HostPluginPackageInstallCoordinator(
+                CreateSuccessfulStateStore(),
+                CreateSuccessfulMetadataCache(),
+                CreateSuccessfulStaging(),
+                CreatePolicy(new UserPermissionState("owner", IsOwner: true, IsActive: true)),
+                CreateAuditCoordinator(new InMemoryAuditTrail()),
+                new AllowAllTrustVerifier(),
+                new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.Denied)));
+
+            var install = coordinator.InstallPackageAsync(
+                "owner",
+                packagePath,
+                new HostVersion(1, 0, 0),
+                CorrelationId.New(),
+                progress: progress);
+            await progress.FirstReport.WaitAsync(TimeSpan.FromSeconds(5));
+
+            install.IsCompleted.ShouldBeFalse();
+            progress.ReleaseFirstReport();
+            var result = await install.WaitAsync(TimeSpan.FromSeconds(5));
+
+            result.IsSuccess.ShouldBeTrue();
+            progress.Values.Select(value => value.Percent).ShouldBeInOrder(SortDirection.Ascending);
+            progress.Values.First().ShouldBe(new PluginPackageInstallProgress(
+                PluginPackageInstallStage.Reading,
+                0,
+                CanCancel: true));
+            progress.Values.ShouldContain(value => value.Stage == PluginPackageInstallStage.Verifying && value.CanCancel);
+            progress.Values.ShouldContain(value => value.Stage == PluginPackageInstallStage.Finishing && !value.CanCancel);
+            progress.Values.Last().Percent.ShouldBe(100);
+        }
+        finally
+        {
+            DeletePackage(packagePath);
+        }
+    }
+
+    [Fact]
     public void Package_update_fails_closed_when_existing_plugin_license_is_denied()
     {
         var packagePath = CreatePackageZip(
@@ -544,6 +591,29 @@ public sealed class HostPluginPackageInstallCoordinatorTests
     private sealed class AllowAllTrustVerifier : IPluginTrustVerifier
     {
         public PluginTrustVerificationResult Verify(PluginTrustPayload payload) => PluginTrustVerificationResult.Success();
+    }
+
+    private sealed class RecordingInstallProgress : IProgress<PluginPackageInstallProgress>
+    {
+        private readonly TaskCompletionSource firstReport = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly ManualResetEventSlim release = new(initialState: false);
+        private int reports;
+
+        public List<PluginPackageInstallProgress> Values { get; } = [];
+
+        public Task FirstReport => firstReport.Task;
+
+        public void Report(PluginPackageInstallProgress value)
+        {
+            Values.Add(value);
+            if (Interlocked.Increment(ref reports) == 1)
+            {
+                firstReport.SetResult();
+                release.Wait(TimeSpan.FromSeconds(5)).ShouldBeTrue();
+            }
+        }
+
+        public void ReleaseFirstReport() => release.Set();
     }
 
     private sealed class RejectingTrustVerifier(string code, string message) : IPluginTrustVerifier

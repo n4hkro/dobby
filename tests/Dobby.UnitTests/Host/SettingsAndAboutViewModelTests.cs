@@ -97,10 +97,11 @@ public sealed class SettingsAndAboutViewModelTests
             "unknown",
             "local",
             "skeleton",
+            HostResourceKeys.AboutArtifactModeInstalled,
             "device-1234",
             [],
-            "support@example.invalid",
-            "Copyright Dobby",
+            "https://support.test.local/dobby",
+            "TEST-ONLY Dobby",
             "About.OwnerStatus.Registered",
             ShowsLicenseStatus: false));
 
@@ -120,10 +121,11 @@ public sealed class SettingsAndAboutViewModelTests
             "2026-07-08",
             "local",
             "stable",
+            HostResourceKeys.AboutArtifactModeInstalled,
             "device-1234",
             [],
-            "support@example.invalid",
-            "Copyright Dobby",
+            "https://support.test.local/dobby",
+            "TEST-ONLY Dobby",
             HostResourceKeys.AboutOwnerStatusRegistered,
             ShowsLicenseStatus: false));
 
@@ -167,6 +169,7 @@ public sealed class SettingsAndAboutViewModelTests
                 HostResourceKeys.AboutBuildDate,
                 HostResourceKeys.AboutHostEdition,
                 HostResourceKeys.AboutHostChannel,
+                HostResourceKeys.AboutArtifactMode,
                 HostResourceKeys.AboutDeviceCode,
                 HostResourceKeys.AboutPlugins,
                 HostResourceKeys.AboutSupportContact,

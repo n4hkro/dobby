@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Threading;
 using Dobby.Core;
 using Dobby.Localization;
@@ -242,6 +243,7 @@ public partial class LoginWindow : Window
         StartThrottleTimer();
         ThrottleCountdownText.Visibility = Visibility.Visible;
         ThrottleCountdownText.Text = $"{strings.GetString(HostResourceKeys.LoginThrottleCountdown)}: {viewModel.ThrottleCountdownText}";
+        RaiseLiveRegionChanged(ThrottleCountdownText);
     }
 
     private void StartThrottleTimer()
@@ -294,6 +296,17 @@ public partial class LoginWindow : Window
     {
         ErrorText.Text = message;
         ErrorText.Visibility = Visibility.Visible;
+        RaiseLiveRegionChanged(ErrorText);
+    }
+
+    private static void RaiseLiveRegionChanged(UIElement element)
+    {
+        var peer = UIElementAutomationPeer.FromElement(element) ??
+            UIElementAutomationPeer.CreatePeerForElement(element);
+        if (peer is not null && AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged))
+        {
+            peer.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+        }
     }
 
     private string ToMessage(LoginRuntimeWorkflowResult result)

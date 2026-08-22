@@ -42,7 +42,15 @@ public sealed class KdfPolicyResolverTests
         {
             var validation = new DobbyOptionsValidator().Validate(
                 Microsoft.Extensions.Options.Options.DefaultName,
-                new DobbyOptions { Auth = new AuthOptions { PasswordKdfMode = mode } });
+                new DobbyOptions
+                {
+                    Auth = new AuthOptions { PasswordKdfMode = mode },
+                    Product = new ProductOptions
+                    {
+                        SupportContact = "https://github.com/n4hkro/dobby/issues",
+                        LegalLine = "Copyright © 2026 Dobby contributors"
+                    }
+                });
             var resolved = new KdfPolicyResolver(new AuthOptions { PasswordKdfMode = mode }).Resolve();
 
             validation.Succeeded.ShouldBeTrue();

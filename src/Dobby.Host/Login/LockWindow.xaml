@@ -10,13 +10,15 @@
     WindowStartupLocation="CenterScreen"
     Background="{DynamicResource Dobby.Brush.Background}">
   <Grid Margin="24">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
     <StackPanel VerticalAlignment="Center">
       <TextBlock
           x:Name="LockTitleText"
           Margin="0,0,0,16"
           FontSize="20"
           Foreground="{DynamicResource Dobby.Brush.Text}"
-          Text="" />
+          Text=""
+          TextWrapping="Wrap" />
       <TextBlock
           x:Name="LockedUserText"
           Margin="0,0,0,12"
@@ -26,29 +28,44 @@
       <TextBlock
           x:Name="PasswordLabel"
           Foreground="{DynamicResource Dobby.Brush.Text}"
-          Text="" />
+          Text=""
+          TextWrapping="Wrap" />
       <PasswordBox
           x:Name="PasswordBox"
           Margin="0,4,0,16"
+          AutomationProperties.AutomationId="Dobby.Host.Lock.Password"
+          AutomationProperties.LabeledBy="{Binding ElementName=PasswordLabel}"
+          AutomationProperties.Name="{Binding Text, ElementName=PasswordLabel}"
+          TabIndex="0"
           PasswordChanged="PasswordBox_PasswordChanged" />
       <TextBlock
           x:Name="ErrorText"
           Margin="0,0,0,16"
+          AutomationProperties.LiveSetting="Assertive"
+          AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}"
           Foreground="{DynamicResource Dobby.Brush.Text}"
           Text="{Binding FeedbackText}"
           TextWrapping="Wrap" />
-      <StackPanel Orientation="Horizontal">
+      <WrapPanel>
         <Button
             x:Name="UnlockButton"
-            Width="96"
+            MinWidth="96"
+            AutomationProperties.AutomationId="Dobby.Host.Lock.Unlock"
+            AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"
             IsEnabled="{Binding UnlockEnabled}"
+            IsDefault="True"
+            TabIndex="1"
             Click="Unlock_Click" />
         <Button
             x:Name="LogoutButton"
             Margin="8,0,0,0"
+            AutomationProperties.AutomationId="Dobby.Host.Lock.Logout"
+            AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"
             IsEnabled="{Binding LogoutEnabled}"
+            TabIndex="2"
             Click="Logout_Click" />
-      </StackPanel>
+      </WrapPanel>
     </StackPanel>
+    </ScrollViewer>
   </Grid>
 </Window>

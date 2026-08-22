@@ -9,6 +9,18 @@ using System.IO;
 
 namespace Dobby.Host.Plugins;
 
+public enum PluginPackageInstallStage
+{
+    Reading,
+    Verifying,
+    Finishing
+}
+
+public sealed record PluginPackageInstallProgress(
+    PluginPackageInstallStage Stage,
+    int Percent,
+    bool CanCancel);
+
 [PluginRuntimeActionOwner(PluginRuntimeAction.InitialPackageInstall, PluginRuntimeAction.PackageUpdate)]
 public sealed class HostPluginPackageInstallCoordinator(
     IInstalledPluginStateStore stateStore,
@@ -42,9 +54,61 @@ public sealed class HostPluginPackageInstallCoordinator(
         CancellationToken cancellationToken = default,
         IProgress<PluginPackageReadProgress>? progress = null)
     {
+        return InstallPackageCore(
+            actorId,
+            packagePath,
+            hostVersion,
+            correlationId,
+            cancellationToken,
+            progress,
+            installProgress: null);
+    }
+
+    public Task<Result<InstalledPluginState>> InstallPackageAsync(
+        string actorId,
+        string packagePath,
+        HostVersion hostVersion,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken = default,
+        IProgress<PluginPackageInstallProgress>? progress = null)
+    {
+        return Task.Factory.StartNew(
+            () =>
+            {
+                try
+                {
+                    return InstallPackageCore(
+                        actorId,
+                        packagePath,
+                        hostVersion,
+                        correlationId,
+                        cancellationToken,
+                        readProgress: null,
+                        progress);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return Result.Cancelled<InstalledPluginState>();
+                }
+            },
+            CancellationToken.None,
+            TaskCreationOptions.DenyChildAttach,
+            TaskScheduler.Default);
+    }
+
+    private Result<InstalledPluginState> InstallPackageCore(
+        string actorId,
+        string packagePath,
+        HostVersion hostVersion,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken,
+        IProgress<PluginPackageReadProgress>? readProgress,
+        IProgress<PluginPackageInstallProgress>? installProgress)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         ArgumentException.ThrowIfNullOrWhiteSpace(packagePath);
         ArgumentNullException.ThrowIfNull(auditCoordinator);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var authorized = Authorize(actorId, correlationId);
         if (!authorized.IsSuccess)
@@ -72,7 +136,12 @@ public sealed class HostPluginPackageInstallCoordinator(
             return Result.Failure<InstalledPluginState>(ErrorCode.InvalidInput);
         }
 
-        var archive = PluginPackageReader.Read(packagePath, limits, cancellationToken, progress);
+        installProgress?.Report(new PluginPackageInstallProgress(
+            PluginPackageInstallStage.Reading,
+            0,
+            CanCancel: true));
+        var packageReadProgress = CreatePackageReadProgress(readProgress, installProgress);
+        var archive = PluginPackageReader.Read(packagePath, limits, cancellationToken, packageReadProgress);
         if (!archive.IsSuccess)
         {
             var reasons = new[]
@@ -88,6 +157,11 @@ public sealed class HostPluginPackageInstallCoordinator(
             return Result.Failure<InstalledPluginState>(archive.ErrorCode ?? ErrorCode.InvalidInput);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+        installProgress?.Report(new PluginPackageInstallProgress(
+            PluginPackageInstallStage.Verifying,
+            80,
+            CanCancel: true));
         var validation = PluginPackageValidator.Validate(archive.Value, hostVersion, trustVerifier);
         if (!validation.IsSuccess)
         {
@@ -156,6 +230,11 @@ public sealed class HostPluginPackageInstallCoordinator(
             return Result.Failure<InstalledPluginState>(rejection.ErrorCode);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+        installProgress?.Report(new PluginPackageInstallProgress(
+            PluginPackageInstallStage.Finishing,
+            90,
+            CanCancel: false));
         var install = new PluginPackageInstaller(
             stagingArea,
             stateStore,
@@ -187,7 +266,48 @@ public sealed class HostPluginPackageInstallCoordinator(
             auditCoordinator.AppendInstallVerified(actorId, descriptor, correlationId);
         }
 
+        installProgress?.Report(new PluginPackageInstallProgress(
+            PluginPackageInstallStage.Finishing,
+            100,
+            CanCancel: false));
         return install;
+        }
+    }
+
+    private static IProgress<PluginPackageReadProgress>? CreatePackageReadProgress(
+        IProgress<PluginPackageReadProgress>? readProgress,
+        IProgress<PluginPackageInstallProgress>? installProgress)
+    {
+        if (readProgress is null && installProgress is null)
+        {
+            return null;
+        }
+
+        return new PackageReadProgressAdapter(readProgress, installProgress);
+    }
+
+    private sealed class PackageReadProgressAdapter(
+        IProgress<PluginPackageReadProgress>? readProgress,
+        IProgress<PluginPackageInstallProgress>? installProgress)
+        : IProgress<PluginPackageReadProgress>
+    {
+        private int lastPercent;
+
+        public void Report(PluginPackageReadProgress value)
+        {
+            readProgress?.Report(value);
+            var ratio = value.TotalUncompressedBytes > 0
+                ? (double)value.UncompressedBytesRead / value.TotalUncompressedBytes
+                : value.TotalEntries > 0
+                    ? (double)value.EntriesCompleted / value.TotalEntries
+                    : 0;
+            var percent = Math.Clamp(5 + (int)Math.Floor(ratio * 70), 5, 75);
+            percent = Math.Max(percent, Volatile.Read(ref lastPercent));
+            Volatile.Write(ref lastPercent, percent);
+            installProgress?.Report(new PluginPackageInstallProgress(
+                PluginPackageInstallStage.Reading,
+                percent,
+                CanCancel: true));
         }
     }
 

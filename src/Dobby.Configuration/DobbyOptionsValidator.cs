@@ -25,6 +25,7 @@ public sealed class DobbyOptionsValidator : IValidateOptions<DobbyOptions>
         ValidateLocalization(options.Localization, failures);
         ValidatePlugins(options.Plugins, failures);
         ValidateLicensing(options.Licensing, failures);
+        ValidateProduct(options.Runtime, options.Product, failures);
         ValidateBranchShared(options.BranchShared, failures);
 
         return failures.Count == 0
@@ -208,6 +209,39 @@ public sealed class DobbyOptionsValidator : IValidateOptions<DobbyOptions>
         }
     }
 
+    private static void ValidateProduct(
+        RuntimeOptions runtimeOptions,
+        ProductOptions options,
+        List<string> failures)
+    {
+        if (!Enum.IsDefined(options.ArtifactMode))
+        {
+            failures.Add("Product.ArtifactMode must be Installed or PortableSupport.");
+        }
+
+        var supportContact = options.SupportContact?.Trim() ?? string.Empty;
+        var legalLine = options.LegalLine?.Trim() ?? string.Empty;
+        if (runtimeOptions.EnvironmentName == RuntimeEnvironmentName.Production &&
+            supportContact.Length == 0)
+        {
+            failures.Add("Product.SupportContact is required in Production.");
+        }
+        else if (supportContact.Length > 0 && !IsProductionSafeSupportContact(supportContact))
+        {
+            failures.Add("Product.SupportContact must be an absolute HTTPS URI without placeholder values.");
+        }
+
+        if (runtimeOptions.EnvironmentName == RuntimeEnvironmentName.Production &&
+            legalLine.Length == 0)
+        {
+            failures.Add("Product.LegalLine is required in Production.");
+        }
+        else if (ContainsPlaceholder(legalLine))
+        {
+            failures.Add("Product.LegalLine cannot contain placeholder values.");
+        }
+    }
+
     private static void ValidateBranchShared(BranchSharedOptions options, List<string> failures)
     {
         if (options.RuntimeEnabled)
@@ -221,5 +255,25 @@ public sealed class DobbyOptionsValidator : IValidateOptions<DobbyOptions>
         return value.StartsWith("%LocalAppData%", StringComparison.OrdinalIgnoreCase) ||
             value.StartsWith("%AppData%", StringComparison.OrdinalIgnoreCase) ||
             value.StartsWith("%UserProfile%", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsProductionSafeSupportContact(string value)
+    {
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+            uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(uri.Host) &&
+            !uri.Host.EndsWith(".invalid", StringComparison.OrdinalIgnoreCase) &&
+            !uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) &&
+            !uri.Host.Contains("example.", StringComparison.OrdinalIgnoreCase) &&
+            !ContainsPlaceholder(value);
+    }
+
+    private static bool ContainsPlaceholder(string value)
+    {
+        return value.Contains("placeholder", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("changeme", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("todo", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("{support", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("example.invalid", StringComparison.OrdinalIgnoreCase);
     }
 }

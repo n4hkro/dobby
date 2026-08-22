@@ -65,6 +65,40 @@ public sealed class ShellBackgroundOperationCoordinatorTests
         shell.BackgroundOperationIsIndeterminate.ShouldBeTrue();
     }
 
+    [Fact]
+    public void Disposed_subscription_drops_queued_and_future_updates()
+    {
+        var reporter = new BackgroundOperationReporter();
+        var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());
+        var dispatcher = new RecordingUiDispatcher();
+        var coordinator = new ShellBackgroundOperationCoordinator(shell, reporter, dispatcher);
+        coordinator.Attach();
+        reporter.Progress.Report(Snapshot(25));
+
+        coordinator.Dispose();
+        dispatcher.RunPostedActions();
+        reporter.Progress.Report(Snapshot(80));
+        dispatcher.RunPostedActions();
+
+        shell.BackgroundOperationPercent.ShouldBe(0);
+        dispatcher.PostedActions.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Repeated_attach_does_not_duplicate_the_subscription()
+    {
+        var reporter = new BackgroundOperationReporter();
+        var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());
+        var dispatcher = new RecordingUiDispatcher();
+        using var coordinator = new ShellBackgroundOperationCoordinator(shell, reporter, dispatcher);
+
+        coordinator.Attach();
+        coordinator.Attach();
+        reporter.Progress.Report(Snapshot(40));
+
+        dispatcher.PostedActions.Count.ShouldBe(1);
+    }
+
     private static BackgroundOperationSnapshot Snapshot(int percent)
     {
         return new BackgroundOperationSnapshot(

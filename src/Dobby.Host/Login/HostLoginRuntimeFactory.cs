@@ -584,8 +584,7 @@ public static class HostLoginRuntimeFactory
             new HostSupportDeviceCodeProvider(
                 protectedMaterial.StableDeviceId,
                 protectedMaterial.ApplicationEntropy),
-            "support@example.invalid",
-            "Copyright Dobby",
+            options.Product,
             new AssemblyHostBuildMetadataProvider(typeof(HostLoginRuntimeFactory).Assembly));
         var recoveryViewModel = new RecoveryViewModel(
             new WindowsRecoveryFilePicker(),

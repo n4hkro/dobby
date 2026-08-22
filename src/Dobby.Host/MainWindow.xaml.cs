@@ -30,7 +30,6 @@ namespace Dobby.Host;
 public partial class MainWindow : Window
 {
     private const long SessionActivityWriteIntervalMilliseconds = 15_000;
-    private const string PluginPageUnavailableText = "Plugin page unavailable.";
     private const int WmGetMinMaxInfo = 0x0024;
     private const int WmSysCommand = 0x0112;
     private const int MonitorDefaultToNearest = 0x00000002;
@@ -38,6 +37,9 @@ public partial class MainWindow : Window
 
     private readonly IShellWindowCloseConfirmation shellWindowCloseConfirmation;
     private readonly SemaphoreSlim preferencePersistGate = new(1, 1);
+    private readonly CancellationTokenSource windowLifetime = new();
+    private readonly object uiOperationGate = new();
+    private readonly HashSet<Task> activeUiOperations = [];
     private PluginPageRenderRegistry pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault();
     private readonly ShellActionOverrides actionOverrides;
 
@@ -52,6 +54,7 @@ public partial class MainWindow : Window
     private WorkSessionRegistry? workSessionRegistry;
     private WorkSessionCloseCoordinator? workSessionCloseCoordinator;
     private LicenseImportShellAction? licenseImportAction;
+    private ShellPluginManagerOperationCoordinator? pluginManagerOperationCoordinator;
     private Guid? pendingConfirmedUninstallRequestId;
     private PluginUninstallDataChoice? pendingConfirmedUninstallDataChoice;
     private DispatcherTimer? sessionTimer;
@@ -91,6 +94,9 @@ public partial class MainWindow : Window
         };
         Closed += (_, _) =>
         {
+            windowLifetime.Cancel();
+            pluginManagerOperationCoordinator?.CancelActiveOperation();
+            loginRuntime?.LicenseImportCoordinator.CancelLicenseImport();
             PersistShellPreference();
             sessionTimer?.Stop();
             if (shellViewModel is not null)
@@ -183,6 +189,7 @@ public partial class MainWindow : Window
             _ => loginRuntime.DispatchPendingPostCommitEffectsAsync(),
             licenseImportFaultSink);
         loginRuntime.StartLicenseActivationRefreshDispatch(RefreshLicenseModeAfterImport);
+        pluginManagerOperationCoordinator = CreatePluginManagerOperationCoordinator(authenticatedLifetime);
         ConfigureShellRouteHost(runtimeRouteHost);
         RefreshWorkSessions();
         UpdateProfileAccountText();
@@ -565,58 +572,51 @@ public partial class MainWindow : Window
             return;
         }
 
-        await licenseImportAction.ImportAsync(session.UserId, CorrelationId.New());
+        var operation = licenseImportAction.ImportAsync(
+            session.UserId,
+            CorrelationId.New(),
+            windowLifetime.Token);
+        TrackUiOperation(operation);
+        await operation;
     }
 
-    private void PluginsManagerInstall_Click(object sender, RoutedEventArgs e)
+    private void LicenseImportCancel_Click(object sender, RoutedEventArgs e)
     {
-        shellViewModel.SetPluginsManagerBusy(true, HostResourceKeys.PluginsManagerInstallBusy);
-        var correlationId = CorrelationId.New();
-        ReportPluginsManagerBackgroundOperation(
-            correlationId,
-            HostResourceKeys.PluginsManagerInstallBusy,
-            BackgroundOperationStatus.Running,
-            null);
-
-        Result<InstalledPluginState> result;
-        if (actionOverrides.InstallPluginPackage is not null)
-        {
-            result = actionOverrides.InstallPluginPackage(correlationId);
-        }
-        else if (loginRuntime is not null && session is not null)
-        {
-            var packagePath = new WindowsPluginPackageFilePicker().PickPluginPackageFile();
-            result = string.IsNullOrWhiteSpace(packagePath)
-                ? Result.Failure<InstalledPluginState>(ErrorCode.Cancelled)
-                : loginRuntime.PluginPackageInstallCoordinator.InstallPackage(
-                    session.UserId,
-                    packagePath,
-                    new AssemblyHostVersionProvider(typeof(MainWindow).Assembly).Current,
-                    correlationId);
-        }
-        else
-        {
-            result = Result.Failure<InstalledPluginState>(ErrorCode.Forbidden);
-        }
-
-        CompletePluginsManagerOperation(
-            result.IsSuccess ? Result.Success() : Result.Failure(result.ErrorCode ?? ErrorCode.PluginInternalError),
-            correlationId,
-            HostResourceKeys.PluginsManagerInstallBusy);
+        loginRuntime?.LicenseImportCoordinator.CancelLicenseImport();
     }
 
-    private void PluginsManagerEnable_Click(object sender, RoutedEventArgs e)
+    private async void PluginsManagerInstall_Click(object sender, RoutedEventArgs e)
     {
-        RunSelectedPluginLifecycleAction(
-            HostResourceKeys.PluginsManagerEnableBusy,
-            (pluginId, correlationId) => actionOverrides.EnablePlugin is not null
-                ? actionOverrides.EnablePlugin(pluginId, correlationId)
-                : loginRuntime is not null && session is not null
-                    ? loginRuntime.PluginLifecycleCoordinator.EnablePlugin(session.UserId, pluginId, correlationId)
-                    : Result.Failure(ErrorCode.Forbidden));
+        var usesOverride = actionOverrides.InstallPluginPackageAsync is not null ||
+            actionOverrides.InstallPluginPackage is not null;
+        var packagePath = usesOverride
+            ? "override.dobbyplugin"
+            : new WindowsPluginPackageFilePicker().PickPluginPackageFile();
+        if (string.IsNullOrWhiteSpace(packagePath))
+        {
+            shellViewModel.SetPluginsManagerFeedback(null);
+            return;
+        }
+
+        var operation = EnsurePluginManagerOperationCoordinator().InstallAsync(
+            packagePath,
+            windowLifetime.Token);
+        TrackUiOperation(operation);
+        await operation;
     }
 
-    private void PluginsManagerDisable_Click(object sender, RoutedEventArgs e)
+    private void PluginsManagerCancel_Click(object sender, RoutedEventArgs e)
+    {
+        EnsurePluginManagerOperationCoordinator().CancelActiveOperation();
+    }
+
+    private async void PluginsManagerEnable_Click(object sender, RoutedEventArgs e)
+    {
+        await RunSelectedPluginLifecycleActionAsync(
+            (coordinator, pluginId, token) => coordinator.EnableAsync(pluginId, token));
+    }
+
+    private async void PluginsManagerDisable_Click(object sender, RoutedEventArgs e)
     {
         var selected = shellViewModel.PluginsManagerSelectedItem;
         if (selected is null)
@@ -639,22 +639,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        RunPluginDisable(selected.PluginId);
+        await RunPluginDisableAsync(selected.PluginId);
     }
 
-    private void RunPluginDisable(string pluginId)
+    private Task<Result> RunPluginDisableAsync(string pluginId)
     {
-        RunPluginLifecycleAction(
+        return RunPluginLifecycleActionAsync(
             pluginId,
-            HostResourceKeys.PluginsManagerDisableBusy,
-            (targetPluginId, correlationId) => actionOverrides.DisablePlugin is not null
-                ? actionOverrides.DisablePlugin(targetPluginId, correlationId)
-                : loginRuntime is not null && session is not null
-                    ? loginRuntime.PluginLifecycleCoordinator.DisablePlugin(session.UserId, targetPluginId, correlationId)
-                    : Result.Failure(ErrorCode.Forbidden));
+            (coordinator, targetPluginId, token) => coordinator.DisableAsync(targetPluginId, token));
     }
 
-    private void PluginsManagerUninstall_Click(object sender, RoutedEventArgs e)
+    private async void PluginsManagerUninstall_Click(object sender, RoutedEventArgs e)
     {
         var selected = shellViewModel.PluginsManagerSelectedItem;
         if (selected is null)
@@ -692,7 +687,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        RunPluginUninstall(selected.PluginId, confirmation.DataChoice);
+        await RunPluginUninstallAsync(selected.PluginId, confirmation.DataChoice);
     }
 
     private PluginUninstallConfirmationResult ConfirmPluginUninstall(ShellPluginManagerItem plugin)
@@ -710,103 +705,242 @@ public partial class MainWindow : Window
             new WpfPluginUninstallConfirmation(this).Confirm(request);
     }
 
-    private void RunPluginUninstall(string pluginId, PluginUninstallDataChoice dataChoice)
+    private Task<Result> RunPluginUninstallAsync(string pluginId, PluginUninstallDataChoice dataChoice)
     {
-        RunPluginLifecycleAction(
+        return RunPluginLifecycleActionAsync(
             pluginId,
-            HostResourceKeys.PluginsManagerUninstallBusy,
-            (targetPluginId, correlationId) => actionOverrides.UninstallPlugin is not null
-                ? actionOverrides.UninstallPlugin(targetPluginId, dataChoice, correlationId)
-                : loginRuntime is not null && session is not null
-                    ? loginRuntime.PluginLifecycleCoordinator.UninstallPlugin(session.UserId, targetPluginId, dataChoice, correlationId)
-                    : Result.Failure(ErrorCode.Forbidden));
+            (coordinator, targetPluginId, token) => coordinator.UninstallAsync(targetPluginId, dataChoice, token));
     }
 
-    private void RunSelectedPluginLifecycleAction(
-        string busyKey,
-        Func<string, CorrelationId, Result> action)
+    private Task<Result> RunSelectedPluginLifecycleActionAsync(
+        Func<ShellPluginManagerOperationCoordinator, string, CancellationToken, Task<Result>> action)
     {
         var selected = shellViewModel.PluginsManagerSelectedItem;
         if (selected is null)
         {
             shellViewModel.SetPluginsManagerFeedback(HostResourceKeys.PluginsManagerOperationDenied);
-            return;
+            return Task.FromResult(Result.Failure(ErrorCode.InvalidInput));
         }
 
-        RunPluginLifecycleAction(selected.PluginId, busyKey, action);
+        return RunPluginLifecycleActionAsync(selected.PluginId, action);
     }
 
-    private void RunPluginLifecycleAction(
+    private Task<Result> RunPluginLifecycleActionAsync(
         string pluginId,
-        string busyKey,
-        Func<string, CorrelationId, Result> action)
+        Func<ShellPluginManagerOperationCoordinator, string, CancellationToken, Task<Result>> action)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
-        shellViewModel.SetPluginsManagerBusy(true, busyKey);
-        var correlationId = CorrelationId.New();
-        ReportPluginsManagerBackgroundOperation(correlationId, busyKey, BackgroundOperationStatus.Running, null);
-        var result = action(pluginId, correlationId);
-        CompletePluginsManagerOperation(result, correlationId, busyKey);
+        var operation = action(
+            EnsurePluginManagerOperationCoordinator(),
+            pluginId,
+            windowLifetime.Token);
+        TrackUiOperation(operation);
+        return operation;
     }
 
-    private void CompletePluginsManagerOperation(
-        Result result,
-        CorrelationId correlationId,
-        string displayNameKey)
+    private ShellPluginManagerOperationCoordinator EnsurePluginManagerOperationCoordinator()
     {
-        shellViewModel.SetPluginsManagerBusy(false, displayNameKey);
-        if (result.IsSuccess)
+        return pluginManagerOperationCoordinator ??=
+            CreatePluginManagerOperationCoordinator(windowLifetime.Token);
+    }
+
+    private ShellPluginManagerOperationCoordinator CreatePluginManagerOperationCoordinator(
+        CancellationToken authenticatedLifetime)
+    {
+        var actions = new ShellPluginManagerRuntimeActions(
+            InstallPluginPackageAsync,
+            EnablePluginAsync,
+            DisablePluginAsync,
+            UninstallPluginAsync);
+        return new ShellPluginManagerOperationCoordinator(
+            shellViewModel,
+            loginRuntime?.BackgroundOperations,
+            actions,
+            RefreshPluginsManagerSurfaceFromRuntime,
+            authenticatedLifetime);
+    }
+
+    private Task<Result<InstalledPluginState>> InstallPluginPackageAsync(
+        string packagePath,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken,
+        IProgress<PluginPackageInstallProgress> progress)
+    {
+        if (actionOverrides.InstallPluginPackageAsync is not null)
         {
-            shellViewModel.SetPluginsManagerFeedback(null);
-            ReportPluginsManagerBackgroundOperation(
+            return actionOverrides.InstallPluginPackageAsync(correlationId, cancellationToken);
+        }
+        if (actionOverrides.InstallPluginPackage is not null)
+        {
+            return RunLegacyOverrideAsync(
+                () => actionOverrides.InstallPluginPackage(correlationId),
+                cancellationToken);
+        }
+
+        return loginRuntime is not null && session is not null
+            ? loginRuntime.PluginPackageInstallCoordinator.InstallPackageAsync(
+                session.UserId,
+                packagePath,
+                new AssemblyHostVersionProvider(typeof(MainWindow).Assembly).Current,
                 correlationId,
-                displayNameKey,
-                BackgroundOperationStatus.Completed,
-                null);
-            RefreshPluginsManagerSurfaceFromRuntime();
-            return;
-        }
-
-        var feedbackKey = PluginManagerFeedbackKey(result.ErrorCode);
-        shellViewModel.SetPluginsManagerFeedback(feedbackKey);
-        ReportPluginsManagerBackgroundOperation(
-            correlationId,
-            displayNameKey,
-            result.ErrorCode == ErrorCode.Cancelled ? BackgroundOperationStatus.Cancelled : BackgroundOperationStatus.Failed,
-            result.ErrorCode);
+                cancellationToken,
+                progress)
+            : Task.FromResult(Result.Failure<InstalledPluginState>(ErrorCode.Forbidden));
     }
 
-    private static string? PluginManagerFeedbackKey(ErrorCode? errorCode)
-    {
-        if (errorCode == ErrorCode.Cancelled)
-        {
-            return null;
-        }
-
-        return IsDenied(errorCode)
-            ? HostResourceKeys.PluginsManagerOperationDenied
-            : HostResourceKeys.ShellFeedbackError;
-    }
-
-    private void ReportPluginsManagerBackgroundOperation(
+    private Task<Result> EnablePluginAsync(
+        string pluginId,
         CorrelationId correlationId,
-        string displayNameKey,
-        BackgroundOperationStatus status,
-        ErrorCode? failureReason)
+        CancellationToken cancellationToken)
     {
-        loginRuntime?.BackgroundOperations.Progress.Report(new BackgroundOperationSnapshot(
-            Guid.NewGuid(),
-            BackgroundOperationOwnerKind.Host,
-            null,
-            displayNameKey,
-            null,
-            status,
-            status == BackgroundOperationStatus.Completed
-                ? BackgroundOperationProgress.Determinate(100)
-                : BackgroundOperationProgress.Indeterminate(),
-            CanCancel: false,
-            correlationId.Value,
-            failureReason));
+        if (actionOverrides.EnablePluginAsync is not null)
+        {
+            return actionOverrides.EnablePluginAsync(pluginId, correlationId, cancellationToken);
+        }
+        if (actionOverrides.EnablePlugin is not null)
+        {
+            return RunLegacyOverrideAsync(
+                () => actionOverrides.EnablePlugin(pluginId, correlationId),
+                cancellationToken);
+        }
+
+        return loginRuntime is not null && session is not null
+            ? loginRuntime.PluginLifecycleCoordinator.EnablePluginAsync(
+                session.UserId,
+                pluginId,
+                correlationId,
+                cancellationToken)
+            : Task.FromResult(Result.Failure(ErrorCode.Forbidden));
+    }
+
+    private Task<Result> DisablePluginAsync(
+        string pluginId,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken)
+    {
+        if (actionOverrides.DisablePluginAsync is not null)
+        {
+            return actionOverrides.DisablePluginAsync(pluginId, correlationId, cancellationToken);
+        }
+        if (actionOverrides.DisablePlugin is not null)
+        {
+            return RunLegacyOverrideAsync(
+                () => actionOverrides.DisablePlugin(pluginId, correlationId),
+                cancellationToken);
+        }
+
+        return loginRuntime is not null && session is not null
+            ? loginRuntime.PluginLifecycleCoordinator.DisablePluginAsync(
+                session.UserId,
+                pluginId,
+                correlationId,
+                cancellationToken)
+            : Task.FromResult(Result.Failure(ErrorCode.Forbidden));
+    }
+
+    private Task<Result> UninstallPluginAsync(
+        string pluginId,
+        PluginUninstallDataChoice dataChoice,
+        CorrelationId correlationId,
+        CancellationToken cancellationToken)
+    {
+        if (actionOverrides.UninstallPluginAsync is not null)
+        {
+            return actionOverrides.UninstallPluginAsync(
+                pluginId,
+                dataChoice,
+                correlationId,
+                cancellationToken);
+        }
+        if (actionOverrides.UninstallPlugin is not null)
+        {
+            return RunLegacyOverrideAsync(
+                () => actionOverrides.UninstallPlugin(pluginId, dataChoice, correlationId),
+                cancellationToken);
+        }
+
+        return loginRuntime is not null && session is not null
+            ? loginRuntime.PluginLifecycleCoordinator.UninstallPluginAsync(
+                session.UserId,
+                pluginId,
+                dataChoice,
+                correlationId,
+                cancellationToken)
+            : Task.FromResult(Result.Failure(ErrorCode.Forbidden));
+    }
+
+    private static Task<Result<T>> RunLegacyOverrideAsync<T>(
+        Func<Result<T>> action,
+        CancellationToken cancellationToken)
+    {
+        return Task.Factory.StartNew(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return action();
+            },
+            CancellationToken.None,
+            TaskCreationOptions.DenyChildAttach,
+            TaskScheduler.Default);
+    }
+
+    private static Task<Result> RunLegacyOverrideAsync(
+        Func<Result> action,
+        CancellationToken cancellationToken)
+    {
+        return Task.Factory.StartNew(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return action();
+            },
+            CancellationToken.None,
+            TaskCreationOptions.DenyChildAttach,
+            TaskScheduler.Default);
+    }
+
+    private void TrackUiOperation(Task operation)
+    {
+        lock (uiOperationGate)
+        {
+            activeUiOperations.Add(operation);
+        }
+
+        _ = operation.ContinueWith(
+            completed =>
+            {
+                lock (uiOperationGate)
+                {
+                    activeUiOperations.Remove(completed);
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    internal async Task ShutdownOperationsAsync()
+    {
+        windowLifetime.Cancel();
+        loginRuntime?.LicenseImportCoordinator.CancelLicenseImport();
+        if (pluginManagerOperationCoordinator is not null)
+        {
+            await pluginManagerOperationCoordinator.CancelAndDrainAsync().ConfigureAwait(false);
+        }
+
+        Task[] operations;
+        lock (uiOperationGate)
+        {
+            operations = activeUiOperations.ToArray();
+        }
+
+        try
+        {
+            await Task.WhenAll(operations).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     private void RefreshPluginsManagerSurfaceFromRuntime()
@@ -843,7 +977,7 @@ public partial class MainWindow : Window
             plugin.StatusSummary,
             plugin.IsPendingUninstall,
             plugin.RestartRequired,
-            TrustSummary: "Trusted",
+            TrustState: ShellPluginTrustState.Verified,
             LicenseSummary: string.Empty,
             FaultSummary: string.Empty,
             SafeRejectionText: SafePluginRejectionText(plugin.StatusSummary));
@@ -1223,7 +1357,7 @@ public partial class MainWindow : Window
 
         if (choice == WorkSessionCloseChoice.Close && pending is not null)
         {
-            ContinuePendingPluginLifecycleAction(pending);
+            await ContinuePendingPluginLifecycleActionAsync(pending);
         }
 
         if (pending?.Action == PendingWorkSessionAction.Logout && choice == WorkSessionCloseChoice.Close)
@@ -1232,7 +1366,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ContinuePendingPluginLifecycleAction(PendingWorkSessionCloseRequest pending)
+    private async Task ContinuePendingPluginLifecycleActionAsync(PendingWorkSessionCloseRequest pending)
     {
         if (string.IsNullOrWhiteSpace(pending.ActionTargetId))
         {
@@ -1247,7 +1381,7 @@ public partial class MainWindow : Window
         switch (pending.Action)
         {
             case PendingWorkSessionAction.PluginDisable:
-                RunPluginDisable(pending.ActionTargetId);
+                await RunPluginDisableAsync(pending.ActionTargetId);
                 break;
             case PendingWorkSessionAction.PluginUninstall:
                 if (pendingConfirmedUninstallRequestId != pending.RequestId ||
@@ -1259,7 +1393,7 @@ public partial class MainWindow : Window
                 }
 
                 ClearPendingUninstallConfirmation(pending);
-                RunPluginUninstall(pending.ActionTargetId, dataChoice);
+                await RunPluginUninstallAsync(pending.ActionTargetId, dataChoice);
                 break;
         }
     }
@@ -1412,7 +1546,7 @@ public partial class MainWindow : Window
             ? render.Value
             : new TextBlock
             {
-                Text = PluginPageUnavailableText,
+                Text = shellViewModel.PluginPageUnavailableText,
                 TextWrapping = TextWrapping.Wrap
             };
     }
@@ -1529,6 +1663,26 @@ public partial class MainWindow : Window
             SecurityAutoLockEnabledCheckBox.IsChecked == true,
             minutes);
         ShowActionFeedback(HostResourceKeys.ShellFeedbackSuccess, HostResourceKeys.ShellNotificationToast);
+    }
+
+    private void AboutCopyDeviceCode_Click(object sender, RoutedEventArgs e)
+    {
+        var deviceCode = shellViewModel.AboutDeviceCode;
+        if (string.IsNullOrWhiteSpace(deviceCode))
+        {
+            ShowActionFeedback(HostResourceKeys.AboutDeviceCodeCopyError, HostResourceKeys.ShellNotificationBanner);
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(deviceCode);
+            ShowActionFeedback(HostResourceKeys.AboutDeviceCodeCopied, HostResourceKeys.ShellNotificationToast);
+        }
+        catch (Exception exception) when (exception is ExternalException or InvalidOperationException)
+        {
+            ShowActionFeedback(HostResourceKeys.AboutDeviceCodeCopyError, HostResourceKeys.ShellNotificationBanner);
+        }
     }
 
     private void PerformLogout()
@@ -1787,11 +1941,19 @@ public sealed class ShellActionOverrides
 
     public Func<CorrelationId, Result<InstalledPluginState>>? InstallPluginPackage { get; init; }
 
+    public Func<CorrelationId, CancellationToken, Task<Result<InstalledPluginState>>>? InstallPluginPackageAsync { get; init; }
+
     public Func<string, CorrelationId, Result>? EnablePlugin { get; init; }
+
+    public Func<string, CorrelationId, CancellationToken, Task<Result>>? EnablePluginAsync { get; init; }
 
     public Func<string, CorrelationId, Result>? DisablePlugin { get; init; }
 
+    public Func<string, CorrelationId, CancellationToken, Task<Result>>? DisablePluginAsync { get; init; }
+
     public Func<string, PluginUninstallDataChoice, CorrelationId, Result>? UninstallPlugin { get; init; }
+
+    public Func<string, PluginUninstallDataChoice, CorrelationId, CancellationToken, Task<Result>>? UninstallPluginAsync { get; init; }
 
     public Func<string, bool>? WasPluginActivatedInCurrentProcess { get; init; }
 

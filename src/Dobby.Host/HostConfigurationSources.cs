@@ -18,6 +18,7 @@ public static class HostConfigurationSources
         "Localization",
         "Plugins",
         "Licensing",
+        "Product",
         "BranchShared"
     };
 
@@ -99,6 +100,7 @@ public static class HostConfigurationSources
                 : options.Localization,
             Plugins = options.Plugins,
             Licensing = options.Licensing,
+            Product = options.Product,
             BranchShared = options.BranchShared
         };
     }

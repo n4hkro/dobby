@@ -2,6 +2,7 @@ using Dobby.Configuration;
 using Dobby.Contracts.Ordering;
 using Dobby.Contracts.PluginPages;
 using Dobby.Host;
+using Dobby.Host.Login;
 using Dobby.Localization;
 using Dobby.Navigation;
 using Dobby.Shell;
@@ -46,9 +47,8 @@ public sealed class ShellKeyboardSmokeTests
         RunOnSta(() =>
         {
             var shell = new ShellViewModel(HostStringCatalog.CreateResourceBacked(), SnapshotContributions());
-            var window = new MainWindow
+            var window = new MainWindow(shell)
             {
-                DataContext = shell,
                 Left = -32000,
                 Top = -32000,
                 ShowInTaskbar = false,
@@ -101,9 +101,11 @@ public sealed class ShellKeyboardSmokeTests
         {
             var shell = new ShellViewModel(HostStringCatalog.CreateResourceBacked(), SnapshotContributions());
             shell.SetActivePluginPage(new PluginTextPageModel("plugin.page.ready"));
-            var window = new MainWindow
+            shell.SetSettingsAndAbout(
+                [],
+                [new Dobby.Shell.Layout.ShellAboutField("device-code", "Cihaz kodu", "ABCD-EFGH")]);
+            var window = new MainWindow(shell)
             {
-                DataContext = shell,
                 Left = -32000,
                 Top = -32000,
                 ShowInTaskbar = false,
@@ -123,6 +125,12 @@ public sealed class ShellKeyboardSmokeTests
                 shell.ActiveRouteKey.ShouldBe(RouteRegistry.SettingsRouteKey);
                 FindNamed<FrameworkElement>(window, "MainContent").IsVisible.ShouldBeTrue();
                 FindNamed<ContentControl>(window, "PluginPageHost").IsVisible.ShouldBeTrue();
+                var copyDeviceCode = FindNamed<Button>(window, "AboutCopyDeviceCodeButton");
+                copyDeviceCode.Visibility.ShouldBe(Visibility.Visible);
+                copyDeviceCode.BringIntoView();
+                Pump(window);
+                AutomationProperties.GetName(copyDeviceCode).ShouldNotBeNullOrWhiteSpace();
+                AutomationProperties.GetHelpText(copyDeviceCode).ShouldNotBeNullOrWhiteSpace();
 
                 FindNamed<Button>(window, "ProfileMenuButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Pump(window);
@@ -134,6 +142,101 @@ public sealed class ShellKeyboardSmokeTests
             finally
             {
                 window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Login_and_recovery_controls_expose_accessible_identity_and_keyboard_semantics()
+    {
+        RunOnSta(() =>
+        {
+            var login = new LoginWindow
+            {
+                Left = -32000,
+                Top = -32000,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize
+            };
+
+            try
+            {
+                AddThemeResources(login);
+                login.Show();
+                Pump(login);
+                ((FrameworkElement)login.Content).LayoutTransform = new ScaleTransform(2, 2);
+                Pump(login);
+
+                foreach (var automationId in new[]
+                {
+                    "Dobby.Host.Login.Username",
+                    "Dobby.Host.Login.Password",
+                    "Dobby.Host.Login.RememberMe",
+                    "Dobby.Host.Login.Submit",
+                    "Dobby.Host.Login.Recovery"
+                })
+                {
+                    var element = FindAutomationId(login, automationId);
+                    AutomationProperties.GetName(element).ShouldNotBeNullOrWhiteSpace();
+                }
+
+                FindAutomationId<Button>(login, "Dobby.Host.Login.Submit").IsDefault.ShouldBeTrue();
+                var recoveryButton = FindAutomationId<Button>(login, "Dobby.Host.Login.Recovery");
+                recoveryButton.BringIntoView();
+                Pump(login);
+                recoveryButton.IsVisible.ShouldBeTrue();
+                recoveryButton.IsTabStop.ShouldBeTrue();
+                AutomationProperties.GetLiveSetting(FindNamed<TextBlock>(login, "ThrottleCountdownText"))
+                    .ShouldBe(AutomationLiveSetting.Polite);
+                AutomationProperties.GetLiveSetting(FindNamed<TextBlock>(login, "ErrorText"))
+                    .ShouldBe(AutomationLiveSetting.Assertive);
+            }
+            finally
+            {
+                login.Close();
+            }
+
+            var reset = new RecoveryPasswordResetDialog
+            {
+                Left = -32000,
+                Top = -32000,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ResizeMode = ResizeMode.NoResize
+            };
+            try
+            {
+                AddThemeResources(reset);
+                reset.Show();
+                Pump(reset);
+                ((FrameworkElement)reset.Content).LayoutTransform = new ScaleTransform(2, 2);
+                Pump(reset);
+
+                foreach (var automationId in new[]
+                {
+                    "Dobby.Host.Recovery.NewPassword",
+                    "Dobby.Host.Recovery.ConfirmPassword",
+                    "Dobby.Host.Recovery.Confirm",
+                    "Dobby.Host.Recovery.Cancel"
+                })
+                {
+                    AutomationProperties.GetName(FindAutomationId(reset, automationId))
+                        .ShouldNotBeNullOrWhiteSpace();
+                }
+
+                FindAutomationId<Button>(reset, "Dobby.Host.Recovery.Confirm").IsDefault.ShouldBeTrue();
+                var cancelButton = FindAutomationId<Button>(reset, "Dobby.Host.Recovery.Cancel");
+                cancelButton.IsCancel.ShouldBeTrue();
+                cancelButton.BringIntoView();
+                Pump(reset);
+                Keyboard.Focus(cancelButton).ShouldBe(cancelButton);
+                AutomationProperties.GetLiveSetting(FindNamed<TextBlock>(reset, "ValidationText"))
+                    .ShouldBe(AutomationLiveSetting.Assertive);
+            }
+            finally
+            {
+                reset.Close();
             }
         });
     }
@@ -181,6 +284,19 @@ public sealed class ShellKeyboardSmokeTests
     {
         return FindVisuals<T>((DependencyObject)window.Content)
             .Single(element => element.Name.Equals(name, StringComparison.Ordinal));
+    }
+
+    private static FrameworkElement FindAutomationId(Window window, string automationId)
+    {
+        return FindAutomationId<FrameworkElement>(window, automationId);
+    }
+
+    private static T FindAutomationId<T>(Window window, string automationId)
+        where T : FrameworkElement
+    {
+        return FindVisuals<T>((DependencyObject)window.Content)
+            .Single(element => AutomationProperties.GetAutomationId(element)
+                .Equals(automationId, StringComparison.Ordinal));
     }
 
     private static IReadOnlyList<T> FindVisuals<T>(DependencyObject root)

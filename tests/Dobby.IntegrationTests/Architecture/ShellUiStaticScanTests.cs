@@ -525,6 +525,7 @@ public sealed class ShellUiStaticScanTests
     {
         var root = RepoRoot();
         var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
+        var operationCoordinatorCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Plugins", "ShellPluginManagerOperationCoordinator.cs"));
         var confirmationCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Plugins", "PluginUninstallConfirmation.cs"));
 
         mainWindowCode.ShouldContain("PluginsManagerUninstall_Click");
@@ -534,8 +535,10 @@ public sealed class ShellUiStaticScanTests
         mainWindowCode.ShouldContain("PluginUninstallConfirmationRequest");
         mainWindowCode.ShouldContain("confirmation.DataChoice");
         mainWindowCode.ShouldContain("WasPluginActivatedInCurrentProcess?.Invoke(plugin.PluginId)");
-        mainWindowCode.ShouldContain("RunSelectedPluginLifecycleAction(");
-        mainWindowCode.ShouldContain("ContinuePendingPluginLifecycleAction(");
+        mainWindowCode.ShouldContain("RunSelectedPluginLifecycleActionAsync(");
+        mainWindowCode.ShouldContain("ContinuePendingPluginLifecycleActionAsync(");
+        mainWindowCode.ShouldContain("RunPluginUninstallAsync(selected.PluginId, confirmation.DataChoice)");
+        operationCoordinatorCode.ShouldContain("actions.UninstallPluginAsync(targetPluginId, dataChoice");
         mainWindowCode.ShouldNotContain("Task.Run(() => action(");
         mainWindowCode.ShouldNotContain("var wasActivatedInCurrentProcess = selected.IsEnabled");
         mainWindowCode.ShouldNotContain("PluginUninstallDataChoice.KeepData,\r\n                wasActivatedInCurrentProcess: true");
@@ -552,24 +555,27 @@ public sealed class ShellUiStaticScanTests
         var root = RepoRoot();
         var mainWindowCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "MainWindow.xaml.cs"));
         var presenterCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "PostLoginShellPresenter.cs"));
+        var operationCoordinatorCode = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Plugins", "ShellPluginManagerOperationCoordinator.cs"));
 
         presenterCode.ShouldContain("window.AttachRuntime(");
         mainWindowCode.ShouldNotContain("IBackgroundOperationReporter? backgroundOperations");
         mainWindowCode.ShouldNotContain("backgroundOperations = loginRuntime.BackgroundOperations");
-        mainWindowCode.ShouldContain("ReportPluginsManagerBackgroundOperation(");
-        mainWindowCode.ShouldContain("loginRuntime?.BackgroundOperations.Progress.Report(new BackgroundOperationSnapshot(");
-        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerInstallBusy");
-        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerEnableBusy");
-        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerDisableBusy");
-        mainWindowCode.ShouldContain("HostResourceKeys.PluginsManagerUninstallBusy");
-        mainWindowCode.ShouldContain("private void PluginsManagerEnable_Click");
-        mainWindowCode.ShouldContain("private void PluginsManagerDisable_Click");
-        mainWindowCode.ShouldContain("private void RunSelectedPluginLifecycleAction(");
-        mainWindowCode.ShouldContain("private void RunPluginLifecycleAction(");
-        mainWindowCode.ShouldContain("private void ContinuePendingPluginLifecycleAction(");
-        mainWindowCode.ShouldContain("BackgroundOperationStatus.Running");
-        mainWindowCode.ShouldContain("BackgroundOperationStatus.Completed");
-        mainWindowCode.ShouldContain("BackgroundOperationStatus.Failed");
+        mainWindowCode.ShouldContain("ShellPluginManagerOperationCoordinator");
+        mainWindowCode.ShouldContain("InstallPackageAsync(");
+        mainWindowCode.ShouldContain("ShutdownOperationsAsync()");
+        operationCoordinatorCode.ShouldContain("backgroundOperations?.Progress.Report(new BackgroundOperationSnapshot(");
+        operationCoordinatorCode.ShouldContain("HostResourceKeys.PluginsManagerInstallBusy");
+        operationCoordinatorCode.ShouldContain("HostResourceKeys.PluginsManagerEnableBusy");
+        operationCoordinatorCode.ShouldContain("HostResourceKeys.PluginsManagerDisableBusy");
+        operationCoordinatorCode.ShouldContain("HostResourceKeys.PluginsManagerUninstallBusy");
+        mainWindowCode.ShouldContain("private async void PluginsManagerEnable_Click");
+        mainWindowCode.ShouldContain("private async void PluginsManagerDisable_Click");
+        mainWindowCode.ShouldContain("private Task<Result> RunSelectedPluginLifecycleActionAsync(");
+        mainWindowCode.ShouldContain("private Task<Result> RunPluginLifecycleActionAsync(");
+        mainWindowCode.ShouldContain("private async Task ContinuePendingPluginLifecycleActionAsync(");
+        operationCoordinatorCode.ShouldContain("BackgroundOperationStatus.Running");
+        operationCoordinatorCode.ShouldContain("BackgroundOperationStatus.Completed");
+        operationCoordinatorCode.ShouldContain("BackgroundOperationStatus.Failed");
     }
 
     [Fact]

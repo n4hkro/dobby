@@ -374,7 +374,7 @@ public sealed class StartupBootstrapWiringTests
 
         shellPresenterSource.ShouldContain("window.ContentRendered += (_, _) =>");
         shellPresenterSource.ShouldContain("warmupTask = RunPostLoginShellWarmupAsync(");
-        shellPresenterSource.ShouldContain("() => loginRuntime.PluginRuntimeCoordinator.ApplyPostLoginMigrations(),");
+        shellPresenterSource.ShouldContain("() => loginRuntime.PluginRuntimeCoordinator.ApplyAuthenticatedStartupRecovery(),");
         shellPresenterSource.ShouldContain("var settingsAndAboutTask = Task.Run(");
         shellPresenterSource.ShouldContain("() => BuildSettingsAndAbout(");
         shellPresenterSource.ShouldContain("Dispatcher.InvokeAsync");

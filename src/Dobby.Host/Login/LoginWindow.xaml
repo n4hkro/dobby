@@ -3,7 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:loc="clr-namespace:Dobby.Localization;assembly=Dobby.Localization"
-    Title="Dobby Login"
+    Title=""
     Width="420"
     Height="460"
     MinWidth="420"
@@ -11,68 +11,99 @@
     WindowStartupLocation="CenterScreen"
     Background="{DynamicResource Dobby.Brush.Background}">
   <Grid Margin="24">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
     <StackPanel VerticalAlignment="Center">
       <TextBlock
           Margin="0,0,0,16"
           FontSize="24"
           Foreground="{DynamicResource Dobby.Brush.Text}"
-          Text="Dobby" />
+          Text="Dobby"
+          TextWrapping="Wrap" />
       <TextBlock
           x:Name="UsernameLabel"
           Foreground="{DynamicResource Dobby.Brush.Text}"
           Tag="{x:Static loc:HostResourceKeys.LoginUsername}"
-          Text="Username" />
+          Text=""
+          TextWrapping="Wrap" />
       <TextBox
           x:Name="UsernameBox"
           Margin="0,4,0,12"
+          AutomationProperties.AutomationId="Dobby.Host.Login.Username"
+          AutomationProperties.LabeledBy="{Binding ElementName=UsernameLabel}"
+          AutomationProperties.Name="{Binding Text, ElementName=UsernameLabel}"
+          TabIndex="0"
           TextChanged="UsernameBox_TextChanged" />
       <TextBlock
           x:Name="DisplayNameLabel"
           Foreground="{DynamicResource Dobby.Brush.Text}"
           Tag="{x:Static loc:HostResourceKeys.LoginDisplayName}"
-          Text="Display name" />
+          Text=""
+          TextWrapping="Wrap" />
       <TextBox
           x:Name="DisplayNameBox"
           Margin="0,4,0,12"
-          AutomationProperties.AutomationId="Dobby.Host.Login.DisplayName" />
+          AutomationProperties.AutomationId="Dobby.Host.Login.DisplayName"
+          AutomationProperties.LabeledBy="{Binding ElementName=DisplayNameLabel}"
+          AutomationProperties.Name="{Binding Text, ElementName=DisplayNameLabel}"
+          TabIndex="1" />
       <TextBlock
           x:Name="PasswordLabel"
           Foreground="{DynamicResource Dobby.Brush.Text}"
           Tag="{x:Static loc:HostResourceKeys.LoginPassword}"
-          Text="Password" />
+          Text=""
+          TextWrapping="Wrap" />
       <PasswordBox
           x:Name="PasswordBox"
           Margin="0,4,0,12"
+          AutomationProperties.AutomationId="Dobby.Host.Login.Password"
+          AutomationProperties.LabeledBy="{Binding ElementName=PasswordLabel}"
+          AutomationProperties.Name="{Binding Text, ElementName=PasswordLabel}"
+          TabIndex="2"
           PasswordChanged="PasswordBox_PasswordChanged" />
       <CheckBox
           x:Name="RememberMeCheckBox"
           Margin="0,0,0,12"
-          Content="Remember this username"
+          AutomationProperties.AutomationId="Dobby.Host.Login.RememberMe"
+          AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"
+          Content=""
+          TabIndex="3"
           Tag="{x:Static loc:HostResourceKeys.LoginRememberMe}" />
       <TextBlock
           x:Name="ThrottleCountdownText"
           Margin="0,0,0,8"
+          AutomationProperties.LiveSetting="Polite"
+          AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}"
           Foreground="{DynamicResource Dobby.Brush.Text}"
           Visibility="Collapsed" />
       <TextBlock
           x:Name="ErrorText"
           Margin="0,0,0,12"
+          AutomationProperties.LiveSetting="Assertive"
+          AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}"
           Foreground="Crimson"
           TextWrapping="Wrap"
           Visibility="Collapsed" />
-      <StackPanel Orientation="Horizontal">
+      <WrapPanel>
         <Button
             x:Name="LoginButton"
-            Width="96"
+            MinWidth="96"
+            AutomationProperties.AutomationId="Dobby.Host.Login.Submit"
+            AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"
             Click="Continue_Click"
-            Content="Login"
+            Content=""
+            IsDefault="True"
+            TabIndex="4"
             Tag="{x:Static loc:HostResourceKeys.LoginSubmit}" />
         <Button
             x:Name="RecoveryButton"
             Margin="8,0,0,0"
+            AutomationProperties.AutomationId="Dobby.Host.Login.Recovery"
+            AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}"
             Click="Recovery_Click"
-            Content="Recovery" />
-      </StackPanel>
+            Content=""
+            TabIndex="5" />
+      </WrapPanel>
     </StackPanel>
+    </ScrollViewer>
   </Grid>
 </Window>

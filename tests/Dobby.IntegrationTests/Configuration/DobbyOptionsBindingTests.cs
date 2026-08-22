@@ -24,6 +24,8 @@ public sealed class DobbyOptionsBindingTests
         options.Auth.LoginThrottleStepsSeconds.ShouldBe([0, 0, 10, 30, 60]);
         options.Auth.PasswordKdfMode.ShouldBe("Pbkdf2Sha256");
         options.Localization.SupportedCultures.ShouldBe(["az-AZ", "en-US", "tr-TR"]);
+        options.Product.SupportContact.ShouldBe("https://github.com/n4hkro/dobby/issues");
+        options.Product.ArtifactMode.ShouldBe(ProductArtifactMode.Installed);
         options.BranchShared.RuntimeEnabled.ShouldBeFalse();
     }
 
@@ -41,6 +43,7 @@ public sealed class DobbyOptionsBindingTests
                 "Localization": { "DefaultCulture": "az-AZ", "SupportedCultures": [ "az-AZ", "en-US", "tr-TR" ] },
                 "Plugins": { "AllowPreLoginDiscovery": false },
                 "Licensing": { "ImportRequiresPermission": true },
+                "Product": { "SupportContact": "https://github.com/n4hkro/dobby/issues", "LegalLine": "Copyright © 2026 Dobby contributors", "ArtifactMode": "Installed" },
                 "BranchShared": { "RuntimeEnabled": false }
               }
             }

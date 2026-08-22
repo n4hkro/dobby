@@ -48,7 +48,12 @@ public sealed class StorageOptionsTests
             new DobbyOptions
             {
                 Runtime = new RuntimeOptions { EnvironmentName = RuntimeEnvironmentName.Production },
-                Storage = new StorageOptions { ProviderMode = StorageProviderMode.SQLite3MultipleCiphers }
+                Storage = new StorageOptions { ProviderMode = StorageProviderMode.SQLite3MultipleCiphers },
+                Product = new ProductOptions
+                {
+                    SupportContact = "https://github.com/n4hkro/dobby/issues",
+                    LegalLine = "Copyright © 2026 Dobby contributors"
+                }
             });
 
         result.Failed.ShouldBeFalse();

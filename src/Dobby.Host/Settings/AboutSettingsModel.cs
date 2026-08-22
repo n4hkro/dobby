@@ -17,6 +17,7 @@ public sealed class AboutSettingsModel(AboutInfo info)
                 Dobby.Localization.HostResourceKeys.AboutBuildDate,
                 Dobby.Localization.HostResourceKeys.AboutHostEdition,
                 Dobby.Localization.HostResourceKeys.AboutHostChannel,
+                Dobby.Localization.HostResourceKeys.AboutArtifactMode,
                 Dobby.Localization.HostResourceKeys.AboutDeviceCode,
                 Dobby.Localization.HostResourceKeys.AboutPlugins,
                 Dobby.Localization.HostResourceKeys.AboutSupportContact,

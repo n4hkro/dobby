@@ -231,7 +231,11 @@ public sealed class HostPluginRuntimeCoordinator(
             ActivationCancellation.Token).ConfigureAwait(false);
         var result = bounded.IsSuccess
             ? bounded.Value
-            : Result.Failure<PluginActivationExecutionOutcome>(bounded.ErrorCode ?? ErrorCode.PluginInternalError);
+            : bounded.ErrorCode == ErrorCode.Cancelled
+                ? Result.Success(new PluginActivationExecutionOutcome(
+                    PluginActivationCompletion.Cancelled,
+                    new PluginActivationRun([], [], [])))
+                : Result.Failure<PluginActivationExecutionOutcome>(bounded.ErrorCode ?? ErrorCode.PluginInternalError);
         if (result.IsSuccess)
         {
             DiagnosticsCoordinator?.RecordActivationOutcomes(result.Value.Run.Outcomes);

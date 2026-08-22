@@ -183,11 +183,11 @@ public sealed class ShellDiagnosticsExportActionTests
                 shell,
                 new ShellActionOverrides
                 {
-                    InstallPluginPackage = _ =>
+                    InstallPluginPackageAsync = (_, _) =>
                     {
                         calls++;
                         shell.PluginsManagerFeedbackText.ShouldBe(strings.GetString(HostResourceKeys.PluginsManagerInstallBusy));
-                        return Result.Failure<InstalledPluginState>(ErrorCode.LicenseReadOnly);
+                        return Task.FromResult(Result.Failure<InstalledPluginState>(ErrorCode.LicenseReadOnly));
                     }
                 });
 
@@ -237,25 +237,25 @@ public sealed class ShellDiagnosticsExportActionTests
                 shell,
                 new ShellActionOverrides
                 {
-                    DisablePlugin = (pluginId, _) =>
+                    DisablePluginAsync = (pluginId, _, _) =>
                     {
                         calls.Add($"disable:{pluginId}");
-                        return Result.Success();
+                        return Task.FromResult(Result.Success());
                     },
-                    EnablePlugin = (pluginId, _) =>
+                    EnablePluginAsync = (pluginId, _, _) =>
                     {
                         calls.Add($"enable:{pluginId}");
-                        return Result.Success();
+                        return Task.FromResult(Result.Success());
                     },
                     ConfirmPluginUninstall = request =>
                     {
                         calls.Add($"confirm:{request.PluginId}:{request.WasActivatedInCurrentProcess}");
                         return PluginUninstallConfirmationResult.Confirm(PluginUninstallDataChoice.DeleteData);
                     },
-                    UninstallPlugin = (pluginId, dataChoice, _) =>
+                    UninstallPluginAsync = (pluginId, dataChoice, _, _) =>
                     {
                         calls.Add($"uninstall:{pluginId}:{dataChoice}");
-                        return Result.Success();
+                        return Task.FromResult(Result.Success());
                     }
                 });
 
@@ -384,6 +384,102 @@ public sealed class ShellDiagnosticsExportActionTests
             {
                 window.Close();
             }
+        });
+    }
+
+    [Fact]
+    public void Plugin_install_operation_keeps_dispatcher_responsive_until_explicit_completion()
+    {
+        var strings = HostStringCatalog.CreateResourceBacked();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finish = new TaskCompletionSource<Result<InstalledPluginState>>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        RunOnSta(() =>
+        {
+            var shell = ShellViewModel.CreateDefault(strings);
+            shell.SetPluginsManagerSurface(canView: true, canImport: true, canConfigure: false, canDelete: false, []);
+            shell.ActivateRoute(Dobby.Navigation.RouteRegistry.PluginsRouteKey).IsSuccess.ShouldBeTrue();
+            var window = CreateHiddenWindow(
+                shell,
+                new ShellActionOverrides
+                {
+                    InstallPluginPackageAsync = async (_, cancellationToken) =>
+                    {
+                        started.TrySetResult();
+                        return await finish.Task.WaitAsync(cancellationToken);
+                    }
+                });
+
+            try
+            {
+                ShowWindow(window);
+                FindNamed<Button>(window, "PluginsManagerInstallButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                PumpUntil(window.Dispatcher, () => started.Task.IsCompleted);
+
+                var heartbeatRan = false;
+                _ = window.Dispatcher.InvokeAsync(
+                    () => heartbeatRan = true,
+                    DispatcherPriority.Input);
+                PumpUntil(window.Dispatcher, () => heartbeatRan);
+
+                shell.PluginsManagerFeedbackText.ShouldBe(strings.GetString(HostResourceKeys.PluginsManagerInstallBusy));
+                shell.PluginsManagerInstallIsEnabled.ShouldBeFalse();
+
+                finish.TrySetResult(Result.Failure<InstalledPluginState>(ErrorCode.Cancelled));
+                PumpUntil(window.Dispatcher, () => shell.PluginsManagerInstallIsEnabled);
+                shell.PluginsManagerFeedbackText.ShouldBeEmpty();
+            }
+            finally
+            {
+                finish.TrySetResult(Result.Failure<InstalledPluginState>(ErrorCode.Cancelled));
+                window.Close();
+                PumpUntil(window.Dispatcher, () => shell.PluginsManagerInstallIsEnabled);
+            }
+        });
+    }
+
+    [Fact]
+    public void Closing_shell_cancels_inflight_plugin_install_without_late_busy_state()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        RunOnSta(() =>
+        {
+            var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());
+            shell.SetPluginsManagerSurface(canView: true, canImport: true, canConfigure: false, canDelete: false, []);
+            shell.ActivateRoute(Dobby.Navigation.RouteRegistry.PluginsRouteKey).IsSuccess.ShouldBeTrue();
+            var window = CreateHiddenWindow(
+                shell,
+                new ShellActionOverrides
+                {
+                    InstallPluginPackageAsync = async (_, cancellationToken) =>
+                    {
+                        started.TrySetResult();
+                        try
+                        {
+                            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                            return Result.Failure<InstalledPluginState>(ErrorCode.PluginInternalError);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            cancellationObserved.TrySetResult();
+                            throw;
+                        }
+                    }
+                });
+
+            ShowWindow(window);
+            FindNamed<Button>(window, "PluginsManagerInstallButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            PumpUntil(window.Dispatcher, () => started.Task.IsCompleted);
+
+            window.Close();
+            PumpUntil(
+                window.Dispatcher,
+                () => cancellationObserved.Task.IsCompleted && shell.PluginsManagerInstallIsEnabled);
+
+            cancellationObserved.Task.IsCompletedSuccessfully.ShouldBeTrue();
+            shell.PluginsManagerInstallIsEnabled.ShouldBeTrue();
         });
     }
 
@@ -646,6 +742,20 @@ public sealed class ShellDiagnosticsExportActionTests
     {
         window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         window.UpdateLayout();
+    }
+
+    private static void PumpUntil(Dispatcher dispatcher, Func<bool> condition)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            if (DateTimeOffset.UtcNow >= deadline)
+            {
+                throw new TimeoutException("The explicit dispatcher completion signal was not observed.");
+            }
+
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+        }
     }
 
     private static void RunOnSta(Action action)

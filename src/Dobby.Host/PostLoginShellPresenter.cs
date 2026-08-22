@@ -58,7 +58,10 @@ internal static class PostLoginShellPresenter
         var currentTheme = startupTheme;
         shellViewModel.SetTheme(currentTheme);
 
-        WireBackgroundOperations(application, shellViewModel, loginRuntime.BackgroundOperations);
+        using var backgroundOperationSubscription = WireBackgroundOperations(
+            application,
+            shellViewModel,
+            loginRuntime.BackgroundOperations);
         var window = new MainWindow(shellViewModel);
         postLoginTiming?.MarkShellWindowConstructed();
         window.AttachRuntime(
@@ -94,6 +97,7 @@ internal static class PostLoginShellPresenter
         application.MainWindow = window;
         window.MaximizeForShellStartup();
         window.ShowDialog();
+        await window.ShutdownOperationsAsync().ConfigureAwait(false);
         loginRuntime.PostLoginSessionRuntime.Dispose();
         authenticatedLifetime.Cancel();
         try
@@ -457,6 +461,9 @@ internal static class PostLoginShellPresenter
         var ownerText = about.OwnerIdentityText.StartsWith("About.OwnerStatus.", StringComparison.Ordinal)
             ? strings.GetString(about.OwnerIdentityText)
             : about.OwnerIdentityText;
+        var artifactModeText = about.ArtifactModeText.StartsWith("Dobby.Host.About.ArtifactMode.", StringComparison.Ordinal)
+            ? strings.GetString(about.ArtifactModeText)
+            : about.ArtifactModeText;
 
         return
         [
@@ -465,6 +472,7 @@ internal static class PostLoginShellPresenter
             new ShellAboutField("build-date", strings.GetString(HostResourceKeys.AboutBuildDate), about.BuildDate),
             new ShellAboutField("host-edition", strings.GetString(HostResourceKeys.AboutHostEdition), about.HostEdition),
             new ShellAboutField("host-channel", strings.GetString(HostResourceKeys.AboutHostChannel), about.HostChannel),
+            new ShellAboutField("artifact-mode", strings.GetString(HostResourceKeys.AboutArtifactMode), artifactModeText),
             new ShellAboutField("device-code", strings.GetString(HostResourceKeys.AboutDeviceCode), about.DeviceCode),
             new ShellAboutField("plugins", strings.GetString(HostResourceKeys.AboutPlugins), pluginText),
             new ShellAboutField("support-contact", strings.GetString(HostResourceKeys.AboutSupportContact), about.SupportContact),
@@ -473,7 +481,7 @@ internal static class PostLoginShellPresenter
         ];
     }
 
-    private static void WireBackgroundOperations(
+    private static ShellBackgroundOperationCoordinator WireBackgroundOperations(
         WpfApplication application,
         ShellViewModel shellViewModel,
         IBackgroundOperationReporter reporter)
@@ -483,6 +491,7 @@ internal static class PostLoginShellPresenter
             reporter,
             new WpfUiDispatcher(application.Dispatcher));
         coordinator.Attach();
+        return coordinator;
     }
 
     private sealed record LicenseSurfaceSnapshot(
