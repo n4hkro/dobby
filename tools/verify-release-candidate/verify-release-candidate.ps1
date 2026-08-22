@@ -95,6 +95,10 @@ function Add-ExternalEvidence {
     }
 
     $resolved = (Resolve-Path -LiteralPath $Path).Path
+    & (Join-Path $scriptRoot 'validate-external-evidence.ps1') `
+        -EvidencePath $resolved `
+        -ExpectedGate $Gate `
+        -ExpectedSourceCommit $commit | Out-Null
     $capturedDirectory = Join-Path $evidenceFull 'external'
     New-Item -ItemType Directory -Path $capturedDirectory -Force | Out-Null
     $capturedPath = Join-Path $capturedDirectory "$Gate-$([System.IO.Path]::GetFileName($resolved))"

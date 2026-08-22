@@ -375,3 +375,8 @@ A self-signed RC proves packaging mechanics only. GA is blocked until installed
 behavior, upgrade/data preservation and signing/distribution evidence are
 captured. Evidence-only or source-text tests do not promote an incomplete
 feature to implemented status.
+
+External installed-MSIX, production-signing and dependency-license evidence must
+conform to `docs/schemas/release-external-evidence-v1.schema.json`, bind to the
+exact candidate commit and gate, enumerate the gate-specific required claims and
+identify every subject by SHA-256. File existence by itself never passes a gate.

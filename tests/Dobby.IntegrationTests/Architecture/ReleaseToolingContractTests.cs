@@ -25,6 +25,8 @@ public sealed class ReleaseToolingContractTests
         var root = RepoRoot();
         var sbom = Read(root, "tools", "generate-sbom", "generate-sbom.ps1");
         var runner = Read(root, "tools", "verify-release-candidate", "verify-release-candidate.ps1");
+        var externalEvidenceValidator = Read(root, "tools", "verify-release-candidate", "validate-external-evidence.ps1");
+        var externalEvidenceSchema = Read(root, "docs", "schemas", "release-external-evidence-v1.schema.json");
 
         sbom.ShouldContain("CycloneDX");
         sbom.ShouldContain("specVersion = '1.6'");
@@ -43,6 +45,10 @@ public sealed class ReleaseToolingContractTests
         runner.ShouldContain("logLength");
         runner.ShouldContain("evidenceFile");
         runner.ShouldContain("Copy-Item -LiteralPath $resolved -Destination $capturedPath");
+        runner.ShouldContain("validate-external-evidence.ps1");
+        externalEvidenceValidator.ShouldContain("ExpectedSourceCommit");
+        externalEvidenceValidator.ShouldContain("requiredClaims");
+        externalEvidenceSchema.ShouldContain("release-external-evidence-v1");
     }
 
     [Fact]

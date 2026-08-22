@@ -17,3 +17,10 @@ Full release mode fails unless exact installed-MSIX upgrade, production signing,
 license-review and signed-sample verification inputs are supplied. `-SourceOnly`
 runs every repository-owned gate but records those missing owner/environment
 inputs as blockers; it never labels that result GA/release-ready.
+
+Each external input must be UTF-8 JSON conforming to
+`docs/schemas/release-external-evidence-v1.schema.json`. The runner additionally
+checks the exact gate, candidate commit, lowercase subject SHA-256 values and
+the gate-specific claim set before copying the evidence into the run directory.
+Required claims are defined by `validate-external-evidence.ps1`; an arbitrary or
+empty file cannot satisfy a release gate.

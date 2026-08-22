@@ -221,6 +221,8 @@ the owner inputs.
    evidence into a candidate.
 2. Runner records environment/toolchain, git commit/status, restore provenance,
    command line, exit code, duration, test counts, artifact paths and hashes.
+   External evidence is a commit-bound v1 JSON artifact with gate-specific
+   required claims and hashed subjects; file existence alone never passes a gate.
 3. Execute format, Release build, unit/integration/smoke, flake-sensitive repeats,
    malicious artifact suites, portable publish/launch, plugin verification and
    MSIX installed scenarios. Stop on failure; never convert a failed command to a
