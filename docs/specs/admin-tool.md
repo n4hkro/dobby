@@ -33,15 +33,14 @@ Admin UI və Admin CLI eyni application service use case-lərindən istifadə ed
 | `create-recovery-response` | P1-core | `.dobbyrecoveryrequest` file və ya request payload | signed `.dobbyrecovery` | Owner recovery response-u user seçmədən yaradır. |
 | `sign-plugin-package` | P1 scripted smoke path; full UI P1-if-time/P2 | unsigned/candidate `.dobbyplugin` build artifact | signed `.dobbyplugin` və verification report | P1 sample/plugin install smoke üçün minimal wrapper; full plugin signing wizard release blocker deyil. |
 | `create-plugin-license` | P1 scripted smoke path; full UI P1-if-time/P2 | plugin/customer/deployment/package/device binding input | detached `.dobbylicense` və redacted summary report | P1 license import/enforcement smoke üçün minimal wrapper; full license generator wizard release blocker deyil. |
-| `verify-plugin-package` | Optional P1 debug/smoke support; full UI P1-if-time/P2 | `.dobbyplugin` | verification result | Package trust, manifest və signature smoke/debug flow-u; install path yenə ayrıca verification edir. |
+| `verify-plugin-package` | P1 release path; full UI P1-if-time/P2 | `.dobbyplugin` | redacted verification report | Package read, compatibility, content/hash and signature policy is checked without install or execution. |
 | `create-cross-device-restore-package` (indicative, P2-deferred) | P2 | backup artifact və restore request materialı | cross-device restore package | Cross-device restore sub-spec açılana qədər release blocker deyil, amma inventory-də silent buraxılmır. |
 
 P1 sample verification may use a minimal scripted/operator path for producing a signed sample `.dobbyplugin` and detached `.dobbylicense`. This path is not the full Admin UI; it exists only to support plugin install/license smoke verification before the full UI is pulled into scope.
 
-`verify-plugin-package` remains optional P1 debug/smoke support. Install-time
-package verification is the required customer trust gate; the standalone wrapper
-becomes required only if release automation explicitly requires standalone
-verification evidence.
+`verify-plugin-package` is a required release-evidence gate in addition to the
+install-time customer trust gate. It never installs, loads or executes plugin
+code.
 
 ### P1 Minimal Scripted Operator Path
 
@@ -56,7 +55,7 @@ Canonical scripted commands:
 |---|---|---|---|---|
 | `sign-plugin-package` | `Dobby.Admin` + `tools/sign-plugin-package/` wrapper | unsigned candidate plugin publish folder or unsigned `.dobbyplugin`, manifest, dev/QA signing profile | signed `.dobbyplugin` and verification report | P1 sample/plugin install smoke |
 | `create-plugin-license` | `Dobby.Admin` + `tools/create-plugin-license/` wrapper | plugin id, package fingerprint, customer/deployment context, device binding fixture, validity window, revision, dev/QA signing profile | detached `.dobbylicense` and redacted summary report | P1 license import/enforcement smoke |
-| `verify-plugin-package` | `Dobby.Admin` + optional `tools/verify-plugin-package/` wrapper | signed `.dobbyplugin` | verification report | P1 debug/smoke support |
+| `verify-plugin-package` | `Dobby.Admin` + `tools/verify-plugin-package/` wrapper | signed `.dobbyplugin`, explicit host/trust profile | verification report | P1 release verification |
 | `create-recovery-response` | `Dobby.Admin` + `tools/create-recovery-response/` wrapper | `.dobbyrecoveryrequest` file və ya request payload | signed `.dobbyrecovery` | P1 Owner recovery smoke/release evidence |
 
 Minimum scripted wrapper contract:
@@ -86,7 +85,7 @@ once.
 | `sign-plugin-package` | `--input-path`, `--signing-profile`, `--output-path` | `--trust-profile`, `--report-path`, `--overwrite` | `--trust-profile` defaults from `--signing-profile`; `--report-path` defaults to `<output-path>.report.json`; if both profiles are supplied they must map to the same trust profile or exit `65`. |
 | `create-plugin-license` | `--plugin-package-path`, `--signing-profile`, `--customer-id`, `--deployment-id`, `--device-binding-fixture-path`, `--valid-from`, `--valid-until`, `--revision`, `--output-path` | `--report-path`, `--overwrite` | `--report-path` defaults to `<output-path>.report.json`; `--valid-from` and `--valid-until` are ISO-8601 UTC values with `Z` suffix and `valid-until > valid-from`; `--revision` is a positive integer. |
 | `create-recovery-response` | `--request-path`, `--device-public-key-path`, `--signing-profile`, `--output-path` | `--report-path`, `--overwrite` | The provisioned P-256 public key must hash to the request binding and verify its possession proof. `--report-path` defaults to `<output-path>.report.json`; production signing material remains governed by `HD-S10-002` and `ADR-0033`. |
-| `verify-plugin-package` (optional) | `--plugin-package-path`, `--report-path` | `--trust-profile`, `--overwrite` | Optional command only; not a Sprint 10 release gate. `--trust-profile` defaults to `production`. |
+| `verify-plugin-package` | `--input-path`, `--trust-profile`, `--host-version` | `--public-key-path`, `--report-path`, `--overwrite` | `--report-path` defaults to `<input-path>.verification.report.json`; an explicit P-256 public key may be supplied, otherwise the selected build profile's embedded key is used. The command never installs or executes code. |
 
 Approved profile values are `dev-qa` and `production`. Parsing is
 case-insensitive for operator ergonomics, but reports and documentation must emit
@@ -104,11 +103,10 @@ are `PLUGIN_PACKAGE_KEY_PATH`, `PLUGIN_LICENSE_KEY_PATH`, and
 These values are never emitted to stdout/stderr or reports; absent, unreadable
 or malformed material still exits `66`.
 
-`--output-path` is required for artifact-producing commands. `--report-path` is
-required for `verify-plugin-package` because verification produces only a report
-and must not write beside the input package implicitly. `--overwrite` defaults
-to `false`; if output or report targets already exist and `--overwrite` is not
-supplied, the command exits `65`.
+`--output-path` is required for artifact-producing commands. The verifier's
+default report is written beside its input only when `--report-path` is omitted.
+`--overwrite` defaults to `false`; if output or report targets already exist and
+`--overwrite` is not supplied, the command exits `65`.
 
 | Exit code | Meaning |
 |---:|---|

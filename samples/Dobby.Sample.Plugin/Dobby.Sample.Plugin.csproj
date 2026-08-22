@@ -8,7 +8,7 @@
     <ProjectReference Include="..\..\src\Dobby.SDK\Dobby.SDK.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="dobby-plugin.manifest.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="dobby-plugin.manifest.template.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="assets\sample-plugin.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CreateSamplePluginPackageCandidate" AfterTargets="Build">
@@ -16,8 +16,8 @@
       <SamplePackageCandidateDir>$(OutputPath)package\</SamplePackageCandidateDir>
     </PropertyGroup>
     <ItemGroup>
-      <SamplePackageCandidateFile Include="dobby-plugin.manifest.json">
-        <PackageRelativePath>dobby-plugin.manifest.json</PackageRelativePath>
+      <SamplePackageCandidateFile Include="dobby-plugin.manifest.template.json">
+        <PackageRelativePath>dobby-plugin.manifest.template.json</PackageRelativePath>
       </SamplePackageCandidateFile>
       <SamplePackageCandidateFile Include="assets\sample-plugin.png">
         <PackageRelativePath>assets\sample-plugin.png</PackageRelativePath>

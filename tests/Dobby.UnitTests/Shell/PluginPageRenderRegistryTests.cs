@@ -253,8 +253,8 @@ public sealed class PluginPageRenderRegistryTests
                 break;
             case Panel panel:
                 foreach (UIElement child in panel.Children)
-                foreach (var descendant in Descendants<T>(child))
-                    yield return descendant;
+                    foreach (var descendant in Descendants<T>(child))
+                        yield return descendant;
                 break;
             case ContentControl control when control.Content is DependencyObject content:
                 foreach (var child in Descendants<T>(content)) yield return child;

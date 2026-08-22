@@ -61,11 +61,13 @@ public sealed class RemainingProductWorkAuthorityTests
         var package = CreatePluginPackage();
         var stagedPath = staging.Stage(package).Value;
         stagedPath.ShouldStartWith(Path.Combine(persistence.Root, "plugins", "staging"), Case.Insensitive);
-        persistence.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(1);
+        persistence.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM PluginInstallOperation WHERE State = 'Verified';").ShouldBe(1);
 
         var promotedPath = staging.Promote(stagedPath, package).Value;
         promotedPath.ShouldStartWith(Path.Combine(persistence.Root, "plugins", "installed"), Case.Insensitive);
-        persistence.Executor.QueryScalar<string>("SELECT RuntimePath FROM PluginInstallStaging;").ShouldBe(promotedPath);
+        persistence.Executor.QueryScalar<string>(
+            "SELECT RuntimePath FROM PluginInstallOperation WHERE State = 'Promoted';").ShouldBe(promotedPath);
 
         var auditColumns = persistence.Executor.Query<string>("SELECT name FROM pragma_table_info('AuditLog');")
             .ToHashSet(StringComparer.Ordinal);

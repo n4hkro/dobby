@@ -3,6 +3,13 @@
 **Dependencies:** security/platform workstreams complete before GA evidence  
 **Completion blockers addressed:** F-021 through F-025; legacy rows 57–69
 
+**Execution update (2026-08-22):** RL-01, RL-02, RL-03 and the
+repository-owned RL-05/RL-06 automation are implemented and executable. RL-04
+source packaging is hardened, but installed N→N+1 VM/account evidence is still
+external. GA also remains blocked by production certificate/publisher/timestamp
+inputs and release-owner dependency license review; the consolidated runner
+fails full release mode when those inputs are absent.
+
 ## RL-01 — Produce a production-complete sample plugin
 
 **Priority:** P1-High  
@@ -12,7 +19,7 @@
 
 - `samples/Dobby.Sample.Plugin/Dobby.Sample.Plugin.csproj`
 - `samples/Dobby.Sample.Plugin/SamplePlugin.cs`
-- `samples/Dobby.Sample.Plugin/dobby-plugin.manifest.json`
+- `samples/Dobby.Sample.Plugin/dobby-plugin.manifest.template.json`
 - sample assets/localization bundles
 - sample manifest, integration and release-evidence tests
 

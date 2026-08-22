@@ -51,19 +51,9 @@ samples/Dobby.Sample.Plugin/
 tools/sign-plugin-package/
 tools/create-plugin-license/
 tools/create-recovery-response/
+tools/verify-plugin-package/
 installer/
 ```
-
-Optional P1 debug/smoke wrapper:
-
-```text
-tools/verify-plugin-package/
-```
-
-`verify-plugin-package` is optional P1 debug/smoke support. Install-time package
-verification remains the required trust gate. A standalone verifier becomes
-required only if release automation explicitly requires standalone verification
-evidence.
 
 ### Initial P1 Skeleton Exclusions
 
@@ -162,10 +152,12 @@ Portable support/dev folder command:
 .\tools\publish-portable\publish-portable.ps1
 ```
 
-The portable command writes an ordinary self-contained folder to
-`artifacts/publish/portable/Dobby.Host/` for offline/manual testing. It does not
-produce an archive and does not replace MSIX as the primary customer deployment
-format.
+The portable command writes a clean, versioned self-contained folder to
+`artifacts/publish/portable/<version>-<commit>/Dobby.Host/`; `latest.json` points
+to the exact current output. The artifact manifest records hashes and
+`PortableSupport` mode, while the published configuration uses the isolated
+`%LocalAppData%/Dobby/PortableSupport` data root. It does not produce an archive
+and does not replace MSIX as the primary customer deployment format.
 
 If a command path changes during implementation, this document is updated in the same change that changes the project path.
 

@@ -42,12 +42,12 @@ tests cannot establish runtime security or packaged-install behavior.
 | F-016 | High | Implemented | Minimum host support diagnostics is license-state independent in Pending, Active, Grace, ReadOnlyExpired and Denied states, while plugin/domain output remains policy-gated. | Closed by `LC-04`/`PA-03`; guarded by lifecycle-matrix and real export tests. |
 | F-017 | Medium | Implemented | Branch setup has a purpose-separated v1 schema and no Standalone handler; `.dobbylicense` remains plugin-license authority only. | Closed by `LC-01`; guarded by successor-schema and admin-command behavior tests. |
 | F-018 | High | Implemented | Persistence failures expose stable safe code/category/retryability/correlation only; audit enforces event-specific bounded fields at its boundary; structured diagnostics and support export redact or exclude secrets, paths, SQL, stack data and non-log runtime files. | Closed by `PA-03`; guarded by adversarial audit, diagnostics, export and persistence tests. |
-| F-019 | High | Incorrect | Plugin install is synchronous on the WPF dispatcher; some progress is cosmetic. | `UI-02`: genuinely async/cancellable install and dispatcher responsiveness tests. |
-| F-020 | Medium | Implemented-Weak | `MainWindow.xaml.cs` (~1759 lines) and `ShellViewModel` (~1512 lines) combine view wiring and application orchestration. | `UI-01`: extract commands/presenters without changing behavior; add WPF cleanup tests. |
-| F-021 | High | Partial | Sample plugin contains dummy hash/signature and leaks its work-session lifetime; no independent package verifier exists. | `RL-01`/`RL-02`: valid package, lifecycle proof and verifier tool. |
+| F-019 | High | Implemented | Package read/hash/crypto/install and license import run through lifetime-owned async coordinators off the dispatcher, with monotonic progress, cancellation and close/drain behavior. | Closed by `UI-02`; guarded by install coordinator, dispatcher-heartbeat and close-cancellation tests. |
+| F-020 | Medium | Implemented | Plugin/license view state and background-operation ownership are extracted, presenter subscriptions are lifetime-owned, and late callbacks are dropped after disposal. | Closed by `UI-01`; guarded by state/coordinator unit tests and WPF close cleanup. |
+| F-021 | High | Implemented | The sample uses an unsigned template rather than a dummy positive manifest; signing computes real hashes/signature, independent verification accepts exact bytes, async cancellation and balanced session closure are exercised. | Closed by `RL-01`/`RL-02`; guarded by Admin round-trip/tamper, manifest, plugin integration and smoke tests. |
 | F-022 | High | Evidence-only | MSIX is self-signed RC output with placeholders and no executed install/upgrade/data-preservation proof; LocalAppData behavior under package identity is unverified. | `RL-04`/`RL-05`: real installed scenarios and production signing profile. |
-| F-023 | Medium | Partial | Portable constraints are documentation-first and candidate output uses production settings without enforceable support-only identity/policy. | `RL-03`: enforce artifact mode and prove launch/scope. |
-| F-024 | Medium | Implemented-Weak | About/support data includes `support@example.invalid` and other release placeholders. | `UI-03`/`RL-05`: owner-provided configuration plus release placeholder scan. |
+| F-023 | Medium | Implemented | Portable publish creates a clean versioned Production-trust artifact with `PortableSupport` runtime metadata, isolated data root, content scan, file hashes and an isolated login-window/clean-exit verifier. | Closed by `RL-03`; guarded by portable/release tooling contract tests and launch verifier. |
+| F-024 | Medium | Implemented | Product metadata is validated configuration with a real HTTPS support URI/legal line; About exposes artifact mode and safe device-code context, and packaging scans reject placeholder text. | Closed by `UI-03`/`RL-05`; guarded by product/About and portable scan tests. |
 | F-025 | Medium | Implemented | A machine-readable 25-finding/69-row register validates classifications, owners, implemented evidence, row coverage and human-table drift. | Closed by `PA-01`; release evidence still belongs to `RL-06`. |
 
 ## 3. Legacy 69-Item Reclassification
@@ -73,7 +73,7 @@ This table replaces the status claims in
 | 14 | Implemented | Appearance settings and persisted toolbar/theme synchronization exist. | Regression gate |
 | 15 | Implemented | Account surface exposes the current/new/confirmation flow and delegates to the atomically audited reauthentication coordinator. | `ID-05` regression gate |
 | 16 | Implemented | Security/session preferences are rendered and consumed. | Regression gate |
-| 17 | Partial | About provider/surface exists and the support device code is now keyed, versioned and checksummed; remaining About/settings UX work stays under `UI-03`. | `UI-03`; `SupportDeviceCodeV2Tests` proves the security portion. |
+| 17 | Implemented | About exposes validated product/legal/support data, version, artifact mode and a keyed/checksummed support device code with explanation/copy affordance. | `UI-03`; About, product-options and support-code tests. |
 | 18 | Implemented | Three-culture resource parity exists. | `UI-03` regression |
 | 19 | Implemented | Required shell regions render. | `UI-01`, `UI-04` maintainability/e2e |
 | 20 | Implemented | Profile/session actions are wired. Diagnostics licensing bug applies. | `LC-04` |
@@ -106,25 +106,25 @@ This table replaces the status claims in
 | 47 | Implemented | Physical print policy/confirmation is present for the current surface. | `LC-04` behavioral regression |
 | 48 | Implemented | License status/rejection text renders; details remain deliberately safe but can be more actionable by stable code. | `LC-02`, `UI-03` |
 | 49 | Implemented | Plugins Manager and actions exist; old status is stale. | `UI-01`, `UI-02` |
-| 50 | Implemented-Weak | List and lifecycle states exist; trust/license/fault presentation needs contract-v2 alignment. | `PL-05`, `UI-03` |
-| 51 | Implemented-Weak | Detail is a summary string rather than structured accessible detail. | `UI-01`, `UI-03` |
-| 52 | Incorrect | Install button is wired, but performs synchronous archive/crypto/database work on UI thread. | `UI-02`, `PL-02` |
+| 50 | Implemented | List/lifecycle/trust/license/fault presentation uses typed state and localized stable mappings. | `PL-05`, `UI-03` regression |
+| 51 | Implemented | Plugin detail fields are structured, accessible and owned by extracted plugin state rather than one opaque mutable summary. | `UI-01`, `UI-03` regression |
+| 52 | Implemented | Install runs asynchronously off the dispatcher with real staged progress, single-flight ownership, cancellation and close draining. | `UI-02`, `PL-02` behavioral/WPF tests |
 | 53 | Implemented | Enable action is wired. | `PL-05`, `UI-02` |
 | 54 | Implemented | Disable action is wired. | `PL-05`, `UI-04` |
 | 55 | Implemented | Uninstall/confirmation action is wired. | `PL-04`, `UI-04` |
-| 56 | Implemented-Weak | Rejections reach UI but safe actionable reason mapping is incomplete. | `PL-07`, `UI-03` |
-| 57 | Partial | Sample source/manifest/icon exist; hash/signature are placeholders and package is not release-valid. | `RL-01` |
-| 58 | Partial | Generic runtime can host it, but no final signed installed sample proof exists. | `RL-01` |
-| 59 | Partial | Behaviors exist in source; final UI reachability/progress/denial proof and session close are incomplete. | `RL-01` |
+| 56 | Implemented | Safe typed rejection/fault/cancellation outcomes map to localized actionable UI state without exposing raw exception text. | `PL-07`, `UI-03` regression |
+| 57 | Implemented | Sample source/icon plus an explicitly unsigned template produce a package with computed hashes and real TEST-ONLY signature; no dummy positive manifest is committed. | `RL-01`; signer/manifest round-trip tests |
+| 58 | Implemented | The signed sample installs through the real install path, activates in isolation, contributes navigation/page content and independently verifies. | `RL-01`; integration and smoke tests |
+| 59 | Implemented | Localization, validation, permission denial/success, async progress/cancellation, fault isolation, balanced work session, disable/restart/re-enable and pending-uninstall flow are executable. | `RL-01`; integration and smoke tests |
 | 60 | Partial | Signer exists but no purpose-separated production profile/evidence. | `RL-02`, `RL-05` |
-| 61 | Partial | License generator exists mainly for Active/v2 path and external key fixture. | `RL-02`, `LC-02` |
-| 62 | Unimplemented | Independent `verify-plugin-package` command/tool is absent. | `RL-02` |
-| 63 | Implemented-Weak | Admin and host use strict recovery v2 with separately provisioned device-public-key possession verification and no silent v1 fallback. Technical tests are complete; published-artifact/operator evidence remains under `RL-02`. | `RL-02`; `AdminCommandHostTests`, `RecoveryResponseImportFixtureTests`. |
+| 61 | Implemented | License generator emits strict v3 Granted/Revoked artifacts with bounded UTC windows/revisions, purpose-separated signing and import-compatible canonical bytes. | `RL-02`, `LC-02`; Admin and import tests |
+| 62 | Implemented | `verify-plugin-package` is a non-installing command/wrapper that checks read, manifest/content/compatibility/hash and trust stages and rejects tamper nonzero. | `RL-02`; Admin round-trip/tamper and tooling tests |
+| 63 | Implemented | Admin and host use strict request-bound recovery v2 with separately provisioned device-public-key possession verification, purpose separation and no silent v1 fallback. | `RL-02`; Admin and recovery import tests |
 | 64 | Partial | Production rejects Dev/QA profile in code; final key/profile/customer artifact proof is absent. | `PL-03`, `RL-05` |
 | 65 | Evidence-only | Self-signed RC MSIX builds; no GA identity/certificate/profile. | `RL-04`, `RL-05` |
 | 66 | Evidence-only | Two versions can be built; upgrade/rollback has not been installed and executed. | `RL-04` |
 | 67 | Evidence-only | Data root exists; packaged upgrade/data preservation is unproven and virtualization must be checked. | `RL-04` |
-| 68 | Incorrect | Portable limitation is mainly prose; artifact/runtime constraints are not enforced. | `RL-03` |
+| 68 | Implemented | Portable mode is enforced in published configuration/About, uses a separate support data root, clean versioned output, content scan and hash manifest, and has an isolated launch verifier. | `RL-03` |
 | 69 | Evidence-only | Package contains the host, but installed launch over existing data/login-first is unproven. | `RL-04` |
 
 ## 4. Deferred Scope

@@ -199,6 +199,24 @@ public sealed class PluginIntegrationSuiteTests
             snapshot.DisplayNameKey == "sample.greet.progress" &&
             snapshot.Status == BackgroundOperationStatus.Completed);
 
+        using var progressCancellation = new CancellationTokenSource();
+        reporter.OnSnapshot = snapshot =>
+        {
+            if (snapshot.DisplayNameKey == "sample.greet.progress" &&
+                snapshot.Status == BackgroundOperationStatus.Running &&
+                snapshot.Progress.Percent == 0)
+            {
+                progressCancellation.Cancel();
+            }
+        };
+        var cancelledProgress = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.progress"),
+            TimeSpan.FromSeconds(5),
+            progressCancellation.Token);
+        reporter.OnSnapshot = null;
+        cancelledProgress.IsSuccess.ShouldBeFalse();
+        cancelledProgress.ErrorCode.ShouldBe(ErrorCode.Cancelled);
+
         var workSession = await commandDispatcher.DispatchAsync(
             CommandRequest(pageModel, "sample.work-session"),
             TimeSpan.FromSeconds(5),
@@ -207,6 +225,7 @@ public sealed class PluginIntegrationSuiteTests
         workSessions.Events.ShouldContain("open:com.dobby.sample:plugin/com.dobby.sample/greet:sample.work-session");
         workSessions.Events.ShouldContain("progress:50");
         workSessions.Events.ShouldContain("result:sample.work-session.completed");
+        workSessions.Events.ShouldContain("close");
         reporter.Snapshots.ShouldContain(snapshot =>
             snapshot.OwnerKind == BackgroundOperationOwnerKind.Plugin &&
             snapshot.OwnerId == SamplePluginPackageFixture.PluginId &&
@@ -262,19 +281,24 @@ public sealed class PluginIntegrationSuiteTests
 
         public RecordingBackgroundOperationReporter()
         {
-            progress = new RecordingProgress(snapshots);
+            progress = new RecordingProgress(this, snapshots);
         }
 
         public IReadOnlyList<BackgroundOperationSnapshot> Snapshots => snapshots;
 
+        public Action<BackgroundOperationSnapshot>? OnSnapshot { get; set; }
+
         public IProgress<BackgroundOperationSnapshot> Progress => progress;
 
-        private sealed class RecordingProgress(List<BackgroundOperationSnapshot> snapshots)
+        private sealed class RecordingProgress(
+            RecordingBackgroundOperationReporter owner,
+            List<BackgroundOperationSnapshot> snapshots)
             : IProgress<BackgroundOperationSnapshot>
         {
             public void Report(BackgroundOperationSnapshot value)
             {
                 snapshots.Add(value);
+                owner.OnSnapshot?.Invoke(value);
             }
         }
     }

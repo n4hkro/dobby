@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Dobby.Licensing;
+using Dobby.Core.Versioning;
 using Dobby.PluginFramework.Manifest;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Security.Authentication;
@@ -14,7 +15,9 @@ namespace Dobby.Admin.Commands;
 
 public static class AdminCommandHost
 {
+    private const string UnsignedPluginManifestTemplateFileName = "dobby-plugin.manifest.template.json";
     private const string SignPluginPackage = "sign-plugin-package";
+    private const string VerifyPluginPackage = "verify-plugin-package";
     private const string CreatePluginLicense = "create-plugin-license";
     private const string CreateRecoveryResponse = "create-recovery-response";
 
@@ -51,6 +54,17 @@ public static class AdminCommandHost
             [
                 "--report-path",
                 "--intent",
+                "--overwrite"
+            ]),
+        [VerifyPluginPackage] = new(
+            [
+                "--input-path",
+                "--trust-profile",
+                "--host-version"
+            ],
+            [
+                "--public-key-path",
+                "--report-path",
                 "--overwrite"
             ]),
         [CreateRecoveryResponse] = new(
@@ -104,6 +118,11 @@ public static class AdminCommandHost
             }
 
             var options = parsed.Options!;
+            if (command == VerifyPluginPackage)
+            {
+                return VerifyPluginPackageCommand(options);
+            }
+
             var outputPath = Require(options, "--output-path");
             var reportPath = options.Values.TryGetValue("--report-path", out var explicitReportPath)
                 ? explicitReportPath
@@ -209,6 +228,183 @@ public static class AdminCommandHost
             return Validation("invalid-output-path");
         }
 
+        var prepared = PrepareSigningInput(inputPath);
+        if (!prepared.IsSuccess)
+        {
+            prepared.Dispose();
+            return Validation(prepared.Code);
+        }
+
+        try
+        {
+            return SignPreparedPluginPackage(
+                prepared.ReadPath!,
+                outputPath,
+                reportPath,
+                material,
+                overwrite);
+        }
+        finally
+        {
+            prepared.Dispose();
+        }
+    }
+
+    private static AdminCommandResult VerifyPluginPackageCommand(ParsedOptions options)
+    {
+        var inputPath = Require(options, "--input-path");
+        if (!File.Exists(inputPath))
+        {
+            return Validation("input-not-found");
+        }
+
+        if (!HostVersion.TryParse(Require(options, "--host-version"), out var hostVersion) ||
+            !TryParseTrustProfile(Require(options, "--trust-profile"), out var trustProfile))
+        {
+            return Validation("invalid-verification-profile");
+        }
+
+        var reportPath = options.Values.TryGetValue("--report-path", out var explicitReportPath)
+            ? explicitReportPath
+            : inputPath + ".verification.report.json";
+        var overwrite = options.Switches.Contains("--overwrite");
+        if (File.Exists(reportPath) && !overwrite)
+        {
+            return Validation("report-conflict");
+        }
+
+        var verifier = CreatePackageTrustVerifier(options, trustProfile);
+        if (!verifier.IsSuccess)
+        {
+            return Validation(verifier.Code);
+        }
+
+        var read = PluginPackageReader.Read(inputPath);
+        if (!read.IsSuccess)
+        {
+            WriteVerificationReport(
+                reportPath,
+                overwrite,
+                inputPath,
+                hostVersion,
+                trustProfile,
+                readStage: "rejected",
+                validationStage: "not-run",
+                accepted: false,
+                reasons: [new VerificationReason("invalid-package", null)]);
+            return Validation("verification-failed");
+        }
+
+        var validation = PluginPackageValidator.Validate(read.Value, hostVersion, verifier.Value!);
+        var reasons = validation.Reasons
+            .Select(reason => new VerificationReason(reason.Code, reason.Path))
+            .ToArray();
+        WriteVerificationReport(
+            reportPath,
+            overwrite,
+            inputPath,
+            hostVersion,
+            trustProfile,
+            readStage: "accepted",
+            validationStage: validation.IsSuccess ? "accepted" : "rejected",
+            accepted: validation.IsSuccess,
+            reasons);
+
+        return validation.IsSuccess
+            ? new AdminCommandResult(
+                0,
+                $"{VerifyPluginPackage}: success input={Path.GetFileName(inputPath)} report={Path.GetFileName(reportPath)}",
+                string.Empty)
+            : Validation("verification-failed");
+    }
+
+    private static TrustVerifierCreationResult CreatePackageTrustVerifier(
+        ParsedOptions options,
+        DobbyPluginTrustProfile trustProfile)
+    {
+        if (!options.Values.TryGetValue("--public-key-path", out var publicKeyPath))
+        {
+            return TrustVerifierCreationResult.Success(new PluginTrustVerifier(trustProfile));
+        }
+
+        if (!File.Exists(publicKeyPath))
+        {
+            return TrustVerifierCreationResult.Failure("public-key-not-found");
+        }
+
+        try
+        {
+            using var key = ECDsa.Create();
+            key.ImportFromPem(File.ReadAllText(publicKeyPath));
+            if (key.KeySize != 256)
+            {
+                return TrustVerifierCreationResult.Failure("invalid-public-key");
+            }
+
+            var keyId = trustProfile == DobbyPluginTrustProfile.Production
+                ? PluginTrustPublicKeyProvider.ProductionPluginPackageKeyId
+                : PluginTrustPublicKeyProvider.DevQaPluginPackageKeyId;
+            var ring = new ArtifactPublicKeyRing(
+                [
+                    new ArtifactVerificationKey(
+                        keyId,
+                        ArtifactSignaturePurposes.PluginPackage,
+                        key.ExportSubjectPublicKeyInfo(),
+                        DateTimeOffset.UnixEpoch,
+                        RetiredAtUtc: null,
+                        IsTestOnly: trustProfile == DobbyPluginTrustProfile.DevQa)
+                ],
+                productionProfile: trustProfile == DobbyPluginTrustProfile.Production);
+            return TrustVerifierCreationResult.Success(new PluginTrustVerifier(ring, trustProfile));
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or ArgumentException or CryptographicException)
+        {
+            return TrustVerifierCreationResult.Failure("invalid-public-key");
+        }
+    }
+
+    private static void WriteVerificationReport(
+        string reportPath,
+        bool overwrite,
+        string inputPath,
+        HostVersion hostVersion,
+        DobbyPluginTrustProfile trustProfile,
+        string readStage,
+        string validationStage,
+        bool accepted,
+        IReadOnlyList<VerificationReason> reasons)
+    {
+        WriteReport(reportPath, new
+        {
+            command = VerifyPluginPackage,
+            inputFileName = Path.GetFileName(inputPath),
+            reportFileName = Path.GetFileName(reportPath),
+            hostVersion = hostVersion.ToString(),
+            trustProfile = trustProfile == DobbyPluginTrustProfile.Production ? "production" : "dev-qa",
+            artifactSha256 = Sha256File(inputPath),
+            stages = new
+            {
+                read = readStage,
+                validation = validationStage
+            },
+            accepted,
+            reasons = reasons.Select(reason => new
+            {
+                code = reason.Code,
+                path = reason.Path
+            })
+        }, overwrite);
+    }
+
+    private static AdminCommandResult SignPreparedPluginPackage(
+        string inputPath,
+        string outputPath,
+        string reportPath,
+        AdminSigningMaterial material,
+        bool overwrite)
+    {
+
         var read = PluginPackageReader.Read(inputPath);
         if (!read.IsSuccess)
         {
@@ -280,6 +476,93 @@ public static class AdminCommandHost
         WriteReport(reportPath, report, overwrite);
 
         return Success(SignPluginPackage, outputPath, reportPath);
+    }
+
+    private static PreparedSigningInput PrepareSigningInput(string inputPath)
+    {
+        if (!Directory.Exists(inputPath))
+        {
+            return PreparedSigningInput.Success(inputPath, temporaryRoot: null);
+        }
+
+        var manifestPath = Path.Combine(inputPath, PluginPackageReader.ManifestFileName);
+        var templatePath = Path.Combine(inputPath, UnsignedPluginManifestTemplateFileName);
+        if (File.Exists(manifestPath))
+        {
+            return File.Exists(templatePath)
+                ? PreparedSigningInput.Failure("ambiguous-manifest")
+                : PreparedSigningInput.Success(inputPath, temporaryRoot: null);
+        }
+
+        if (!File.Exists(templatePath))
+        {
+            return PreparedSigningInput.Failure("manifest-not-found");
+        }
+
+        var temporaryRoot = Path.Combine(
+            Path.GetTempPath(),
+            "dobby-admin-plugin-signing-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temporaryRoot);
+        try
+        {
+            var enumerationOptions = new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                AttributesToSkip = FileAttributes.ReparsePoint,
+                IgnoreInaccessible = false,
+                ReturnSpecialDirectories = false
+            };
+            foreach (var sourcePath in Directory.EnumerateFiles(inputPath, "*", enumerationOptions))
+            {
+                var relativePath = Path.GetRelativePath(inputPath, sourcePath).Replace('\\', '/');
+                if (relativePath.Equals(UnsignedPluginManifestTemplateFileName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!PluginPackagePathPolicy.TryNormalize(relativePath, out var normalizedPath) ||
+                    !relativePath.Equals(normalizedPath, StringComparison.Ordinal))
+                {
+                    return PreparedSigningInput.Failure("invalid-package", temporaryRoot);
+                }
+
+                var destinationPath = Path.Combine(
+                    temporaryRoot,
+                    relativePath.Replace('/', Path.DirectorySeparatorChar));
+                EnsureParentDirectory(destinationPath);
+                File.Copy(sourcePath, destinationPath, overwrite: false);
+            }
+
+            File.Copy(
+                templatePath,
+                Path.Combine(temporaryRoot, PluginPackageReader.ManifestFileName),
+                overwrite: false);
+            return PreparedSigningInput.Success(temporaryRoot, temporaryRoot);
+        }
+        catch
+        {
+            TryDeleteDirectory(temporaryRoot);
+            throw;
+        }
+    }
+
+    private static void TryDeleteDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private static AdminCommandResult CreatePluginLicenseCommand(
@@ -837,6 +1120,59 @@ public static class AdminCommandHost
         public static ParseResult Failure(string code)
         {
             return new ParseResult(false, null, code);
+        }
+    }
+
+    private static bool TryParseTrustProfile(string value, out DobbyPluginTrustProfile profile)
+    {
+        profile = value.ToLowerInvariant() switch
+        {
+            "dev-qa" => DobbyPluginTrustProfile.DevQa,
+            "production" => DobbyPluginTrustProfile.Production,
+            _ => default
+        };
+
+        return value.Equals("dev-qa", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("production", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed record PreparedSigningInput(
+        bool IsSuccess,
+        string? ReadPath,
+        string? TemporaryRoot,
+        string Code) : IDisposable
+    {
+        public static PreparedSigningInput Success(string readPath, string? temporaryRoot)
+        {
+            return new PreparedSigningInput(true, readPath, temporaryRoot, string.Empty);
+        }
+
+        public static PreparedSigningInput Failure(string code, string? temporaryRoot = null)
+        {
+            return new PreparedSigningInput(false, null, temporaryRoot, code);
+        }
+
+        public void Dispose()
+        {
+            TryDeleteDirectory(TemporaryRoot);
+        }
+    }
+
+    private sealed record VerificationReason(string Code, string? Path);
+
+    private sealed record TrustVerifierCreationResult(
+        bool IsSuccess,
+        IPluginTrustVerifier? Value,
+        string Code)
+    {
+        public static TrustVerifierCreationResult Success(IPluginTrustVerifier value)
+        {
+            return new TrustVerifierCreationResult(true, value, string.Empty);
+        }
+
+        public static TrustVerifierCreationResult Failure(string code)
+        {
+            return new TrustVerifierCreationResult(false, null, code);
         }
     }
 }

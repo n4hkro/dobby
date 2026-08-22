@@ -1,22 +1,32 @@
-# Portable Publish
+# Portable Support Publish
 
-Creates a local support/dev portable folder for manual testing.
+Creates a clean, versioned, self-contained `win-x64` support/development
+artifact from Release bits:
 
 ```powershell
-.\tools\publish-portable\publish-portable.ps1
+.\tools\publish-portable\publish-portable.ps1 -NoRestore
 ```
 
-Default output:
+The default output is:
 
 ```text
-artifacts/publish/portable/Dobby.Host/
+artifacts/publish/portable/<version>-<commit>/Dobby.Host/
 ```
 
-Launch the app from:
+`artifacts/publish/portable/latest.json` points to the latest exact output,
+manifest and executable. `artifact-manifest.json` records source commit/tree
+state, version, runtime, artifact mode and SHA-256/size for every payload file.
 
-```text
-artifacts/publish/portable/Dobby.Host/Dobby.Host.exe
-```
+The script always removes and recreates its exact versioned target, fails if the
+target cannot be cleaned, forces the Production trust profile, strips symbols,
+runs customer-content checks and rewrites runtime metadata to:
 
-This flow is not the primary customer deployment path. MSIX remains the primary
-deployment format; this folder is for support, development, and offline test use.
+- `Product.ArtifactMode = PortableSupport`
+- `Runtime.DataRoot = %LocalAppData%/Dobby/PortableSupport` by default
+
+Use `-SupportDataRoot` to supply a different isolated support root. Automated
+launch tests must always override it with a fresh temporary directory through
+`DOBBY__Runtime__DataRoot`; they must never use a real customer profile.
+
+This artifact is not the primary customer deployment path and cannot satisfy the
+MSIX install/upgrade or GA signing gates.

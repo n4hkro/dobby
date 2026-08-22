@@ -7,7 +7,7 @@ namespace Dobby.IntegrationTests.Architecture;
 public sealed class SamplePluginManifestTests
 {
     [Fact]
-    public void Sample_plugin_manifest_matches_dev_qa_verification_artifact_contract()
+    public void Sample_plugin_unsigned_manifest_template_matches_dev_qa_artifact_contract()
     {
         using var document = JsonDocument.Parse(File.ReadAllText(SampleManifestPath()));
         var root = document.RootElement;
@@ -49,10 +49,10 @@ public sealed class SamplePluginManifestTests
             "Dobby.Sample.Plugin",
             "assets",
             "sample-plugin.png")));
-        files["bin/plugins/Dobby.Sample.Plugin.dll"].ShouldBe(new string('0', 64));
+        files["bin/plugins/Dobby.Sample.Plugin.dll"].ShouldBe(new string('f', 64));
         var signatureValue = root.GetProperty("signature").GetProperty("value").GetString();
         signatureValue.ShouldNotBeNull();
-        signatureValue!.Length.ShouldBe(86);
+        signatureValue.ShouldBe(new string('_', 86));
         var signature = root.GetProperty("signature");
         signature.GetProperty("purpose").GetString().ShouldBe("dobby.plugin-package");
         signature.GetProperty("format").GetString().ShouldBe("IeeeP1363FixedFieldConcatenation");
@@ -64,7 +64,9 @@ public sealed class SamplePluginManifestTests
     {
         var candidate = SamplePackageCandidatePath();
 
-        File.Exists(Path.Combine(candidate, "dobby-plugin.manifest.json")).ShouldBeTrue();
+        File.Exists(Path.Combine(candidate, "dobby-plugin.manifest.template.json")).ShouldBeTrue();
+        File.Exists(Path.Combine(candidate, "dobby-plugin.manifest.json")).ShouldBeFalse(
+            "only the signing command may create a positive manifest");
         File.Exists(Path.Combine(candidate, "assets", "sample-plugin.png")).ShouldBeTrue();
         File.Exists(Path.Combine(candidate, "bin", "plugins", "Dobby.Sample.Plugin.dll")).ShouldBeTrue();
         File.Exists(Path.Combine(candidate, "Dobby.Sample.Plugin.dll")).ShouldBeFalse(
@@ -77,7 +79,7 @@ public sealed class SamplePluginManifestTests
             RepoRoot().FullName,
             "samples",
             "Dobby.Sample.Plugin",
-            "dobby-plugin.manifest.json");
+            "dobby-plugin.manifest.template.json");
     }
 
     private static string SamplePackageCandidatePath()

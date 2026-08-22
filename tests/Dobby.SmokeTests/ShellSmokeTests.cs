@@ -225,6 +225,9 @@ public sealed class ShellSmokeTests
             activationCancellation,
             operationAuthorizationPolicy: authorization,
             pluginWorkSessions: workSessions);
+        var activationTracker = new PluginCurrentProcessActivationTracker();
+        var activator = new PostLoginPluginActivator(
+            new PluginServiceRegistrationBridge(extensionRegistry, lifetimes, pluginHostServices));
         var runtime = new HostPluginRuntimeCoordinator(
             persistence.Migrator,
             stateStore,
@@ -236,8 +239,8 @@ public sealed class ShellSmokeTests
             extensionRegistry,
             lifetimes,
             activationCancellation,
-            new PostLoginPluginActivator(new PluginServiceRegistrationBridge(extensionRegistry, lifetimes, pluginHostServices)),
-            new PluginCurrentProcessActivationTracker(),
+            activator,
+            activationTracker,
             trustVerifier,
             audit,
             reporter);
@@ -269,6 +272,10 @@ public sealed class ShellSmokeTests
         var route = await pageCoordinator.ActivateRouteAsync("plugin/com.dobby.sample/greet", CancellationToken.None);
         route.IsSuccess.ShouldBeTrue(route.IsSuccess ? null : route.ErrorCode.ToString());
         var pageModel = shell.ActivePluginPageModel.ShouldBeOfType<PluginComponentPageModel>();
+        pageModel.Localization.Bundles.Select(bundle => bundle.Culture)
+            .ShouldBe(["az-Latn-AZ", "en-US", "ru-RU"]);
+        pageModel.Localization.Bundles.Single(bundle => bundle.Culture == "ru-RU")
+            .Entries["page.title"].ShouldBe("Рабочая область примера запроса");
         var commandDispatcher = new HostPluginCommandDispatcher(
             extensionRegistry,
             authorization,
@@ -324,6 +331,95 @@ public sealed class ShellSmokeTests
         workSessions.Events.ShouldContain("open:com.dobby.sample:plugin/com.dobby.sample/greet:sample.work-session");
         workSessions.Events.ShouldContain("progress:50");
         workSessions.Events.ShouldContain("result:sample.work-session.completed");
+        workSessions.Events.ShouldContain("close");
+
+        activatedPage = null!;
+        grants.Grant("managed", new OperationKey(BuiltInOperationTargets.PluginManagementTargetId, OperationVerb.Configure));
+        grants.Grant("managed", new OperationKey(BuiltInOperationTargets.PluginManagementTargetId, OperationVerb.Delete));
+        var lifecycle = new HostPluginLifecycleCoordinator(
+            stateStore,
+            metadataCache,
+            staging,
+            new PluginDataRetentionStore(persistence.Root, persistence.TransactionScope),
+            activationTracker,
+            authorization,
+            audit,
+            new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.FullAccess)),
+            activator,
+            activationCancellation);
+
+        var disabled = await lifecycle.DisablePluginAsync(
+            "managed",
+            "com.dobby.sample",
+            CorrelationId.New());
+        disabled.IsSuccess.ShouldBeTrue(disabled.ErrorCode?.ToString());
+        stateStore.Get("com.dobby.sample").Value!.IsEnabled.ShouldBeFalse();
+
+        var enabled = await lifecycle.EnablePluginAsync(
+            "managed",
+            "com.dobby.sample",
+            CorrelationId.New());
+        enabled.IsSuccess.ShouldBeTrue(enabled.ErrorCode?.ToString());
+
+        await using var restartedLifetimes = new PluginLifetimeManager();
+        var restartedExtensions = new PluginExtensionPointRegistry();
+        var restartedCancellation = new HostPluginActivationCancellation();
+        var restartedTracker = new PluginCurrentProcessActivationTracker();
+        var restartedOperationTargets = OperationTargetRegistry.CreateDefault();
+        var restartedAuthorization = new OperationAuthorizationPolicy(restartedOperationTargets, grants);
+        var restartedActivator = new PostLoginPluginActivator(
+            new PluginServiceRegistrationBridge(
+                restartedExtensions,
+                restartedLifetimes,
+                new PluginHostServices(
+                    new InMemoryEventBus(),
+                    reporter,
+                    restartedCancellation,
+                    operationAuthorizationPolicy: restartedAuthorization,
+                    pluginWorkSessions: workSessions)));
+        var restartedRuntime = new HostPluginRuntimeCoordinator(
+            persistence.Migrator,
+            stateStore,
+            metadataCache,
+            new HostPluginActivationStatusPersistence(stateStore, metadataCache, persistence.TransactionScope),
+            staging,
+            new PluginDataRetentionStore(persistence.Root, persistence.TransactionScope),
+            restartedOperationTargets,
+            restartedExtensions,
+            restartedLifetimes,
+            restartedCancellation,
+            restartedActivator,
+            restartedTracker,
+            trustVerifier,
+            audit,
+            reporter);
+        var reactivated = await restartedRuntime.BeginPostLoginActivation(
+            new HostVersion(1, 0, 0),
+            "managed");
+        reactivated.IsSuccess.ShouldBeTrue(reactivated.ErrorCode?.ToString());
+        var reactivationOutcome = reactivated.Value.Run.Outcomes.Single();
+        reactivationOutcome.Status.ShouldBe(PluginActivationStatus.Active, reactivationOutcome.Reason);
+
+        var restartedLifecycle = new HostPluginLifecycleCoordinator(
+            stateStore,
+            metadataCache,
+            staging,
+            new PluginDataRetentionStore(persistence.Root, persistence.TransactionScope),
+            restartedTracker,
+            restartedAuthorization,
+            audit,
+            new HostRuntimeModeMutationGate(_ => Result.Success(PluginRuntimeMode.FullAccess)),
+            restartedActivator,
+            restartedCancellation);
+        var uninstall = await restartedLifecycle.UninstallPluginAsync(
+            "managed",
+            "com.dobby.sample",
+            PluginUninstallDataChoice.DeleteData,
+            CorrelationId.New());
+        uninstall.IsSuccess.ShouldBeTrue(uninstall.ErrorCode?.ToString());
+        var pendingUninstall = stateStore.Get("com.dobby.sample").Value!;
+        pendingUninstall.IsPendingUninstall.ShouldBeTrue();
+        pendingUninstall.RestartRequired.ShouldBeTrue();
     }
 
     private static string FindBuiltAdminExe()

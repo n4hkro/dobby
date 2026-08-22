@@ -53,7 +53,7 @@ public sealed class PluginBackgroundOperationReportingTests
         reporter.SnapshotReported += snapshots.Add;
         var shell = ShellViewModel.CreateDefault(HostStringCatalog.CreateResourceBacked());
         var dispatcher = new RecordingUiDispatcher();
-        var shellBackgrounds = new ShellBackgroundOperationCoordinator(shell, reporter, dispatcher);
+        using var shellBackgrounds = new ShellBackgroundOperationCoordinator(shell, reporter, dispatcher);
         shellBackgrounds.Attach();
 
         var activationCancellation = new HostPluginActivationCancellation();
@@ -125,13 +125,16 @@ public sealed class PluginBackgroundOperationReportingTests
             snapshot.Status == BackgroundOperationStatus.Completed &&
             snapshot.Progress.Percent == 100);
 
-        dispatcher.RunNextPostedAction();
-        dispatcher.RunNextPostedAction();
+        dispatcher.RunPostedActionsUntil(() =>
+            shell.BackgroundOperationText.Contains("sample.greet.progress", StringComparison.Ordinal) &&
+            shell.BackgroundOperationPercent == 50);
         shell.BackgroundOperationText.ShouldContain("sample.greet.progress");
         shell.BackgroundOperationPercent.ShouldBe(50);
         shell.BackgroundOperationIsIndeterminate.ShouldBeFalse();
 
-        dispatcher.RunNextPostedAction();
+        dispatcher.RunPostedActionsUntil(() =>
+            shell.BackgroundOperationText.Contains("sample.greet.progress", StringComparison.Ordinal) &&
+            shell.BackgroundOperationPercent == 100);
 
         shell.BackgroundOperationText.ShouldContain("sample.greet.progress");
         shell.BackgroundOperationPercent.ShouldBe(100);
@@ -178,6 +181,15 @@ public sealed class PluginBackgroundOperationReportingTests
             var action = PostedActions[0];
             PostedActions.RemoveAt(0);
             action();
+        }
+
+        public void RunPostedActionsUntil(Func<bool> condition)
+        {
+            ArgumentNullException.ThrowIfNull(condition);
+            while (!condition())
+            {
+                RunNextPostedAction();
+            }
         }
     }
 

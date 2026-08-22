@@ -29,6 +29,17 @@ public sealed class PortablePublishScriptTests
         text.ShouldContain("appsettings.json");
         text.ShouldContain("native/win-x64/sqlite3mc_x64.dll");
         text.ShouldContain("$missingFiles = @(");
+        text.ShouldContain("artifact-manifest.json");
+        text.ShouldContain("PortableSupport");
+        text.ShouldContain("sourceCommit");
+        text.ShouldContain("runtimeIdentifier");
+        text.ShouldContain("Get-FileHash");
+        text.ShouldContain("DobbyPluginTrustProfile=Production");
+        text.ShouldContain("%LocalAppData%/Dobby/PortableSupport");
+        text.ShouldContain("sourceTreeDirty");
+        text.ShouldContain("latest.json");
+        text.ShouldContain("Assert-ChildPath");
+        text.ShouldNotContain("KeepExistingOutput");
         text.ShouldNotContain("Compress-Archive", Case.Insensitive);
         text.ShouldNotContain("ZipFile", Case.Insensitive);
         text.ShouldNotContain(".zip", Case.Insensitive);

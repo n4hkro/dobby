@@ -272,6 +272,71 @@ public sealed class AdminCommandHostTests
     }
 
     [Fact]
+    public void Sample_template_signs_then_independent_verifier_accepts_and_tamper_rejects()
+    {
+        using var fixture = TempFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var signedPackagePath = fixture.Path("sample.signed.dobbyplugin");
+        var publicKeyPath = fixture.Path("dev-qa-public-key.pem");
+        var verificationReportPath = fixture.Path("verification.report.json");
+        File.WriteAllBytes(publicKeyPath, EncodePem(key.ExportSubjectPublicKeyInfo()));
+
+        var sign = AdminCommandHost.Run([
+            "--cli", "sign-plugin-package",
+            "--input-path", FindSamplePackageCandidate(),
+            "--signing-profile", "dev-qa",
+            "--output-path", signedPackagePath
+        ], new InMemorySigningMaterialProvider("dev-qa", key));
+
+        sign.ExitCode.ShouldBe(0, sign.StandardError);
+        var verify = AdminCommandHost.Run([
+            "--cli", "verify-plugin-package",
+            "--input-path", signedPackagePath,
+            "--trust-profile", "dev-qa",
+            "--host-version", "1.0.0",
+            "--public-key-path", publicKeyPath,
+            "--report-path", verificationReportPath
+        ]);
+
+        verify.ExitCode.ShouldBe(0, verify.StandardError);
+        verify.StandardOutput.ShouldNotContain(fixture.Root);
+        var report = File.ReadAllText(verificationReportPath);
+        report.ShouldContain("\"accepted\": true");
+        report.ShouldNotContain(fixture.Root);
+
+        using (var stream = new FileStream(signedPackagePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Update, leaveOpen: false))
+        {
+            var entry = archive.GetEntry("bin/plugins/Dobby.Sample.Plugin.dll")!;
+            byte[] content;
+            using (var source = entry.Open())
+            using (var memory = new MemoryStream())
+            {
+                source.CopyTo(memory);
+                content = memory.ToArray();
+            }
+
+            entry.Delete();
+            content[0] ^= 0xFF;
+            WriteZipEntry(archive, "bin/plugins/Dobby.Sample.Plugin.dll", content);
+        }
+
+        var rejected = AdminCommandHost.Run([
+            "--cli", "verify-plugin-package",
+            "--input-path", signedPackagePath,
+            "--trust-profile", "dev-qa",
+            "--host-version", "1.0.0",
+            "--public-key-path", publicKeyPath,
+            "--report-path", verificationReportPath,
+            "--overwrite"
+        ]);
+
+        rejected.ExitCode.ShouldBe(65);
+        rejected.StandardError.ShouldBe("verification-failed");
+        File.ReadAllText(verificationReportPath).ShouldContain("\"accepted\": false");
+    }
+
+    [Fact]
     public void Create_recovery_response_writes_host_compatible_envelope_through_concrete_verifier()
     {
         using var fixture = TempFixture.Create();
@@ -377,6 +442,48 @@ public sealed class AdminCommandHostTests
                 ArtifactSignaturePurposes.PluginLicense))
             .Verify(parsed.Artifact!.Signature, parsed.Artifact.CanonicalPayload)
             .IsSuccess.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData("granted", LicenseGrantIntent.Granted, 1)]
+    [InlineData("revoked", LicenseGrantIntent.Revoked, 2147483647)]
+    public void Create_plugin_license_preserves_v3_intent_time_boundaries_and_positive_revision(
+        string intent,
+        LicenseGrantIntent expectedIntent,
+        int revision)
+    {
+        using var fixture = TempFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var packagePath = fixture.Path("package.dobbyplugin");
+        var bindingPath = fixture.Path("device.json");
+        var outputPath = fixture.Path($"{intent}.dobbylicense");
+        File.WriteAllText(packagePath, "package-bytes");
+        File.WriteAllText(bindingPath, """{"deviceFingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}""");
+
+        var result = AdminCommandHost.Run([
+            "--cli", "create-plugin-license",
+            "--plugin-package-path", packagePath,
+            "--signing-profile", "dev-qa",
+            "--customer-id", "customer",
+            "--deployment-id", "deployment",
+            "--device-binding-fixture-path", bindingPath,
+            "--valid-from", "2026-01-01T00:00:00.0000000Z",
+            "--valid-until", "9999-12-17T23:59:59.9999999Z",
+            "--revision", revision.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "--intent", intent,
+            "--output-path", outputPath
+        ], new InMemorySigningMaterialProvider("dev-qa", key));
+
+        result.ExitCode.ShouldBe(0, result.StandardError);
+        var artifact = LicenseArtifactParser.Parse(
+            Path.GetFileName(outputPath),
+            File.ReadAllBytes(outputPath)).Artifact!;
+        var validated = LicensePayloadValidator.Validate(artifact);
+        validated.IsSuccess.ShouldBeTrue(validated.ReasonCode);
+        validated.Payload!.Intent.ShouldBe(expectedIntent);
+        validated.Payload.LicenseRevision.ShouldBe(revision);
+        validated.Payload.NotBefore.ShouldBe(DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+        validated.Payload.ExpiresAt.ShouldBe(DateTimeOffset.MaxValue.AddDays(-14));
     }
 
     public static IEnumerable<object[]> InvalidOptionShapes()
@@ -497,6 +604,20 @@ public sealed class AdminCommandHostTests
                     key))
                 : AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
         }
+    }
+
+    private static string FindSamplePackageCandidate()
+    {
+        var root = RepoRoot().FullName;
+        var candidates = new[]
+        {
+            Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", "Release", "net10.0", "package"),
+            Path.Combine(root, "samples", "Dobby.Sample.Plugin", "bin", "Debug", "net10.0", "package")
+        };
+
+        return candidates.FirstOrDefault(candidate =>
+                File.Exists(Path.Combine(candidate, "dobby-plugin.manifest.template.json")))
+            ?? throw new DirectoryNotFoundException("Sample plugin package candidate must be built before admin verification.");
     }
 
     private sealed class EcdsaVendorPublicKey(ECDsa key) : IVendorRecoveryPublicKey

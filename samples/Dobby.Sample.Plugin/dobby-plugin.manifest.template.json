@@ -54,7 +54,7 @@
     },
     {
       "path": "bin/plugins/Dobby.Sample.Plugin.dll",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
     }
   ],
   "signature": {
@@ -62,6 +62,6 @@
     "algorithm": "ECDSA-P256-SHA256",
     "format": "IeeeP1363FixedFieldConcatenation",
     "keyId": "plugin-test-2026-01",
-    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "value": "______________________________________________________________________________________"
   }
 }

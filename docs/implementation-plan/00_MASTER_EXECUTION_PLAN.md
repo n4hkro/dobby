@@ -3,7 +3,9 @@
 **Plan date:** 2026-08-21  
 **Implementation baseline:** `f87ab515b82df1fb605fb7a52a088bc06954bc7e`  
 **Repository cutoff preserved:** all work through 2026-08-16; later local work was removed  
-**Scope:** planning only; this document does not claim that any listed change is implemented
+**Execution status (2026-08-22):** Phases 0–3 and repository-owned Phase 4
+implementation are complete; GA remains externally blocked by the installed
+MSIX upgrade run, production signing/distribution inputs and owner license review.
 
 ## 1. Objective
 
@@ -164,16 +166,17 @@ dotnet test .\Dobby.sln -c Release --no-restore
 .\tools\publish-portable\publish-portable.ps1 -NoRestore
 ```
 
-Phase-specific security/release runners added by this plan must also pass:
+Phase-specific security/release runners must also pass:
 
 ```powershell
-.\tools\verify-plugin-package\verify-plugin-package.ps1 -Package <sample-package>
-.\tools\verify-security-regressions\verify-security-regressions.ps1 -NoRestore
+.\tools\verify-plugin-package\verify-plugin-package.ps1 --input-path <sample-package> --trust-profile <profile> --host-version <version> --public-key-path <public-key>
+.\tools\verify-security-regressions\verify-security-regressions.ps1 -NoBuild
 .\tools\verify-release-candidate\verify-release-candidate.ps1 -NoRestore -EvidenceRoot <new-empty-directory>
 ```
 
-The executor must create the last two runners only after their individual tests
-exist; the runners aggregate commands and must not replace assertions.
+The runners aggregate commands and evidence; they do not replace assertions.
+`verify-release-candidate -SourceOnly` records missing owner/environment inputs
+as blockers and cannot emit a release-ready result.
 
 ## 7. Definition of Done
 

@@ -187,90 +187,90 @@ public sealed class HostPluginPackageInstallCoordinator(
 
         using (installLease)
         {
-        var existing = stateStore.Get(descriptor.Manifest.PluginId);
-        if (!existing.IsSuccess)
-        {
-            var reasons = new[]
+            var existing = stateStore.Get(descriptor.Manifest.PluginId);
+            if (!existing.IsSuccess)
             {
+                var reasons = new[]
+                {
                 new PluginPackageValidationReason(
                     "install-state-unavailable",
                     "Plugin installation state could not be verified.")
             };
-            auditCoordinator.AppendInstallRejected(
-                actorId,
-                descriptor.Manifest.PluginId,
-                reasons,
-                correlationId);
-            diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
-            return Result.Failure<InstalledPluginState>(existing.ErrorCode ?? ErrorCode.DatabaseUnavailable);
-        }
+                auditCoordinator.AppendInstallRejected(
+                    actorId,
+                    descriptor.Manifest.PluginId,
+                    reasons,
+                    correlationId);
+                diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
+                return Result.Failure<InstalledPluginState>(existing.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+            }
 
-        if (existing.Value is not null &&
-            existing.Value.PackageFingerprint.Equals(descriptor.Fingerprint, StringComparison.Ordinal))
-        {
-            return Result.Success(existing.Value);
-        }
-
-        var mutationAllowed = runtimeModeMutationGate.EnsurePackageInstallAllowed(
-            descriptor.Manifest.PluginId,
-            isUpdate: existing.Value is not null);
-        if (!mutationAllowed.IsSuccess)
-        {
-            var rejection = RuntimeModeFailureRejection(mutationAllowed.ErrorCode);
-            var reasons = new[]
+            if (existing.Value is not null &&
+                existing.Value.PackageFingerprint.Equals(descriptor.Fingerprint, StringComparison.Ordinal))
             {
+                return Result.Success(existing.Value);
+            }
+
+            var mutationAllowed = runtimeModeMutationGate.EnsurePackageInstallAllowed(
+                descriptor.Manifest.PluginId,
+                isUpdate: existing.Value is not null);
+            if (!mutationAllowed.IsSuccess)
+            {
+                var rejection = RuntimeModeFailureRejection(mutationAllowed.ErrorCode);
+                var reasons = new[]
+                {
                 new PluginPackageValidationReason(rejection.ReasonCode, rejection.Message)
             };
-            auditCoordinator.AppendInstallRejected(
-                actorId,
-                descriptor.Manifest.PluginId,
-                reasons,
-                correlationId);
-            diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
-            return Result.Failure<InstalledPluginState>(rejection.ErrorCode);
-        }
+                auditCoordinator.AppendInstallRejected(
+                    actorId,
+                    descriptor.Manifest.PluginId,
+                    reasons,
+                    correlationId);
+                diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
+                return Result.Failure<InstalledPluginState>(rejection.ErrorCode);
+            }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        installProgress?.Report(new PluginPackageInstallProgress(
-            PluginPackageInstallStage.Finishing,
-            90,
-            CanCancel: false));
-        var install = new PluginPackageInstaller(
-            stagingArea,
-            stateStore,
-            metadataCache,
-            stateCommitter).Install(
-                descriptor,
-                stateCommitter is null
-                    ? null
-                    : new PluginInstallCommitContext(actorId, correlationId),
-                restartRequired: existing.Value is not null &&
-                    currentProcessActivationTracker?.IsActivatedInCurrentProcess(descriptor.Manifest.PluginId) == true);
-        if (!install.IsSuccess)
-        {
-            var reasons = new[]
+            cancellationToken.ThrowIfCancellationRequested();
+            installProgress?.Report(new PluginPackageInstallProgress(
+                PluginPackageInstallStage.Finishing,
+                90,
+                CanCancel: false));
+            var install = new PluginPackageInstaller(
+                stagingArea,
+                stateStore,
+                metadataCache,
+                stateCommitter).Install(
+                    descriptor,
+                    stateCommitter is null
+                        ? null
+                        : new PluginInstallCommitContext(actorId, correlationId),
+                    restartRequired: existing.Value is not null &&
+                        currentProcessActivationTracker?.IsActivatedInCurrentProcess(descriptor.Manifest.PluginId) == true);
+            if (!install.IsSuccess)
             {
+                var reasons = new[]
+                {
                 new PluginPackageValidationReason("install-failed", "Plugin package installation failed.")
             };
-            auditCoordinator.AppendInstallRejected(
-                actorId,
-                descriptor.Manifest.PluginId,
-                reasons,
-                correlationId);
-            diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
+                auditCoordinator.AppendInstallRejected(
+                    actorId,
+                    descriptor.Manifest.PluginId,
+                    reasons,
+                    correlationId);
+                diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
+                return install;
+            }
+
+            if (stateCommitter is null)
+            {
+                auditCoordinator.AppendInstallVerified(actorId, descriptor, correlationId);
+            }
+
+            installProgress?.Report(new PluginPackageInstallProgress(
+                PluginPackageInstallStage.Finishing,
+                100,
+                CanCancel: false));
             return install;
-        }
-
-        if (stateCommitter is null)
-        {
-            auditCoordinator.AppendInstallVerified(actorId, descriptor, correlationId);
-        }
-
-        installProgress?.Report(new PluginPackageInstallProgress(
-            PluginPackageInstallStage.Finishing,
-            100,
-            CanCancel: false));
-        return install;
         }
     }
 

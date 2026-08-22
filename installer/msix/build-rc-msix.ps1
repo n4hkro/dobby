@@ -2,6 +2,7 @@
 param(
     [string]$MakeAppxPath,
     [string]$SignToolPath,
+    [string]$WindowsSdkVersion,
     [string]$PortableOutputPath,
     [switch]$SkipPublish,
     [switch]$NoRestore
@@ -16,7 +17,8 @@ $scriptRoot = Split-Path -Parent $PSCommandPath
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $scriptRoot '..\..')).Path
 $artifactRoot = Join-Path $repoRoot 'artifacts\packages\msix\rc'
 $portablePublishScript = Join-Path $repoRoot 'tools\publish-portable\publish-portable.ps1'
-$defaultPortableOutput = Join-Path $repoRoot 'artifacts\publish\portable\Dobby.Host'
+$portableArtifactRoot = Join-Path $repoRoot 'artifacts\publish\portable'
+$portableLatestManifest = Join-Path $portableArtifactRoot 'latest.json'
 $publisherSubject = 'CN=Dobby RC Self-Signed Publisher'
 $publisherDisplayName = 'Dobby RC Self-Signed Publisher'
 $packageName = 'Dobby'
@@ -47,7 +49,7 @@ function Assert-ChildPath {
     }
 }
 
-function Resolve-ToolPath {
+function Resolve-WindowsSdkToolPath {
     param(
         [string]$ExplicitPath,
         [Parameter(Mandatory = $true)]
@@ -63,14 +65,37 @@ function Resolve-ToolPath {
         return $resolved
     }
 
-    $candidates = @(
-        'C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64',
-        'C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64',
-        'C:\Program Files (x86)\Windows Kits\10\bin\10.0.22000.0\x64',
-        'C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64',
-        'C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x64',
-        'C:\Program Files (x86)\Windows Kits\10\App Certification Kit'
-    ) | ForEach-Object { Join-Path $_ $ToolName }
+    $installedRoots = Get-ItemProperty `
+        -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots' `
+        -ErrorAction SilentlyContinue
+    if (-not $installedRoots -or -not $installedRoots.KitsRoot10) {
+        throw "Windows 10/11 SDK registry metadata was not found. Install an approved SDK or pass an explicit $ToolName path."
+    }
+
+    $sdkBinRoot = Join-Path $installedRoots.KitsRoot10 'bin'
+    $minimumSdkVersion = [Version]'10.0.19041.0'
+    $versionDirectories = @(
+        Get-ChildItem -LiteralPath $sdkBinRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $parsedVersion = $null
+                if ([Version]::TryParse($_.Name, [ref]$parsedVersion) -and $parsedVersion -ge $minimumSdkVersion) {
+                    [pscustomobject]@{ Version = $parsedVersion; Path = $_.FullName }
+                }
+            } |
+            Sort-Object Version -Descending
+    )
+
+    if ($WindowsSdkVersion) {
+        $versionDirectories = @($versionDirectories | Where-Object { $_.Version.ToString() -eq $WindowsSdkVersion })
+        if ($versionDirectories.Count -ne 1) {
+            throw "Requested Windows SDK version '$WindowsSdkVersion' is not installed or is below $minimumSdkVersion."
+        }
+    }
+
+    $candidates = @($versionDirectories | ForEach-Object { Join-Path (Join-Path $_.Path 'x64') $ToolName })
+    if ($ToolName -eq 'signtool.exe') {
+        $candidates += Join-Path (Join-Path $installedRoots.KitsRoot10 'App Certification Kit') $ToolName
+    }
 
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate -PathType Leaf) {
@@ -78,12 +103,7 @@ function Resolve-ToolPath {
         }
     }
 
-    $command = Get-Command $ToolName -ErrorAction SilentlyContinue
-    if ($command -and $command.Source) {
-        return $command.Source
-    }
-
-    throw "Unable to locate $ToolName. Pass -$($ToolName -replace '\.exe$','')Path explicitly."
+    throw "Unable to locate $ToolName in an approved Windows SDK. Pass its explicit path or install SDK $minimumSdkVersion or newer."
 }
 
 function Get-ToolLabel {
@@ -104,13 +124,6 @@ function Get-ToolLabel {
 }
 
 function Get-PortableOutput {
-    $portableOutput = if ($PortableOutputPath) {
-        (Resolve-Path -LiteralPath $PortableOutputPath).Path
-    }
-    else {
-        $defaultPortableOutput
-    }
-
     if (-not $SkipPublish) {
         if (-not (Test-Path -LiteralPath $portablePublishScript -PathType Leaf)) {
             throw "Portable publish script is missing at tools\publish-portable\publish-portable.ps1."
@@ -127,6 +140,20 @@ function Get-PortableOutput {
         }
     }
 
+    $portableOutput = if ($PortableOutputPath) {
+        (Resolve-Path -LiteralPath $PortableOutputPath).Path
+    }
+    else {
+        if (-not (Test-Path -LiteralPath $portableLatestManifest -PathType Leaf)) {
+            throw 'Portable latest.json was not produced.'
+        }
+
+        $latest = Get-Content -LiteralPath $portableLatestManifest -Raw | ConvertFrom-Json
+        $candidate = Join-Path $portableArtifactRoot ([string]$latest.outputPath).Replace('/', '\')
+        Assert-ChildPath -Root $portableArtifactRoot -Candidate $candidate
+        (Resolve-Path -LiteralPath $candidate).Path
+    }
+
     if (-not (Test-Path -LiteralPath $portableOutput -PathType Container)) {
         throw "Portable output folder was not found."
     }
@@ -141,7 +168,7 @@ function Get-PortableOutput {
     return [string]$portableOutput
 }
 
-function New-PlaceholderAsset {
+function New-BrandedAsset {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Path,
@@ -274,16 +301,46 @@ function New-PackageStage {
     }
 
     New-Item -ItemType Directory -Force -Path $stageRoot | Out-Null
-    Get-ChildItem -LiteralPath $PortableOutput -Force | Copy-Item -Destination $stageRoot -Recurse -Force
+    $portableManifestPath = Join-Path $PortableOutput 'artifact-manifest.json'
+    if (-not (Test-Path -LiteralPath $portableManifestPath -PathType Leaf)) {
+        throw 'Portable artifact manifest is required for allow-listed MSIX staging.'
+    }
+
+    $portableManifest = Get-Content -LiteralPath $portableManifestPath -Raw | ConvertFrom-Json
+    foreach ($file in $portableManifest.files) {
+        $relativePath = [string]$file.path
+        if ($relativePath -match '(^|/)\.\.(/|$)' -or [System.IO.Path]::IsPathRooted($relativePath)) {
+            throw "Portable manifest contains an unsafe path: $relativePath"
+        }
+
+        $sourcePath = Join-Path $PortableOutput $relativePath.Replace('/', '\')
+        $sourceFull = (Resolve-Path -LiteralPath $sourcePath).Path
+        Assert-ChildPath -Root $PortableOutput -Candidate $sourceFull
+        $actualHash = (Get-FileHash -LiteralPath $sourceFull -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actualHash -ne [string]$file.sha256) {
+            throw "Portable manifest hash mismatch: $relativePath"
+        }
+
+        $destinationPath = Join-Path $stageRoot $relativePath.Replace('/', '\')
+        $destinationDirectory = Split-Path -Parent $destinationPath
+        New-Item -ItemType Directory -Force -Path $destinationDirectory | Out-Null
+        Copy-Item -LiteralPath $sourceFull -Destination $destinationPath
+    }
+
+    $settingsPath = Join-Path $stageRoot 'appsettings.json'
+    $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+    $settings.Dobby.Product.ArtifactMode = 'Installed'
+    $settings.Dobby.Runtime.DataRoot = '%LocalAppData%/Dobby'
+    $settings | ConvertTo-Json -Depth 32 | Set-Content -LiteralPath $settingsPath -Encoding utf8NoBOM
 
     $assetsRoot = Join-Path $stageRoot 'Assets'
     New-Item -ItemType Directory -Force -Path $assetsRoot | Out-Null
 
-    New-PlaceholderAsset -Path (Join-Path $assetsRoot 'StoreLogo.png') -Size 50
-    New-PlaceholderAsset -Path (Join-Path $assetsRoot 'Square44x44Logo.png') -Size 44
-    New-PlaceholderAsset -Path (Join-Path $assetsRoot 'Square71x71Logo.png') -Size 71
-    New-PlaceholderAsset -Path (Join-Path $assetsRoot 'Square150x150Logo.png') -Size 150
-    New-PlaceholderAsset -Path (Join-Path $assetsRoot 'Wide310x150Logo.png') -Size 310
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'StoreLogo.png') -Size 50
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'Square44x44Logo.png') -Size 44
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'Square71x71Logo.png') -Size 71
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'Square150x150Logo.png') -Size 150
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'Wide310x150Logo.png') -Size 310
 
     New-AppxManifest -ManifestPath (Join-Path $stageRoot 'AppxManifest.xml') -Version $Version
     return $stageRoot
@@ -300,8 +357,8 @@ function Convert-ToRepoRelativePath {
     return [System.Uri]::UnescapeDataString($uriRoot.MakeRelativeUri($uriPath).ToString()).Replace('/', '\')
 }
 
-$makeAppxExe = Resolve-ToolPath -ExplicitPath $MakeAppxPath -ToolName 'makeappx.exe'
-$signToolExe = Resolve-ToolPath -ExplicitPath $SignToolPath -ToolName 'signtool.exe'
+$makeAppxExe = Resolve-WindowsSdkToolPath -ExplicitPath $MakeAppxPath -ToolName 'makeappx.exe'
+$signToolExe = Resolve-WindowsSdkToolPath -ExplicitPath $SignToolPath -ToolName 'signtool.exe'
 $portableOutput = Get-PortableOutput
 $certificate = Get-OrCreateCertificate
 

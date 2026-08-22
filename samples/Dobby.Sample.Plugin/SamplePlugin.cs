@@ -147,7 +147,7 @@ public sealed class SampleHomePage(
             new PluginLocalizedText("command.submit.success", [customerName]))));
     }
 
-    private ValueTask<Result<PluginCommandResult>> ExecuteProgress(
+    private async ValueTask<Result<PluginCommandResult>> ExecuteProgress(
         PluginCommandRequest request,
         CancellationToken cancellationToken)
     {
@@ -160,11 +160,26 @@ public sealed class SampleHomePage(
             "sample.greet.progress",
             null,
             BackgroundOperationStatus.Running,
+            BackgroundOperationProgress.Determinate(0),
+            CanCancel: true,
+            correlationId,
+            FailureReason: null));
+
+        await Task.Yield();
+        cancellationToken.ThrowIfCancellationRequested();
+        backgroundOperations.Progress.Report(new BackgroundOperationSnapshot(
+            operationId,
+            BackgroundOperationOwnerKind.Plugin,
+            request.PluginId,
+            "sample.greet.progress",
+            null,
+            BackgroundOperationStatus.Running,
             BackgroundOperationProgress.Determinate(50),
             CanCancel: true,
             correlationId,
             FailureReason: null));
 
+        await Task.Yield();
         cancellationToken.ThrowIfCancellationRequested();
         backgroundOperations.Progress.Report(new BackgroundOperationSnapshot(
             operationId,
@@ -177,8 +192,8 @@ public sealed class SampleHomePage(
             CanCancel: false,
             correlationId,
             FailureReason: null));
-        return ValueTask.FromResult(Result.Success(new PluginCommandResult(
-            new PluginLocalizedText("command.progress.success"))));
+        return Result.Success(new PluginCommandResult(
+            new PluginLocalizedText("command.progress.success")));
     }
 
     private ValueTask<Result<PluginCommandResult>> ExecuteWorkSession(
@@ -205,6 +220,13 @@ public sealed class SampleHomePage(
         {
             return ValueTask.FromResult(Result.Failure<PluginCommandResult>(
                 result.ErrorCode ?? ErrorCode.PluginInternalError));
+        }
+
+        var close = workSessions.Close(session.Value.SessionId);
+        if (!close.IsSuccess)
+        {
+            return ValueTask.FromResult(Result.Failure<PluginCommandResult>(
+                close.ErrorCode ?? ErrorCode.PluginInternalError));
         }
 
         return ValueTask.FromResult(Result.Success(new PluginCommandResult(
@@ -371,7 +393,7 @@ public sealed class SampleHomePage(
                 ["command.cancel"] = "Ləğv et",
                 ["command.submit.success"] = "{0} üçün sorğu qəbul edildi.",
                 ["command.progress.success"] = "İrəliləyiş əməliyyatı tamamlandı.",
-                ["command.work-session.success"] = "İş sessiyası yaradıldı.",
+                ["command.work-session.success"] = "İş sessiyası tamamlandı.",
                 ["validation.name.required"] = "Müştəri adı məcburidir.",
                 ["validation.quantity.range"] = "Miqdar 1 ilə 100 arasında olmalıdır.",
                 ["status.failure"] = "Əmr təhlükəsiz şəkildə tamamlanmadı.",
@@ -406,7 +428,7 @@ public sealed class SampleHomePage(
                 ["command.cancel"] = "Cancel",
                 ["command.submit.success"] = "The request for {0} was accepted.",
                 ["command.progress.success"] = "The progress operation completed.",
-                ["command.work-session.success"] = "The work session was created.",
+                ["command.work-session.success"] = "The work session was completed.",
                 ["validation.name.required"] = "Customer name is required.",
                 ["validation.quantity.range"] = "Quantity must be between 1 and 100.",
                 ["status.failure"] = "The command could not be completed safely.",
@@ -441,7 +463,7 @@ public sealed class SampleHomePage(
                 ["command.cancel"] = "Отмена",
                 ["command.submit.success"] = "Запрос для {0} принят.",
                 ["command.progress.success"] = "Операция прогресса завершена.",
-                ["command.work-session.success"] = "Рабочая сессия создана.",
+                ["command.work-session.success"] = "Рабочая сессия завершена.",
                 ["validation.name.required"] = "Имя клиента обязательно.",
                 ["validation.quantity.range"] = "Количество должно быть от 1 до 100.",
                 ["status.failure"] = "Команду не удалось безопасно завершить.",
