@@ -443,6 +443,7 @@ public sealed class ShellDiagnosticsExportActionTests
     {
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var backendCompleted = new TaskCompletionSource<Result<InstalledPluginState>>();
 
         RunOnSta(() =>
         {
@@ -453,19 +454,16 @@ public sealed class ShellDiagnosticsExportActionTests
                 shell,
                 new ShellActionOverrides
                 {
-                    InstallPluginPackageAsync = async (_, cancellationToken) =>
+                    InstallPluginPackageAsync = (_, cancellationToken) =>
                     {
                         started.TrySetResult();
-                        try
-                        {
-                            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-                            return Result.Failure<InstalledPluginState>(ErrorCode.PluginInternalError);
-                        }
-                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        cancellationToken.Register(() =>
                         {
                             cancellationObserved.TrySetResult();
-                            throw;
-                        }
+                            backendCompleted.TrySetResult(
+                                Result.Failure<InstalledPluginState>(ErrorCode.Cancelled));
+                        });
+                        return backendCompleted.Task;
                     }
                 });
 

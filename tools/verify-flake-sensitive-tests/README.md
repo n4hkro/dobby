@@ -11,7 +11,7 @@ Default local profile:
 ```text
 Focused WorkSessionShellIntegrationTests: 5 iterations
 Full Dobby.IntegrationTests project: 2 iterations
-Full Dobby.sln: 1 iteration
+Sequential unit/integration/smoke matrix: 1 iteration
 ```
 
 Release profile:
@@ -19,7 +19,7 @@ Release profile:
 ```text
 Focused WorkSessionShellIntegrationTests: 20 iterations
 Full Dobby.IntegrationTests project: 10 iterations
-Full Dobby.sln: 5 iterations
+Sequential unit/integration/smoke matrix: 5 iterations
 ```
 
 ## Commands
@@ -68,11 +68,18 @@ TestResults/flake-sensitive/<timestamp>/
 - focused-001.err.txt
 - integration-001.out.txt
 - integration-001.err.txt
-- solution-001.out.txt
-- solution-001.err.txt
+- matrix-unit-001.out.txt
+- matrix-unit-001.err.txt
+- matrix-integration-001.out.txt
+- matrix-integration-001.err.txt
+- matrix-smoke-001.out.txt
+- matrix-smoke-001.err.txt
 ```
 
 `summary.md` records the profile, command, iteration, start/end time, duration, exit code, stdout/stderr files, and result.
+Each matrix iteration deliberately runs the three test projects sequentially. Running
+`dotnet test Dobby.sln` starts separate testhosts concurrently and can turn host-process,
+SQLite, dispatcher, and KDF scheduling contention into false timeout/file-lock failures.
 
 ## CI Ownership
 

@@ -39,10 +39,7 @@ public sealed class CrashRecoverySmokeTests
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            DeleteDirectoryAfterHandlesClose(root);
         }
     }
 
@@ -67,10 +64,7 @@ public sealed class CrashRecoverySmokeTests
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            DeleteDirectoryAfterHandlesClose(root);
         }
     }
 
@@ -94,12 +88,36 @@ public sealed class CrashRecoverySmokeTests
         if (!process.WaitForExit(30000))
         {
             process.Kill(entireProcessTree: true);
+            process.WaitForExit();
             throw new TimeoutException($"Host crash-recovery hook timed out during phase {phase}.");
         }
+
+        process.WaitForExit();
 
         return new ProcessResult(
             process.ExitCode,
             process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd());
+    }
+
+    private static void DeleteDirectoryAfterHandlesClose(string root)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        while (Directory.Exists(root))
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+                return;
+            }
+            catch (IOException) when (DateTimeOffset.UtcNow < deadline)
+            {
+                Thread.Yield();
+            }
+            catch (UnauthorizedAccessException) when (DateTimeOffset.UtcNow < deadline)
+            {
+                Thread.Yield();
+            }
+        }
     }
 
     private sealed record ProcessResult(int ExitCode, string Output);

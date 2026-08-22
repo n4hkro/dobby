@@ -57,6 +57,17 @@ public sealed class ReleaseToolingContractTests
         script.ShouldNotContain("10.0.22621.0");
     }
 
+    [Fact]
+    public void Flake_repeat_matrix_runs_test_projects_sequentially()
+    {
+        var script = Read(RepoRoot(), "tools", "verify-flake-sensitive-tests", "verify-flake-sensitive-tests.ps1");
+
+        script.ShouldContain("-Phase 'matrix-unit'");
+        script.ShouldContain("-Phase 'matrix-integration'");
+        script.ShouldContain("-Phase 'matrix-smoke'");
+        script.ShouldNotContain("-Phase 'solution'");
+    }
+
     private static string Read(string root, params string[] segments)
     {
         var path = segments.Aggregate(root, Path.Combine);

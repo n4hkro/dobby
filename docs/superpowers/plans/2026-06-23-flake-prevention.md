@@ -143,7 +143,7 @@ Expected default local profile:
 ```text
 Focused WorkSessionShellIntegrationTests: 5 iterations
 Full Dobby.IntegrationTests project: 2 iterations
-Full Dobby.sln: 1 iteration
+Sequential unit/integration/smoke matrix: 1 iteration
 ```
 
 - [ ] **Step 2: Use the release profile for handover or sprint closure**
@@ -159,7 +159,7 @@ Expected release profile:
 ```text
 Focused WorkSessionShellIntegrationTests: 20 iterations
 Full Dobby.IntegrationTests project: 10 iterations
-Full Dobby.sln: 5 iterations
+Sequential unit/integration/smoke matrix: 5 iterations
 ```
 
 - [ ] **Step 3: Keep build safety on by default**

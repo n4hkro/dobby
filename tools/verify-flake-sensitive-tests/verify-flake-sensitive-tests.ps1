@@ -178,11 +178,35 @@ for ($i = 1; $i -le $IntegrationIterations; $i++) {
 
 for ($i = 1; $i -le $SolutionIterations; $i++) {
     Invoke-LoggedDotnet `
-        -Phase 'solution' `
+        -Phase 'matrix-unit' `
         -Iteration $i `
         -Arguments @(
             'test',
-            '.\Dobby.sln',
+            '.\tests\Dobby.UnitTests\Dobby.UnitTests.csproj',
+            '-c',
+            $Configuration,
+            '--no-build',
+            '--no-restore'
+        )
+
+    Invoke-LoggedDotnet `
+        -Phase 'matrix-integration' `
+        -Iteration $i `
+        -Arguments @(
+            'test',
+            '.\tests\Dobby.IntegrationTests\Dobby.IntegrationTests.csproj',
+            '-c',
+            $Configuration,
+            '--no-build',
+            '--no-restore'
+        )
+
+    Invoke-LoggedDotnet `
+        -Phase 'matrix-smoke' `
+        -Iteration $i `
+        -Arguments @(
+            'test',
+            '.\tests\Dobby.SmokeTests\Dobby.SmokeTests.csproj',
             '-c',
             $Configuration,
             '--no-build',

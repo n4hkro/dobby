@@ -92,7 +92,7 @@ public sealed class HostPluginPackageInstallCoordinator(
                 }
             },
             CancellationToken.None,
-            TaskCreationOptions.DenyChildAttach,
+            TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
             TaskScheduler.Default);
     }
 
