@@ -4,6 +4,7 @@ using Dobby.Core;
 using Dobby.Diagnostics;
 using Dobby.Host;
 using Dobby.Host.Plugins;
+using Dobby.IntegrationTests.Shell;
 using Dobby.Localization;
 using Dobby.PluginFramework.Packaging;
 using Dobby.Shell;
@@ -16,6 +17,7 @@ using System.Windows.Threading;
 
 namespace Dobby.IntegrationTests.Host;
 
+[Collection(WpfIntegrationTestCollection.Name)]
 public sealed class ShellDiagnosticsExportActionTests
 {
     [Fact]

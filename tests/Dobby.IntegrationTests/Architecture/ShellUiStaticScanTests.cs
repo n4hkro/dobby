@@ -9,6 +9,28 @@ namespace Dobby.IntegrationTests.Architecture;
 public sealed class ShellUiStaticScanTests
 {
     [Fact]
+    public void Wpf_integration_test_classes_share_the_nonparallel_collection()
+    {
+        var testsRoot = Path.Combine(RepoRoot().FullName, "tests", "Dobby.IntegrationTests");
+        var wpfTestFiles = Directory.EnumerateFiles(testsRoot, "*Tests.cs", SearchOption.AllDirectories)
+            .Select(path => new { Path = path, Source = File.ReadAllText(path) })
+            .Where(file =>
+                file.Source.Contains("RunOnSta(", StringComparison.Ordinal) ||
+                file.Source.Contains("CreateHiddenWindow(", StringComparison.Ordinal) ||
+                file.Source.Contains("new Window(", StringComparison.Ordinal))
+            .ToArray();
+
+        wpfTestFiles.ShouldNotBeEmpty();
+        foreach (var file in wpfTestFiles)
+        {
+            file.Source.Contains(
+                "[Collection(WpfIntegrationTestCollection.Name)]",
+                StringComparison.Ordinal).ShouldBeTrue(
+                    $"WPF/STA integration test {file.Path} must not run in parallel with other test collections.");
+        }
+    }
+
+    [Fact]
     public void Host_shell_xaml_does_not_hardcode_visible_strings_or_shell_level_tokens()
     {
         var root = RepoRoot();
