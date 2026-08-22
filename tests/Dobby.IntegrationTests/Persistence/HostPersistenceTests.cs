@@ -183,6 +183,7 @@ public sealed class HostPersistenceTests
             error.Message.ShouldNotContain("PasswordHash");
             error.Message.ShouldNotContain("abc");
             Enum.IsDefined(error.Category).ShouldBeTrue();
+            error.CorrelationId.Value.ShouldNotBe(Guid.Empty);
         }
     }
 
@@ -457,7 +458,8 @@ public sealed class HostPersistenceTests
                 "0001_prelogin_bootstrap",
                 "0007_prelogin_remembered_account",
                 "0008_prelogin_login_throttle",
-                "0009_prelogin_host_outbox"
+                "0009_prelogin_host_outbox",
+                "0010_prelogin_recovery_requests"
             ]);
         fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='PostLoginOnly';")

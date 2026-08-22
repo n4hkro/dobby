@@ -2,6 +2,7 @@ using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Manifest;
+using Dobby.Security.Trust;
 using Shouldly;
 
 namespace Dobby.UnitTests.PluginFramework;
@@ -156,6 +157,11 @@ public sealed class PluginFrameworkTests
             [new PluginOperationTarget("com.dobby.sample.greet", ["execute"], "sample.greet.label")],
             [new PluginExtensionPoint("sample.home", "plugin-page-region", "sample.home", "sample.home.label", null, "default", 100)],
             [new PluginPackageFile("bin/plugins/com.dobby.sample.dll", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")],
-            new PluginPackageSignature("ECDSA-P256-SHA256", 1, "AQ"));
+            new PluginPackageSignature(
+                ArtifactSignaturePurposes.PluginPackage,
+                ArtifactSignatureProfile.Algorithm,
+                ArtifactSignatureProfile.Format,
+                PluginTrustPublicKeyProvider.ProductionPluginPackageKeyId,
+                ArtifactSignatureCodec.ToUnpaddedBase64Url(new byte[ArtifactSignatureProfile.P256SignatureLength])));
     }
 }

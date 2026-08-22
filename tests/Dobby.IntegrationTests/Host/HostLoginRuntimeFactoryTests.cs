@@ -32,6 +32,9 @@ public sealed class HostLoginRuntimeFactoryTests
             TimeProvider.System,
             new RecordingProtector());
 
+        runtime.DiagnosticsSourceDirectory.ShouldBe(
+            Path.Combine(fixture.Options.Runtime.DataRoot, "logs"));
+
         SpinWait.SpinUntil(
             () => fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE AuditId = 'old';") == 0,
             TimeSpan.FromSeconds(5)).ShouldBeTrue("audit retention must run as a one-shot post-LoginVisible maintenance operation.");

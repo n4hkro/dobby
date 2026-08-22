@@ -57,10 +57,10 @@
         Condition="'$(DobbyPluginTrustProfile)' != 'Production' and '$(DobbyPluginTrustProfile)' != 'DevQa'"
         Text="DobbyPluginTrustProfile must be Production or DevQa." />
     <Error
-        Condition="'$(DobbyPluginTrustProfile)' == 'Production' and (!Exists('..\Dobby.Host\Trust\vendor-plugin-package-public-key.pem') or !Exists('..\Dobby.Host\Trust\vendor-plugin-license-public-key.pem'))"
-        Text="Production plugin trust public key is missing." />
+        Condition="'$(DobbyPluginTrustProfile)' == 'Production' and (!Exists('..\Dobby.Host\Trust\vendor-plugin-package-public-key.pem') or !Exists('..\Dobby.Host\Trust\vendor-plugin-license-public-key.pem') or !Exists('..\Dobby.Host\Trust\vendor-recovery-public-key.pem'))"
+        Text="A purpose-separated production trust public key is missing." />
     <Error
-        Condition="'$(DobbyPluginTrustProfile)' == 'DevQa' and (!Exists('..\Dobby.Host\Trust\dev-qa-plugin-package-public-key.pem') or !Exists('..\Dobby.Host\Trust\dev-qa-plugin-license-public-key.pem'))"
-        Text="Dev/QA plugin trust public key is missing." />
+        Condition="'$(DobbyPluginTrustProfile)' == 'DevQa' and (!Exists('..\Dobby.Host\Trust\dev-qa-plugin-package-public-key.pem') or !Exists('..\Dobby.Host\Trust\dev-qa-plugin-license-public-key.pem') or !Exists('..\Dobby.Host\Trust\dev-qa-recovery-public-key.pem'))"
+        Text="A purpose-separated Dev/QA trust public key is missing." />
   </Target>
 </Project>

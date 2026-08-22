@@ -90,7 +90,9 @@ public sealed class PostLoginSessionRuntime(
         lock (sessionGate)
         {
             checkpoint = sessionLifecycleService.Checkpoint(correlationId);
-            if (checkpoint.Kind == SessionCheckpointKind.Locked)
+            if (checkpoint.Kind == SessionCheckpointKind.Locked ||
+                (!sessionLifecycleService.CommitsMutationAudit &&
+                 checkpoint.Kind is SessionCheckpointKind.Expired or SessionCheckpointKind.Invalidated))
             {
                 auditCoordinator.AppendCheckpoint(session.UserId, checkpoint, correlationId);
             }

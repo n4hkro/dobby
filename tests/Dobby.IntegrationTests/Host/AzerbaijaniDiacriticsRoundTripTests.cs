@@ -37,7 +37,7 @@ public sealed class AzerbaijaniDiacriticsRoundTripTests
 
         var audit = new InMemoryAuditTrail();
         audit.Append(new AuditEvent(
-            "shell.diacritics.roundtrip",
+            AuditEventName.DiagnosticsExportCreated,
             "əli",
             "shell",
             AuditResult.Success,
@@ -45,10 +45,10 @@ public sealed class AzerbaijaniDiacriticsRoundTripTests
             DateTimeOffset.UtcNow,
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["display"] = displayValue
+                ["outputName"] = displayValue
             }));
 
-        audit.Snapshot().Single().Details!["display"].ShouldBe(displayValue);
+        audit.Snapshot().Single().Details!["outputName"].ShouldBe(displayValue);
     }
 
     private sealed class SettingsPreferenceFixture : IDisposable

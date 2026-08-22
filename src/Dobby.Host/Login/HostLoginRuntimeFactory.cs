@@ -607,7 +607,7 @@ public static class HostLoginRuntimeFactory
             printOutputCoordinator,
             printOutputService,
             operationReporter,
-            options.Runtime.DataRoot,
+            Path.Combine(options.Runtime.DataRoot, "logs"),
             diagnosticsOutputZipPath)
         {
             AuthenticatedLifetime = authenticatedLifetime,

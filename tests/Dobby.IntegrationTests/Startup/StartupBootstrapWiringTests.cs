@@ -611,7 +611,8 @@ public sealed class StartupBootstrapWiringTests
 
         var contents = ReadSingleLogContents(runtimeRoot);
         contents.ShouldContain("Runtime folder ready:");
-        contents.ShouldContain(runtimeRoot);
+        contents.ShouldContain("<path>");
+        contents.ShouldNotContain(runtimeRoot);
     }
 
     [Fact]

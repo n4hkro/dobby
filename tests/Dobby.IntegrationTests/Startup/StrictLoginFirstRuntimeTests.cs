@@ -72,6 +72,11 @@ public sealed class StrictLoginFirstRuntimeTests
             fixture.Protector,
             applyPreLoginMigrations: false,
             compositionProbe: authenticatedProbe);
+        SpinWait.SpinUntil(
+            () => fixture.Executor.QueryScalar<int>(
+                "SELECT COUNT(*) FROM AuditLog WHERE AuditId = 'old-before-login';") == 0,
+            TimeSpan.FromSeconds(5)).ShouldBeTrue(
+                "authenticated audit retention must complete before the runtime is disposed and cancelled.");
         await firstRuntime.DisposeAsync();
 
         authenticatedProbe.Events.ShouldBe([

@@ -14,10 +14,10 @@ public sealed class DurableAuditTrailTests
         using var fixture = AuditPersistenceFixture.Create();
         IAuditTrail trail = new DurableAuditTrail(fixture.Executor);
         var auditEvent = new AuditEvent(
-            AuditEventName.UserLogin,
+            AuditEventName.UserLoginFailed,
             "owner",
             "host",
-            AuditResult.Success,
+            AuditResult.Failed,
             CorrelationId.New(),
             DateTimeOffset.UtcNow,
             new Dictionary<string, string> { ["reason"] = "accepted" });
@@ -117,7 +117,12 @@ public sealed class DurableAuditTrailTests
         var snapshot = new DurableAuditTrail(fixture.Executor).Snapshot();
         snapshot.Count.ShouldBe(1);
         snapshot[0].EventName.ShouldBe(AuditEventName.UserCreate);
-        snapshot[0].Details.ShouldBe(auditEvent.Details);
+        var actualDetails = snapshot[0].Details ?? throw new InvalidOperationException("Audit details were not persisted.");
+        actualDetails.Count.ShouldBe(auditEvent.Details!.Count);
+        foreach (var detail in auditEvent.Details)
+        {
+            actualDetails[detail.Key].ShouldBe(detail.Value);
+        }
     }
 
     [Fact]
