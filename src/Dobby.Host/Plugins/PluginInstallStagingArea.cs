@@ -10,7 +10,6 @@ namespace Dobby.Host.Plugins;
 
 public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
 {
-    private readonly string root;
     private readonly IHostPersistenceCommandExecutor executor;
     private readonly string stagingRoot;
     private readonly string runtimeRoot;
@@ -19,7 +18,7 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         this.executor = executor;
-        root = Path.Combine(Environment.ExpandEnvironmentVariables(dataRoot), "plugins");
+        var root = Path.Combine(Environment.ExpandEnvironmentVariables(dataRoot), "plugins");
         stagingRoot = Path.Combine(root, "staging");
         runtimeRoot = Path.Combine(root, "installed");
         Directory.CreateDirectory(stagingRoot);
@@ -31,18 +30,22 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
         ArgumentNullException.ThrowIfNull(package);
 
         string? stagedPath = null;
+        string? operationId = null;
         try
         {
-            var stagingId = Guid.NewGuid().ToString("N");
-            stagedPath = Path.Combine(stagingRoot, stagingId);
+            operationId = Guid.CreateVersion7().ToString("D");
+            stagedPath = Path.Combine(stagingRoot, operationId);
+            var runtimePath = GetRuntimePath(package);
+            RecordOperation(operationId, package, stagedPath, runtimePath, InstallState.Staged);
             Directory.CreateDirectory(stagedPath);
             MaterializePackage(stagedPath, package);
-            RecordStaging(stagingId, package, stagedPath, state: "staged", runtimePath: null);
+            Transition(operationId, InstallState.Staged, InstallState.Verified);
             return Result.Success(stagedPath);
         }
         catch
         {
-            TryDeleteDirectory(stagedPath);
+            TryDeleteUnderRoot(stagingRoot, stagedPath);
+            TryCompleteOperation(operationId);
             return Result.Failure<string>(ErrorCode.IoFailed);
         }
     }
@@ -52,24 +55,33 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
         ArgumentException.ThrowIfNullOrWhiteSpace(stagedPath);
         ArgumentNullException.ThrowIfNull(package);
 
-        string? runtimePath = null;
         try
         {
-            runtimePath = Path.Combine(runtimeRoot, package.Manifest.PluginId, package.Manifest.Version, package.Fingerprint);
+            var row = GetOperationByStagedPath(stagedPath);
+            if (row is null ||
+                !row.PluginId.Equals(package.Manifest.PluginId, StringComparison.Ordinal) ||
+                !row.PackageFingerprint.Equals(package.Fingerprint, StringComparison.Ordinal) ||
+                !row.State.Equals(InstallState.Verified, StringComparison.Ordinal))
+            {
+                return Result.Failure<string>(ErrorCode.ValidationFailed);
+            }
+
+            var runtimePath = NormalizeDirectoryPath(row.RuntimePath);
+            EnsureUnderRoot(runtimeRoot, runtimePath);
+            EnsureUnderRoot(stagingRoot, stagedPath);
+            Transition(row.OperationId, InstallState.Verified, InstallState.ReadyToPromote);
             Directory.CreateDirectory(Path.GetDirectoryName(runtimePath)!);
             if (Directory.Exists(runtimePath))
             {
-                Directory.Delete(runtimePath, recursive: true);
+                throw new IOException("Immutable plugin runtime path already exists.");
             }
 
             Directory.Move(stagedPath, runtimePath);
-            UpdateStaging(stagedPath, state: "promoted", runtimePath);
+            Transition(row.OperationId, InstallState.ReadyToPromote, InstallState.Promoted);
             return Result.Success(runtimePath);
         }
         catch
         {
-            TryDeleteDirectory(runtimePath);
-            TryRemoveStagingRow(stagedPath, runtimePath);
             return Result.Failure<string>(ErrorCode.IoFailed);
         }
     }
@@ -80,14 +92,31 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
 
         try
         {
-            if (Directory.Exists(stagedPath))
+            var row = GetOperationByPath(stagedPath);
+            if (row is not null)
             {
-                Directory.Delete(stagedPath, recursive: true);
+                TryDeleteUnderRoot(stagingRoot, row.StagedPath);
+                if (!row.State.Equals(InstallState.StateCommitted, StringComparison.Ordinal) &&
+                    !row.State.Equals(InstallState.Completed, StringComparison.Ordinal) &&
+                    !IsRuntimeAuthoritative(row.RuntimePath))
+                {
+                    TryDeleteUnderRoot(runtimeRoot, row.RuntimePath);
+                }
+
+                MarkCompleted(row.OperationId);
+                return Result.Success();
             }
 
-            executor.Execute(
-                "DELETE FROM PluginInstallStaging WHERE StagedPath = @StagedPath OR RuntimePath = @StagedPath;",
-                new { StagedPath = stagedPath });
+            if (IsSameOrUnder(NormalizeDirectoryPath(stagingRoot), NormalizeDirectoryPath(stagedPath)))
+            {
+                TryDeleteUnderRoot(stagingRoot, stagedPath);
+            }
+            else
+            {
+                EnsureUnderRoot(runtimeRoot, stagedPath);
+                TryDeleteUnderRoot(runtimeRoot, stagedPath);
+            }
+
             return Result.Success();
         }
         catch
@@ -100,44 +129,59 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
     {
         try
         {
-            var rows = executor.Query<StagingRow>(
-                "SELECT StagingId, PluginId, PackageFingerprint, StagedPath, RuntimePath, State FROM PluginInstallStaging ORDER BY CreatedAtUtc;");
-            var removed = 0;
+            var rows = executor.Query<InstallOperationRow>(
+                "SELECT OperationId, PluginId, PackageFingerprint, StagedPath, RuntimePath, State FROM PluginInstallOperation ORDER BY CreatedAtUtc, OperationId;");
+            var recovered = 0;
             foreach (var row in rows)
             {
-                if (row.State.Equals("staged", StringComparison.OrdinalIgnoreCase))
+                EnsureUnderRoot(stagingRoot, row.StagedPath);
+                EnsureUnderRoot(runtimeRoot, row.RuntimePath);
+
+                if (row.State.Equals(InstallState.Completed, StringComparison.Ordinal))
                 {
-                    if (Directory.Exists(row.StagedPath))
+                    TryDeleteUnderRoot(stagingRoot, row.StagedPath);
+                    if (!IsRuntimeAuthoritative(row.RuntimePath))
                     {
-                        Directory.Delete(row.StagedPath, recursive: true);
+                        TryDeleteUnderRoot(runtimeRoot, row.RuntimePath);
                     }
 
-                    executor.Execute("DELETE FROM PluginInstallStaging WHERE StagingId = @StagingId;", new { row.StagingId });
-                    removed++;
                     continue;
                 }
 
-                var installed = executor.QueryScalar<int>(
-                    "SELECT COUNT(*) FROM InstalledPluginState WHERE PluginId = @PluginId AND PackageFingerprint = @PackageFingerprint;",
-                    new { row.PluginId, row.PackageFingerprint });
-                if (installed == 0)
+                if (row.State.Equals(InstallState.StateCommitted, StringComparison.Ordinal))
                 {
-                    if (!string.IsNullOrWhiteSpace(row.RuntimePath) && Directory.Exists(row.RuntimePath))
+                    if (!IsRuntimeAuthoritative(row.RuntimePath))
                     {
-                        Directory.Delete(row.RuntimePath, recursive: true);
+                        return Result.Failure<int>(ErrorCode.DatabaseUnavailable);
                     }
 
-                    executor.Execute("DELETE FROM PluginInstallStaging WHERE StagingId = @StagingId;", new { row.StagingId });
-                    removed++;
+                    TryDeleteUnderRoot(stagingRoot, row.StagedPath);
+                    MarkCompleted(row.OperationId);
+                    recovered++;
+                    continue;
                 }
-                else
+
+                if (row.State.Equals(InstallState.Promoted, StringComparison.Ordinal) &&
+                    IsRuntimeAuthoritative(row.RuntimePath))
                 {
-                    executor.Execute("DELETE FROM PluginInstallStaging WHERE StagingId = @StagingId;", new { row.StagingId });
-                    removed++;
+                    Transition(row.OperationId, InstallState.Promoted, InstallState.StateCommitted);
+                    MarkCompleted(row.OperationId);
+                    recovered++;
+                    continue;
                 }
+
+                TryDeleteUnderRoot(stagingRoot, row.StagedPath);
+                if (!IsRuntimeAuthoritative(row.RuntimePath))
+                {
+                    TryDeleteUnderRoot(runtimeRoot, row.RuntimePath);
+                }
+
+                MarkCompleted(row.OperationId);
+                recovered++;
             }
 
-            return Result.Success(removed);
+            PruneCompletedOperationHistory();
+            return Result.Success(recovered);
         }
         catch
         {
@@ -158,6 +202,25 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
                 .Select(NormalizeDirectoryPath)
                 .Where(path => IsSameOrUnder(runtimeRootPath, path))
                 .ToHashSet(PathComparer);
+            foreach (var path in executor.Query<string>(
+                         """
+                         SELECT version.RuntimePath
+                         FROM InstalledPluginVersionPointer pointer
+                         JOIN InstalledPluginVersion version
+                           ON version.PluginId = pointer.PluginId
+                          AND version.PackageFingerprint IN (
+                              pointer.ActiveFingerprint,
+                              pointer.LastKnownGoodFingerprint,
+                              pointer.PendingActivationFingerprint)
+                         ORDER BY version.RuntimePath;
+                         """))
+            {
+                var normalized = NormalizeDirectoryPath(path);
+                if (IsSameOrUnder(runtimeRootPath, normalized))
+                {
+                    authoritative.Add(normalized);
+                }
+            }
             var removed = 0;
 
             foreach (var pluginDirectory in Directory.EnumerateDirectories(runtimeRoot))
@@ -177,6 +240,7 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
                             continue;
                         }
 
+                        EnsurePathHasNoReparsePoints(runtimeDirectoryPath);
                         Directory.Delete(runtimeDirectoryPath, recursive: true);
                         removed++;
                     }
@@ -195,21 +259,31 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
         }
     }
 
-    private void RecordStaging(string stagingId, PluginPackageDescriptor package, string stagedPath, string state, string? runtimePath)
+    private void RecordOperation(
+        string operationId,
+        PluginPackageDescriptor package,
+        string stagedPath,
+        string runtimePath,
+        string state)
     {
         executor.Execute(
             """
-            INSERT INTO PluginInstallStaging (
-                StagingId, PluginId, PackageFingerprint, StagedPath, RuntimePath, State, CreatedAtUtc, UpdatedAtUtc
+            INSERT INTO PluginInstallOperation (
+                OperationId, PluginId, Version, PackageFingerprint, DisplayName,
+                Description, StagedPath, RuntimePath, State, CreatedAtUtc, UpdatedAtUtc
             ) VALUES (
-                @StagingId, @PluginId, @PackageFingerprint, @StagedPath, @RuntimePath, @State, @CreatedAtUtc, @UpdatedAtUtc
+                @OperationId, @PluginId, @Version, @PackageFingerprint, @DisplayName,
+                @Description, @StagedPath, @RuntimePath, @State, @CreatedAtUtc, @UpdatedAtUtc
             );
             """,
             new
             {
-                StagingId = stagingId,
+                OperationId = operationId,
                 PluginId = package.Manifest.PluginId,
+                package.Manifest.Version,
                 PackageFingerprint = package.Fingerprint,
+                package.Manifest.DisplayName,
+                package.Manifest.Description,
                 StagedPath = stagedPath,
                 RuntimePath = runtimePath,
                 State = state,
@@ -218,35 +292,25 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
             });
     }
 
-    private void UpdateStaging(string stagedPath, string state, string runtimePath)
+    private void Transition(string operationId, string expectedState, string nextState)
     {
-        executor.Execute(
+        var affected = executor.Execute(
             """
-            UPDATE PluginInstallStaging
-            SET State = @State,
-                RuntimePath = @RuntimePath,
+            UPDATE PluginInstallOperation
+            SET State = @NextState,
                 UpdatedAtUtc = @UpdatedAtUtc
-            WHERE StagedPath = @StagedPath;
+            WHERE OperationId = @OperationId AND State = @ExpectedState;
             """,
             new
             {
-                StagedPath = stagedPath,
-                RuntimePath = runtimePath,
-                State = state,
+                OperationId = operationId,
+                ExpectedState = expectedState,
+                NextState = nextState,
                 UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O")
             });
-    }
-
-    private void TryRemoveStagingRow(string stagedPath, string? runtimePath)
-    {
-        try
+        if (affected != 1)
         {
-            executor.Execute(
-                "DELETE FROM PluginInstallStaging WHERE StagedPath = @StagedPath OR RuntimePath = @RuntimePath;",
-                new { StagedPath = stagedPath, RuntimePath = runtimePath });
-        }
-        catch
-        {
+            throw new InvalidOperationException("Plugin install operation state changed unexpectedly.");
         }
     }
 
@@ -294,6 +358,88 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
             var fullPath = ResolveDestinationPath(stagedRoot, normalizedPath);
             EnsureSafeParentDirectories(stagedRoot, normalizedPath);
             CopyAndVerifyEntry(entry, fullPath);
+        }
+    }
+
+    public Result MarkStateCommitted(string runtimePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(runtimePath);
+
+        try
+        {
+            var row = GetOperationByPath(runtimePath);
+            if (row is null)
+            {
+                return Result.Failure(ErrorCode.NotFound);
+            }
+
+            if (row.State.Equals(InstallState.StateCommitted, StringComparison.Ordinal) ||
+                row.State.Equals(InstallState.Completed, StringComparison.Ordinal))
+            {
+                return Result.Success();
+            }
+
+            Transition(row.OperationId, InstallState.Promoted, InstallState.StateCommitted);
+            return Result.Success();
+        }
+        catch
+        {
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
+        }
+    }
+
+    public Result RemoveRuntime(string runtimePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(runtimePath);
+
+        try
+        {
+            EnsureUnderRoot(runtimeRoot, runtimePath);
+            var pluginId = executor.Query<string>(
+                "SELECT PluginId FROM InstalledPluginState WHERE RuntimePath = @RuntimePath;",
+                new { RuntimePath = NormalizeDirectoryPath(runtimePath) }).SingleOrDefault();
+            IReadOnlyList<string> paths = string.IsNullOrWhiteSpace(pluginId)
+                ? [NormalizeDirectoryPath(runtimePath)]
+                : executor.Query<string>(
+                    "SELECT RuntimePath FROM InstalledPluginVersion WHERE PluginId = @PluginId ORDER BY RuntimePath;",
+                    new { PluginId = pluginId });
+            foreach (var path in paths.Distinct(PathComparer))
+            {
+                TryDeleteUnderRoot(runtimeRoot, path);
+            }
+
+            return Result.Success();
+        }
+        catch
+        {
+            return Result.Failure(ErrorCode.IoFailed);
+        }
+    }
+
+    public Result Complete(string runtimePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(runtimePath);
+
+        try
+        {
+            var row = GetOperationByPath(runtimePath);
+            if (row is null)
+            {
+                return Result.Failure(ErrorCode.NotFound);
+            }
+
+            if (!row.State.Equals(InstallState.Completed, StringComparison.Ordinal))
+            {
+                Transition(row.OperationId, InstallState.StateCommitted, InstallState.Completed);
+            }
+
+            TryDeleteUnderRoot(stagingRoot, row.StagedPath);
+            PruneCompletedOperationHistory();
+            return Result.Success();
+        }
+        catch
+        {
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
         }
     }
 
@@ -422,27 +568,149 @@ public sealed class PluginInstallStagingArea : IPluginInstallStagingArea
         Directory.Delete(normalized);
     }
 
-    private static void TryDeleteDirectory(string? path)
+    private string GetRuntimePath(PluginPackageDescriptor package)
     {
-        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        var path = NormalizeDirectoryPath(Path.Combine(
+            runtimeRoot,
+            package.Manifest.PluginId,
+            package.Manifest.Version,
+            package.Fingerprint));
+        EnsureUnderRoot(runtimeRoot, path);
+        return path;
+    }
+
+    private InstallOperationRow? GetOperationByStagedPath(string stagedPath)
+    {
+        return executor.Query<InstallOperationRow>(
+            """
+            SELECT OperationId, PluginId, PackageFingerprint, StagedPath, RuntimePath, State
+            FROM PluginInstallOperation
+            WHERE StagedPath = @Path;
+            """,
+            new { Path = NormalizeDirectoryPath(stagedPath) }).SingleOrDefault();
+    }
+
+    private InstallOperationRow? GetOperationByPath(string path)
+    {
+        var normalized = NormalizeDirectoryPath(path);
+        return executor.Query<InstallOperationRow>(
+            """
+            SELECT OperationId, PluginId, PackageFingerprint, StagedPath, RuntimePath, State
+            FROM PluginInstallOperation
+            WHERE StagedPath = @Path OR RuntimePath = @Path
+            ORDER BY CreatedAtUtc DESC
+            LIMIT 1;
+            """,
+            new { Path = normalized }).SingleOrDefault();
+    }
+
+    private bool IsRuntimeAuthoritative(string runtimePath)
+    {
+        return executor.QueryScalar<int>(
+            """
+            SELECT COUNT(*)
+            FROM InstalledPluginVersionPointer pointer
+            JOIN InstalledPluginVersion version
+              ON version.PluginId = pointer.PluginId
+             AND version.PackageFingerprint IN (
+                 pointer.ActiveFingerprint,
+                 pointer.LastKnownGoodFingerprint,
+                 pointer.PendingActivationFingerprint)
+            WHERE version.RuntimePath = @RuntimePath;
+            """,
+            new { RuntimePath = NormalizeDirectoryPath(runtimePath) }) > 0;
+    }
+
+    private void MarkCompleted(string operationId)
+    {
+        executor.Execute(
+            """
+            UPDATE PluginInstallOperation
+            SET State = 'Completed', UpdatedAtUtc = @UpdatedAtUtc
+            WHERE OperationId = @OperationId AND State <> 'Completed';
+            """,
+            new
+            {
+                OperationId = operationId,
+                UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O")
+            });
+    }
+
+    private void TryCompleteOperation(string? operationId)
+    {
+        if (string.IsNullOrWhiteSpace(operationId))
         {
             return;
         }
 
         try
         {
-            Directory.Delete(path, recursive: true);
+            MarkCompleted(operationId);
         }
         catch
         {
         }
     }
 
-    private sealed record StagingRow(
-        string StagingId,
+    private void PruneCompletedOperationHistory()
+    {
+        executor.Execute(
+            """
+            DELETE FROM PluginInstallOperation
+            WHERE State = 'Completed'
+              AND OperationId NOT IN (
+                  SELECT OperationId
+                  FROM PluginInstallOperation
+                  WHERE State = 'Completed'
+                  ORDER BY UpdatedAtUtc DESC, OperationId DESC
+                  LIMIT 256);
+            """);
+    }
+
+    private static void EnsureUnderRoot(string expectedRoot, string candidate)
+    {
+        var normalizedRoot = NormalizeDirectoryPath(expectedRoot);
+        var normalizedCandidate = NormalizeDirectoryPath(candidate);
+        if (normalizedCandidate.Equals(normalizedRoot, PathComparison) ||
+            !IsSameOrUnder(normalizedRoot, normalizedCandidate))
+        {
+            throw new InvalidDataException("Plugin operation path is outside its canonical root.");
+        }
+    }
+
+    private static void TryDeleteUnderRoot(string expectedRoot, string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        var normalized = NormalizeDirectoryPath(path);
+        EnsureUnderRoot(expectedRoot, normalized);
+        if (!Directory.Exists(normalized))
+        {
+            return;
+        }
+
+        EnsurePathHasNoReparsePoints(normalized);
+        Directory.Delete(normalized, recursive: true);
+    }
+
+    private static class InstallState
+    {
+        public const string Staged = "Staged";
+        public const string Verified = "Verified";
+        public const string ReadyToPromote = "ReadyToPromote";
+        public const string Promoted = "Promoted";
+        public const string StateCommitted = "StateCommitted";
+        public const string Completed = "Completed";
+    }
+
+    private sealed record InstallOperationRow(
+        string OperationId,
         string PluginId,
         string PackageFingerprint,
         string StagedPath,
-        string? RuntimePath,
+        string RuntimePath,
         string State);
 }

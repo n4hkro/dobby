@@ -31,7 +31,7 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
             MirrorDeviceIdentity(executor);
             return PersistenceResult.Success();
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException)
+        catch (Exception ex) when (IsRecoverableMigrationFailure(ex))
         {
             return PersistenceResult.Failure(PersistenceError.Create(
                 PersistenceError.MigrationFailed));
@@ -138,13 +138,16 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
                     continue;
                 }
 
-                executor.Execute(migration.Value);
-                RecordMigration(executor, migration.Key, checksum);
+                new HostPersistenceTransactionScope(factory).ExecuteInTransaction(transactionExecutor =>
+                {
+                    transactionExecutor.Execute(migration.Value);
+                    RecordMigration(transactionExecutor, migration.Key, checksum);
+                });
             }
 
             return PersistenceResult.Success();
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException)
+        catch (Exception ex) when (IsRecoverableMigrationFailure(ex))
         {
             return PersistenceResult.Failure(PersistenceError.Create(
                 PersistenceError.MigrationFailed));
@@ -253,4 +256,9 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
     {
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql))).ToLowerInvariant();
     }
+
+    private static bool IsRecoverableMigrationFailure(Exception exception) =>
+        exception is not OutOfMemoryException and
+        not StackOverflowException and
+        not AccessViolationException;
 }

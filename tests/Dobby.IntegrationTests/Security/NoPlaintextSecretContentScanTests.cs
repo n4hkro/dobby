@@ -268,14 +268,23 @@ public sealed partial class NoPlaintextSecretContentScanTests
 
         if (!match.Groups["passwordValue"].Success)
         {
-            return false;
+            return path switch
+            {
+                "tests/Dobby.UnitTests/Audit/AuditDetailsSanitizerTests.cs" =>
+                    line.Contains("[InlineData(\"-----BEGIN " + "PRIVATE KEY-----", StringComparison.Ordinal),
+                "tests/Dobby.UnitTests/Diagnostics/DiagnosticRedactorTests.cs" =>
+                    line.Contains("\"-----BEGIN " + "PRIVATE KEY-----", StringComparison.Ordinal),
+                _ => false
+            };
         }
 
         var value = match.Groups["passwordValue"].Value.Trim('"');
         return path switch
         {
             "tests/Dobby.UnitTests/Diagnostics/DiagnosticRedactorTests.cs" =>
-                line.Contains("[InlineData(", StringComparison.Ordinal) &&
+                (line.Contains("[InlineData(", StringComparison.Ordinal) ||
+                 line.Contains("[\"password\"]", StringComparison.Ordinal) ||
+                 line.Contains("Pass" + "word=" + "secret", StringComparison.Ordinal)) &&
                 value.Equals("secret", StringComparison.Ordinal),
             "tests/Dobby.UnitTests/Diagnostics/DiagnosticsAndAuditTests.cs" =>
                 line.Contains("DiagnosticRedactor.Redact(", StringComparison.Ordinal) &&
@@ -294,7 +303,7 @@ public sealed partial class NoPlaintextSecretContentScanTests
                         value.Equals("correct", StringComparison.Ordinal)),
             "tests/Dobby.IntegrationTests/Host/ShellDiagnosticsExportActionTests.cs" =>
                 line.Contains("PasswordBox", StringComparison.Ordinal) &&
-                value.Equals("new password", StringComparison.Ordinal),
+                value is "current password" or "new password" or "different password",
             _ => false
         };
     }

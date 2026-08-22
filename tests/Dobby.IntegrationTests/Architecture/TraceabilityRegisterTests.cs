@@ -117,9 +117,8 @@ public sealed class TraceabilityRegisterTests
             traceability.ShouldContain($"| {id} | {classification} |");
         }
 
-        var historicalStatus = File.ReadAllText(Path.Combine(root.FullName, "PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md"));
-        historicalStatus.ShouldContain("01_TRACEABILITY_AND_FINDINGS.md");
-        historicalStatus.ShouldContain("must not be used as completion authority");
+        File.Exists(Path.Combine(root.FullName, "PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md"))
+            .ShouldBeFalse("The removed legacy status table must not reappear as a competing completion authority.");
     }
 
     [Fact]

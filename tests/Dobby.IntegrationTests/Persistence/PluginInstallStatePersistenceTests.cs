@@ -1,5 +1,6 @@
 using System.Text;
 using System.Security.Cryptography;
+using Dobby.Audit;
 using Dobby.Core;
 using Dobby.Host.Plugins;
 using Dobby.Infrastructure.Persistence;
@@ -26,12 +27,15 @@ public sealed class PluginInstallStatePersistenceTests
             .IsSuccess.ShouldBeTrue();
 
         var tables = fixture.Executor.Query<string>(
-                "SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE 'InstalledPlugin%' OR name = 'PluginInstallStaging') ORDER BY name;")
+                "SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE 'InstalledPlugin%' OR name LIKE 'PluginInstall%') ORDER BY name;")
             .ToArray();
 
         tables.ShouldContain("InstalledPluginState");
         tables.ShouldContain("InstalledPluginMetadataCache");
         tables.ShouldContain("PluginInstallStaging");
+        tables.ShouldContain("InstalledPluginVersion");
+        tables.ShouldContain("InstalledPluginVersionPointer");
+        tables.ShouldContain("PluginInstallOperation");
         fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = @MigrationId;",
             new { MigrationId = PostLoginPluginPersistenceMigrations.MigrationId })
@@ -150,9 +154,21 @@ public sealed class PluginInstallStatePersistenceTests
         var staging = new PluginInstallStagingArea(fixture.Root, fixture.Executor);
         var stateStore = new HostInstalledPluginStateStore(fixture.Executor, fixture.TransactionScope);
         var metadataCache = new HostInstalledPluginMetadataCache(fixture.Executor, fixture.TransactionScope);
-        var installer = new PluginPackageInstaller(staging, stateStore, metadataCache);
+        var auditTrail = new DurableAuditTrail(fixture.Executor);
+        var committer = new HostPluginInstallStateCommitter(
+            stateStore,
+            metadataCache,
+            new HostMutationUnitOfWork(
+                fixture.TransactionScope,
+                auditTrail,
+                new HostTransactionOutbox(TimeProvider.System)),
+            TimeProvider.System);
+        var installer = new PluginPackageInstaller(staging, stateStore, metadataCache, committer);
+        var correlationId = CorrelationId.New();
 
-        var result = installer.Install(package);
+        var result = installer.Install(
+            package,
+            new PluginInstallCommitContext("owner", correlationId));
 
         result.IsSuccess.ShouldBeTrue(result.IsSuccess ? null : result.ErrorCode.ToString());
         var state = stateStore.Get(package.Manifest.PluginId).Value;
@@ -163,7 +179,19 @@ public sealed class PluginInstallStatePersistenceTests
         reread.IsSuccess.ShouldBeTrue(reread.IsSuccess ? null : "Installed plugin runtime manifest must remain readable.");
         reread.Value.Manifest.PluginId.ShouldBe(package.Manifest.PluginId);
         metadataCache.Get(package.Manifest.PluginId).Value.ShouldNotBeNull();
-        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM PluginInstallOperation WHERE State <> 'Completed';").ShouldBe(0);
+        fixture.Executor.Query<string>(
+            "SELECT ActiveFingerprint FROM InstalledPluginVersionPointer WHERE PluginId = @PluginId;",
+            new { PluginId = package.Manifest.PluginId }).Single().ShouldBe(package.Fingerprint);
+        fixture.Executor.Query<string>(
+            "SELECT LastKnownGoodFingerprint FROM InstalledPluginVersionPointer WHERE PluginId = @PluginId;",
+            new { PluginId = package.Manifest.PluginId }).Single().ShouldBe(package.Fingerprint);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM HostOutbox WHERE Purpose = 'plugin-install' AND MessageType = 'state-committed';")
+            .ShouldBe(1);
+        auditTrail.Snapshot().Single(item => item.EventName == AuditEventName.PluginInstallVerified)
+            .CorrelationId.ShouldBe(correlationId);
         Directory.Exists(Path.Combine(fixture.Root, "plugins", "staging")).ShouldBeTrue();
         Directory.GetFiles(Path.Combine(fixture.Root, "plugins", "installed"), "*", SearchOption.AllDirectories).ShouldNotBeEmpty();
     }
@@ -177,11 +205,85 @@ public sealed class PluginInstallStatePersistenceTests
         var package = CreatePackage();
         var staging = new PluginInstallStagingArea(fixture.Root, fixture.Executor);
         var staged = staging.Stage(package).Value;
-        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM PluginInstallOperation WHERE State = 'Verified';").ShouldBe(1);
 
         staging.Recover().Value.ShouldBe(1);
-        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM PluginInstallOperation WHERE State = 'Completed';").ShouldBe(1);
         Directory.Exists(staged).ShouldBeFalse();
+        staging.Recover().Value.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Failed_update_activation_restores_last_known_good_version_and_orphan_cleanup_preserves_authority()
+    {
+        using var fixture = PluginPersistenceFixture.Create();
+        fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All).IsSuccess.ShouldBeTrue();
+        var stateStore = new HostInstalledPluginStateStore(fixture.Executor, fixture.TransactionScope);
+        var metadataCache = new HostInstalledPluginMetadataCache(fixture.Executor, fixture.TransactionScope);
+        var staging = new PluginInstallStagingArea(fixture.Root, fixture.Executor);
+        var auditTrail = new DurableAuditTrail(fixture.Executor);
+        var committer = new HostPluginInstallStateCommitter(
+            stateStore,
+            metadataCache,
+            new HostMutationUnitOfWork(
+                fixture.TransactionScope,
+                auditTrail,
+                new HostTransactionOutbox(TimeProvider.System)),
+            TimeProvider.System);
+        var installer = new PluginPackageInstaller(staging, stateStore, metadataCache, committer);
+
+        var v1 = installer.Install(
+            CreatePackage("1.0.0"),
+            new PluginInstallCommitContext("owner", CorrelationId.New())).Value;
+        var activationPersistence = new HostPluginActivationStatusPersistence(
+            stateStore,
+            metadataCache,
+            fixture.TransactionScope);
+        activationPersistence.Persist([v1], [v1]).IsSuccess.ShouldBeTrue();
+        fixture.Executor.Query<string>(
+            "SELECT PendingActivationFingerprint FROM InstalledPluginVersionPointer WHERE PluginId = @PluginId;",
+            new { v1.PluginId }).SingleOrDefault().ShouldBeNull();
+
+        var v2 = installer.Install(
+            CreatePackage("2.0.0"),
+            new PluginInstallCommitContext("owner", CorrelationId.New())).Value;
+        var beforeFailure = fixture.Executor.Query<PointerSnapshot>(
+            """
+            SELECT ActiveFingerprint, LastKnownGoodFingerprint, PendingActivationFingerprint
+            FROM InstalledPluginVersionPointer WHERE PluginId = @PluginId;
+            """,
+            new { v2.PluginId }).Single();
+        beforeFailure.ActiveFingerprint.ShouldBe(v2.PackageFingerprint);
+        beforeFailure.LastKnownGoodFingerprint.ShouldBe(v1.PackageFingerprint);
+        beforeFailure.PendingActivationFingerprint.ShouldBe(v2.PackageFingerprint);
+
+        var failed = v2 with
+        {
+            StatusSummary = "Faulted - Plugin activation failed",
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+        activationPersistence.Persist([failed], [failed]).IsSuccess.ShouldBeTrue();
+
+        var restored = stateStore.Get(v1.PluginId).Value;
+        restored.ShouldNotBeNull();
+        restored!.PackageFingerprint.ShouldBe(v1.PackageFingerprint);
+        restored.RuntimePath.ShouldBe(v1.RuntimePath);
+        metadataCache.Get(v1.PluginId).Value!.PackageFingerprint.ShouldBe(v1.PackageFingerprint);
+        var afterFailure = fixture.Executor.Query<PointerSnapshot>(
+            """
+            SELECT ActiveFingerprint, LastKnownGoodFingerprint, PendingActivationFingerprint
+            FROM InstalledPluginVersionPointer WHERE PluginId = @PluginId;
+            """,
+            new { v1.PluginId }).Single();
+        afterFailure.ActiveFingerprint.ShouldBe(v1.PackageFingerprint);
+        afterFailure.LastKnownGoodFingerprint.ShouldBe(v1.PackageFingerprint);
+        afterFailure.PendingActivationFingerprint.ShouldBeNull();
+
+        staging.CleanupRuntimeOrphans([v1.RuntimePath]).Value.ShouldBe(1);
+        Directory.Exists(v1.RuntimePath).ShouldBeTrue();
+        Directory.Exists(v2.RuntimePath).ShouldBeFalse();
     }
 
     [Fact]
@@ -191,7 +293,7 @@ public sealed class PluginInstallStatePersistenceTests
         fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All).IsSuccess.ShouldBeTrue();
 
         var package = CreatePackage();
-        var failingExecutor = new FailingExecuteCommandExecutor(fixture.Executor, "INSERT INTO PluginInstallStaging");
+        var failingExecutor = new FailingExecuteCommandExecutor(fixture.Executor, "INSERT INTO PluginInstallOperation");
         var staging = new PluginInstallStagingArea(fixture.Root, failingExecutor);
 
         var result = staging.Stage(package);
@@ -199,7 +301,7 @@ public sealed class PluginInstallStatePersistenceTests
         result.IsSuccess.ShouldBeFalse();
         var stagingRoot = Path.Combine(fixture.Root, "plugins", "staging");
         Directory.EnumerateDirectories(stagingRoot).ShouldBeEmpty();
-        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallOperation;").ShouldBe(0);
     }
 
     [Fact]
@@ -228,7 +330,8 @@ public sealed class PluginInstallStatePersistenceTests
         result.IsSuccess.ShouldBeFalse();
         File.Exists(Path.Combine(fixture.Root, "plugins", "outside.txt")).ShouldBeFalse();
         Directory.EnumerateDirectories(Path.Combine(fixture.Root, "plugins", "staging")).ShouldBeEmpty();
-        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM PluginInstallOperation WHERE State <> 'Completed';").ShouldBe(0);
     }
 
     [Fact]
@@ -245,11 +348,12 @@ public sealed class PluginInstallStatePersistenceTests
 
         result.IsSuccess.ShouldBeFalse();
         Directory.EnumerateDirectories(Path.Combine(fixture.Root, "plugins", "staging")).ShouldBeEmpty();
-        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM PluginInstallOperation WHERE State <> 'Completed';").ShouldBe(0);
     }
 
     [Fact]
-    public void Staging_area_removes_promoted_runtime_when_staging_row_update_fails()
+    public void Staging_area_recovery_removes_promoted_runtime_when_post_rename_state_update_fails()
     {
         using var fixture = PluginPersistenceFixture.Create();
         fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All).IsSuccess.ShouldBeTrue();
@@ -257,7 +361,10 @@ public sealed class PluginInstallStatePersistenceTests
         var package = CreatePackage();
         var staging = new PluginInstallStagingArea(fixture.Root, fixture.Executor);
         var staged = staging.Stage(package).Value;
-        var failingExecutor = new FailingExecuteCommandExecutor(fixture.Executor, "UPDATE PluginInstallStaging");
+        var failingExecutor = new FailingNthExecuteCommandExecutor(
+            fixture.Executor,
+            "UPDATE PluginInstallOperation",
+            failOccurrence: 2);
         var failingStaging = new PluginInstallStagingArea(fixture.Root, failingExecutor);
         var runtimePath = Path.Combine(
             fixture.Root,
@@ -270,9 +377,16 @@ public sealed class PluginInstallStatePersistenceTests
         var result = failingStaging.Promote(staged, package);
 
         result.IsSuccess.ShouldBeFalse();
-        Directory.Exists(runtimePath).ShouldBeFalse();
+        Directory.Exists(runtimePath).ShouldBeTrue();
         Directory.Exists(staged).ShouldBeFalse();
-        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM PluginInstallStaging;").ShouldBe(0);
+        fixture.Executor.Query<string>(
+            "SELECT State FROM PluginInstallOperation;").Single().ShouldBe("ReadyToPromote");
+
+        staging.Recover().Value.ShouldBe(1);
+
+        Directory.Exists(runtimePath).ShouldBeFalse();
+        fixture.Executor.Query<string>(
+            "SELECT State FROM PluginInstallOperation;").Single().ShouldBe("Completed");
     }
 
     [Fact]
@@ -403,14 +517,14 @@ public sealed class PluginInstallStatePersistenceTests
         activationTracker.DidNotReceive().MarkActivatedInCurrentProcess(Arg.Any<IReadOnlyCollection<string>>());
     }
 
-    private static PluginPackageDescriptor CreatePackage()
+    private static PluginPackageDescriptor CreatePackage(string version = "1.0.0")
     {
         var fileContent = Encoding.UTF8.GetBytes("hello plugin");
         var fileHash = Convert.ToHexString(SHA256.HashData(fileContent)).ToLowerInvariant();
         var manifest = new PluginManifest(
             "com.dobby.sample",
             "dobby.vendor",
-            "1.0.0",
+            version,
             "1.0.0",
             "bin/plugins/com.dobby.sample.dll",
             "Sample Plugin",
@@ -424,7 +538,7 @@ public sealed class PluginInstallStatePersistenceTests
             new PluginPackageSignature("ECDSA-P256-SHA256", 1, "AQ"));
         var fingerprint = PluginPackageFingerprint.Compute(manifest);
         var manifestJson =
-            "{\"schemaVersion\":2,\"purpose\":\"dobby.plugin-package\",\"pluginId\":\"com.dobby.sample\",\"version\":\"1.0.0\",\"vendorId\":\"dobby.vendor\",\"hostApiVersion\":\"2.0\",\"minHostVersion\":\"1.0.0\",\"entryAssembly\":\"bin/plugins/com.dobby.sample.dll\",\"displayName\":\"Sample Plugin\",\"description\":\"Sample plugin description\",\"dependsOn\":[],\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}],\"operationTargets\":[{\"id\":\"com.dobby.sample.greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}],\"extensionPoints\":[{\"id\":\"sample.home\",\"target\":\"plugin-page-region\",\"routeKey\":\"sample.home\",\"labelKey\":\"sample.home.label\",\"group\":\"default\",\"weight\":100}],\"files\":[{\"path\":\"content/hello.txt\",\"sha256\":\"" +
+            "{\"schemaVersion\":2,\"purpose\":\"dobby.plugin-package\",\"pluginId\":\"com.dobby.sample\",\"version\":\"" + version + "\",\"vendorId\":\"dobby.vendor\",\"hostApiVersion\":\"2.0\",\"minHostVersion\":\"1.0.0\",\"entryAssembly\":\"bin/plugins/com.dobby.sample.dll\",\"displayName\":\"Sample Plugin\",\"description\":\"Sample plugin description\",\"dependsOn\":[],\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}],\"operationTargets\":[{\"id\":\"com.dobby.sample.greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}],\"extensionPoints\":[{\"id\":\"sample.home\",\"target\":\"plugin-page-region\",\"routeKey\":\"sample.home\",\"labelKey\":\"sample.home.label\",\"group\":\"default\",\"weight\":100}],\"files\":[{\"path\":\"content/hello.txt\",\"sha256\":\"" +
             fileHash +
             "\"}],\"signature\":{\"purpose\":\"dobby.plugin-package\",\"algorithm\":\"ECDSA-P256-SHA256\",\"format\":\"IeeeP1363FixedFieldConcatenation\",\"keyId\":\"plugin-prod-2026-01\",\"value\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}}";
         return new PluginPackageDescriptor(
@@ -439,6 +553,11 @@ public sealed class PluginInstallStatePersistenceTests
             PluginPackageReader.ManifestFileName,
             manifestJson);
     }
+
+    private sealed record PointerSnapshot(
+        string ActiveFingerprint,
+        string LastKnownGoodFingerprint,
+        string? PendingActivationFingerprint);
 
     private sealed class PluginPersistenceFixture : IDisposable
     {
@@ -511,6 +630,31 @@ public sealed class PluginInstallStatePersistenceTests
         {
             return inner.QueryScalar<T>(sql, parameters);
         }
+    }
+
+    private sealed class FailingNthExecuteCommandExecutor(
+        IHostPersistenceCommandExecutor inner,
+        string failSqlSnippet,
+        int failOccurrence) : IHostPersistenceCommandExecutor
+    {
+        private int matchingExecuteCount;
+
+        public int Execute(string sql, object? parameters = null)
+        {
+            if (sql.Contains(failSqlSnippet, StringComparison.Ordinal) &&
+                Interlocked.Increment(ref matchingExecuteCount) == failOccurrence)
+            {
+                throw new InvalidOperationException("Injected persistence failure.");
+            }
+
+            return inner.Execute(sql, parameters);
+        }
+
+        public IReadOnlyList<T> Query<T>(string sql, object? parameters = null) =>
+            inner.Query<T>(sql, parameters);
+
+        public T QueryScalar<T>(string sql, object? parameters = null) =>
+            inner.QueryScalar<T>(sql, parameters);
     }
 
     private sealed class InterceptingTransactionScope(

@@ -210,6 +210,7 @@ amma bu public names və semantic shape-i dəyişdirə bilməz.
 
 **Control flow**
 - `Cancelled` — cooperative cancellation (internal bubble; boundary-də Result)
+- `ResourceBusy` — bounded security/concurrency capacity is currently occupied; the caller may retry without treating the condition as an authentication failure
 
 **Plugin boundary**
 - `PluginInternalError` — plugin unhandled exception (fallback)

@@ -11,6 +11,21 @@ public interface IPluginModule
     void OnActivated(IPluginActivationContext context);
 }
 
+public interface IPluginModuleV2 : IPluginModule
+{
+    ValueTask<Result> InitializeAsync(
+        IPluginActivationContext context,
+        CancellationToken cancellationToken);
+
+    ValueTask<Result> ActivateAsync(
+        IPluginActivationContext context,
+        CancellationToken cancellationToken);
+
+    ValueTask<Result> DeactivateAsync(CancellationToken cancellationToken);
+
+    ValueTask<Result> UnloadAsync(CancellationToken cancellationToken);
+}
+
 public interface IPluginServiceCollection
 {
     IPluginServiceCollection AddInternal<TService, TImpl>(PluginLifetime lifetime)

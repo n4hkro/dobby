@@ -1,6 +1,7 @@
 using Dobby.Contracts.Policies;
 using Dobby.Core;
 using Dobby.PluginFramework.Packaging;
+using Dobby.PluginFramework.Activation;
 using Dobby.Security.Authorization;
 using Dobby.Contracts.Licensing;
 
@@ -21,12 +22,16 @@ public sealed class HostPluginLifecycleCoordinator(
     IPluginCurrentProcessActivationTracker activationTracker,
     OperationAuthorizationPolicy authorizationPolicy,
     PluginRuntimeAuditCoordinator auditCoordinator,
-    HostRuntimeModeMutationGate mutationGate)
+    HostRuntimeModeMutationGate mutationGate,
+    IPluginRuntimeLifecycleControl? runtimeLifecycleControl = null,
+    HostPluginActivationCancellation? activationCancellation = null)
 {
     private readonly IPluginDataRetentionStore dataRetentionStore =
         dataRetentionStore ?? throw new ArgumentNullException(nameof(dataRetentionStore));
     private readonly HostRuntimeModeMutationGate runtimeModeMutationGate = mutationGate ??
         throw new ArgumentNullException(nameof(mutationGate));
+    private readonly IPluginRuntimeLifecycleControl? lifecycleControl = runtimeLifecycleControl;
+    private readonly HostPluginActivationCancellation? activationCancellationSource = activationCancellation;
 
     public Result<IReadOnlyList<InstalledPluginMetadata>> ListPlugins(string actorId, CorrelationId correlationId)
     {
@@ -86,6 +91,12 @@ public sealed class HostPluginLifecycleCoordinator(
         var wasActivatedInCurrentProcess = WasActivatedInCurrentProcess(pluginId);
         if (wasActivatedInCurrentProcess)
         {
+            var deactivate = DeactivateRuntime(pluginId);
+            if (!deactivate.IsSuccess)
+            {
+                return deactivate;
+            }
+
             var now = DateTimeOffset.UtcNow;
             var pending = existing.Value with
             {
@@ -112,7 +123,7 @@ public sealed class HostPluginLifecycleCoordinator(
             return Result.Success();
         }
 
-        var cleanup = stagingArea.Cleanup(existing.Value.RuntimePath);
+        var cleanup = stagingArea.RemoveRuntime(existing.Value.RuntimePath) ?? stagingArea.Cleanup(existing.Value.RuntimePath);
         if (!cleanup.IsSuccess)
         {
             return Result.Failure(cleanup.ErrorCode ?? ErrorCode.IoFailed);
@@ -187,6 +198,15 @@ public sealed class HostPluginLifecycleCoordinator(
             return Result.Failure(ErrorCode.InvalidInput);
         }
 
+        if (!isEnabled && WasActivatedInCurrentProcess(pluginId))
+        {
+            var deactivate = DeactivateRuntime(pluginId);
+            if (!deactivate.IsSuccess)
+            {
+                return deactivate;
+            }
+        }
+
         var updateState = stateStore.SetEnabled(pluginId, isEnabled, statusSummary);
         if (!updateState.IsSuccess)
         {
@@ -215,6 +235,21 @@ public sealed class HostPluginLifecycleCoordinator(
         }
 
         return Result.Success();
+    }
+
+    private Result DeactivateRuntime(string pluginId)
+    {
+        activationCancellationSource?.CancelPostLoginActivation();
+        if (lifecycleControl is null)
+        {
+            return Result.Success();
+        }
+
+        using var hostOperation = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        return lifecycleControl.DeactivateAndUnloadAsync(pluginId, hostOperation.Token)
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
     }
 
     private Result Authorize(string actorId, OperationVerb verb, CorrelationId correlationId)

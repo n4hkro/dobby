@@ -64,15 +64,34 @@ public sealed class HostInstalledPluginStateStore(
         try
         {
             var now = DateTimeOffset.UtcNow.ToString("O");
-            var affected = executor.Execute(
-                """
-                UPDATE InstalledPluginState
-                SET IsEnabled = @IsEnabled,
-                    StatusSummary = @StatusSummary,
-                    UpdatedAtUtc = @UpdatedAtUtc
-                WHERE PluginId = @PluginId;
-                """,
-                new { PluginId = pluginId, IsEnabled = isEnabled ? 1 : 0, StatusSummary = statusSummary, UpdatedAtUtc = now });
+            var affected = 0;
+            transactionScope.ExecuteInTransaction(tx =>
+            {
+                affected = tx.Execute(
+                    """
+                    UPDATE InstalledPluginState
+                    SET IsEnabled = @IsEnabled,
+                        StatusSummary = @StatusSummary,
+                        UpdatedAtUtc = @UpdatedAtUtc
+                    WHERE PluginId = @PluginId;
+                    """,
+                    new { PluginId = pluginId, IsEnabled = isEnabled ? 1 : 0, StatusSummary = statusSummary, UpdatedAtUtc = now });
+                if (affected == 0)
+                {
+                    return;
+                }
+
+                tx.Execute(
+                    """
+                    UPDATE InstalledPluginVersion
+                    SET IsEnabled = @IsEnabled, UpdatedAtUtc = @UpdatedAtUtc
+                    WHERE PluginId = @PluginId
+                      AND PackageFingerprint = (
+                          SELECT ActiveFingerprint FROM InstalledPluginVersionPointer
+                          WHERE PluginId = @PluginId);
+                    """,
+                    new { PluginId = pluginId, IsEnabled = isEnabled ? 1 : 0, UpdatedAtUtc = now });
+            });
 
             return affected == 0 ? Result.Failure(ErrorCode.NotFound) : Result.Success();
         }
@@ -88,7 +107,12 @@ public sealed class HostInstalledPluginStateStore(
 
         try
         {
-            executor.Execute("DELETE FROM InstalledPluginState WHERE PluginId = @PluginId;", new { PluginId = pluginId });
+            transactionScope.ExecuteInTransaction(tx =>
+            {
+                tx.Execute("DELETE FROM InstalledPluginVersionPointer WHERE PluginId = @PluginId;", new { PluginId = pluginId });
+                tx.Execute("DELETE FROM InstalledPluginState WHERE PluginId = @PluginId;", new { PluginId = pluginId });
+                tx.Execute("DELETE FROM InstalledPluginVersion WHERE PluginId = @PluginId;", new { PluginId = pluginId });
+            });
             return Result.Success();
         }
         catch
@@ -189,5 +213,18 @@ public sealed class HostInstalledPluginStateStore(
                 UpdatedAtUtc = excluded.UpdatedAtUtc;
             """,
             ToParameters(state));
+        transactionExecutor.Execute(
+            """
+            UPDATE InstalledPluginVersion
+            SET IsEnabled = @IsEnabled, UpdatedAtUtc = @UpdatedAtUtc
+            WHERE PluginId = @PluginId AND PackageFingerprint = @PackageFingerprint;
+            """,
+            new
+            {
+                state.PluginId,
+                state.PackageFingerprint,
+                IsEnabled = state.IsEnabled ? 1 : 0,
+                UpdatedAtUtc = state.UpdatedAtUtc.ToString("O")
+            });
     }
 }

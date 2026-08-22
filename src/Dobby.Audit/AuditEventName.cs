@@ -30,6 +30,7 @@ public static class AuditEventName
     public const string PluginActivationSkipped = "plugin.activation.skipped";
     public const string PluginActivationRejected = "plugin.activation.rejected";
     public const string PluginRuntimeFaulted = "plugin.runtime.faulted";
+    public const string PluginLifecycleV1AdapterUsed = "plugin.lifecycle.v1-adapter-used";
     public const string RecoveryExport = "recovery.export";
     public const string RecoveryImport = "recovery.import";
     public const string LicenseImportAttempted = "license.import.attempted";
@@ -71,6 +72,7 @@ public static class AuditEventName
         PluginActivationSkipped,
         PluginActivationRejected,
         PluginRuntimeFaulted,
+        PluginLifecycleV1AdapterUsed,
         RecoveryExport,
         RecoveryImport,
         LicenseImportAttempted,

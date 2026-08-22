@@ -15,7 +15,8 @@ public enum PluginActivationStatus
 public sealed record PluginActivationOutcome(
     string PluginId,
     PluginActivationStatus Status,
-    string Reason);
+    string Reason,
+    string? Warning = null);
 
 public sealed record PluginCompatibilityOutcome(
     bool IsCompatible,
@@ -35,17 +36,13 @@ public static class PluginCompatibilityEvaluator
             return new PluginCompatibilityOutcome(false, PluginActivationStatus.Rejected, "invalid-manifest");
         }
 
-        if (!HostVersion.TryParse(manifest.MinHostVersion, out var minimumHostVersion))
-        {
-            return new PluginCompatibilityOutcome(false, PluginActivationStatus.Rejected, "invalid-manifest");
-        }
-
-        if (installedHostVersion.CompareTo(minimumHostVersion) < 0)
+        var compatibility = PluginCompatibilityMatrix.Evaluate(manifest, installedHostVersion);
+        if (!compatibility.IsCompatible)
         {
             return new PluginCompatibilityOutcome(
                 false,
                 PluginActivationStatus.Rejected,
-                $"host-version-below-min: required={minimumHostVersion} installed={installedHostVersion}");
+                compatibility.ReasonCode);
         }
 
         return new PluginCompatibilityOutcome(true, PluginActivationStatus.Active, string.Empty);

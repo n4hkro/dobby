@@ -83,6 +83,7 @@ public sealed class PluginRuntimeAuditCoordinator(
                 PluginActivationStatus.Skipped => AuditEventName.PluginActivationSkipped,
                 PluginActivationStatus.Rejected => AuditEventName.PluginActivationRejected,
                 PluginActivationStatus.Faulted => AuditEventName.PluginRuntimeFaulted,
+                PluginActivationStatus.Active when outcome.Warning is not null => AuditEventName.PluginLifecycleV1AdapterUsed,
                 _ => null
             };
             if (eventName is null)
@@ -94,14 +95,18 @@ public sealed class PluginRuntimeAuditCoordinator(
                 eventName,
                 actorId,
                 PluginTarget(outcome.PluginId),
-                outcome.Status == PluginActivationStatus.Rejected ? AuditResult.Denied : AuditResult.Failed,
+                outcome.Status == PluginActivationStatus.Active
+                    ? AuditResult.Success
+                    : outcome.Status == PluginActivationStatus.Rejected
+                        ? AuditResult.Denied
+                        : AuditResult.Failed,
                 correlationId,
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["pluginId"] = outcome.PluginId,
                     ["status"] = outcome.Status.ToString(),
-                    ["reasonCode"] = NormalizeReason(outcome.Reason),
-                    ["diagnosticMarker"] = $"{eventName}:{NormalizeReason(outcome.Reason)}"
+                    ["reasonCode"] = outcome.Warning ?? NormalizeReason(outcome.Reason),
+                    ["diagnosticMarker"] = $"{eventName}:{outcome.Warning ?? NormalizeReason(outcome.Reason)}"
                 });
         }
     }

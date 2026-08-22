@@ -14,27 +14,7 @@ public sealed class HostInstalledPluginMetadataCache(
         {
             transactionScope.ExecuteInTransaction(tx =>
             {
-                tx.Execute(
-                    """
-                    INSERT INTO InstalledPluginMetadataCache (
-                        PluginId, DisplayName, Version, Description, PackageFingerprint, IsEnabled,
-                        StatusSummary, InstalledAtUtc, UpdatedAtUtc, IsPendingUninstall, RestartRequired
-                    ) VALUES (
-                        @PluginId, @DisplayName, @Version, @Description, @PackageFingerprint, @IsEnabled,
-                        @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc, @IsPendingUninstall, @RestartRequired
-                    )
-                    ON CONFLICT(PluginId) DO UPDATE SET
-                        DisplayName = excluded.DisplayName,
-                        Version = excluded.Version,
-                        Description = excluded.Description,
-                        PackageFingerprint = excluded.PackageFingerprint,
-                        IsEnabled = excluded.IsEnabled,
-                        StatusSummary = excluded.StatusSummary,
-                        IsPendingUninstall = excluded.IsPendingUninstall,
-                        RestartRequired = excluded.RestartRequired,
-                        UpdatedAtUtc = excluded.UpdatedAtUtc;
-                    """,
-                    ToParameters(metadata));
+                Upsert(tx, metadata);
             });
 
             return Result.Success();
@@ -191,5 +171,35 @@ public sealed class HostInstalledPluginMetadataCache(
                     state.IsPendingUninstall,
                     state.RestartRequired)));
         }
+    }
+
+    internal void Upsert(
+        IHostPersistenceCommandExecutor transactionExecutor,
+        InstalledPluginMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(transactionExecutor);
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        transactionExecutor.Execute(
+            """
+            INSERT INTO InstalledPluginMetadataCache (
+                PluginId, DisplayName, Version, Description, PackageFingerprint, IsEnabled,
+                StatusSummary, InstalledAtUtc, UpdatedAtUtc, IsPendingUninstall, RestartRequired
+            ) VALUES (
+                @PluginId, @DisplayName, @Version, @Description, @PackageFingerprint, @IsEnabled,
+                @StatusSummary, @InstalledAtUtc, @UpdatedAtUtc, @IsPendingUninstall, @RestartRequired
+            )
+            ON CONFLICT(PluginId) DO UPDATE SET
+                DisplayName = excluded.DisplayName,
+                Version = excluded.Version,
+                Description = excluded.Description,
+                PackageFingerprint = excluded.PackageFingerprint,
+                IsEnabled = excluded.IsEnabled,
+                StatusSummary = excluded.StatusSummary,
+                IsPendingUninstall = excluded.IsPendingUninstall,
+                RestartRequired = excluded.RestartRequired,
+                UpdatedAtUtc = excluded.UpdatedAtUtc;
+            """,
+            ToParameters(metadata));
     }
 }

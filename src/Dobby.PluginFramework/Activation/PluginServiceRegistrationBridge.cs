@@ -169,7 +169,8 @@ public sealed class PluginServiceRegistrationBridge : IAsyncDisposable
             return prepared;
         }
 
-        var commit = CommitPrepared(prepared.Value, CancellationToken.None, out _);
+        using var hostOperation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var commit = CommitPrepared(prepared.Value, hostOperation.Token, out _);
         return commit.IsSuccess
             ? prepared
             : Result.Failure<PluginServiceScope>(commit.ErrorCode ?? ErrorCode.PluginInternalError);

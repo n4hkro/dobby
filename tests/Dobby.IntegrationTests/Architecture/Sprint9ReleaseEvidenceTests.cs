@@ -81,9 +81,9 @@ public sealed class Sprint9ReleaseEvidenceTests
             "Licensing",
             "LicensePayloadValidatorTests.cs"));
 
-        validatorTests.ShouldContain("dobby-plugin-license.schema.json");
-        validatorTests.ShouldContain("CanonicalPayloadRequiredProperties");
-        validatorTests.ShouldContain("CanonicalPayloadStatusValues");
+        validatorTests.ShouldContain("dobby-plugin-license-v3.schema.json");
+        validatorTests.ShouldContain("Required_payload_fields_match_v3_schema");
+        validatorTests.ShouldContain("Validate_accepts_only_granted_or_revoked_intent");
     }
 
     private static string Sprint9Evidence()

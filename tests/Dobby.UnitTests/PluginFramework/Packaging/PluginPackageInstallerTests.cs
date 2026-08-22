@@ -23,7 +23,8 @@ public sealed class PluginPackageInstallerTests
         stateStore.Upserted.PackageFingerprint.ShouldBe(package.Fingerprint);
         metadataCache.Upserted.ShouldNotBeNull();
         metadataCache.Upserted.DisplayName.ShouldBe(package.Manifest.DisplayName);
-        staging.CleanedPaths.ShouldBe(["stage"]);
+        staging.CleanedPaths.ShouldBeEmpty();
+        staging.CompletedPaths.ShouldBe(["runtime"]);
     }
 
     [Fact]
@@ -82,6 +83,8 @@ public sealed class PluginPackageInstallerTests
 
         public List<string> CleanedPaths { get; } = [];
 
+        public List<string> CompletedPaths { get; } = [];
+
         public Result<string> Stage(PluginPackageDescriptor package) => StageResult;
 
         public Result<string> Promote(string stagedPath, PluginPackageDescriptor package) => PromoteResult;
@@ -89,6 +92,16 @@ public sealed class PluginPackageInstallerTests
         public Result Cleanup(string stagedPath)
         {
             CleanedPaths.Add(stagedPath);
+            return Result.Success();
+        }
+
+        public Result MarkStateCommitted(string runtimePath) => Result.Success();
+
+        public Result RemoveRuntime(string runtimePath) => Result.Success();
+
+        public Result Complete(string runtimePath)
+        {
+            CompletedPaths.Add(runtimePath);
             return Result.Success();
         }
 

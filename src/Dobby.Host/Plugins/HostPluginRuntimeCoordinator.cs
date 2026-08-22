@@ -102,7 +102,7 @@ public sealed class HostPluginRuntimeCoordinator(
         var pendingStates = snapshot.Value.Where(state => state.IsPendingUninstall).ToArray();
         foreach (var state in pendingStates)
         {
-            var pendingCleanup = StagingArea.Cleanup(state.RuntimePath);
+            var pendingCleanup = StagingArea.RemoveRuntime(state.RuntimePath) ?? StagingArea.Cleanup(state.RuntimePath);
             if (!pendingCleanup.IsSuccess)
             {
                 return PersistenceResult.Failure(ToPersistenceError(

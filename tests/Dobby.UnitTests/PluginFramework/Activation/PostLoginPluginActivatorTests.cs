@@ -27,6 +27,74 @@ public sealed class PostLoginPluginActivatorTests
     }
 
     [Fact]
+    public async Task V2_lifecycle_runs_in_order_with_host_cancellation_and_cleans_up_on_deactivation()
+    {
+        var module = new RecordingV2Module();
+        await using var activator = NewActivator();
+        using var authenticatedScope = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        var activation = await activator.ActivateAsync(
+        [
+            new PluginActivationCandidate(
+                "v2-plugin",
+                "1.0.0",
+                true,
+                [],
+                _ => Result.Success<IPluginModule>(module))
+        ],
+        new HostVersion(1, 0, 0),
+        authenticatedScope.Token);
+
+        activation.IsSuccess.ShouldBeTrue();
+        activation.Value.Run.Outcomes.Single().Warning.ShouldBeNull();
+        module.Calls.ShouldBe(["register", "initialize", "activate"]);
+        module.AllLifecycleTokensWereCancelable.ShouldBeTrue();
+
+        var deactivated = await activator.DeactivateAndUnloadAsync(
+            "v2-plugin",
+            authenticatedScope.Token);
+
+        deactivated.IsSuccess.ShouldBeTrue();
+        module.Calls.ShouldBe(["register", "initialize", "activate", "deactivate", "unload"]);
+    }
+
+    [Fact]
+    public async Task V2_initialization_timeout_is_typed_and_runs_cleanup_lifecycle()
+    {
+        var module = new TimeoutInitializationV2Module();
+        var options = new PluginLifecycleExecutionOptions(
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(1));
+        await using var activator = new PostLoginPluginActivator(
+            new PluginServiceRegistrationBridge(
+                new PluginExtensionPointRegistry(),
+                new PluginLifetimeManager()),
+            options);
+        using var authenticatedScope = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        var activation = await activator.ActivateAsync(
+        [
+            new PluginActivationCandidate(
+                "timeout-plugin",
+                "1.0.0",
+                true,
+                [],
+                _ => Result.Success<IPluginModule>(module))
+        ],
+        new HostVersion(1, 0, 0),
+        authenticatedScope.Token);
+
+        activation.IsSuccess.ShouldBeTrue();
+        var outcome = activation.Value.Run.Outcomes.Single();
+        outcome.Status.ShouldBe(PluginActivationStatus.Faulted);
+        outcome.Reason.ShouldBe("lifecycle-initialize-timeout");
+        module.DeactivateCalled.ShouldBeTrue();
+        module.UnloadCalled.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task Activation_cancel_after_one_plugin_returns_partial_run_and_rolls_back_current_plugin()
     {
         var registry = new PluginExtensionPointRegistry();
@@ -92,6 +160,8 @@ public sealed class PostLoginPluginActivatorTests
         result.Value.Outcomes.Single(outcome => outcome.PluginId == "reports").Reason
             .ShouldBe("dependency-activation-failed: core");
         result.Value.Outcomes.Single(outcome => outcome.PluginId == "standalone").Status.ShouldBe(PluginActivationStatus.Active);
+        result.Value.Outcomes.Single(outcome => outcome.PluginId == "standalone").Warning
+            .ShouldBe(PostLoginPluginActivator.LegacyV1UpgradeWarning);
     }
 
     [Fact]
@@ -324,6 +394,91 @@ public sealed class PostLoginPluginActivatorTests
 
         public void OnActivated(IPluginActivationContext context)
         {
+        }
+    }
+
+    private sealed class RecordingV2Module : IPluginModuleV2
+    {
+        public List<string> Calls { get; } = [];
+
+        public bool AllLifecycleTokensWereCancelable { get; private set; } = true;
+
+        public void RegisterServices(IPluginServiceCollection services) => Calls.Add("register");
+
+        public void OnActivated(IPluginActivationContext context) =>
+            throw new InvalidOperationException("V1 activation must not run for a V2 module.");
+
+        public ValueTask<Result> InitializeAsync(
+            IPluginActivationContext context,
+            CancellationToken cancellationToken)
+        {
+            Record("initialize", cancellationToken);
+            return ValueTask.FromResult(Result.Success());
+        }
+
+        public ValueTask<Result> ActivateAsync(
+            IPluginActivationContext context,
+            CancellationToken cancellationToken)
+        {
+            Record("activate", cancellationToken);
+            return ValueTask.FromResult(Result.Success());
+        }
+
+        public ValueTask<Result> DeactivateAsync(CancellationToken cancellationToken)
+        {
+            Record("deactivate", cancellationToken);
+            return ValueTask.FromResult(Result.Success());
+        }
+
+        public ValueTask<Result> UnloadAsync(CancellationToken cancellationToken)
+        {
+            Record("unload", cancellationToken);
+            return ValueTask.FromResult(Result.Success());
+        }
+
+        private void Record(string call, CancellationToken cancellationToken)
+        {
+            Calls.Add(call);
+            AllLifecycleTokensWereCancelable &= cancellationToken.CanBeCanceled;
+        }
+    }
+
+    private sealed class TimeoutInitializationV2Module : IPluginModuleV2
+    {
+        public bool DeactivateCalled { get; private set; }
+
+        public bool UnloadCalled { get; private set; }
+
+        public void RegisterServices(IPluginServiceCollection services)
+        {
+        }
+
+        public void OnActivated(IPluginActivationContext context) =>
+            throw new InvalidOperationException("V1 activation must not run for a V2 module.");
+
+        public async ValueTask<Result> InitializeAsync(
+            IPluginActivationContext context,
+            CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return Result.Success();
+        }
+
+        public ValueTask<Result> ActivateAsync(
+            IPluginActivationContext context,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Result.Success());
+
+        public ValueTask<Result> DeactivateAsync(CancellationToken cancellationToken)
+        {
+            DeactivateCalled = true;
+            return ValueTask.FromResult(Result.Success());
+        }
+
+        public ValueTask<Result> UnloadAsync(CancellationToken cancellationToken)
+        {
+            UnloadCalled = true;
+            return ValueTask.FromResult(Result.Success());
         }
     }
 

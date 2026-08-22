@@ -38,6 +38,7 @@ public sealed class AuditEventNameTests
             "plugin.activation.skipped",
             "plugin.activation.rejected",
             "plugin.runtime.faulted",
+            "plugin.lifecycle.v1-adapter-used",
             "recovery.export",
             "recovery.import",
             "license.import.attempted",

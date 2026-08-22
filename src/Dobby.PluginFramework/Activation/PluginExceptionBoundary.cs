@@ -4,6 +4,47 @@ namespace Dobby.PluginFramework.Activation;
 
 public static class PluginExceptionBoundary
 {
+    public static async ValueTask<Result> InvokeLifecycleAsync(
+        Func<CancellationToken, ValueTask<Result>> pluginCall,
+        CancellationToken cancellationToken,
+        TimeSpan timeout)
+    {
+        ArgumentNullException.ThrowIfNull(pluginCall);
+        if (timeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeout));
+        }
+
+        using var timeoutSource = new CancellationTokenSource(timeout);
+        using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutSource.Token);
+        try
+        {
+            linkedSource.Token.ThrowIfCancellationRequested();
+            return await pluginCall(linkedSource.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return Result.Failure(
+                cancellationToken.IsCancellationRequested
+                    ? ErrorCode.Cancelled
+                    : ErrorCode.Timeout);
+        }
+        catch (ArgumentException)
+        {
+            return Result.Failure(ErrorCode.InvalidInput);
+        }
+        catch (NotSupportedException)
+        {
+            return Result.Failure(ErrorCode.UnsupportedOperation);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return Result.Failure(ErrorCode.PluginInternalError);
+        }
+    }
+
     public static async Task<Result<T>> InvokeAsync<T>(
         Func<Task<T>> pluginCall,
         CancellationToken cancellationToken)

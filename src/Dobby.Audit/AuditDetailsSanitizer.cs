@@ -30,6 +30,7 @@ internal static partial class AuditDetailsSanitizer
             [AuditEventName.PluginActivationSkipped] = Fields("pluginId", "status", "reasonCode", "diagnosticMarker"),
             [AuditEventName.PluginActivationRejected] = Fields("pluginId", "status", "reasonCode", "diagnosticMarker"),
             [AuditEventName.PluginRuntimeFaulted] = Fields("pluginId", "status", "reasonCode", "diagnosticMarker"),
+            [AuditEventName.PluginLifecycleV1AdapterUsed] = Fields("pluginId", "status", "reasonCode", "diagnosticMarker"),
             [AuditEventName.RecoveryExport] = Fields("requestId"),
             [AuditEventName.RecoveryImport] = Fields("outcome", "requestId"),
             [AuditEventName.LicenseImportAttempted] = Fields("reasonCode", "diagnosticMarker"),

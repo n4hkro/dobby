@@ -493,6 +493,29 @@ public sealed class HostPersistenceTests
     }
 
     [Fact]
+    public void Post_login_migration_schema_and_metadata_roll_back_together_on_statement_failure()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        const string migrationId = "9998_atomic_failure_probe";
+
+        var result = fixture.Migrator.ApplyPostLoginMigrations(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [migrationId] =
+                "CREATE TABLE MigrationAtomicProbe (Id TEXT PRIMARY KEY);" +
+                "INSERT INTO MissingMigrationTable(Id) VALUES ('failure');"
+        });
+
+        result.IsSuccess.ShouldBeFalse();
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='MigrationAtomicProbe';")
+            .ShouldBe(0);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = @MigrationId;",
+            new { MigrationId = migrationId }).ShouldBe(0);
+    }
+
+    [Fact]
     public void Pre_login_migration_fails_closed_when_device_identity_mirror_does_not_match_protected_material()
     {
         using var fixture = HostPersistenceFixture.Create();

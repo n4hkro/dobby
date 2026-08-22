@@ -3,26 +3,6 @@ using Dobby.Core;
 
 namespace Dobby.Audit;
 
-public interface IHostMutationContext
-{
-    IHostPersistenceCommandExecutor Commands { get; }
-
-    void AppendAudit(AuditEvent auditEvent);
-
-    string EnqueueOutbox(HostOutboxMessage message);
-}
-
-public interface IHostMutationUnitOfWork
-{
-    T Execute<T>(Func<IHostMutationContext, T> action);
-
-    void Execute(Action<IHostMutationContext> action);
-
-    Result<T> ExecuteResult<T>(Func<IHostMutationContext, Result<T>> action);
-
-    Result ExecuteResult(Func<IHostMutationContext, Result> action);
-}
-
 public sealed class HostMutationUnitOfWork(
     IHostPersistenceTransactionScope transactionScope,
     IHostTransactionAuditTrail auditTrail,

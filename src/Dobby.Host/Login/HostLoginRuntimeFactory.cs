@@ -427,6 +427,11 @@ public static class HostLoginRuntimeFactory
             installedPluginMetadataCache,
             transactionScope);
         var pluginInstallStagingArea = new PluginInstallStagingArea(options.Runtime.DataRoot, executor);
+        var pluginInstallStateCommitter = new HostPluginInstallStateCommitter(
+            installedPluginStateStore,
+            installedPluginMetadataCache,
+            mutationUnitOfWork,
+            timeProvider);
         var pluginDataRetentionStore = new PluginDataRetentionStore(options.Runtime.DataRoot, transactionScope);
         var pluginRuntimeAuditCoordinator = new PluginRuntimeAuditCoordinator(auditTrail, timeProvider);
         var pluginRuntimeDiagnosticsFileSink = new PluginRuntimeDiagnosticsFileSink(
@@ -488,7 +493,13 @@ public static class HostLoginRuntimeFactory
                 options.Plugins.MaximumEntryCount,
                 options.Plugins.MaximumEntryUncompressedMegabytes * 1024L * 1024,
                 options.Plugins.MaximumAggregateUncompressedMegabytes * 1024L * 1024,
-                options.Plugins.MaximumExpansionRatio));
+                options.Plugins.MaximumExpansionRatio),
+            pluginInstallStateCommitter);
+        var postLoginPluginActivator = new PostLoginPluginActivator(
+            new PluginServiceRegistrationBridge(
+                pluginExtensionPointRegistry,
+                pluginLifetimeManager,
+                pluginHostServices));
         var pluginLifecycleCoordinator = new HostPluginLifecycleCoordinator(
             installedPluginStateStore,
             installedPluginMetadataCache,
@@ -497,7 +508,9 @@ public static class HostLoginRuntimeFactory
             pluginCurrentProcessActivationTracker,
             operationAuthorizationPolicy,
             pluginRuntimeAuditCoordinator,
-            runtimeModeMutationGate);
+            runtimeModeMutationGate,
+            postLoginPluginActivator,
+            pluginActivationCancellation);
         var hostPluginRuntimeCoordinator = new HostPluginRuntimeCoordinator(
             migrator,
             installedPluginStateStore,
@@ -509,7 +522,7 @@ public static class HostLoginRuntimeFactory
             pluginExtensionPointRegistry,
             pluginLifetimeManager,
             pluginActivationCancellation,
-            new PostLoginPluginActivator(new PluginServiceRegistrationBridge(pluginExtensionPointRegistry, pluginLifetimeManager, pluginHostServices)),
+            postLoginPluginActivator,
             pluginCurrentProcessActivationTracker,
             pluginTrustVerifier,
             pluginRuntimeAuditCoordinator,
@@ -563,7 +576,8 @@ public static class HostLoginRuntimeFactory
             transactionScope,
             new Dictionary<HostOutboxRoute, IHostOutboxMessageHandler>
             {
-                [LicenseActivationRefreshOutboxHandler.Route] = licenseActivationRefreshHandler
+                [LicenseActivationRefreshOutboxHandler.Route] = licenseActivationRefreshHandler,
+                [PluginInstallCommittedOutboxHandler.Route] = new PluginInstallCommittedOutboxHandler()
             },
             timeProvider);
         var auditRetentionTask = AuditRetentionMaintenance.StartOneShot(

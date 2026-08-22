@@ -24,7 +24,22 @@ public sealed class PluginActivationCoreTests
 
         result.IsCompatible.ShouldBeFalse();
         result.Status.ShouldBe(PluginActivationStatus.Rejected);
-        result.Reason.ShouldBe("host-version-below-min: required=2.0.0 installed=1.5.0");
+        result.Reason.ShouldBe("host-version-below-minimum");
+    }
+
+    [Theory]
+    [InlineData("3.0", "unsupported-host-api-major")]
+    [InlineData("2.1", "unsupported-host-api-minor")]
+    public void Compatibility_matrix_rejects_unknown_api_major_and_future_minor(
+        string hostApiVersion,
+        string expectedReason)
+    {
+        var result = PluginCompatibilityEvaluator.Evaluate(
+            PluginPackageTestData.CreateManifest() with { HostApiVersion = hostApiVersion },
+            new HostVersion(2, 0, 0));
+
+        result.IsCompatible.ShouldBeFalse();
+        result.Reason.ShouldBe(expectedReason);
     }
 
     [Fact]

@@ -28,8 +28,14 @@ public sealed record PluginActivationExecutionOutcome(
     PluginActivationRun Run);
 
 public sealed class PostLoginPluginActivator(
-    PluginServiceRegistrationBridge serviceBridge) : IAsyncDisposable
+    PluginServiceRegistrationBridge serviceBridge,
+    PluginLifecycleExecutionOptions? lifecycleOptions = null) : IAsyncDisposable, IPluginRuntimeLifecycleControl
 {
+    public const string LegacyV1UpgradeWarning = "legacy-v1-adapter-upgrade-required";
+    private readonly object activeGate = new();
+    private readonly Dictionary<string, ActiveModule> activeModules = new(StringComparer.Ordinal);
+    private readonly PluginLifecycleExecutionOptions options = lifecycleOptions ?? PluginLifecycleExecutionOptions.Default;
+
     public Result<PluginActivationRun> Activate(
         IReadOnlyList<PluginActivationCandidate> candidates,
         HostVersion hostVersion,
@@ -57,6 +63,7 @@ public sealed class PostLoginPluginActivator(
     {
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(serviceBridge);
+        options.Validate();
 
         if (cancellationToken.IsCancellationRequested)
         {
@@ -138,22 +145,70 @@ public sealed class PostLoginPluginActivator(
             }
 
             var hostServices = serviceBridge.HostServices;
-            var activate = await PluginExceptionBoundary.InvokeAsync(
-                () =>
+            var activationContext = new PluginActivationContext(
+                current.PluginId,
+                current.Version,
+                CorrelationId.New(),
+                hostServices.ResolveEventBus(current.PluginId),
+                hostServices.BackgroundOperations,
+                hostServices.BackgroundOperationCancellation);
+            var module = moduleResult.Value;
+            string? warning = null;
+            Result activate;
+            if (module is IPluginModuleV2 moduleV2)
+            {
+                var initialize = await PluginExceptionBoundary.InvokeLifecycleAsync(
+                    token => moduleV2.InitializeAsync(activationContext, token),
+                    cancellationToken,
+                    options.InitializationTimeout).ConfigureAwait(false);
+                if (!initialize.IsSuccess)
                 {
-                    moduleResult.Value.OnActivated(new PluginActivationContext(
+                    await CleanupUncommittedModuleAsync(current.PluginId, moduleV2, cancellationToken).ConfigureAwait(false);
+                    if (initialize.ErrorCode == ErrorCode.Cancelled)
+                    {
+                        return Result.Success(new PluginActivationExecutionOutcome(
+                            PluginActivationCompletion.Cancelled,
+                            BuildRun(outcomes, activated)));
+                    }
+
+                    outcomes[current.PluginId] = new PluginActivationOutcome(
                         current.PluginId,
-                        current.Version,
-                        CorrelationId.New(),
-                        hostServices.ResolveEventBus(current.PluginId),
-                        hostServices.BackgroundOperations,
-                        hostServices.BackgroundOperationCancellation));
-                    return Task.FromResult(true);
-                },
-                cancellationToken).ConfigureAwait(false);
+                        PluginActivationStatus.Faulted,
+                        LifecycleFailureReason("initialize", initialize.ErrorCode));
+                    failedPlugins.Add(current.PluginId);
+                    continue;
+                }
+
+                activate = await PluginExceptionBoundary.InvokeLifecycleAsync(
+                    token => moduleV2.ActivateAsync(activationContext, token),
+                    cancellationToken,
+                    options.ActivationTimeout).ConfigureAwait(false);
+            }
+            else
+            {
+                warning = LegacyV1UpgradeWarning;
+                activate = await PluginExceptionBoundary.InvokeLifecycleAsync(
+                    token => new ValueTask<Result>(Task.Run(() =>
+                    {
+                        token.ThrowIfCancellationRequested();
+                        module.OnActivated(activationContext);
+                        return Result.Success();
+                    }, token)),
+                    cancellationToken,
+                    options.ActivationTimeout).ConfigureAwait(false);
+            }
+
             if (!activate.IsSuccess)
             {
-                await serviceBridge.CleanupPluginAsync(current.PluginId).ConfigureAwait(false);
+                if (module is IPluginModuleV2 failedModuleV2)
+                {
+                    await CleanupUncommittedModuleAsync(current.PluginId, failedModuleV2, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await serviceBridge.CleanupPluginAsync(current.PluginId).ConfigureAwait(false);
+                }
+
                 if (activate.ErrorCode == ErrorCode.Cancelled)
                 {
                     return Result.Success(new PluginActivationExecutionOutcome(
@@ -164,14 +219,21 @@ public sealed class PostLoginPluginActivator(
                 outcomes[current.PluginId] = new PluginActivationOutcome(
                     current.PluginId,
                     PluginActivationStatus.Faulted,
-                    activate.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString());
+                    LifecycleFailureReason("activate", activate.ErrorCode));
                 failedPlugins.Add(current.PluginId);
                 continue;
             }
 
             if (cancellationToken.IsCancellationRequested)
             {
-                await serviceBridge.CleanupPluginAsync(current.PluginId).ConfigureAwait(false);
+                if (module is IPluginModuleV2 cancelledModuleV2)
+                {
+                    await CleanupUncommittedModuleAsync(current.PluginId, cancelledModuleV2, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await serviceBridge.CleanupPluginAsync(current.PluginId).ConfigureAwait(false);
+                }
                 return Result.Success(new PluginActivationExecutionOutcome(
                     PluginActivationCompletion.Cancelled,
                     BuildRun(outcomes, activated)));
@@ -180,7 +242,14 @@ public sealed class PostLoginPluginActivator(
             var commit = await serviceBridge.CommitPreparedAsync(prepareResult.Value, cancellationToken).ConfigureAwait(false);
             if (!commit.IsSuccess)
             {
-                await serviceBridge.CleanupPluginAsync(current.PluginId).ConfigureAwait(false);
+                if (module is IPluginModuleV2 commitFailedModuleV2)
+                {
+                    await CleanupUncommittedModuleAsync(current.PluginId, commitFailedModuleV2, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await serviceBridge.CleanupPluginAsync(current.PluginId).ConfigureAwait(false);
+                }
                 if (commit.ErrorCode == ErrorCode.Cancelled)
                 {
                     return Result.Success(new PluginActivationExecutionOutcome(
@@ -192,8 +261,16 @@ public sealed class PostLoginPluginActivator(
                     commit.ErrorCode ?? ErrorCode.PluginInternalError);
             }
 
+            lock (activeGate)
+            {
+                activeModules[current.PluginId] = new ActiveModule(module);
+            }
             activated.Add(current.PluginId);
-            outcomes[current.PluginId] = new PluginActivationOutcome(current.PluginId, PluginActivationStatus.Active, string.Empty);
+            outcomes[current.PluginId] = new PluginActivationOutcome(
+                current.PluginId,
+                PluginActivationStatus.Active,
+                string.Empty,
+                warning);
         }
 
         return Result.Success(new PluginActivationExecutionOutcome(
@@ -215,7 +292,9 @@ public sealed class PostLoginPluginActivator(
 
             try
             {
-                await serviceBridge.CleanupPluginAsync(pluginId).ConfigureAwait(false);
+                using var rollbackSource = new CancellationTokenSource(
+                    options.DeactivationTimeout + options.UnloadTimeout);
+                await DeactivateAndUnloadAsync(pluginId, rollbackSource.Token).ConfigureAwait(false);
             }
             catch
             {
@@ -225,7 +304,88 @@ public sealed class PostLoginPluginActivator(
 
     public async ValueTask DisposeAsync()
     {
+        string[] pluginIds;
+        lock (activeGate)
+        {
+            pluginIds = activeModules.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray();
+        }
+
+        for (var index = pluginIds.Length - 1; index >= 0; index--)
+        {
+            using var shutdownSource = new CancellationTokenSource(
+                options.DeactivationTimeout + options.UnloadTimeout);
+            await DeactivateAndUnloadAsync(pluginIds[index], shutdownSource.Token).ConfigureAwait(false);
+        }
+
         await serviceBridge.DisposeAsync().ConfigureAwait(false);
+    }
+
+    public async ValueTask<Result> DeactivateAndUnloadAsync(
+        string pluginId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+
+        ActiveModule? active;
+        lock (activeGate)
+        {
+            activeModules.Remove(pluginId, out active);
+        }
+
+        if (active is null)
+        {
+            await serviceBridge.CleanupPluginAsync(pluginId).ConfigureAwait(false);
+            return Result.Success();
+        }
+
+        Result lifecycleResult = Result.Success();
+        if (active.Module is IPluginModuleV2 moduleV2)
+        {
+            lifecycleResult = await InvokeCleanupPhaseAsync(
+                token => moduleV2.DeactivateAsync(token),
+                options.DeactivationTimeout).ConfigureAwait(false);
+            var unload = await InvokeCleanupPhaseAsync(
+                token => moduleV2.UnloadAsync(token),
+                options.UnloadTimeout).ConfigureAwait(false);
+            if (lifecycleResult.IsSuccess && !unload.IsSuccess)
+            {
+                lifecycleResult = unload;
+            }
+        }
+
+        await serviceBridge.CleanupPluginAsync(pluginId).ConfigureAwait(false);
+        return cancellationToken.IsCancellationRequested
+            ? Result.Failure(ErrorCode.Cancelled)
+            : lifecycleResult;
+    }
+
+    private async ValueTask CleanupUncommittedModuleAsync(
+        string pluginId,
+        IPluginModuleV2 module,
+        CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
+        await InvokeCleanupPhaseAsync(
+            token => module.DeactivateAsync(token),
+            options.DeactivationTimeout).ConfigureAwait(false);
+        await InvokeCleanupPhaseAsync(
+            token => module.UnloadAsync(token),
+            options.UnloadTimeout).ConfigureAwait(false);
+        await serviceBridge.CleanupPluginAsync(pluginId).ConfigureAwait(false);
+    }
+
+    private static string LifecycleFailureReason(string phase, ErrorCode? errorCode) =>
+        $"lifecycle-{phase}-{(errorCode ?? ErrorCode.PluginInternalError).Value.ToLowerInvariant()}";
+
+    private async ValueTask<Result> InvokeCleanupPhaseAsync(
+        Func<CancellationToken, ValueTask<Result>> action,
+        TimeSpan timeout)
+    {
+        using var hostCleanupSource = new CancellationTokenSource(timeout);
+        return await PluginExceptionBoundary.InvokeLifecycleAsync(
+            action,
+            hostCleanupSource.Token,
+            timeout).ConfigureAwait(false);
     }
 
     private static PluginActivationRun BuildRun(
@@ -237,4 +397,6 @@ public sealed class PostLoginPluginActivator(
             activated.ToArray(),
             []);
     }
+
+    private sealed record ActiveModule(IPluginModule Module);
 }

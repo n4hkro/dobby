@@ -10,6 +10,12 @@ public interface IPluginInstallStagingArea
 
     Result Cleanup(string stagedPath);
 
+    Result RemoveRuntime(string runtimePath);
+
+    Result MarkStateCommitted(string runtimePath);
+
+    Result Complete(string runtimePath);
+
     Result<int> Recover();
 
     Result<int> CleanupRuntimeOrphans(IReadOnlyCollection<string> authoritativeRuntimePaths);
@@ -18,9 +24,12 @@ public interface IPluginInstallStagingArea
 public sealed class PluginPackageInstaller(
     IPluginInstallStagingArea stagingArea,
     IInstalledPluginStateStore stateStore,
-    IInstalledPluginMetadataCache metadataCache)
+    IInstalledPluginMetadataCache metadataCache,
+    IPluginInstallStateCommitter? stateCommitter = null)
 {
-    public Result<InstalledPluginState> Install(PluginPackageDescriptor package)
+    public Result<InstalledPluginState> Install(
+        PluginPackageDescriptor package,
+        PluginInstallCommitContext? commitContext = null)
     {
         ArgumentNullException.ThrowIfNull(package);
 
@@ -51,13 +60,6 @@ public sealed class PluginPackageInstaller(
             InstalledAtUtc: now,
             UpdatedAtUtc: now);
 
-        if (!stateStore.Upsert(installed).IsSuccess)
-        {
-            stagingArea.Cleanup(stage.Value);
-            stagingArea.Cleanup(promoted.Value);
-            return Result.Failure<InstalledPluginState>(ErrorCode.DatabaseUnavailable);
-        }
-
         var metadata = new InstalledPluginMetadata(
             package.Manifest.PluginId,
             package.Manifest.DisplayName,
@@ -69,15 +71,51 @@ public sealed class PluginPackageInstaller(
             InstalledAtUtc: now,
             UpdatedAtUtc: now);
 
-        if (!metadataCache.Upsert(metadata).IsSuccess)
+        var committed = stateCommitter is null
+            ? CommitLegacy(installed, metadata, promoted.Value, stage.Value)
+            : commitContext is null
+                ? Result.Failure(ErrorCode.InvalidInput)
+                : stateCommitter.Commit(package, installed, metadata, commitContext);
+        if (!committed.IsSuccess)
         {
-            stateStore.Remove(package.Manifest.PluginId);
             stagingArea.Cleanup(stage.Value);
             stagingArea.Cleanup(promoted.Value);
-            return Result.Failure<InstalledPluginState>(ErrorCode.DatabaseUnavailable);
+            return Result.Failure<InstalledPluginState>(committed.ErrorCode ?? ErrorCode.DatabaseUnavailable);
         }
 
-        stagingArea.Cleanup(stage.Value);
+        // Completion is deliberately best-effort after the authoritative commit.
+        // Startup recovery deterministically finishes a committed operation if the
+        // process stops or the final journal update is temporarily unavailable.
+        stagingArea.Complete(promoted.Value);
         return Result.Success(installed);
+    }
+
+    private Result CommitLegacy(
+        InstalledPluginState installed,
+        InstalledPluginMetadata metadata,
+        string runtimePath,
+        string stagedPath)
+    {
+        if (!stateStore.Upsert(installed).IsSuccess)
+        {
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
+        }
+
+        if (!metadataCache.Upsert(metadata).IsSuccess)
+        {
+            stateStore.Remove(installed.PluginId);
+            return Result.Failure(ErrorCode.DatabaseUnavailable);
+        }
+
+        var marked = stagingArea.MarkStateCommitted(runtimePath);
+        if (marked is null || marked.IsSuccess)
+        {
+            return Result.Success();
+        }
+
+        metadataCache.Remove(installed.PluginId);
+        stateStore.Remove(installed.PluginId);
+        stagingArea.Cleanup(stagedPath);
+        return marked;
     }
 }

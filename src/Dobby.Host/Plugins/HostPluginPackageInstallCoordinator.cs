@@ -19,12 +19,16 @@ public sealed class HostPluginPackageInstallCoordinator(
     IPluginTrustVerifier pluginTrustVerifier,
     HostRuntimeModeMutationGate mutationGate,
     PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
-    PluginPackageLimits? packageLimits = null)
+    PluginPackageLimits? packageLimits = null,
+    IPluginInstallStateCommitter? installStateCommitter = null)
 {
+    private const int MaximumConcurrentPluginInstalls = 4;
+    private readonly PluginInstallConcurrencyGate installConcurrency = new(MaximumConcurrentPluginInstalls);
     private readonly OperationAuthorizationPolicy authorization = authorizationPolicy ?? throw new ArgumentNullException(nameof(authorizationPolicy));
     private readonly IPluginTrustVerifier trustVerifier = pluginTrustVerifier ?? throw new ArgumentNullException(nameof(pluginTrustVerifier));
     private readonly PluginRuntimeDiagnosticsCoordinator? diagnostics = diagnosticsCoordinator;
     private readonly PluginPackageLimits limits = packageLimits ?? PluginPackageLimits.Default;
+    private readonly IPluginInstallStateCommitter? stateCommitter = installStateCommitter;
     private readonly HostRuntimeModeMutationGate runtimeModeMutationGate = mutationGate ??
         throw new ArgumentNullException(nameof(mutationGate));
 
@@ -95,6 +99,18 @@ public sealed class HostPluginPackageInstallCoordinator(
         }
 
         var descriptor = validation.Descriptor!;
+        PluginInstallConcurrencyGate.Lease installLease;
+        try
+        {
+            installLease = installConcurrency.Enter(descriptor.Manifest.PluginId, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return Result.Cancelled<InstalledPluginState>();
+        }
+
+        using (installLease)
+        {
         var existing = stateStore.Get(descriptor.Manifest.PluginId);
         if (!existing.IsSuccess)
         {
@@ -111,6 +127,12 @@ public sealed class HostPluginPackageInstallCoordinator(
                 correlationId);
             diagnostics?.RecordInstallRejected(descriptor.Manifest.PluginId, reasons);
             return Result.Failure<InstalledPluginState>(existing.ErrorCode ?? ErrorCode.DatabaseUnavailable);
+        }
+
+        if (existing.Value is not null &&
+            existing.Value.PackageFingerprint.Equals(descriptor.Fingerprint, StringComparison.Ordinal))
+        {
+            return Result.Success(existing.Value);
         }
 
         var mutationAllowed = runtimeModeMutationGate.EnsurePackageInstallAllowed(
@@ -132,7 +154,15 @@ public sealed class HostPluginPackageInstallCoordinator(
             return Result.Failure<InstalledPluginState>(rejection.ErrorCode);
         }
 
-        var install = new PluginPackageInstaller(stagingArea, stateStore, metadataCache).Install(descriptor);
+        var install = new PluginPackageInstaller(
+            stagingArea,
+            stateStore,
+            metadataCache,
+            stateCommitter).Install(
+                descriptor,
+                stateCommitter is null
+                    ? null
+                    : new PluginInstallCommitContext(actorId, correlationId));
         if (!install.IsSuccess)
         {
             var reasons = new[]
@@ -148,8 +178,13 @@ public sealed class HostPluginPackageInstallCoordinator(
             return install;
         }
 
-        auditCoordinator.AppendInstallVerified(actorId, descriptor, correlationId);
+        if (stateCommitter is null)
+        {
+            auditCoordinator.AppendInstallVerified(actorId, descriptor, correlationId);
+        }
+
         return install;
+        }
     }
 
     private static bool IsSupportedSourcePackage(string packagePath)

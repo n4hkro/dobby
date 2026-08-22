@@ -55,6 +55,7 @@ public readonly record struct ErrorCode(string Value)
     public static readonly ErrorCode UnsupportedOperation = new("UnsupportedOperation");
     public static readonly ErrorCode DatabaseUnavailable = new("DatabaseUnavailable");
     public static readonly ErrorCode ResourceBusy = new("ResourceBusy");
+    public static readonly ErrorCode Timeout = new("Timeout");
     public static readonly ErrorCode NetworkUnavailable = new("NetworkUnavailable");
     public static readonly ErrorCode SerializationFailed = new("SerializationFailed");
     public static readonly ErrorCode IoFailed = new("IoFailed");

@@ -112,6 +112,18 @@ public static class PluginManifestValidator
         ValidateFiles(manifest.Files, reasons);
         ValidateSignature(manifest.Signature, reasons);
 
+        if (reasons.Count == 0)
+        {
+            var compatibility = PluginCompatibilityMatrix.Evaluate(manifest, hostVersion);
+            if (!compatibility.IsCompatible)
+            {
+                reasons.Add(new PluginManifestValidationReason(
+                    compatibility.ReasonCode,
+                    "Plugin compatibility requirements are not supported by this host.",
+                    "hostApiVersion"));
+            }
+        }
+
         return reasons.Count == 0
             ? PluginManifestValidationOutcome.Success(manifest)
             : PluginManifestValidationOutcome.Failure(reasons);

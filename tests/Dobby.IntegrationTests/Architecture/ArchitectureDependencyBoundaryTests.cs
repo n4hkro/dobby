@@ -88,13 +88,15 @@ public sealed class ArchitectureDependencyBoundaryTests
             "NetworkUnavailable",
             "NotFound",
             "PluginInternalError",
+            "ResourceBusy",
+            "Timeout",
             "SerializationFailed",
             "Unauthorized",
             "UnsupportedOperation",
             "ValidationFailed"
         ];
 
-        declared.ShouldBe(baseline, "docs/04_RESULT_VS_EXCEPTION_POLICY.md lines 209-237 define the Sprint 1 Dobby.Core/ErrorCodes baseline registry.");
+        declared.ShouldBe(baseline, "docs/04_RESULT_VS_EXCEPTION_POLICY.md defines the Dobby.Core/ErrorCodes baseline registry.");
     }
 
     [Fact]
