@@ -173,15 +173,17 @@ function New-BrandedAsset {
         [Parameter(Mandatory = $true)]
         [string]$Path,
         [Parameter(Mandatory = $true)]
-        [int]$Size
+        [int]$Width,
+        [Parameter(Mandatory = $true)]
+        [int]$Height
     )
 
-    $bitmap = New-Object System.Drawing.Bitmap($Size, $Size)
+    $bitmap = New-Object System.Drawing.Bitmap($Width, $Height)
     try {
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         try {
             $graphics.Clear([System.Drawing.Color]::FromArgb(255, 35, 92, 70))
-            $fontSize = [Math]::Max([int]($Size * 0.45), 18)
+            $fontSize = [Math]::Max([int]([Math]::Min($Width, $Height) * 0.45), 18)
             $font = New-Object System.Drawing.Font('Segoe UI', $fontSize, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
             $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
             $format = New-Object System.Drawing.StringFormat
@@ -189,7 +191,7 @@ function New-BrandedAsset {
             $format.LineAlignment = [System.Drawing.StringAlignment]::Center
             try {
                 $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
-                $graphics.DrawString('D', $font, $brush, [System.Drawing.RectangleF]::new(0, 0, $Size, $Size), $format)
+                $graphics.DrawString('D', $font, $brush, [System.Drawing.RectangleF]::new(0, 0, $Width, $Height), $format)
             }
             finally {
                 $format.Dispose()
@@ -336,11 +338,11 @@ function New-PackageStage {
     $assetsRoot = Join-Path $stageRoot 'Assets'
     New-Item -ItemType Directory -Force -Path $assetsRoot | Out-Null
 
-    New-BrandedAsset -Path (Join-Path $assetsRoot 'StoreLogo.png') -Size 50
-    New-BrandedAsset -Path (Join-Path $assetsRoot 'Square44x44Logo.png') -Size 44
-    New-BrandedAsset -Path (Join-Path $assetsRoot 'Square71x71Logo.png') -Size 71
-    New-BrandedAsset -Path (Join-Path $assetsRoot 'Square150x150Logo.png') -Size 150
-    New-BrandedAsset -Path (Join-Path $assetsRoot 'Wide310x150Logo.png') -Size 310
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'StoreLogo.png') -Width 50 -Height 50
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'Square44x44Logo.png') -Width 44 -Height 44
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'Square71x71Logo.png') -Width 71 -Height 71
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'Square150x150Logo.png') -Width 150 -Height 150
+    New-BrandedAsset -Path (Join-Path $assetsRoot 'Wide310x150Logo.png') -Width 310 -Height 150
 
     New-AppxManifest -ManifestPath (Join-Path $stageRoot 'AppxManifest.xml') -Version $Version
     return $stageRoot

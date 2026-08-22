@@ -66,7 +66,9 @@ public sealed class ReleaseToolingContractTests
         script.ShouldContain("artifact-manifest.json");
         script.ShouldContain("Portable manifest hash mismatch");
         script.ShouldContain("ArtifactMode = 'Installed'");
+        script.ShouldContain("New-BrandedAsset -Path (Join-Path $assetsRoot 'Wide310x150Logo.png') -Width 310 -Height 150");
         script.ShouldNotContain("New-PlaceholderAsset");
+        script.ShouldNotContain("New-BrandedAsset -Path (Join-Path $assetsRoot 'Wide310x150Logo.png') -Size 310");
         script.ShouldNotContain("10.0.26100.0");
         script.ShouldNotContain("10.0.22621.0");
     }
