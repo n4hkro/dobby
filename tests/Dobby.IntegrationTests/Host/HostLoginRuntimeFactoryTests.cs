@@ -15,9 +15,10 @@ namespace Dobby.IntegrationTests.Host;
 public sealed class HostLoginRuntimeFactoryTests
 {
     [Fact]
-    public void Create_starts_one_shot_audit_retention_sweep_without_login_submission()
+    public async Task Create_starts_one_shot_audit_retention_sweep_without_login_submission()
     {
         using var fixture = HostRuntimePersistenceFixture.Create();
+        var reporter = new RecordingBackgroundOperationReporter();
         var old = DateTimeOffset.UtcNow.AddDays(-366).ToString("O");
         var retained = DateTimeOffset.UtcNow.AddDays(-364).ToString("O");
         fixture.Executor.Execute(
@@ -27,37 +28,35 @@ public sealed class HostLoginRuntimeFactoryTests
             "INSERT INTO AuditLog(AuditId, OccurredAtUtc, EventName, ActorId, Target, Result, CorrelationId, DetailsJson) VALUES ('retained', @Retained, 'audit.retained', 'system', 'audit', 'success', @CorrelationId, '{}');",
             new { Retained = retained, CorrelationId = Guid.NewGuid().ToString("D") });
 
-        var runtime = HostLoginRuntimeFactory.Create(
-            fixture.Options,
-            TimeProvider.System,
-            new RecordingProtector());
-
-        runtime.DiagnosticsSourceDirectory.ShouldBe(
-            Path.Combine(fixture.Options.Runtime.DataRoot, "logs"));
-
-        SpinWait.SpinUntil(
-            () => fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE AuditId = 'old';") == 0,
-            TimeSpan.FromSeconds(5)).ShouldBeTrue("audit retention must run as a one-shot post-LoginVisible maintenance operation.");
-        fixture.Executor.Query<string>("SELECT AuditId FROM AuditLog ORDER BY AuditId;")
-            .ShouldBe(["retained"]);
-        WaitForAuditRetentionSweep(runtime);
-    }
-
-    [Fact]
-    public void Create_reports_audit_retention_sweep_as_observed_background_operation()
-    {
-        using var fixture = HostRuntimePersistenceFixture.Create();
-        var reporter = new RecordingBackgroundOperationReporter();
-
-        _ = HostLoginRuntimeFactory.Create(
+        await using var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
             new RecordingProtector(),
             reporter);
 
-        SpinWait.SpinUntil(
-            () => reporter.Snapshots.Any(snapshot => snapshot.Status == BackgroundOperationStatus.Completed),
-            TimeSpan.FromSeconds(5)).ShouldBeTrue("audit retention sweep must report observed completion.");
+        runtime.DiagnosticsSourceDirectory.ShouldBe(
+            Path.Combine(fixture.Options.Runtime.DataRoot, "logs"));
+
+        await WaitForAuditRetentionSweep(reporter);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE AuditId = 'old';")
+            .ShouldBe(0, "audit retention must run as a one-shot post-LoginVisible maintenance operation.");
+        fixture.Executor.Query<string>("SELECT AuditId FROM AuditLog ORDER BY AuditId;")
+            .ShouldBe(["retained"]);
+    }
+
+    [Fact]
+    public async Task Create_reports_audit_retention_sweep_as_observed_background_operation()
+    {
+        using var fixture = HostRuntimePersistenceFixture.Create();
+        var reporter = new RecordingBackgroundOperationReporter();
+
+        await using var runtime = HostLoginRuntimeFactory.Create(
+            fixture.Options,
+            TimeProvider.System,
+            new RecordingProtector(),
+            reporter);
+
+        await WaitForAuditRetentionSweep(reporter);
 
         reporter.Snapshots.Select(snapshot => snapshot.Status)
             .ShouldContain(BackgroundOperationStatus.Running);
@@ -70,14 +69,16 @@ public sealed class HostLoginRuntimeFactoryTests
     }
 
     [Fact]
-    public void Create_composes_sprint6_authorization_user_management_and_settings_sources()
+    public async Task Create_composes_sprint6_authorization_user_management_and_settings_sources()
     {
         using var fixture = HostRuntimePersistenceFixture.Create();
+        var reporter = new RecordingBackgroundOperationReporter();
 
-        var runtime = HostLoginRuntimeFactory.Create(
+        await using var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
-            new RecordingProtector());
+            new RecordingProtector(),
+            reporter);
 
         runtime.OperationAuthorizationPolicy.ShouldNotBeNull();
         runtime.ManagedUserService.ShouldNotBeNull();
@@ -101,18 +102,20 @@ public sealed class HostLoginRuntimeFactoryTests
             .ShouldBe(PrintTargetClass.VirtualOrFileOutput);
         fixture.Executor.Query<string>("SELECT CustomerId || ':' || DeploymentId FROM CustomerDeploymentContext;")
             .ShouldBe(["default:default"]);
-        WaitForAuditRetentionSweep(runtime);
+        await WaitForAuditRetentionSweep(reporter);
     }
 
     [Fact]
-    public void Runtime_provision_entrypoint_replaces_context_and_records_safe_audit()
+    public async Task Runtime_provision_entrypoint_replaces_context_and_records_safe_audit()
     {
         using var fixture = HostRuntimePersistenceFixture.Create();
+        var reporter = new RecordingBackgroundOperationReporter();
         fixture.SeedOwner("owner-1");
-        var runtime = HostLoginRuntimeFactory.Create(
+        await using var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
-            new RecordingProtector());
+            new RecordingProtector(),
+            reporter);
 
         var result = runtime.ProvisionCustomerDeploymentContext(
             "owner-1",
@@ -133,18 +136,20 @@ public sealed class HostLoginRuntimeFactoryTests
         audit.DetailsJson.ShouldNotContain("deployment-a");
         audit.DetailsJson.ShouldContain("customerIdHash");
         audit.DetailsJson.ShouldContain("deploymentIdHash");
-        WaitForAuditRetentionSweep(runtime);
+        await WaitForAuditRetentionSweep(reporter);
     }
 
     [Fact]
     public async Task Runtime_print_entrypoint_uses_license_runtime_mode_before_execution()
     {
         using var fixture = HostRuntimePersistenceFixture.Create();
+        var reporter = new RecordingBackgroundOperationReporter();
         fixture.ApplyPostLoginMigrations();
-        var runtime = HostLoginRuntimeFactory.Create(
+        await using var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
-            new RecordingProtector());
+            new RecordingProtector(),
+            reporter);
         runtime.LicenseStateStore.Save(new LicenseStateRecord(
             new RevisionSeriesKey("plugin.sample", "default", "default"),
             "plugin.sample",
@@ -171,7 +176,7 @@ public sealed class HostLoginRuntimeFactoryTests
 
         result.ErrorCode.ShouldBe(ErrorCode.LicenseBindingMismatch);
         executionCalls.ShouldBe(0);
-        WaitForAuditRetentionSweep(runtime);
+        await WaitForAuditRetentionSweep(reporter);
     }
 
     private sealed class AuditRow
@@ -188,12 +193,12 @@ public sealed class HostLoginRuntimeFactoryTests
     }
 
     [Fact]
-    public void Create_composes_sprint7_shell_runtime_sources_for_post_login_shell()
+    public async Task Create_composes_sprint7_shell_runtime_sources_for_post_login_shell()
     {
         using var fixture = HostRuntimePersistenceFixture.Create();
         var reporter = new RecordingBackgroundOperationReporter();
 
-        var runtime = HostLoginRuntimeFactory.Create(
+        await using var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
             new RecordingProtector(),
@@ -216,44 +221,37 @@ public sealed class HostLoginRuntimeFactoryTests
             "SELECT ConfigKey FROM HostConfiguration WHERE ConfigKey LIKE 'settings.user.%.shell.sidebar-collapsed';");
         keys.Count.ShouldBe(1);
         keys.Single().ShouldNotContain("owner@example.local");
-        WaitForAuditRetentionSweep(runtime);
+        await WaitForAuditRetentionSweep(reporter);
     }
 
     [Fact]
-    public void Create_wires_about_version_from_host_assembly_metadata()
+    public async Task Create_wires_about_version_from_host_assembly_metadata()
     {
         using var fixture = HostRuntimePersistenceFixture.Create();
+        var reporter = new RecordingBackgroundOperationReporter();
         var expectedVersion = typeof(HostLoginRuntimeFactory).Assembly.GetName().Version!;
         var expectedDisplayVersion = $"{expectedVersion.Major}.{expectedVersion.Minor}.{expectedVersion.Build}";
 
-        var runtime = HostLoginRuntimeFactory.Create(
+        await using var runtime = HostLoginRuntimeFactory.Create(
             fixture.Options,
             TimeProvider.System,
-            new RecordingProtector());
+            new RecordingProtector(),
+            reporter);
 
         var info = runtime.AboutInfoProvider.GetInfo(isOwner: true, ownerIdentity: "owner");
 
         info.AppVersion.ShouldBe(expectedDisplayVersion);
         info.BuildNumber.ShouldBe(expectedDisplayVersion);
         info.BuildDate.ShouldNotBe("unknown");
-        WaitForAuditRetentionSweep(runtime);
+        await WaitForAuditRetentionSweep(reporter);
     }
 
-    private static void WaitForAuditRetentionSweep(HostLoginRuntime runtime)
+    private static async Task WaitForAuditRetentionSweep(RecordingBackgroundOperationReporter reporter)
     {
-        switch (runtime.BackgroundOperations)
-        {
-            case BackgroundOperationReporter reporter:
-                SpinWait.SpinUntil(
-                    () => reporter.LatestSnapshot?.Status is BackgroundOperationStatus.Completed or BackgroundOperationStatus.Failed,
-                    TimeSpan.FromSeconds(5)).ShouldBeTrue("audit retention sweep must finish before test data root cleanup.");
-                break;
-            case RecordingBackgroundOperationReporter reporter:
-                SpinWait.SpinUntil(
-                    () => reporter.Snapshots.Any(snapshot => snapshot.Status is BackgroundOperationStatus.Completed or BackgroundOperationStatus.Failed),
-                    TimeSpan.FromSeconds(5)).ShouldBeTrue("audit retention sweep must finish before test data root cleanup.");
-                break;
-        }
+        var terminal = await reporter.TerminalSnapshot.WaitAsync(TimeSpan.FromSeconds(30));
+        terminal.Status.ShouldBe(
+            BackgroundOperationStatus.Completed,
+            "audit retention sweep must finish successfully before test data root cleanup.");
     }
 
     private sealed class HostRuntimePersistenceFixture : IDisposable
@@ -341,10 +339,12 @@ public sealed class HostLoginRuntimeFactoryTests
     {
         private readonly List<BackgroundOperationSnapshot> snapshots = [];
         private readonly RecordingProgress progress;
+        private readonly TaskCompletionSource<BackgroundOperationSnapshot> terminalSnapshot = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
         public RecordingBackgroundOperationReporter()
         {
-            progress = new RecordingProgress(snapshots);
+            progress = new RecordingProgress(snapshots, terminalSnapshot);
         }
 
         public IReadOnlyList<BackgroundOperationSnapshot> Snapshots
@@ -360,7 +360,11 @@ public sealed class HostLoginRuntimeFactoryTests
 
         public IProgress<BackgroundOperationSnapshot> Progress => progress;
 
-        private sealed class RecordingProgress(List<BackgroundOperationSnapshot> snapshots)
+        public Task<BackgroundOperationSnapshot> TerminalSnapshot => terminalSnapshot.Task;
+
+        private sealed class RecordingProgress(
+            List<BackgroundOperationSnapshot> snapshots,
+            TaskCompletionSource<BackgroundOperationSnapshot> terminalSnapshot)
             : IProgress<BackgroundOperationSnapshot>
         {
             public void Report(BackgroundOperationSnapshot value)
@@ -368,6 +372,11 @@ public sealed class HostLoginRuntimeFactoryTests
                 lock (snapshots)
                 {
                     snapshots.Add(value);
+                }
+
+                if (value.Status is BackgroundOperationStatus.Completed or BackgroundOperationStatus.Cancelled or BackgroundOperationStatus.Failed)
+                {
+                    terminalSnapshot.TrySetResult(value);
                 }
             }
         }
