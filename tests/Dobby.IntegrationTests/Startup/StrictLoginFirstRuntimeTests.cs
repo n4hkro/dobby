@@ -1,4 +1,5 @@
 using Dobby.Configuration;
+using Dobby.Contracts.BackgroundOperations;
 using Dobby.Core;
 using Dobby.Host.Login;
 using Dobby.Infrastructure.Persistence;
@@ -65,27 +66,37 @@ public sealed class StrictLoginFirstRuntimeTests
             new { login.Session!.SessionId }).ShouldBe(1);
 
         var authenticatedProbe = new RecordingCompositionProbe();
+        var backgroundOperations = new RecordingBackgroundOperationReporter();
         var firstRuntime = HostLoginRuntimeFactory.CreateAuthenticated(
             fixture.Options,
             fixture.Time,
             login.Session,
             fixture.Protector,
+            backgroundOperations,
             applyPreLoginMigrations: false,
             compositionProbe: authenticatedProbe);
-        SpinWait.SpinUntil(
-            () => fixture.Executor.QueryScalar<int>(
-                "SELECT COUNT(*) FROM AuditLog WHERE AuditId = 'old-before-login';") == 0,
-            TimeSpan.FromSeconds(5)).ShouldBeTrue(
+        try
+        {
+            var terminal = await backgroundOperations.TerminalSnapshot.WaitAsync(TimeSpan.FromSeconds(30));
+            terminal.Status.ShouldBe(
+                BackgroundOperationStatus.Completed,
                 "authenticated audit retention must complete before the runtime is disposed and cancelled.");
-        var backupPath = Path.Combine(fixture.Root, "backup", "authenticated-maintenance.db");
-        var backup = await firstRuntime.PersistenceMaintenanceCoordinator.CreateSnapshotAsync(
-            login.Session.UserId,
-            backupPath,
-            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
-            CorrelationId.New());
-        backup.IsSuccess.ShouldBeTrue();
-        File.Exists(backupPath).ShouldBeTrue();
-        await firstRuntime.DisposeAsync();
+            fixture.Executor.QueryScalar<int>(
+                "SELECT COUNT(*) FROM AuditLog WHERE AuditId = 'old-before-login';").ShouldBe(0);
+
+            var backupPath = Path.Combine(fixture.Root, "backup", "authenticated-maintenance.db");
+            var backup = await firstRuntime.PersistenceMaintenanceCoordinator.CreateSnapshotAsync(
+                login.Session.UserId,
+                backupPath,
+                new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+                CorrelationId.New());
+            backup.IsSuccess.ShouldBeTrue();
+            File.Exists(backupPath).ShouldBeTrue();
+        }
+        finally
+        {
+            await firstRuntime.DisposeAsync();
+        }
 
         authenticatedProbe.Events.ShouldBe([
             LoginRuntimeCompositionEvents.AuthenticatedRuntimeConstructionStarted,
@@ -192,6 +203,29 @@ public sealed class StrictLoginFirstRuntimeTests
         {
             protectedBlob.Take(Prefix.Length).SequenceEqual(Prefix).ShouldBeTrue();
             return protectedBlob.Skip(Prefix.Length).Select(value => (byte)(value ^ 0x5A)).ToArray();
+        }
+    }
+
+    private sealed class RecordingBackgroundOperationReporter : IBackgroundOperationReporter
+    {
+        private readonly TaskCompletionSource<BackgroundOperationSnapshot> terminalSnapshot = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IProgress<BackgroundOperationSnapshot> Progress => new ProgressRecorder(terminalSnapshot);
+
+        public Task<BackgroundOperationSnapshot> TerminalSnapshot => terminalSnapshot.Task;
+
+        private sealed class ProgressRecorder(
+            TaskCompletionSource<BackgroundOperationSnapshot> terminalSnapshot)
+            : IProgress<BackgroundOperationSnapshot>
+        {
+            public void Report(BackgroundOperationSnapshot value)
+            {
+                if (value.Status is BackgroundOperationStatus.Completed or BackgroundOperationStatus.Cancelled or BackgroundOperationStatus.Failed)
+                {
+                    terminalSnapshot.TrySetResult(value);
+                }
+            }
         }
     }
 }
