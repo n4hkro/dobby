@@ -63,4 +63,3 @@ not claimed.
 
 - `docs/adr/ADR-0007-plugin-load-context-strategy.md`
 - `docs/adr/ADR-0036-plugin-manifest-schema.md`
-- `docs/implementation-plan/04_PLUGIN_PLATFORM_PACKAGING_AND_UI.md` (`PL-05`)

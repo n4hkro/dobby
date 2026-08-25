@@ -1,26 +1,32 @@
-# Graph Report - dobby  (2026-08-24)
+# Graph Report - dobby  (2026-08-25)
 
 ## Corpus Check
-- Large corpus: 786 files · ~335,223 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- 771 files · ~322,115 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 9033 nodes · 21793 edges · 469 communities (435 shown, 34 thin omitted)
-- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 1266 edges (avg confidence: 0.8)
+- 8998 nodes · 21735 edges · 472 communities (429 shown, 43 thin omitted)
+- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 1265 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `a8a59142`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Result
 - MainWindow
-- InstalledPluginState
+- .Execute
 - .Open
-- IPluginActivationContext
+- IPluginServiceCollection
 - Dobby.Host.Plugins
+- Dobby.Security.Authorization
 - Dobby.Core
-- Dobby.Infrastructure.Persistence
 - .Success
-- Dobby.Configuration
+- HostResourceKeys
 - ShellViewModel
-- .Failure
+- HostPluginLifecycleCoordinator
 - RecoveryVerifiedChallenge
 - .ExecuteAsync
 - ShellPluginManagerOperationCoordinator
@@ -30,10 +36,10 @@
 - AuthOptionsTests
 - Button
 - .CreateCoordinator
-- OperationKey
+- IPluginActivationContext
 - ErrorCode
 - CurrentCustomerDeploymentContext
-- .DispatchAsync
+- .CreateDispatcher
 - CorrelationId
 - LicenseStateRecord
 - .Create
@@ -53,12 +59,12 @@
 - Dobby Specs Index
 - AuditEvent
 - DobbyOptionsValidator
-- PluginRuntimeMode
+- .Evaluate
 - Dobby.Diagnostics
 - HostPersistenceTests
 - HostLoginRuntime
 - .ActivateAsync
-- .CreateManifest
+- PluginManifest
 - CredentialStore
 - .CreateRequest
 - ADR-0039: Owner Password Recovery via Vendor-Signed Device-Bound Artefakt
@@ -67,21 +73,21 @@
 - HostPersistenceMaintenanceService
 - PackageGovernanceTests
 - .ReadEntries
-- HostPluginRuntimeCoordinator
+- .ActivatePostLoginAsync
 - IHostPersistenceTransactionFaultInjector
 - .Resolve
 - ContractsCoreSurfaceTests
 - PluginPageRenderRegistry
 - PluginInstallStagingArea
-- .Snapshot
-- PersistenceResult
-- DobbyPluginTrustProfile
+- .Azerbaijani_diacritics_round_trip_across_ui_storage_and_audit_supported_paths
+- SqliteProviderInitializer
+- ArtifactSignatureProfile.cs
 - .InvokeLifecycleClassifiedAsync
 - ShellSmokeTests
 - CurrentCustomerDeploymentContextService
 - .New
 - LicenseImportCoordinator
-- ShellSnapshotTests
+- .RenderShellEvidence
 - ShellUiStaticScanTests
 - HostPluginPackageInstallCoordinator
 - $defs
@@ -90,22 +96,22 @@
 - .ActivateRoute
 - ProductionReleasePackagingStaticScanTests
 - OwnerBootstrapTransactionTests
-- HostPersistenceCommandExecutor
-- AppThemePreference
+- IDisposable
+- ShellLayoutState
 - SampleHomePage
 - InMemoryEventBus
-- .Evaluate
+- OperationAuthorizationPolicy
 - LoginWindow
-- PostLoginSessionRuntime
+- SessionRecord
 - .Redact
 - LoginWindowRuntimeWiringTests
 - properties
 - HostVersion
 - ArchitectureDependencyBoundaryTests
 - .Append
-- HostPluginPackageInstallCoordinatorTests
+- .Snapshot
 - .ValidateDetailed
-- .CreateManifestJson
+- .Read
 - IPluginTrustVerifier
 - RuntimeOptions
 - DiagnosticsExportPackageBuilder
@@ -117,28 +123,28 @@
 - .Canonical_runtime_storage_auth_and_audit_authority_is_preserved
 - HostPluginStorageTests
 - PluginPackageEntry
-- SettingsAndAboutViewModelTests
-- .Execute
+- Dobby.Host
+- FailingNthExecuteCommandExecutor
 - .EvaluateLifecycle
 - PluginPackageReader
-- OperationVerb
+- InstalledPluginState
 - ShellDiagnosticsExportActionTests
-- LockWindow
+- LockViewModel
 - PluginComponentContracts.cs
 - properties
 - properties
 - .RunLoginLoopAsync
 - IHostOutboxMessageHandler
-- SessionLifecycleService
+- WorkSessionShellIntegrationTests
 - .CreateResourceBacked
-- items
+- verbs
 - OwnerBootstrapCoordinatorTests
 - properties
 - properties
-- LockViewModel
+- PluginPageRouteCoordinator
 - RecoveryPasswordResetDialog
 - .Resolve
-- LoginThrottleService
+- ILoginThrottleBucketSession
 - PluginPageRenderRegistryTests
 - $defs
 - properties
@@ -148,26 +154,26 @@
 - HostLoginRuntimeFactoryTests
 - RecoveryResponseImportCoordinator
 - PluginComponentModelValidator
-- UserManagementAuditCoordinator
+- UserControl
 - Window
-- LicenseLifecycleState
+- LicenseRuntimeModeProvider
 - Dobby.IntegrationTests.Architecture
 - .Convert
 - .ImportAsync
-- LockViewModelActionResult
-- EncryptedSqliteConnectionFactory
-- .Validate
+- ShellViewModelNavigationTests
+- UserManagementAuditCoordinator
+- .CreateManifestJson
 - PostLoginPluginActivatorTests
 - ItemsControl
 - ShellBackgroundOperationCoordinator
 - required
 - SuccessorArtifactSchemaFixtureTests
 - PluginInstallConcurrencyGate
-- ILoginThrottleBucketSession
+- SessionLifecycleAuditCoordinator
 - .Clear
 - ProtectedMaterialAvailabilityProbeTests
 - .Build
-- ResourceHostStringLocalizer
+- HostStringCatalog
 - Dobby.Core.csproj
 - AuditDetailsSanitizer
 - ShellKeyboardSmokeTests
@@ -178,8 +184,8 @@
 - Portable support artifact
 - .CreateLogger
 - HostOutboxDispatcher
-- IBackgroundOperationCancellation
-- HostPluginStorageCompartment
+- LoginThrottleService
+- HostRuntimeModeMutationGate
 - ProcessExitEscalator
 - ProtectedMaterialAvailabilityProbe
 - .Validate
@@ -193,24 +199,24 @@
 - .ApplySuccessfulLogin
 - Dobby.SmokeTests.csproj
 - PluginStorageKey
-- LoginRuntimeWorkflow
-- ILicenseRuntimeModeProvider
-- HostConfigurationSettingsPreferenceSource
+- PluginContractDefaultsTests
+- HostPluginRuntimeCoordinator
+- Window
 - LicenseImportIntegrationTests
 - TextBlock
 - WindowsHardwareIdentityProvider
 - properties
 - HostMutationAtomicityTests
 - SamplePluginPackageFixture
-- IBackgroundOperationReporter
+- LoginFirstFixture
 - .Create
-- SessionRecord
+- LicenseLifecycleState
 - PostLoginTimingTrace
 - LicenseImportShellAction
 - .Write
 - RouteRegistry
 - ShellPluginManagerState
-- .Create
+- LoginService
 - required
 - required
 - dobby-plugin-license-v3.schema.json
@@ -218,20 +224,20 @@
 - required
 - GuardGrantReader
 - LicenseImportCoordinatorTests
-- .Installed_sample_plugin_activates_navigation_page_model_loader_isolation_and_background_progress
+- .TryNormalize
 - .Export
-- SettingsPreferenceFixture
-- IPluginCommandDispatcher
+- StartupThemeSnapshotStoreTests
+- .DispatchAsync
 - LoginStartupTimingTrace
 - .GetString
 - .Compute
-- .Create
 - CredentialVerificationGate
+- .ExecuteAsync
 - PluginTrustResourcePackagingTests
 - ReleaseExternalEvidenceValidatorTests
 - Sprint11ReleaseEvidenceTests
 - SettingsLocalizationStringCatalogTests
-- HostLoginRuntime.cs
+- .RunPostLoginShellWarmupAsync
 - CurrentContextPersistenceFixture
 - $defs
 - properties
@@ -240,42 +246,42 @@
 - properties
 - Dobby.Security.csproj
 - AdminSigningMaterialResult
-- .ForAuthenticatedUser
-- StorageAwarePage
-- .Append
-- ShellActionOverrides
-- SessionLifecycleAuditCoordinator
+- HostConfigurationSettingsPreferenceSource
+- .Classify
+- LoginRuntimeWorkflow
+- SettingsPreferences
+- PrintOutputPolicyTests
 - .Acquire
 - .Normalize
 - KdfPolicy
 - PluginNoInfrastructureReferenceTests
 - Window
-- .Durable_permission_rows_grant_exact_managed_operation_and_owner_needs_no_rows
-- Dobby.Contracts.PluginStorage
+- .CreateCoordinator
+- HostLicenseStateStore
 - $defs
 - $defs
 - HostPersistenceAccessGate
 - Dobby.Infrastructure.csproj
 - SelfServicePasswordChangeTests
-- .ReadOnlyExpired_blocks_all_mutation_surfaces
-- SessionMutationAtomicityTests
-- SettingsPreferences
 - .Normalize
+- Exception
+- ProductOptions
+- HostCustomerDeploymentContextProvisioningCoordinator
 - LicenseRuntimeModeProviderTests
 - keyVersion
 - properties
-- OwnerBootstrapCoordinator
+- Dobby.PluginFramework.Packaging
 - LoginRuntimeWorkflowTests
 - LoginServiceTests
 - Dobby.Host.csproj
-- SelfServicePasswordChangeCoordinator
-- CorrelationId.cs
+- LoginThrottleBucket
+- CorrelationContextAccessorTests
 - .Build
-- LoginService
+- LoginRuntimeFixture
 - .ToUnpaddedBase64Url
-- ShellThemeAndSettingsIntegrationTests
+- .Validate
 - LicenseSignatureVerifierTests
-- PluginsManagerList
+- PluginBaseV2
 - ProjectBoundaryTests
 - properties
 - payload
@@ -283,14 +289,14 @@
 - DurableThrottleFixture
 - WindowActivationHelper
 - OwnedArchiveEntryStream
-- CorrelationContextAccessorTests
-- HostRuntimeModeMutationGate
+- payload
+- .Compute
 - CrashRecoverySmokeHook
 - HostBootstrapOptions
 - PreLoginAllowedWorkloadTests
 - RecordingPluginStorageCompartment
 - SamplePluginManifestTests
-- TraceabilityRegisterTests
+- TempFixture
 - Dobby.IntegrationTests.csproj
 - Dobby.UnitTests.csproj
 - PasswordBox
@@ -300,17 +306,17 @@
 - dobby-plugin-license.schema.json
 - required
 - build-rc-msix.ps1
-- SessionFixture
+- .ParseOptions
 - Trusted in-process plugin posture
 - .Compute
-- LoginThrottleBucket
-- .Validate
-- LoginRuntimeFixture
+- AuditEventNameTests.cs
+- SessionLogoutAndLockTests
+- .PrepareSigningInput
 - .InScopeTextFiles
 - PluginAndSdkBoundaryTests
 - PublicTypeLayoutTests
 - Sprint9ReleaseEvidenceTests
-- RecordingUiDispatcher
+- .Plugin_background_operation_updates_shell_status_surface_via_shared_reporter
 - CrashRecoverySmokeTests
 - RuntimeOptionsTests
 - PluginLoadContext
@@ -323,11 +329,11 @@
 - claims
 - subjects
 - .Format
-- LoginAuthorityFixture
+- AssemblyHostBuildMetadataProvider
 - Dobby.Localization.csproj
-- .ToDurablePreference
+- PreLoginInstrumentation
 - LicenseV3Contracts.cs
-- PluginBase
+- RecordingBackgroundOperationReporter
 - ReleaseToolingContractTests
 - Sprint5ReleaseEvidenceTests
 - Dobby.sln
@@ -338,38 +344,38 @@
 - ReadOnlyExpired runtime-mode enforcement
 - PluginManifestSchemaValidator
 - Grid
-- .Create
-- NoopEventBus
-- .ExecutePluginPrintAsync
-- LicenseActivationRefreshOutboxHandler
-- .Recover
+- Sprint1ReleaseEvidenceContractTests
+- RecordingBackgroundOperationReporter
+- ISupportDeviceCodeProvider
+- BackgroundOperationReporter
+- .Prepare
 - LicenseImportRequest
 - AdminToolStaticScanTests
 - Sprint10ReleaseEvidenceTests
 - RecordingBackgroundOperationReporter
-- RecordingInstallProgress
+- PluginPackageInstallProgress
 - LoginViewModelRememberMeTests
-- RecordingUiDispatcher
+- PluginsOptionsTests
 - LicenseV3ContractTests
 - HostLoginRecoveryStringCatalogTests
-- SessionLogoutAndLockTests
+- HostCustomerDeploymentContextStore
 - SecurityAutoLockEnabledCheckBox
 - connectionProfile
 - enum
 - enum
 - nativeLibraries
 - enum
-- payload
+- .CreateCoordinator
 - ProtectedStorageEntropy
-- LicensePersistenceFixture
-- PluginActivationContext
-- PreLoginInstrumentation
+- .CreatePackageTrustVerifier
+- ShellThemeCoordinator.cs
+- Sprint7ReleaseEvidenceTests
 - PluginManifestSchemaResourcePackagingTests
 - PluginTrustLanguageAndV2ContractTests
 - ReleaseEvidenceTests
-- Sprint6ReleaseEvidenceTests
+- .Verify
 - Sprint8ReleaseEvidenceTests
-- RecordingBackgroundOperationReporter
+- .Create_plugin_license_preserves_v3_intent_time_boundaries_and_positive_revision
 - HostRuntimeSurfaceTests
 - PostLoginShellPresenterWiringTests
 - enum
@@ -379,14 +385,14 @@
 - release-external-evidence-v1.schema.json
 - Flake-Sensitive Wait Classification
 - Workstation tab lifecycle
-- .ApplyMaximizedWorkArea
-- BackgroundOperationReporter
+- WpfShellWindowCloseConfirmation
+- .Validate
 - LicenseStateRow
-- Sprint1ReleaseEvidenceContractTests
+- StorageOptionsTests
 - ResultTests
 - ShellLocalizationDiagnosticsRecorderTests
-- RecordingPreferenceExecutor
-- StartupThemeSnapshotStoreTests
+- PluginStorageContractTests
+- KdfPolicyResolverTests
 - AppearanceThemeSelector
 - BackgroundProgressBar
 - keyId
@@ -394,13 +400,13 @@
 - id
 - keyId
 - enum
-- base64urlP1363
+- NoopEventBus
 - descriptionText
 - displayText
 - identifier
 - keyId
 - packageRelativePath
-- verbs
+- InMemoryCurrentContextStore
 - nonce
 - signatureValue
 - id
@@ -409,14 +415,14 @@
 - Dobby.Configuration.csproj
 - .Create
 - PostLoginPluginPersistenceMigrations
-- .Verify
+- base64urlP1363
+- verbs
+- Dobby.Contracts.PluginStorage
 - RecordingProtector
-- LoginServiceFixture
-- SettingsPreferenceFixture
-- MutationFixture
+- .VerifyInstalledPackage
+- ParsedOptions
+- BranchSharedOptionsTests.cs
 - ConfigurationTests.cs
-- RecordingReporter
-- RecordingBackgroundReporter
 - ThrowingPersistenceExecutor
 - RecordingTraceListener
 - PluginNavigationContributionMapperTests
@@ -431,26 +437,26 @@
 - gracePeriodDays
 - utc
 - utc
-- HostStartupJsonSerializerContext.cs
+- Dobby.IntegrationTests.Configuration
 - AuditEventName
 - 0008_plugin_install_operations.sql
+- StartupMilestone
+- setupCredentialRef
 - .Resolve
 - RecordingProtector
 - RecordingProtector
-- RecordingProtector
-- RecordingProtector
-- .Legacy_v1_response_fixtures_are_rejected_without_silent_compatibility_fallback
+- PreLoginMigrationV1.cs
 - VendorRecoveryPublicKeyTests
 - SidebarNodeChevron
-- Document Authority and Audit Baseline
-- profileVersion
+- PreLoginOutboxEvidenceMigrationV11.cs
+- RecordingProtector
 - gracePeriodDays
 - licenseRevision
 - Sample plugin icon
 - SidebarColumn
 - 0003_license_state.sql
 - .FindVisuals
-- ThrowingTransactionScope
+- PreLoginRecoveryRequestMigrationV10.cs
 - AGENTS.md
 - ADR-0021: SDK Surface Area
 - MSIX-first distribution policy
@@ -462,6 +468,10 @@
 - LightTheme.xaml
 - ADR template
 - Performance documentation README
+- AuditOptionsTests.cs
+- PreLoginRememberedAccountMigrationV7.cs
+- PreLoginThrottleMigrationV8.cs
+- ThrowingTransactionScope
 
 ## God Nodes (most connected - your core abstractions)
 1. `Result` - 572 edges
@@ -478,103 +488,99 @@
 ## Surprising Connections (you probably didn't know these)
 - `Portable folder publication` --semantically_similar_to--> `Portable support artifact`  [INFERRED] [semantically similar]
   docs/superpowers/specs/2026-06-29-portable-folder-publish-design.md → tools/publish-portable/README.md
-- `SamplePluginModule` --inherits--> `PluginBaseV2`  [EXTRACTED]
-  samples/Dobby.Sample.Plugin/SamplePlugin.cs → src/Dobby.SDK/PluginFramework/PluginBase.cs
-- `SampleHomePage` --references--> `IBackgroundOperationReporter`  [EXTRACTED]
-  samples/Dobby.Sample.Plugin/SamplePlugin.cs → src/Dobby.Contracts/BackgroundOperations/BackgroundOperationContracts.cs
-- `SampleHomePage` --references--> `PluginLocalizationCatalog`  [EXTRACTED]
-  samples/Dobby.Sample.Plugin/SamplePlugin.cs → src/Dobby.Contracts/PluginPages/PluginComponentContracts.cs
-- `SampleHomePage` --implements--> `IPluginPage`  [EXTRACTED]
-  samples/Dobby.Sample.Plugin/SamplePlugin.cs → src/Dobby.Contracts/PluginPages/PluginPageContracts.cs
+- `RecordingPageModel` --implements--> `IPluginPageModel`  [EXTRACTED]
+  tests/Dobby.UnitTests/Host/PluginPageRouteCoordinatorTests.cs → src/Dobby.Contracts/PluginPages/PluginPageContracts.cs
+- `AnalyticsModel` --implements--> `IPluginPageModel`  [EXTRACTED]
+  tests/Dobby.UnitTests/Shell/PluginPageRenderRegistryTests.cs → src/Dobby.Contracts/PluginPages/PluginPageContracts.cs
+- `UnknownModel` --implements--> `IPluginPageModel`  [EXTRACTED]
+  tests/Dobby.UnitTests/Shell/PluginPageRenderRegistryTests.cs → src/Dobby.Contracts/PluginPages/PluginPageContracts.cs
+- `DummyPluginPageModel` --implements--> `IPluginPageModel`  [EXTRACTED]
+  tests/Dobby.UnitTests/Shell/ShellViewModelNavigationTests.cs → src/Dobby.Contracts/PluginPages/PluginPageContracts.cs
 
 ## Import Cycles
 - None detected.
 
 ## Hyperedges (group relationships)
-- **Plugin activation lifecycle** — docs_02_architecture_map_plugin_framework, docs_adr_adr_0006_plugin_di_registration_decision, docs_adr_adr_0007_plugin_load_context_strategy_decision, docs_adr_adr_0008_deferred_plugin_activation_decision, docs_adr_adr_0009_plugin_dependency_graph_decision [EXTRACTED 1.00]
-- **Plugin boundary controls** — docs_02_architecture_map_contracts_project, docs_02_architecture_map_security_boundary, docs_adr_adr_0001_contracts_dependency_boundary_decision, docs_adr_adr_0003_plugin_storage_boundary_and_access_model_decision, docs_adr_adr_0004_capability_enforcement_model_decision, docs_adr_adr_0010_plugin_communication_policy_decision [INFERRED 0.85]
-- **Phase 1 release governance** — docs_00_document_authority_and_audit_baseline_authority_order, docs_05_functional_requirements_document, docs_06_non_functional_requirements_document, docs_07_acceptance_criteria_release_gates, docs_09_build_run_and_release_release_evidence [INFERRED 0.85]
-- **Plugin public-surface boundary pattern** — docs_adr_adr_0011_plugin_sandbox_enforcement_principle_trust_enforcement, docs_adr_adr_0012_plugin_capability_boundary_capability_boundary, docs_adr_adr_0021_sdk_surface_area_sdk_convenience_surface, docs_adr_adr_0030_host_persistence_and_plugin_storage_boundary_storage_compartments, docs_adr_adr_0040_internal_host_adapters_boundary_infrastructure_adapters [INFERRED 0.85]
-- **Operation observability flow** — docs_adr_adr_0015_background_operation_reporting_host_operation_contract, docs_adr_adr_0016_logging_strategy_local_structured_diagnostics, docs_adr_adr_0019_audit_vs_diagnostics_boundary_append_only_audit, docs_adr_adr_0029_correlation_id_ownership_correlation_context [INFERRED 0.85]
-- **Vendor signing trust flow** — docs_adr_adr_0023_admin_host_boundary_vendor_admin_boundary, docs_adr_adr_0032_plugin_signature_trust_model_offline_signature_verification, docs_adr_adr_0033_signing_key_ownership_vendor_master_key, docs_adr_adr_0039_owner_password_recovery_historical_device_bound_recovery [EXTRACTED 1.00]
-- **License artifact, context, runtime, and import flow** — docs_adr_adr_0045_plugin_package_and_license_artifact_boundary_document, docs_adr_adr_0052_tenant_customer_context_v2_document, docs_adr_adr_0053_capability_surface_runtime_mode_document, docs_adr_adr_0060_license_lifecycle_and_import_v3_document [EXTRACTED 1.00]
 - **Branch Shared deployment, authentication, and protected storage boundary** — docs_adr_adr_0055_protected_storage_scope_and_key_wrapping_document, docs_adr_adr_0056_deployment_modes_and_storage_providers_document, docs_adr_adr_0057_mode_aware_authentication_boundary_document [EXTRACTED 1.00]
+- **License artifact, context, runtime, and import flow** — docs_adr_adr_0045_plugin_package_and_license_artifact_boundary_document, docs_adr_adr_0052_tenant_customer_context_v2_document, docs_adr_adr_0053_capability_surface_runtime_mode_document, docs_adr_adr_0060_license_lifecycle_and_import_v3_document [EXTRACTED 1.00]
 - **Login-first session and post-auth runtime flow** — docs_adr_adr_0041_login_first_startup_policy_document, docs_adr_adr_0050_in_memory_work_sessions_document, docs_adr_adr_0061_login_first_runtime_and_atomic_mutation_boundary_document [EXTRACTED 1.00]
-- **Standalone security completion workstreams** — docs_implementation_plan_02_identity_startup_and_authorization_identity_hardening, docs_implementation_plan_03_persistence_atomicity_and_diagnostics_transactional_outbox, docs_implementation_plan_04_plugin_platform_packaging_and_ui_trusted_plugin_platform, docs_implementation_plan_05_licensing_provisioning_and_runtime_gates_derived_license_lifecycle [EXTRACTED 1.00]
-- **Branch Shared governance and readiness** — docs_implementation_plan_08_branch_shared_future_track_reopening_gates, docs_specs_onboarding_and_provisioning_branchsetup_boundary, docs_specs_device_lifecycle_branch_shared_device_identity, docs_specs_postgres_deployment_ops_branch_shared_operational_readiness [EXTRACTED 1.00]
-- **Artifact transition and verification pattern** — docs_schemas_artifact_compatibility_matrix_successor_artifact_policy, docs_implementation_plan_04_plugin_platform_packaging_and_ui_trusted_plugin_platform, docs_implementation_plan_05_licensing_provisioning_and_runtime_gates_derived_license_lifecycle, docs_specs_admin_tool_scripted_operator_path [INFERRED 0.85]
+- **Plugin activation lifecycle** — docs_02_architecture_map_plugin_framework, docs_adr_adr_0006_plugin_di_registration_decision, docs_adr_adr_0007_plugin_load_context_strategy_decision, docs_adr_adr_0008_deferred_plugin_activation_decision, docs_adr_adr_0009_plugin_dependency_graph_decision [EXTRACTED 1.00]
+- **Plugin lifecycle manager flow** — docs_superpowers_plans_remaining_product_work_task_06_plugin_page_rendering_background_status_exception_boundary_fault_ui_execution_note_plugin_fault_ui, docs_superpowers_plans_remaining_product_work_task_07_license_context_readonly_execution_note_readonlyexpired_enforcement, docs_superpowers_plans_remaining_product_work_task_08_plugins_manager_lifecycle_execution_note_plugins_manager_lifecycle [EXTRACTED 1.00]
+- **Release quality evidence** — tools_generate_sbom_readme_dependency_evidence, tools_verify_flake_sensitive_tests_readme_flake_sensitive_matrix, tools_verify_security_regressions_readme_security_regression_slices, tools_verify_release_candidate_readme_release_evidence_runner [EXTRACTED 1.00]
+- **Remaining product-work execution sequence** — docs_superpowers_plans_2026_07_08_remaining_product_work_implementation_document, docs_superpowers_plans_remaining_product_work_task_01_authority_reconciliation_execution_note_document, docs_superpowers_plans_remaining_product_work_task_02_plugin_storage_runtime_layout_execution_note_document, docs_superpowers_plans_remaining_product_work_task_03_login_first_auth_lock_password_change_execution_note_document, docs_superpowers_plans_remaining_product_work_task_04_rendered_settings_user_management_about_theme_localization_execution_note_document, docs_superpowers_plans_remaining_product_work_task_05_main_shell_layout_navigation_profile_status_execution_note_document [EXTRACTED 1.00]
 - **Session, shell, and work-session continuity** — docs_specs_session_lifecycle_document, docs_specs_shell_ui_document, docs_specs_work_sessions_document [EXTRACTED 1.00]
 - **Settings, user-management, and shell policy surfaces** — docs_specs_settings_and_about_document, docs_specs_user_management_document, docs_specs_shell_ui_document [EXTRACTED 1.00]
-- **Remaining product-work execution sequence** — docs_superpowers_plans_2026_07_08_remaining_product_work_implementation_document, docs_superpowers_plans_remaining_product_work_task_01_authority_reconciliation_execution_note_document, docs_superpowers_plans_remaining_product_work_task_02_plugin_storage_runtime_layout_execution_note_document, docs_superpowers_plans_remaining_product_work_task_03_login_first_auth_lock_password_change_execution_note_document, docs_superpowers_plans_remaining_product_work_task_04_rendered_settings_user_management_about_theme_localization_execution_note_document, docs_superpowers_plans_remaining_product_work_task_05_main_shell_layout_navigation_profile_status_execution_note_document [EXTRACTED 1.00]
-- **Plugin lifecycle manager flow** — docs_superpowers_plans_remaining_product_work_task_06_plugin_page_rendering_background_status_exception_boundary_fault_ui_execution_note_plugin_fault_ui, docs_superpowers_plans_remaining_product_work_task_07_license_context_readonly_execution_note_readonlyexpired_enforcement, docs_superpowers_plans_remaining_product_work_task_08_plugins_manager_lifecycle_execution_note_plugins_manager_lifecycle [EXTRACTED 1.00]
+- **Vendor signing trust flow** — docs_adr_adr_0023_admin_host_boundary_vendor_admin_boundary, docs_adr_adr_0032_plugin_signature_trust_model_offline_signature_verification, docs_adr_adr_0033_signing_key_ownership_vendor_master_key, docs_adr_adr_0039_owner_password_recovery_historical_device_bound_recovery [EXTRACTED 1.00]
+- **Operation observability flow** — docs_adr_adr_0015_background_operation_reporting_host_operation_contract, docs_adr_adr_0016_logging_strategy_local_structured_diagnostics, docs_adr_adr_0019_audit_vs_diagnostics_boundary_append_only_audit, docs_adr_adr_0029_correlation_id_ownership_correlation_context [INFERRED 0.85]
+- **Plugin boundary controls** — docs_02_architecture_map_contracts_project, docs_02_architecture_map_security_boundary, docs_adr_adr_0001_contracts_dependency_boundary_decision, docs_adr_adr_0003_plugin_storage_boundary_and_access_model_decision, docs_adr_adr_0004_capability_enforcement_model_decision, docs_adr_adr_0010_plugin_communication_policy_decision [INFERRED 0.85]
+- **Plugin public-surface boundary pattern** — docs_adr_adr_0011_plugin_sandbox_enforcement_principle_trust_enforcement, docs_adr_adr_0012_plugin_capability_boundary_capability_boundary, docs_adr_adr_0021_sdk_surface_area_sdk_convenience_surface, docs_adr_adr_0030_host_persistence_and_plugin_storage_boundary_storage_compartments, docs_adr_adr_0040_internal_host_adapters_boundary_infrastructure_adapters [INFERRED 0.85]
 - **Portable artifact release-evidence flow** — docs_superpowers_specs_2026_06_29_portable_folder_publish_design_portable_publish, tools_publish_portable_readme_portable_support_artifact, tools_verify_portable_launch_readme_isolated_portable_launch, installer_readme_rc_msix_packaging, tools_verify_release_candidate_readme_release_evidence_runner [INFERRED 0.85]
-- **Release quality evidence** — tools_generate_sbom_readme_dependency_evidence, tools_verify_flake_sensitive_tests_readme_flake_sensitive_matrix, tools_verify_security_regressions_readme_security_regression_slices, tools_verify_release_candidate_readme_release_evidence_runner [EXTRACTED 1.00]
 
-## Communities (469 total, 34 thin omitted)
+## Communities (472 total, 43 thin omitted)
 
 ### Community 0 - "Result"
-Cohesion: 0.04
-Nodes (47): ActivePluginPagePhase, IDisposable, ILifecycleProbe, CancellationToken, ValueTask, IPluginPage, IPluginPageModel, PluginPageContext (+39 more)
+Cohesion: 0.05
+Nodes (43): ActivePluginPagePhase, ILifecycleProbe, CancellationToken, ValueTask, IPluginPage, IPluginPageModel, PluginPageContext, PluginPageDescriptor (+35 more)
 
 ### Community 1 - "MainWindow"
 Cohesion: 0.04
-Nodes (25): CheckBox, DependencyPropertyChangedEventArgs, EventArgs, PasswordBox, POINT, PropertyChangedEventArgs, RECT, bool (+17 more)
+Nodes (37): CheckBox, DependencyPropertyChangedEventArgs, EventArgs, MONITORINFO, PasswordBox, POINT, PropertyChangedEventArgs, RECT (+29 more)
 
-### Community 2 - "InstalledPluginState"
-Cohesion: 0.03
-Nodes (47): ModulePayload, PluginDependencySpec, IReadOnlyList, HostInstalledPluginMetadataCache, InstalledPluginMetadataRow, IReadOnlyList, HostInstalledPluginStateStore, InstalledPluginStateRow (+39 more)
+### Community 2 - ".Execute"
+Cohesion: 0.07
+Nodes (21): IReadOnlyList, HostInstalledPluginMetadataCache, InstalledPluginMetadataRow, IReadOnlyList, HostInstalledPluginStateStore, InstalledPluginStateRow, HostPluginActivationStatusPersistence, InstalledPluginVersionRow (+13 more)
 
 ### Community 3 - ".Open"
-Cohesion: 0.06
-Nodes (34): Guid, IReadOnlyList, PendingWorkSessionAction, PendingWorkSessionCloseRequest, WorkSessionCloseChoice, WorkSessionCloseCoordinator, WorkSessionCloseReason, WorkSessionCloseRequest (+26 more)
+Cohesion: 0.14
+Nodes (11): Dictionary, Func, Guid, IReadOnlyDictionary, WorkSession, WorkSessionProgress, WorkSessionRegistry, Fact (+3 more)
 
-### Community 4 - "IPluginActivationContext"
+### Community 4 - "IPluginServiceCollection"
 Cohesion: 0.03
-Nodes (45): SamplePluginModule, IPluginActivationContext, IPluginModule, IPluginServiceCollection, PluginLifetime, IReadOnlyList, List, Type (+37 more)
+Nodes (36): IPluginModule, IPluginServiceCollection, PluginLifetime, IReadOnlyList, List, Type, PluginServiceCollectionBuilder, PluginServiceDescriptor (+28 more)
 
 ### Community 5 - "Dobby.Host.Plugins"
-Cohesion: 0.06
-Nodes (28): Dobby.Contracts.Events, Dobby.Application, Dobby.Contracts.BackgroundOperations, Dobby.Shell.PluginPages, Dobby.Core.Versioning, Dobby.UnitTests.PluginFramework.Activation, Dobby.IntegrationTests.Plugins, Dobby.Sample.Plugin (+20 more)
+Cohesion: 0.05
+Nodes (29): Dobby.Contracts.Events, Dobby.Application, Dobby.Contracts.BackgroundOperations, Dobby.Localization, Dobby.Shell.PluginPages, Dobby.IntegrationTests.Shell, Dobby.UnitTests.PluginFramework.Activation, Dobby.IntegrationTests.Plugins (+21 more)
 
-### Community 6 - "Dobby.Core"
-Cohesion: 0.04
-Nodes (12): Dobby.UnitTests.Core, Dobby.Core, Dobby.Host.Login, Dobby.IntegrationTests.Sessions, Dobby.UnitTests.Host, Dobby.UnitTests.Security, Dobby.Host.Sessions, Dobby.Security.Authentication (+4 more)
+### Community 6 - "Dobby.Security.Authorization"
+Cohesion: 0.11
+Nodes (6): Dobby.Contracts.Policies, Dobby.Security.Authorization, IReadOnlyList, string, BuiltInOperationTargets, OperationTargetOrigin
 
-### Community 7 - "Dobby.Infrastructure.Persistence"
-Cohesion: 0.04
-Nodes (31): Dobby.Audit, Dobby.UnitTests.Audit, Dobby.IntegrationTests.Persistence, Dobby.IntegrationTests.Auth, Dobby.Infrastructure.Persistence, Dobby.IntegrationTests.Licensing, Dobby.IntegrationTests.Security, Dobby.Host.Startup (+23 more)
+### Community 7 - "Dobby.Core"
+Cohesion: 0.05
+Nodes (21): Dobby.Audit, Dobby.UnitTests.Audit, Dobby.IntegrationTests.Persistence, Dobby.IntegrationTests.Auth, Dobby.Infrastructure.Persistence, Dobby.Core, Dobby.IntegrationTests.Licensing, Dobby.IntegrationTests.Security (+13 more)
 
 ### Community 8 - ".Success"
-Cohesion: 0.04
-Nodes (33): Guid, IPluginWorkSessionCleanup, IPluginWorkSessionService, PluginWorkSessionHandle, Guid, ShellPluginWorkSessionService, Guid, NoopPluginWorkSessionService (+25 more)
+Cohesion: 0.03
+Nodes (42): Guid, IPluginWorkSessionCleanup, IPluginWorkSessionService, PluginTextPageModel, PluginWorkSessionHandle, Guid, ShellPluginWorkSessionService, Guid (+34 more)
 
-### Community 9 - "Dobby.Configuration"
-Cohesion: 0.04
-Nodes (32): Dobby.Localization, Dobby.UI, Dobby.Host, Dobby.SmokeTests, Dobby.IntegrationTests.Configuration, Dobby.Shell.WorkSessions, Dobby.Shell.Layout, Dobby.UnitTests.Localization (+24 more)
+### Community 9 - "HostResourceKeys"
+Cohesion: 0.50
+Nodes (3): IReadOnlyList, string, HostResourceKeys
 
 ### Community 10 - "ShellViewModel"
 Cohesion: 0.05
-Nodes (34): Dobby.Shell.WorkspaceTabs, RenderedShellEvidence, SettingsAndAboutSnapshot, IReadOnlyList, ShellAboutField, ShellFeedbackState, ShellFocusTarget, ShellLayoutPreference (+26 more)
+Nodes (25): Dobby.Shell.WorkspaceTabs, bool, Guid, IEnumerable, int, IReadOnlyList, IReadOnlySet, List (+17 more)
 
-### Community 11 - ".Failure"
-Cohesion: 0.05
-Nodes (25): CancellationToken, Func, IReadOnlyList, Task, HostPluginLifecycleCoordinator, HashSet, IReadOnlyCollection, object (+17 more)
+### Community 11 - "HostPluginLifecycleCoordinator"
+Cohesion: 0.12
+Nodes (12): CancellationToken, Func, Task, HostPluginLifecycleCoordinator, PluginUninstallDataChoice, HashSet, IReadOnlyCollection, object (+4 more)
 
 ### Community 12 - "RecoveryVerifiedChallenge"
-Cohesion: 0.05
-Nodes (33): Window, RecoveryPasswordResetPrompt, CopyPathButton, ExportPathText, ExportRequestButton, ImportPathText, ImportResponseButton, OpenFolderButton (+25 more)
+Cohesion: 0.07
+Nodes (19): Window, RecoveryPasswordResetPrompt, IRecoveryExportFolderOpener, IRecoveryExportPathClipboard, IRecoveryFilePicker, IRecoveryPasswordResetPrompt, IRecoveryResponseImportCoordinator, RecoveryViewModel (+11 more)
 
 ### Community 13 - ".ExecuteAsync"
-Cohesion: 0.06
-Nodes (37): IPrintTargetClassifier, PrintOutputDecision, PrintOutputPolicy, PrintTargetClass, PrintTargetDescriptor, CancellationToken, Func, ValueTask (+29 more)
+Cohesion: 0.20
+Nodes (11): PrintTargetDescriptor, CancellationToken, Func, ValueTask, IPhysicalPrintConfirmation, WpfPhysicalPrintConfirmation, CancellationToken, CancellationTokenSource (+3 more)
 
 ### Community 14 - "ShellPluginManagerOperationCoordinator"
-Cohesion: 0.07
-Nodes (24): Action, CancellationToken, CancellationTokenSource, Func, Guid, int, IProgress, object (+16 more)
+Cohesion: 0.17
+Nodes (12): Action, CancellationToken, CancellationTokenSource, Func, int, IProgress, object, Task (+4 more)
 
 ### Community 15 - "AdminCommandHost"
-Cohesion: 0.08
-Nodes (25): CommandSpec, ParsedOptions, ParseResult, PreparedSigningInput, DateTimeOffset, ECDsa, IReadOnlyDictionary, IReadOnlyList (+17 more)
+Cohesion: 0.14
+Nodes (12): ParsedOptions, DateTimeOffset, ECDsa, JsonSerializerOptions, Stream, string, TimeProvider, ZipArchive (+4 more)
 
 ### Community 16 - "Window"
 Cohesion: 0.04
@@ -582,67 +588,67 @@ Nodes (60): AboutDeviceCodeActionsVisibility, ActualWidth, BrandName, BooleanToV
 
 ### Community 17 - ".Create"
 Cohesion: 0.07
-Nodes (27): IComparer, IOrderedEnumerable, IUiOrderingComparer, UiOrderingKey, PluginNavigationContribution, DefaultUiOrderingComparer, IEnumerable, IReadOnlyDictionary (+19 more)
+Nodes (25): IComparer, IOrderedEnumerable, IUiOrderingComparer, UiOrderingKey, DefaultUiOrderingComparer, IEnumerable, IReadOnlyDictionary, IReadOnlyList (+17 more)
 
 ### Community 18 - "AuthOptionsTests"
-Cohesion: 0.05
-Nodes (25): ProductArtifactMode, ProductOptions, HostSupportDeviceCodeProvider, AboutInfoProvider, Assembly, AssemblyHostBuildMetadataProvider, FixedSupportDeviceCodeProvider, HostBuildMetadata (+17 more)
+Cohesion: 0.26
+Nodes (5): Fact, InlineData, Theory, ValidateOptionsResult, AuthOptionsTests
 
 ### Community 19 - "Button"
 Cohesion: 0.04
 Nodes (59): AboutDeviceCodeCopyLabel, AboutDeviceCodeExplanation, BackgroundOperationCanCancel, CancelOperationLabel, ChangePasswordLabel, DiagnosticsExportLabel, LicenseImportCancelVisibility, LicenseImportIsEnabled (+51 more)
 
 ### Community 20 - ".CreateCoordinator"
-Cohesion: 0.11
-Nodes (10): CancellationToken, CancellationTokenSource, HostPluginActivationCancellation, ValueTask, DirectoryInfo, Fact, Task, HostPluginRuntimeCoordinatorTests (+2 more)
-
-### Community 21 - "OperationKey"
 Cohesion: 0.06
-Nodes (20): IPermissionGrantReader, OperationKey, IReadOnlyList, PermissionGrantStore, UserRow, UserPermissionState, StaticGrantReader, Dictionary (+12 more)
+Nodes (26): AuthorizationPersistenceFixture, IPostLoginPluginActivationCancellation, CancellationToken, CancellationTokenSource, HostPluginActivationCancellation, ValueTask, IReadOnlyDictionary, IHostPersistenceMigrator (+18 more)
+
+### Community 21 - "IPluginActivationContext"
+Cohesion: 0.11
+Nodes (15): CancellationToken, IBackgroundOperationCancellation, IPluginActivationContext, NoopBackgroundOperationCancellation, RecordingBackgroundCancellation, RecordingBackgroundOperationCancellation, CancellationToken, List (+7 more)
 
 ### Community 22 - "ErrorCode"
 Cohesion: 0.08
 Nodes (20): ErrorCode, Action, IEnumerable, IReadOnlyList, string, Type, PluginRuntimeDiagnosticEntry, PluginRuntimeDiagnosticsCoordinator (+12 more)
 
 ### Community 23 - "CurrentCustomerDeploymentContext"
-Cohesion: 0.06
-Nodes (22): IReadOnlyList, string, CurrentContextRow, HostCustomerDeploymentContextStore, CurrentCustomerDeploymentContext, ICurrentCustomerDeploymentContextStore, IReadOnlyList, RecordingCurrentContextStore (+14 more)
+Cohesion: 0.08
+Nodes (16): CurrentCustomerDeploymentContext, ICurrentCustomerDeploymentContextStore, IReadOnlyList, RecordingCurrentContextStore, IReadOnlyList, RecordingCurrentContextStore, IReadOnlyList, List (+8 more)
 
-### Community 24 - ".DispatchAsync"
-Cohesion: 0.09
-Nodes (24): RecordingBackgroundReporter, RecordingGrantReader, RecordingPage, CancellationToken, Guid, TimeSpan, ValueTask, HostPluginCommandDispatcher (+16 more)
+### Community 24 - ".CreateDispatcher"
+Cohesion: 0.18
+Nodes (12): RecordingBackgroundReporter, RecordingGrantReader, RecordingPage, Dictionary, object, PluginRuntimeFaultDecision, PluginRuntimeFaultPolicy, PluginRuntimeFaultState (+4 more)
 
 ### Community 25 - "CorrelationId"
-Cohesion: 0.09
-Nodes (16): Guid, CorrelationId, Func, IManagedUserAuditSink, IReadOnlyList, ManagedUserDetail, DateTimeOffset, IReadOnlyList (+8 more)
+Cohesion: 0.05
+Nodes (29): Guid, CorrelationId, CancellationToken, Func, IManagedUserAuditSink, DateTimeOffset, IReadOnlyList, TimeProvider (+21 more)
 
 ### Community 26 - "LicenseStateRecord"
-Cohesion: 0.09
-Nodes (17): HostLicenseStateStore, ILicenseStateStore, LicenseImportCommitOutcome, LicenseImportCommitPolicy, LicenseImportCommitResult, DateTimeOffset, LicenseImportAttestation, DateTimeOffset (+9 more)
+Cohesion: 0.11
+Nodes (13): ILicenseStateStore, DateTimeOffset, LicenseImportAttestation, DateTimeOffset, LicenseStateRecord, RevisionSeriesKey, List, RecordingLicenseStateStore (+5 more)
 
 ### Community 27 - ".Create"
-Cohesion: 0.07
-Nodes (25): KeyValuePair, LoginFirstFixture, DobbyOptions, HashSet, IConfiguration, IReadOnlyList, HostConfigurationSources, ILoginRuntimeCompositionProbe (+17 more)
+Cohesion: 0.11
+Nodes (15): KeyValuePair, DobbyOptions, HashSet, IConfiguration, IReadOnlyList, HostConfigurationSources, ILoginRuntimeCompositionProbe, TimeProvider (+7 more)
 
 ### Community 28 - "StartupBootstrapWiringTests"
-Cohesion: 0.10
-Nodes (8): DateTimeOffset, StartupMilestone, HostBootstrapper, IReadOnlyList, HostBootstrapResult, DirectoryInfo, Fact, StartupBootstrapWiringTests
+Cohesion: 0.11
+Nodes (6): HostBootstrapper, IReadOnlyList, HostBootstrapResult, DirectoryInfo, Fact, StartupBootstrapWiringTests
 
 ### Community 29 - "PluginServiceScope"
 Cohesion: 0.07
-Nodes (22): Dictionary, IReadOnlyList, object, PluginExtensionPointRegistration, PluginExtensionPointRegistration, PluginExtensionPointRegistry, bool, Dictionary (+14 more)
+Nodes (21): Dictionary, IReadOnlyList, object, PluginExtensionPointRegistration, PluginExtensionPointRegistration, PluginExtensionPointRegistry, bool, Dictionary (+13 more)
 
 ### Community 30 - "PluginPageRouteCoordinatorTests"
-Cohesion: 0.15
-Nodes (18): ActivePluginPage, PluginPageRouteLookup, PluginPageRouteRegistration, Action, CancellationToken, Func, PluginExtensionPointRegistration, ValueTask (+10 more)
+Cohesion: 0.28
+Nodes (8): Fact, InlineData, Task, Theory, Type, ILifecycleProbe, PluginPageRouteCoordinatorTests, RecordingPageModel
 
 ### Community 31 - ".VerifyWithOutcome"
-Cohesion: 0.09
-Nodes (22): DateTimeOffset, IVendorRecoveryPublicKey, RecoveryCanonicalJsonWriter, DateTimeOffset, HashSet, int, IReadOnlySet, JsonElement (+14 more)
+Cohesion: 0.08
+Nodes (23): DateTimeOffset, IVendorRecoveryPublicKey, DateTimeOffset, HashSet, int, IReadOnlySet, JsonElement, RecoveryResponseImporter (+15 more)
 
 ### Community 32 - "AdminCommandHostTests"
-Cohesion: 0.09
-Nodes (18): SigningKeyEnvironmentScope, DateTimeOffset, DirectoryInfo, ECDsa, Fact, IEnumerable, InlineData, MemberData (+10 more)
+Cohesion: 0.10
+Nodes (15): SigningKeyEnvironmentScope, DateTimeOffset, DirectoryInfo, ECDsa, Fact, IEnumerable, RecoveryRequestFiles, string (+7 more)
 
 ### Community 33 - "NoPlaintextSecretContentScanTests"
 Cohesion: 0.11
@@ -653,8 +659,8 @@ Cohesion: 0.09
 Nodes (29): PluginSubscriptionLease, CancellationToken, Func, IDisposable, Task, IEventBus, Action, CancellationToken (+21 more)
 
 ### Community 35 - "Dobby.UnitTests.Configuration"
-Cohesion: 0.05
-Nodes (19): Dobby.UnitTests.Configuration, Fact, AuditOptionsTests, Fact, BranchSharedOptionsTests, Fact, DiagnosticsOptionsTests, Fact (+11 more)
+Cohesion: 0.10
+Nodes (9): Dobby.UnitTests.Configuration, Fact, DiagnosticsOptionsTests, Fact, LicensingOptionsTests, Fact, LocalizationOptionsTests, Fact (+1 more)
 
 ### Community 36 - "PluginActivationCoreTests"
 Cohesion: 0.07
@@ -665,8 +671,8 @@ Cohesion: 0.06
 Nodes (43): items, items, maxItems, type, items, maxItems, type, items (+35 more)
 
 ### Community 38 - "Dobby.Licensing"
-Cohesion: 0.08
-Nodes (8): Dobby.Admin.Commands, Dobby.Licensing, Dobby.UnitTests.Licensing, Dobby.Security.Trust, Dobby.UnitTests.Admin, Dobby.Security.CurrentContext, string, LicenseRejectReasons
+Cohesion: 0.05
+Nodes (17): Dobby.Host.Printing, Dobby.Infrastructure.Printing, Dobby.Admin.Commands, Dobby.Application.Printing, Dobby.Contracts.Licensing, Dobby.Licensing, Dobby.UnitTests.Licensing, Dobby.Security.Trust (+9 more)
 
 ### Community 39 - "Dobby Architecture Map"
 Cohesion: 0.11
@@ -677,48 +683,48 @@ Cohesion: 0.06
 Nodes (42): ADR-0041: Login-First Startup Policy, Closed pre-auth workload allow-list, ADR-0042: Release Gate Hardware Baseline, P95 reference hardware release gate, az-AZ default culture and missing-key fallback, ADR-0043: Initial UI Culture and Fallback Chain, ADR-0044: Localization Resource Organization, Namespaced localization resource ownership (+34 more)
 
 ### Community 41 - "Dobby Specs Index"
-Cohesion: 0.08
-Nodes (42): Dobby Completion Master Execution Plan, Standalone completion plan, Traceability and Findings Register, Executable findings register, Identity, Startup and Authorization Execution Plan, Identity hardening workstream, Persistence, Atomicity and Diagnostics Execution Plan, Provider-owned mutation transaction and outbox (+34 more)
+Cohesion: 0.13
+Nodes (24): License v3 Derived Lifecycle Truth Table, License v3 lifecycle truth table, Admin Tool, P1 scripted operator path, Audit and Diagnostics Spec, Structured redacted audit and diagnostics, Backup, Restore, And Migration, Verified local backup and restore (+16 more)
 
 ### Community 42 - "AuditEvent"
-Cohesion: 0.08
-Nodes (23): DateTimeOffset, IReadOnlyDictionary, AuditEvent, Action, Func, Context, HostMutationUnitOfWork, IHostMutationContext (+15 more)
+Cohesion: 0.06
+Nodes (28): DateTimeOffset, IReadOnlyDictionary, AuditEvent, Action, Func, Context, HostMutationUnitOfWork, IHostMutationContext (+20 more)
 
 ### Community 43 - "DobbyOptionsValidator"
-Cohesion: 0.08
-Nodes (16): IValidateOptions, AuditOptions, AuthOptions, BranchSharedOptions, DiagnosticsOptions, HashSet, int, IReadOnlyList (+8 more)
+Cohesion: 0.07
+Nodes (17): IValidateOptions, AuditOptions, AuthOptions, BranchSharedOptions, DiagnosticsOptions, HashSet, int, IReadOnlyList (+9 more)
 
-### Community 44 - "PluginRuntimeMode"
-Cohesion: 0.08
-Nodes (22): Attribute, IReadOnlyList, ICapabilityLicensing, PluginRuntimeAction, PluginRuntimeActionDecision, PluginRuntimeActionOwnerAttribute, PluginRuntimeActionPolicy, PluginRuntimeMode (+14 more)
+### Community 44 - ".Evaluate"
+Cohesion: 0.17
+Nodes (12): Attribute, IReadOnlyList, PluginRuntimeAction, PluginRuntimeActionDecision, PluginRuntimeActionOwnerAttribute, PluginRuntimeActionPolicy, Fact, InlineData (+4 more)
 
 ### Community 45 - "Dobby.Diagnostics"
-Cohesion: 0.06
-Nodes (20): Dobby.Diagnostics, Dobby.IntegrationTests.Shell, Dobby.UnitTests.Diagnostics, Dobby.IntegrationTests.Diagnostics, LocalizationMissingKeyEvent, IReadOnlyList, string, StartupMilestoneNames (+12 more)
+Cohesion: 0.05
+Nodes (22): Dobby.Diagnostics, Dobby.UnitTests.Diagnostics, Dobby.IntegrationTests.Startup, Dobby.IntegrationTests.Diagnostics, LocalizationMissingKeyEvent, IReadOnlyList, string, StartupMilestoneNames (+14 more)
 
 ### Community 46 - "HostPersistenceTests"
 Cohesion: 0.12
 Nodes (8): HostPersistenceFixture, DirectoryInfo, Fact, InlineData, string, Theory, HostPersistenceFixture, HostPersistenceTests
 
 ### Community 47 - "HostLoginRuntime"
-Cohesion: 0.10
-Nodes (22): LicenseSurfaceConfiguration, LicenseSurfaceSnapshot, PluginsManagerSurfaceConfiguration, SettingsAndAboutSnapshot, ShellDiagnosticsExportCoordinator, CancellationTokenSource, HostCustomerDeploymentContextProvisioningCoordinator, int (+14 more)
+Cohesion: 0.21
+Nodes (11): ShellDiagnosticsExportCoordinator, CancellationToken, CancellationTokenSource, Func, HostCustomerDeploymentContextProvisioningCoordinator, int, Task, ValueTask (+3 more)
 
 ### Community 48 - ".ActivateAsync"
 Cohesion: 0.11
-Nodes (20): CancellationToken, ValueTask, IPluginModuleV2, TimeSpan, PluginLifecycleExecutionOptions, CancellationToken, Dictionary, Func (+12 more)
+Nodes (21): CancellationToken, Func, IDisposable, Task, ValueTask, IPluginModuleV2, NoopEventBus, Subscription (+13 more)
 
-### Community 49 - ".CreateManifest"
-Cohesion: 0.11
-Nodes (24): IReadOnlyList, PluginCapability, PluginExtensionPoint, PluginIcon, PluginManifest, PluginManifestDependency, PluginOperationTarget, PluginPackageFile (+16 more)
+### Community 49 - "PluginManifest"
+Cohesion: 0.19
+Nodes (16): IReadOnlyList, PluginCapability, PluginExtensionPoint, PluginIcon, PluginManifest, PluginManifestDependency, PluginOperationTarget, PluginPackageFile (+8 more)
 
 ### Community 50 - "CredentialStore"
-Cohesion: 0.11
-Nodes (16): CredentialRow, CredentialStoreFixture, PersistedKdfPolicy, DateTimeOffset, TimeProvider, CredentialMutationKind, CredentialRow, CredentialStore (+8 more)
+Cohesion: 0.08
+Nodes (22): CredentialRow, CredentialStoreFixture, PersistedKdfPolicy, DateTimeOffset, TimeProvider, SelfServicePasswordChangeCoordinator, DateTimeOffset, TimeProvider (+14 more)
 
 ### Community 51 - ".CreateRequest"
-Cohesion: 0.09
-Nodes (19): DateTimeOffset, RecoveryContractValidation, byte, TimeProvider, TimeSpan, DeviceRecoveryKeySigner, RecoveryAuthorityContext, RecoveryRequestEnvelope (+11 more)
+Cohesion: 0.11
+Nodes (14): DateTimeOffset, RecoveryCanonicalJsonWriter, RecoveryContractValidation, RecoveryRequestEnvelope, RecoveryRequestPayload, DateTimeOffset, HashSet, int (+6 more)
 
 ### Community 52 - "ADR-0039: Owner Password Recovery via Vendor-Signed Device-Bound Artefakt"
 Cohesion: 0.08
@@ -729,140 +735,140 @@ Cohesion: 0.07
 Nodes (38): Sample Plugin Spec, Dev/QA sample plugin verification anchor, Session Lifecycle Spec, Single-session lifecycle and cleanup boundary, Settings and About Spec, Permission-gated Settings and support-safe About, Shared Data Tools, Host-owned shared import/export mapping (+30 more)
 
 ### Community 54 - "RecoveryImportFixture"
-Cohesion: 0.07
-Nodes (19): RecoveryImportFixture, FakeTimeProvider, RecordingProtector, PasswordChangeFixture, byte, DateTimeOffset, ECDsa, Fact (+11 more)
+Cohesion: 0.14
+Nodes (13): RecoveryImportFixture, DateTimeOffset, ECDsa, Fact, FakeTimeProvider, MemberData, RecordingProtector, string (+5 more)
 
 ### Community 55 - "HostPersistenceMaintenanceService"
-Cohesion: 0.13
-Nodes (11): SnapshotMetadata, SqliteCommand, SqliteOpenMode, CancellationToken, Exception, Func, IEnumerable, IReadOnlyList (+3 more)
+Cohesion: 0.07
+Nodes (23): SnapshotMetadata, SqliteCommand, SqliteOpenMode, CancellationToken, DateTimeOffset, Exception, Func, IEnumerable (+15 more)
 
 ### Community 56 - "PackageGovernanceTests"
 Cohesion: 0.15
 Nodes (9): Dictionary, DirectoryInfo, Fact, FileInfo, HashSet, IEnumerable, PackageGovernanceTests, ToolchainPinRow (+1 more)
 
 ### Community 57 - ".ReadEntries"
-Cohesion: 0.09
-Nodes (20): EntryReadResult, IProgress, PendingEntry, PluginPackageArchive, int, long, PluginPackageLimits, PluginPackageReadProgress (+12 more)
+Cohesion: 0.13
+Nodes (15): EntryReadResult, IProgress, PendingEntry, int, PackageReadProgressAdapter, PluginPackageArchive, int, long (+7 more)
 
-### Community 58 - "HostPluginRuntimeCoordinator"
-Cohesion: 0.11
-Nodes (15): InstalledPackageVerification, BackgroundOperationProgress, bool, CancellationToken, Guid, IEnumerable, IReadOnlyDictionary, IReadOnlyList (+7 more)
+### Community 58 - ".ActivatePostLoginAsync"
+Cohesion: 0.43
+Nodes (4): Guid, Task, PluginActivationCompletion, PluginActivationExecutionOutcome
 
 ### Community 59 - "IHostPersistenceTransactionFaultInjector"
 Cohesion: 0.08
 Nodes (14): int, IReadOnlyList, FaultInjectingExecutor, HostPersistenceCommandKind, IHostPersistenceTransactionFaultInjector, PasswordChangeFailureInjector, UserManagementFailureInjector, CommitFailureInjector (+6 more)
 
 ### Community 60 - ".Resolve"
-Cohesion: 0.09
-Nodes (14): DateTimeOffset, PluginTrustPublicKey, PluginTrustPublicKeyResolutionResult, Assembly, IReadOnlyDictionary, string, PluginTrustPublicKeyProvider, TrustResourceDescriptor (+6 more)
+Cohesion: 0.10
+Nodes (14): TimeProvider, LicenseSignatureVerifier, DobbyPluginTrustProfile, DateTimeOffset, PluginTrustPublicKey, PluginTrustPublicKeyResolutionResult, Assembly, IReadOnlyDictionary (+6 more)
 
 ### Community 61 - "ContractsCoreSurfaceTests"
 Cohesion: 0.16
 Nodes (15): ConstructorInfo, EventInfo, FieldInfo, MethodBase, MethodInfo, ParameterInfo, PropertyInfo, Assembly (+7 more)
 
 ### Community 62 - "PluginPageRenderRegistry"
-Cohesion: 0.19
-Nodes (17): DateTime, IDictionary, Panel, PluginCommandDescriptor, PluginComponent, PluginComponentPageModel, Button, CultureInfo (+9 more)
+Cohesion: 0.17
+Nodes (18): DateTime, IDictionary, Panel, PluginCommandDescriptor, PluginComponent, PluginComponentPageModel, Button, CultureInfo (+10 more)
 
 ### Community 63 - "PluginInstallStagingArea"
 Cohesion: 0.15
 Nodes (9): InstallOperationRow, IReadOnlyCollection, string, StringComparer, StringComparison, InstallOperationRow, InstallState, PluginInstallStagingArea (+1 more)
 
-### Community 64 - ".Snapshot"
-Cohesion: 0.10
-Nodes (15): IReadOnlyList, List, InMemoryAuditTrail, Fact, RouteKey, Fact, HostCustomerDeploymentContextProvisioningCoordinatorTests, Fact (+7 more)
+### Community 64 - ".Azerbaijani_diacritics_round_trip_across_ui_storage_and_audit_supported_paths"
+Cohesion: 0.15
+Nodes (8): List, InMemoryAuditTrail, Fact, RouteKey, Fact, InlineData, Theory, PluginRuntimeAuditCoordinatorTests
 
-### Community 65 - "PersistenceResult"
-Cohesion: 0.10
-Nodes (13): IReadOnlyDictionary, IHostPersistenceMigrator, HashSet, string, PersistenceError, PersistenceErrorCategory, PersistenceResult, PersistenceResult (+5 more)
+### Community 65 - "SqliteProviderInitializer"
+Cohesion: 0.33
+Nodes (5): bool, IntPtr, object, string, SqliteProviderInitializer
 
-### Community 66 - "DobbyPluginTrustProfile"
-Cohesion: 0.07
-Nodes (25): TimeProvider, LicenseSignatureVerifier, DateTimeOffset, string, VendorRecoveryPublicKey, bool, byte, DateTimeOffset (+17 more)
+### Community 66 - "ArtifactSignatureProfile.cs"
+Cohesion: 0.10
+Nodes (19): DateTimeOffset, string, VendorRecoveryPublicKey, bool, byte, DateTimeOffset, int, IReadOnlyDictionary (+11 more)
 
 ### Community 67 - ".InvokeLifecycleClassifiedAsync"
 Cohesion: 0.12
 Nodes (14): CancellationToken, Func, Task, TimeSpan, ValueTask, PluginExceptionBoundary, PluginInvocationOutcome, Exception (+6 more)
 
 ### Community 68 - "ShellSmokeTests"
-Cohesion: 0.09
-Nodes (15): AdminProcessResult, ProcessStartInfo, Action, DirectoryInfo, Fact, IReadOnlyDictionary, IReadOnlyList, RecoveryRequestFiles (+7 more)
+Cohesion: 0.13
+Nodes (13): AdminProcessResult, PluginSmokePersistenceFixture, ProcessStartInfo, Action, DirectoryInfo, Fact, IReadOnlyDictionary, RecoveryRequestFiles (+5 more)
 
 ### Community 69 - "CurrentCustomerDeploymentContextService"
-Cohesion: 0.11
-Nodes (12): Dobby.UnitTests.Security.CurrentContext, IReadOnlyDictionary, string, TimeProvider, HostCustomerDeploymentContextProvisioningCoordinator, CurrentCustomerDeploymentContextResult, IReadOnlyList, string (+4 more)
+Cohesion: 0.15
+Nodes (8): Dobby.UnitTests.Security.CurrentContext, CurrentCustomerDeploymentContextResult, IReadOnlyList, string, CurrentCustomerDeploymentContextService, IReadOnlyList, Fact, CurrentCustomerDeploymentContextTests
 
 ### Community 70 - ".New"
-Cohesion: 0.16
-Nodes (10): Fact, FakeTimeProvider, MemberData, RecordingProtector, Task, Theory, TheoryData, UserManagementFixture (+2 more)
+Cohesion: 0.21
+Nodes (7): Fact, MemberData, Task, Theory, TheoryData, UserManagementServiceTests, UserManagementFixture
 
 ### Community 71 - "LicenseImportCoordinator"
-Cohesion: 0.11
-Nodes (17): CancellationToken, CancellationTokenSource, Func, object, SemaphoreSlim, Task, TimeProvider, ILicenseImportFileCoordinator (+9 more)
+Cohesion: 0.12
+Nodes (13): IPostLoginLicenseImportCancellation, CancellationToken, CancellationTokenSource, Func, object, SemaphoreSlim, Task, TimeProvider (+5 more)
 
-### Community 72 - "ShellSnapshotTests"
-Cohesion: 0.09
-Nodes (17): BitmapSource, Func, ValueTask, ShellRouteHost, DependencyObject, DirectoryInfo, Fact, Func (+9 more)
+### Community 72 - ".RenderShellEvidence"
+Cohesion: 0.06
+Nodes (26): BitmapSource, RenderedShellEvidence, ResourceDictionary, AppearancePreference, AppThemePreference, ISettingsPreferenceSource, LoginStartupSnapshot, LoginStartupSnapshotLoader (+18 more)
 
 ### Community 73 - "ShellUiStaticScanTests"
 Cohesion: 0.16
 Nodes (5): Color, DirectoryInfo, Fact, IReadOnlyDictionary, ShellUiStaticScanTests
 
 ### Community 74 - "HostPluginPackageInstallCoordinator"
-Cohesion: 0.12
-Nodes (14): RuntimeModeFailure, CancellationToken, int, IProgress, Task, HostPluginPackageInstallCoordinator, PackageReadProgressAdapter, PluginPackageInstallProgress (+6 more)
+Cohesion: 0.15
+Nodes (10): RuntimeModeFailure, CancellationToken, IProgress, Task, HostPluginPackageInstallCoordinator, RuntimeModeFailure, IReadOnlyDictionary, IReadOnlyList (+2 more)
 
 ### Community 75 - "$defs"
 Cohesion: 0.06
 Nodes (32): maxLength, pattern, type, $defs, apiVersion, lowercaseSha256Hex, operationTargetId, pluginIdentifier (+24 more)
 
 ### Community 76 - "PluginInstallStatePersistenceTests"
-Cohesion: 0.14
-Nodes (10): PluginPersistenceFixture, Action, Fact, Func, Task, InterceptingCommandExecutor, InterceptingTransactionScope, PluginInstallStatePersistenceTests (+2 more)
+Cohesion: 0.21
+Nodes (6): PluginPersistenceFixture, Fact, Task, PluginInstallStatePersistenceTests, PluginPersistenceFixture, PointerSnapshot
 
 ### Community 77 - ".CreateSnapshotAsync"
-Cohesion: 0.12
-Nodes (17): CancellationToken, Func, Guid, Task, AuthenticatedPersistenceMaintenanceCoordinator, DateTimeOffset, HostPersistenceBackupPolicy, HostPersistenceRestoreFaultPoint (+9 more)
+Cohesion: 0.19
+Nodes (10): CancellationToken, Func, Guid, Task, AuthenticatedPersistenceMaintenanceCoordinator, HostPersistenceRestoreFaultPoint, HostPersistenceRestoreOutcome, IHostPersistenceMaintenanceFaultInjector (+2 more)
 
 ### Community 78 - ".ActivateRoute"
-Cohesion: 0.20
-Nodes (6): Guid, ShellMinimizedWorkSessionItem, DirectoryInfo, Fact, IReadOnlyList, ShellViewModelWorkspaceTabTests
+Cohesion: 0.19
+Nodes (6): DirectoryInfo, Fact, IReadOnlyList, DummyPluginPageModel, ShellViewModelWorkspaceTabTests, ThrowingLabelPluginPageModel
 
 ### Community 79 - "ProductionReleasePackagingStaticScanTests"
 Cohesion: 0.13
 Nodes (8): DirectoryInfo, Fact, HashSet, IEnumerable, IReadOnlyList, Regex, string, ProductionReleasePackagingStaticScanTests
 
 ### Community 80 - "OwnerBootstrapTransactionTests"
-Cohesion: 0.08
-Nodes (17): CountingCommandExecutor, OwnerBootstrapFixture, Action, byte, Fact, int, IReadOnlyList, ManualResetEventSlim (+9 more)
+Cohesion: 0.09
+Nodes (16): CountingCommandExecutor, OwnerBootstrapFixture, Action, byte, Fact, int, IReadOnlyList, ManualResetEventSlim (+8 more)
 
-### Community 81 - "HostPersistenceCommandExecutor"
+### Community 81 - "IDisposable"
+Cohesion: 0.03
+Nodes (44): IDisposable, SettingsPreferenceFixture, SqliteTransaction, SqliteConnection, string, EncryptedSqliteConnectionFactory, AsyncLocal, bool (+36 more)
+
+### Community 82 - "ShellLayoutState"
 Cohesion: 0.10
-Nodes (14): PluginSmokePersistenceFixture, SqliteTransaction, AsyncLocal, bool, Func, IDisposable, IReadOnlyList, AmbientConnectionLease (+6 more)
-
-### Community 82 - "AppThemePreference"
-Cohesion: 0.12
-Nodes (11): ResourceDictionary, SelectionChangedEventArgs, AppThemePreference, ISettingsPreferenceSource, IThemePreferenceSource, AppearanceSettingsModel, SecuritySessionSettingsModel, WpfApplication (+3 more)
+Nodes (15): SettingsAndAboutSnapshot, ShellPreferenceMapper, IEnumerable, IReadOnlyList, ShellAboutField, ShellFeedbackState, ShellFocusTarget, ShellLayoutPreference (+7 more)
 
 ### Community 83 - "SampleHomePage"
-Cohesion: 0.15
-Nodes (13): CancellationToken, Guid, IReadOnlyDictionary, string, ValueTask, SampleHomePage, CancellationToken, TimeSpan (+5 more)
+Cohesion: 0.11
+Nodes (23): CancellationToken, Guid, string, ValueTask, SampleHomePage, CancellationToken, TimeSpan, ValueTask (+15 more)
 
 ### Community 84 - "InMemoryEventBus"
 Cohesion: 0.12
 Nodes (21): DateTimeOffset, PublicIntegrationEvent, Action, CancellationToken, Dictionary, Func, IDisposable, IEnumerable (+13 more)
 
-### Community 85 - ".Evaluate"
-Cohesion: 0.14
+### Community 85 - "OperationAuthorizationPolicy"
+Cohesion: 0.10
 Nodes (15): ICapabilityPolicy, OperationPermissionCapability, PolicyContext, PolicyDecision, SettingsCategory, IReadOnlyList, SettingsNavigationModel, DenyAllOperationAuthorizationPolicy (+7 more)
 
 ### Community 86 - "LoginWindow"
 Cohesion: 0.14
-Nodes (10): HostPreLoginRuntime, string, LoginViewModel, bool, DispatcherTimer, RoutedEventArgs, UIElement, LoginWindow (+2 more)
+Nodes (11): HostPreLoginRuntime, ILoginRuntimeWorkflow, string, LoginViewModel, bool, DispatcherTimer, RoutedEventArgs, UIElement (+3 more)
 
-### Community 87 - "PostLoginSessionRuntime"
-Cohesion: 0.12
-Nodes (8): object, IPostLoginLicenseImportCancellation, IPostLoginPluginActivationCancellation, PostLoginSessionRuntime, Fact, PostLoginSessionRuntimeTests, RecordingLicenseImportCancellation, RecordingPluginActivationCancellation
+### Community 87 - "SessionRecord"
+Cohesion: 0.05
+Nodes (30): SessionFixture, LockRuntimeWorkflow, LockRuntimeWorkflowActionResult, LockViewModelActions, object, ILockWindowPresenter, PostLoginSessionRuntime, WpfLockWindowPresenter (+22 more)
 
 ### Community 88 - ".Redact"
 Cohesion: 0.14
@@ -877,104 +883,104 @@ Cohesion: 0.07
 Nodes (28): $ref, $ref, $ref, $ref, $ref, $ref, maximum, minimum (+20 more)
 
 ### Community 91 - "HostVersion"
-Cohesion: 0.12
-Nodes (13): IComparable, FixedHostVersionProvider, HostVersion, IHostVersionProvider, Assembly, AssemblyHostVersionProvider, int, PluginCompatibilityDecision (+5 more)
+Cohesion: 0.11
+Nodes (14): IComparable, FixedHostVersionProvider, HostVersion, IHostVersionProvider, Assembly, AssemblyHostVersionProvider, int, PluginCompatibilityDecision (+6 more)
 
 ### Community 92 - "ArchitectureDependencyBoundaryTests"
 Cohesion: 0.18
 Nodes (9): ProjectReferenceInfo, Dictionary, DirectoryInfo, Fact, FileInfo, HashSet, IEnumerable, ArchitectureDependencyBoundaryTests (+1 more)
 
 ### Community 93 - ".Append"
-Cohesion: 0.13
-Nodes (12): IReadOnlyList, IAuditTrail, Fact, IEnumerable, InlineData, MemberData, Theory, AuditDetailsSanitizerTests (+4 more)
+Cohesion: 0.08
+Nodes (18): AuditPersistenceFixture, IReadOnlyList, IAuditTrail, int, TimeProvider, AuditRetentionSweeper, Fact, DurableAuditTrailTests (+10 more)
 
-### Community 94 - "HostPluginPackageInstallCoordinatorTests"
-Cohesion: 0.34
-Nodes (5): Fact, MemberData, Theory, ZipArchive, HostPluginPackageInstallCoordinatorTests
+### Community 94 - ".Snapshot"
+Cohesion: 0.31
+Nodes (6): IReadOnlyList, Fact, MemberData, Theory, ZipArchive, HostPluginPackageInstallCoordinatorTests
 
 ### Community 95 - ".ValidateDetailed"
-Cohesion: 0.19
-Nodes (9): HashSet, ICollection, IReadOnlyDictionary, IReadOnlyList, ISet, Regex, PluginManifestValidationOutcome, PluginManifestValidationReason (+1 more)
+Cohesion: 0.12
+Nodes (13): HashSet, ICollection, IReadOnlyDictionary, IReadOnlyList, ISet, Regex, PluginManifestValidationOutcome, PluginManifestValidationReason (+5 more)
 
-### Community 96 - ".CreateManifestJson"
-Cohesion: 0.24
+### Community 96 - ".Read"
+Cohesion: 0.21
 Nodes (5): Fact, InlineData, Theory, PluginPackageReaderTests, TempDirectory
 
 ### Community 97 - "IPluginTrustVerifier"
-Cohesion: 0.16
-Nodes (13): PluginTrustPayload, PluginTrustVerificationResult, IPluginTrustVerifier, AllowAllTrustVerifier, AllowAllTrustVerifier, ECDsa, DevQaSigningKeyTrustVerifier, AllowAllTrustVerifier (+5 more)
+Cohesion: 0.13
+Nodes (16): PluginTrustPayload, PluginTrustVerificationResult, string, TimeProvider, IPluginTrustVerifier, PluginTrustVerifier, AllowAllTrustVerifier, AllowAllTrustVerifier (+8 more)
 
 ### Community 98 - "RuntimeOptions"
-Cohesion: 0.12
-Nodes (12): Dobby.IntegrationTests.Runtime, ILogger, RuntimeEnvironmentName, RuntimeOptions, IReadOnlyList, RuntimeFolderLayout, Func, RuntimeFolderPreparer (+4 more)
+Cohesion: 0.22
+Nodes (6): RuntimeEnvironmentName, RuntimeOptions, IReadOnlyList, RuntimeFolderLayout, Fact, RuntimeFolderLayoutTests
 
 ### Community 99 - "DiagnosticsExportPackageBuilder"
-Cohesion: 0.10
-Nodes (14): DiagnosticsExportFixture, IReadOnlyList, DiagnosticsExportPackage, int, IReadOnlySet, long, string, StringComparer (+6 more)
+Cohesion: 0.13
+Nodes (12): IReadOnlyList, DiagnosticsExportPackage, int, IReadOnlySet, long, string, StringComparer, StringComparison (+4 more)
 
 ### Community 100 - "properties"
 Cohesion: 0.07
 Nodes (27): const, default, type, $ref, properties, $ref, pattern, type (+19 more)
 
 ### Community 101 - "IHostPersistenceCommandExecutor"
-Cohesion: 0.18
-Nodes (10): int, TimeProvider, AuditRetentionSweeper, Exception, IReadOnlyDictionary, HostPersistenceMigrator, IReadOnlyList, IHostPersistenceCommandExecutor (+2 more)
+Cohesion: 0.17
+Nodes (8): Exception, IReadOnlyDictionary, HostPersistenceMigrator, IReadOnlyList, IHostPersistenceCommandExecutor, HostRuntimePersistenceFixture, Action, RecordingTransactionScope
 
 ### Community 102 - "BackgroundOperationSnapshot"
-Cohesion: 0.12
-Nodes (22): Guid, BackgroundOperationOwnerKind, BackgroundOperationSnapshot, BackgroundOperationStatus, IProgress, NoopBackgroundOperationReporter, NoopProgress, IProgress (+14 more)
+Cohesion: 0.06
+Nodes (49): Guid, IProgress, BackgroundOperationOwnerKind, BackgroundOperationProgress, BackgroundOperationSnapshot, BackgroundOperationStatus, IBackgroundOperationReporter, CancellationTokenSource (+41 more)
 
 ### Community 103 - ".Parse"
 Cohesion: 0.11
-Nodes (13): JsonElement, LicenseArtifact, int, JsonElement, LicenseArtifactParser, LicenseArtifactParseResult, LicenseSignatureBlock, Fact (+5 more)
+Nodes (14): JsonElement, LicenseArtifact, int, JsonElement, LicenseArtifactParser, LicenseArtifactParseResult, LicenseSignatureBlock, Fact (+6 more)
 
 ### Community 104 - ".CreateKeyPair"
-Cohesion: 0.19
-Nodes (9): Action, Dictionary, ECDsa, LicenseArtifactFixtureBuilder, SignedLicenseArtifact, InlineData, Fact, InMemoryLicenseStateStore (+1 more)
+Cohesion: 0.22
+Nodes (8): Action, Dictionary, ECDsa, LicenseArtifactFixtureBuilder, SignedLicenseArtifact, Fact, InMemoryLicenseStateStore, LicenseImportServiceTests
 
 ### Community 105 - ".Canonical_runtime_storage_auth_and_audit_authority_is_preserved"
-Cohesion: 0.09
-Nodes (14): AuthorityPersistenceFixture, KdfPolicyResolver, OwnerBootstrapService, TemporaryDirectory, byte, Fact, AuthorityPersistenceFixture, RecordingProtector (+6 more)
+Cohesion: 0.13
+Nodes (8): AuthorityPersistenceFixture, LoginAuthorityFixture, TemporaryDirectory, byte, Fact, RecordingProtector, RemainingProductWorkAuthorityTests, TemporaryDirectory
 
 ### Community 106 - "HostPluginStorageTests"
-Cohesion: 0.15
-Nodes (12): DbException, HostPluginStorageFixture, ReadOnlyMemory, PluginStorageValue, Fact, Func, Task, HostPluginStorageFixture (+4 more)
+Cohesion: 0.22
+Nodes (9): DbException, HostPluginStorageFixture, ReadOnlyMemory, PluginStorageValue, Fact, Task, HostPluginStorageFixture, HostPluginStorageTests (+1 more)
 
 ### Community 107 - "PluginPackageEntry"
-Cohesion: 0.18
-Nodes (12): byte, Func, Stream, PluginPackageEntry, PluginPackageValidationReason, byte, HashSet, ICollection (+4 more)
+Cohesion: 0.15
+Nodes (14): byte, Func, IReadOnlyList, Stream, PluginPackageEntry, PluginPackageValidationOutcome, PluginPackageValidationReason, byte (+6 more)
 
-### Community 108 - "SettingsAndAboutViewModelTests"
-Cohesion: 0.13
-Nodes (7): Func, AccountSettingsModel, AccountSettingsSection, DirectoryInfo, Fact, IReadOnlyList, SettingsAndAboutViewModelTests
+### Community 108 - "Dobby.Host"
+Cohesion: 0.04
+Nodes (24): Dobby.Host, Dobby.Host.Login, Dobby.Host.Settings, Dobby.UnitTests.Host, Dobby.IntegrationTests.Runtime, JsonSerializerContext, HostStartupJsonSerializerContext, StartupThemeSnapshot (+16 more)
 
-### Community 109 - ".Execute"
-Cohesion: 0.09
-Nodes (11): int, Regex, TimeProvider, ExistingOutboxRow, HostTransactionOutbox, DateTimeOffset, SessionStore, int (+3 more)
+### Community 109 - "FailingNthExecuteCommandExecutor"
+Cohesion: 0.11
+Nodes (8): Action, Func, int, IReadOnlyList, FailingExecuteCommandExecutor, FailingNthExecuteCommandExecutor, InterceptingCommandExecutor, InterceptingTransactionScope
 
 ### Community 110 - ".EvaluateLifecycle"
-Cohesion: 0.14
-Nodes (12): DateTimeOffset, LicenseGrantIntent, LicensePayload, LicenseRevisionPolicy, DateTimeOffset, LicenseRuntimeModeService, TrustedTimeHealth, DateTimeOffset (+4 more)
+Cohesion: 0.23
+Nodes (9): DateTimeOffset, LicenseGrantIntent, LicensePayload, DateTimeOffset, LicenseRuntimeModeService, TrustedTimeHealth, DateTimeOffset, Fact (+1 more)
 
 ### Community 111 - "PluginPackageReader"
 Cohesion: 0.23
 Nodes (8): Func, IReadOnlyList, JsonElement, Stream, string, EntryReadResult, PendingEntry, PluginPackageReader
 
-### Community 112 - "OperationVerb"
-Cohesion: 0.10
-Nodes (15): IReadOnlyList, string, BuiltInOperationTargets, IReadOnlyList, OperationTarget, OperationTargetOrigin, OperationVerb, Dictionary (+7 more)
+### Community 112 - "InstalledPluginState"
+Cohesion: 0.04
+Nodes (41): ModulePayload, PluginDependencySpec, IReadOnlyList, IHostPluginActivationStatusPersistence, IReadOnlyList, InstalledPluginMetadataCache, InstalledPluginState, PluginInstallStaging (+33 more)
 
 ### Community 113 - "ShellDiagnosticsExportActionTests"
-Cohesion: 0.30
-Nodes (6): Action, Dispatcher, Fact, Func, Window, ShellDiagnosticsExportActionTests
+Cohesion: 0.21
+Nodes (8): DiagnosticsExportFixture, Action, Dispatcher, Fact, Func, Window, DiagnosticsExportFixture, ShellDiagnosticsExportActionTests
 
-### Community 114 - "LockWindow"
-Cohesion: 0.12
-Nodes (19): CurrentUserLabel, FeedbackText, LogoutEnabled, UnlockEnabled, ErrorText, LockedUserText, LockTitleText, LogoutButton (+11 more)
+### Community 114 - "LockViewModel"
+Cohesion: 0.09
+Nodes (16): INotifyPropertyChanged, bool, Func, int, string, ILockViewModelActions, LockViewModel, LockViewModelActionResult (+8 more)
 
 ### Community 115 - "PluginComponentContracts.cs"
-Cohesion: 0.18
-Nodes (24): DateOnly, IReadOnlyDictionary, IReadOnlyList, PluginChoiceInputComponent, PluginChoiceOption, PluginDateInputComponent, PluginFieldGroupComponent, PluginHeadingComponent (+16 more)
+Cohesion: 0.16
+Nodes (25): DateOnly, IReadOnlyDictionary, IReadOnlyDictionary, IReadOnlyList, PluginChoiceInputComponent, PluginChoiceOption, PluginDateInputComponent, PluginFieldGroupComponent (+17 more)
 
 ### Community 116 - "properties"
 Cohesion: 0.08
@@ -985,24 +991,24 @@ Cohesion: 0.08
 Nodes (25): const, type, $ref, $ref, $ref, $ref, $ref, $ref (+17 more)
 
 ### Community 118 - ".RunLoginLoopAsync"
-Cohesion: 0.13
-Nodes (12): ExitEventArgs, IAsyncDisposable, Application, IDisposable, StartupEventArgs, Task, App, Task (+4 more)
+Cohesion: 0.12
+Nodes (15): ExitEventArgs, IAsyncDisposable, Application, IDisposable, StartupEventArgs, Task, App, Func (+7 more)
 
 ### Community 119 - "IHostOutboxMessageHandler"
-Cohesion: 0.11
-Nodes (17): IdempotentEffectLedger, CancellationToken, Task, PluginInstallCommittedOutboxHandler, CancellationToken, IReadOnlyDictionary, Task, HostOutboxDelivery (+9 more)
+Cohesion: 0.08
+Nodes (24): IdempotentEffectLedger, CancellationToken, Task, PluginInstallCommittedOutboxHandler, CancellationToken, Func, object, Task (+16 more)
 
-### Community 120 - "SessionLifecycleService"
+### Community 120 - "WorkSessionShellIntegrationTests"
 Cohesion: 0.14
-Nodes (11): SessionOptions, object, ActiveSessionAccessor, DateTimeOffset, ISessionStore, DateTimeOffset, object, TimeProvider (+3 more)
+Nodes (13): Window, IPluginUninstallConfirmation, PluginUninstallConfirmationRequest, PluginUninstallConfirmationResult, WpfPluginUninstallConfirmation, Action, Button, DependencyObject (+5 more)
 
 ### Community 121 - ".CreateResourceBacked"
-Cohesion: 0.23
+Cohesion: 0.19
 Nodes (6): Fact, ShellBackgroundOperationCoordinatorTests, Fact, ShellViewModelLicenseSurfaceTests, Fact, ShellViewModelPluginsManagerTests
 
-### Community 122 - "items"
-Cohesion: 0.09
-Nodes (24): default, items, type, default, items, type, items, minItems (+16 more)
+### Community 122 - "verbs"
+Cohesion: 0.50
+Nodes (4): verbs, minItems, type, uniqueItems
 
 ### Community 123 - "OwnerBootstrapCoordinatorTests"
 Cohesion: 0.10
@@ -1016,9 +1022,9 @@ Nodes (23): maxItems, type, $ref, $ref, $ref, $ref, $ref, properties (+15 more)
 Cohesion: 0.09
 Nodes (23): $ref, $ref, properties, $ref, $ref, $ref, $ref, $ref (+15 more)
 
-### Community 126 - "LockViewModel"
-Cohesion: 0.13
-Nodes (10): INotifyPropertyChanged, bool, Func, int, string, LockViewModel, LockViewModelFeedbackKind, DirectoryInfo (+2 more)
+### Community 126 - "PluginPageRouteCoordinator"
+Cohesion: 0.16
+Nodes (13): ActivePluginPage, PluginPageRouteLookup, PluginPageRouteRegistration, Action, CancellationToken, Func, PluginExtensionPointRegistration, ValueTask (+5 more)
 
 ### Community 127 - "RecoveryPasswordResetDialog"
 Cohesion: 0.13
@@ -1028,21 +1034,21 @@ Nodes (17): CancelButton, ConfirmButton, ConfirmPasswordBox, ConfirmPasswordLabe
 Cohesion: 0.17
 Nodes (14): HashSet, IEnumerable, IReadOnlyDictionary, IReadOnlyList, PluginDependencyCandidate, PluginDependencyGraph, PluginDependencyResolution, ICollection (+6 more)
 
-### Community 129 - "LoginThrottleService"
-Cohesion: 0.22
-Nodes (8): IReadOnlyList, string, TimeProvider, LoginThrottlePolicy, LoginThrottleService, LoginThrottleState, Fact, LoginThrottleServiceTests
+### Community 129 - "ILoginThrottleBucketSession"
+Cohesion: 0.13
+Nodes (13): Lock, Dictionary, Func, IReadOnlyList, HostLoginThrottleStore, ILoginThrottleBucketSession, ILoginThrottleStore, InMemoryLoginThrottleStore (+5 more)
 
 ### Community 130 - "PluginPageRenderRegistryTests"
-Cohesion: 0.18
-Nodes (8): Type, Action, DependencyObject, Fact, IEnumerable, InlineData, Theory, PluginPageRenderRegistryTests
+Cohesion: 0.19
+Nodes (9): Action, DependencyObject, Fact, IEnumerable, InlineData, Theory, AnalyticsModel, PluginPageRenderRegistryTests (+1 more)
 
 ### Community 131 - "$defs"
 Cohesion: 0.09
 Nodes (22): $defs, localIdentifier, operationTargetId, packageRelativePath, resourceKey, routeKey, minLength, pattern (+14 more)
 
 ### Community 132 - "properties"
-Cohesion: 0.09
-Nodes (22): minLength, type, minLength, type, $ref, pattern, type, minLength (+14 more)
+Cohesion: 0.07
+Nodes (28): default, type, minLength, type, minLength, type, $ref, default (+20 more)
 
 ### Community 133 - "required"
 Cohesion: 0.09
@@ -1053,12 +1059,12 @@ Cohesion: 0.09
 Nodes (22): $ref, $ref, $ref, $ref, $ref, $ref, properties, customerId (+14 more)
 
 ### Community 135 - "LicenseImportAtomicityTests"
-Cohesion: 0.18
-Nodes (11): Fixture, LicenseImportCommitMetadata, Fact, FakeTimeProvider, MemberData, Task, Theory, TheoryData (+3 more)
+Cohesion: 0.21
+Nodes (9): Fixture, Fact, FakeTimeProvider, MemberData, Task, Theory, TheoryData, Fixture (+1 more)
 
 ### Community 136 - "HostLoginRuntimeFactoryTests"
-Cohesion: 0.21
-Nodes (8): HostRuntimePersistenceFixture, byte, Fact, Task, AuditRow, HostLoginRuntimeFactoryTests, HostRuntimePersistenceFixture, RecordingProtector
+Cohesion: 0.28
+Nodes (7): HostRuntimePersistenceFixture, byte, Fact, Task, AuditRow, HostLoginRuntimeFactoryTests, RecordingProtector
 
 ### Community 137 - "RecoveryResponseImportCoordinator"
 Cohesion: 0.17
@@ -1068,53 +1074,53 @@ Nodes (8): AuditResult, AuditResultExtensions, DateTimeOffset, TimeProvider, Rec
 Cohesion: 0.25
 Nodes (8): PluginLocalizationCatalog, GeneratedRegex, HashSet, int, ISet, Regex, PluginComponentModelValidator, PluginPageCommandContext
 
-### Community 139 - "UserManagementAuditCoordinator"
-Cohesion: 0.19
-Nodes (6): Func, TimeProvider, UserManagementAuditCoordinator, ManagedUserAuditAction, Fact, UserManagementAuditCoordinatorTests
+### Community 139 - "UserControl"
+Cohesion: 0.18
+Nodes (14): CopyPathButton, ExportPathText, ExportRequestButton, ImportPathText, ImportResponseButton, OpenFolderButton, RecoveryTitleText, UserControl (+6 more)
 
 ### Community 140 - "Window"
 Cohesion: 0.14
 Nodes (20): DisplayNameBox, DisplayNameLabel, ErrorText, LoginButton, PasswordBox, PasswordLabel, RecoveryButton, RememberMeCheckBox (+12 more)
 
-### Community 141 - "LicenseLifecycleState"
-Cohesion: 0.12
-Nodes (13): LicenseLifecycleState, LicenseArtifactStatus, LicenseRuntimeModeMapper, Func, TimeProvider, LicenseRuntimeModeProvider, DateTimeOffset, Fact (+5 more)
+### Community 141 - "LicenseRuntimeModeProvider"
+Cohesion: 0.27
+Nodes (7): Func, TimeProvider, LicenseRuntimeModeProvider, DateTimeOffset, Fact, TimeProvider, LicenseRuntimeModeIntegrationTests
 
 ### Community 142 - "Dobby.IntegrationTests.Architecture"
 Cohesion: 0.11
-Nodes (6): Dobby.IntegrationTests.Architecture, Fact, PortablePublishScriptTests, DirectoryInfo, Fact, Sprint7ReleaseEvidenceTests
+Nodes (6): Dobby.IntegrationTests.Architecture, Fact, PortablePublishScriptTests, DirectoryInfo, Fact, Sprint6ReleaseEvidenceTests
 
 ### Community 143 - ".Convert"
 Cohesion: 0.19
 Nodes (9): double, IMultiValueConverter, CultureInfo, IReadOnlyList, Type, WorkspaceTabStripMaxWidthConverter, WorkspaceTabWidthConverter, Fact (+1 more)
 
 ### Community 144 - ".ImportAsync"
-Cohesion: 0.21
-Nodes (8): RecordingLicenseImportCoordinator, CancellationToken, Task, LicenseImportShellOutcome, DirectoryInfo, Fact, Task, LicenseImportShellSurfaceTests
+Cohesion: 0.14
+Nodes (14): RecordingLicenseImportCoordinator, ILicenseImportFileCoordinator, CancellationToken, Task, LicenseImportShellOutcome, CancellationToken, DirectoryInfo, Fact (+6 more)
 
-### Community 145 - "LockViewModelActionResult"
-Cohesion: 0.17
-Nodes (7): LockRuntimeWorkflow, LockRuntimeWorkflowActionResult, ILockViewModelActions, LockViewModelActionResult, LockViewModelActions, NoOpLockViewModelActions, StubLockActions
+### Community 145 - "ShellViewModelNavigationTests"
+Cohesion: 0.11
+Nodes (16): Guid, IReadOnlyList, PendingWorkSessionAction, PendingWorkSessionCloseRequest, WorkSessionCloseChoice, WorkSessionCloseCoordinator, WorkSessionCloseReason, WorkSessionCloseRequest (+8 more)
 
-### Community 146 - "EncryptedSqliteConnectionFactory"
-Cohesion: 0.18
-Nodes (8): SqliteConnection, string, EncryptedSqliteConnectionFactory, HostPersistenceOptions, IProtectedMaterialSource, ProtectedMaterialSet, StaticProtectedMaterialSource, StaticProtectedMaterialSource
+### Community 146 - "UserManagementAuditCoordinator"
+Cohesion: 0.19
+Nodes (6): Func, TimeProvider, UserManagementAuditCoordinator, ManagedUserAuditAction, Fact, UserManagementAuditCoordinatorTests
 
-### Community 147 - ".Validate"
-Cohesion: 0.27
-Nodes (7): IReadOnlyList, PluginPackageValidationOutcome, Fact, InlineData, IReadOnlyList, Theory, PluginPackageValidatorTests
+### Community 147 - ".CreateManifestJson"
+Cohesion: 0.22
+Nodes (11): Fact, PluginPackageFingerprintTests, byte, IReadOnlyList, string, PluginPackageTestData, Fact, InlineData (+3 more)
 
 ### Community 148 - "PostLoginPluginActivatorTests"
-Cohesion: 0.22
-Nodes (5): Fact, Task, PostLoginPluginActivatorTests, RecordingEventBus, Subscription
+Cohesion: 0.09
+Nodes (12): Action, CancellationTokenSource, Fact, Func, Task, CancelsAfterActivationModule, EventBusCapturingModule, FaultingModule (+4 more)
 
 ### Community 149 - "ItemsControl"
 Cohesion: 0.10
 Nodes (20): AboutFields, MinimizedWorkSessions, MinimizedWorkStripLabel, SettingsCategories, SidebarNavigation, ThirdBarNavigation, TopNavigation, UserManagementActionItems (+12 more)
 
 ### Community 150 - "ShellBackgroundOperationCoordinator"
-Cohesion: 0.11
-Nodes (12): Dobby.Shell.UiDispatch, int, ShellBackgroundOperationCoordinator, Action, Func, Task, IUiDispatcher, Action (+4 more)
+Cohesion: 0.08
+Nodes (17): Dobby.Shell.UiDispatch, int, ShellBackgroundOperationCoordinator, Action, Func, Task, IUiDispatcher, Action (+9 more)
 
 ### Community 151 - "required"
 Cohesion: 0.10
@@ -1128,13 +1134,13 @@ Nodes (8): EvaluationResults, DirectoryInfo, Fact, IReadOnlyDictionary, MemberDa
 Cohesion: 0.15
 Nodes (13): Lease, PluginGateState, CancellationToken, ConcurrentDictionary, int, SemaphoreSlim, Lease, PluginGateState (+5 more)
 
-### Community 154 - "ILoginThrottleBucketSession"
-Cohesion: 0.15
-Nodes (11): Lock, Dictionary, Func, HostLoginThrottleStore, ILoginThrottleBucketSession, ILoginThrottleStore, InMemoryLoginThrottleStore, Func (+3 more)
+### Community 154 - "SessionLifecycleAuditCoordinator"
+Cohesion: 0.18
+Nodes (8): IReadOnlyDictionary, TimeProvider, SessionLifecycleAuditCoordinator, SessionMutationAuditKind, Fact, InlineData, Theory, SessionLifecycleAuditCoordinatorTests
 
 ### Community 155 - ".Clear"
-Cohesion: 0.13
-Nodes (8): LoginStartupSnapshot, LoginStartupSnapshotLoader, string, StartupRememberMeLegacyCleaner, DirectoryInfo, Fact, StartupRememberMeLegacyCleanerTests, TempDirectory
+Cohesion: 0.19
+Nodes (6): string, StartupRememberMeLegacyCleaner, DirectoryInfo, Fact, StartupRememberMeLegacyCleanerTests, TempDirectory
 
 ### Community 156 - "ProtectedMaterialAvailabilityProbeTests"
 Cohesion: 0.17
@@ -1144,9 +1150,9 @@ Nodes (6): ProtectedMaterialPaths, byte, Fact, ProtectedMaterialAvailabilityProb
 Cohesion: 0.16
 Nodes (8): IConfigurationRoot, IReadOnlyDictionary, HostConfigurationSourceOptions, Dictionary, Fact, ConfigurationSourceOrderTests, Fact, DobbyOptionsBindingTests
 
-### Community 158 - "ResourceHostStringLocalizer"
-Cohesion: 0.18
-Nodes (11): IStringLocalizer, LocalizedString, CultureInfo, IEnumerable, IHostStringLocalizerAdapter, LocalizedHostString, MicrosoftHostStringLocalizerAdapter, ResourceHostStringLocalizer (+3 more)
+### Community 158 - "HostStringCatalog"
+Cohesion: 0.16
+Nodes (14): IStringLocalizer, LocalizedString, Action, CultureInfo, IEnumerable, IReadOnlyDictionary, HostStringCatalog, IHostStringLocalizerAdapter (+6 more)
 
 ### Community 159 - "Dobby.Core.csproj"
 Cohesion: 0.15
@@ -1184,24 +1190,24 @@ Nodes (7): IConfigurationSection, Logger, Dictionary, IConfiguration, LocalDiagn
 Cohesion: 0.16
 Nodes (12): OutboxRow, CancellationToken, IEnumerable, int, IReadOnlyDictionary, IReadOnlyList, Task, TimeProvider (+4 more)
 
-### Community 169 - "IBackgroundOperationCancellation"
-Cohesion: 0.20
-Nodes (9): CancellationToken, IBackgroundOperationCancellation, RecordingBackgroundCancellation, CancellationToken, ValueTask, DisposablePage, HostAwarePage, RecordingBackgroundOperationCancellation (+1 more)
+### Community 169 - "LoginThrottleService"
+Cohesion: 0.25
+Nodes (6): string, TimeProvider, LoginThrottleService, LoginThrottleState, Fact, LoginThrottleServiceTests
 
-### Community 170 - "HostPluginStorageCompartment"
-Cohesion: 0.27
-Nodes (8): CancellationToken, Exception, Func, IReadOnlyList, string, ValueTask, HostPluginStorageCompartment, PluginStorageValueRow
+### Community 170 - "HostRuntimeModeMutationGate"
+Cohesion: 0.16
+Nodes (10): CancellationToken, Exception, Func, IReadOnlyList, string, ValueTask, HostPluginStorageCompartment, PluginStorageValueRow (+2 more)
 
 ### Community 171 - "ProcessExitEscalator"
 Cohesion: 0.17
 Nodes (8): Action, int, TimeSpan, ProcessExitEscalation, ProcessExitEscalator, DirectoryInfo, Fact, ProcessExitEscalatorTests
 
 ### Community 172 - "ProtectedMaterialAvailabilityProbe"
-Cohesion: 0.20
-Nodes (4): PreLoginPersistenceOpener, byte, JsonElement, ProtectedMaterialAvailabilityProbe
+Cohesion: 0.10
+Nodes (11): LicensePersistenceFixture, IProtectedMaterialSource, byte, JsonElement, ProtectedMaterialAvailabilityProbe, ProtectedMaterialSet, Fact, LicensePersistenceFixture (+3 more)
 
 ### Community 173 - ".Validate"
-Cohesion: 0.20
+Cohesion: 0.19
 Nodes (7): LicensePayloadValidationResult, DateTimeOffset, HashSet, JsonElement, Regex, string, LicensePayloadValidator
 
 ### Community 174 - ".CreateArtifact"
@@ -1241,28 +1247,28 @@ Cohesion: 0.12
 Nodes (14): net10.0, Microsoft.NET.Sdk, net10.0, Microsoft.NET.Sdk, net10.0-windows, coverlet.collector, Microsoft.Extensions.TimeProvider.Testing, Microsoft.NET.Test.Sdk (+6 more)
 
 ### Community 183 - "PluginStorageKey"
-Cohesion: 0.26
-Nodes (9): CancellationToken, IReadOnlyList, ValueTask, IPluginStorageCompartment, PluginStorageKey, CancellationToken, JsonSerializerOptions, ValueTask (+1 more)
+Cohesion: 0.19
+Nodes (13): CancellationToken, IReadOnlyList, ValueTask, IPluginStorage, IPluginStorageCompartment, PluginStorageKey, Func, string (+5 more)
 
-### Community 184 - "LoginRuntimeWorkflow"
-Cohesion: 0.24
-Nodes (8): Func, Task, DeferredLoginRuntimeWorkflow, object, ILoginRuntimeWorkflow, LoginRuntimeWorkflow, LoginRuntimeWorkflowResult, LoginSubmission
+### Community 184 - "PluginContractDefaultsTests"
+Cohesion: 0.18
+Nodes (4): Fact, InlineData, Theory, PluginContractDefaultsTests
 
-### Community 185 - "ILicenseRuntimeModeProvider"
-Cohesion: 0.13
-Nodes (10): AllowAllLicenseRuntimeModeProvider, CancellationToken, Func, ValueTask, HostPrintOutputService, ILicenseRuntimeModeProvider, HashSet, SelectiveLicenseRuntimeModeProvider (+2 more)
+### Community 185 - "HostPluginRuntimeCoordinator"
+Cohesion: 0.07
+Nodes (22): ICapabilityLicensing, PluginRuntimeMode, bool, CancellationToken, IEnumerable, IReadOnlyDictionary, IReadOnlyList, object (+14 more)
 
-### Community 186 - "HostConfigurationSettingsPreferenceSource"
-Cohesion: 0.29
-Nodes (5): IReadOnlyDictionary, IReadOnlyList, string, HostConfigurationRow, HostConfigurationSettingsPreferenceSource
+### Community 186 - "Window"
+Cohesion: 0.14
+Nodes (17): CurrentUserLabel, FeedbackText, LogoutEnabled, UnlockEnabled, ErrorText, LockedUserText, LockTitleText, LogoutButton (+9 more)
 
 ### Community 187 - "LicenseImportIntegrationTests"
 Cohesion: 0.26
 Nodes (7): Action, Dictionary, ECDsa, Fact, InlineData, Theory, LicenseImportIntegrationTests
 
 ### Community 188 - "TextBlock"
-Cohesion: 0.14
-Nodes (16): AccountStatusMessageText, PluginsManagerEmptyText, PluginsManagerEmptyVisibility, PluginsManagerSelectedDetailText, StatusText, UserManagementDeniedVisibility, UserManagementPermissionDeniedText, AccountStatusText (+8 more)
+Cohesion: 0.08
+Nodes (27): AccountStatusMessageText, FeedbackStatePresentation, NotificationPresentation, PluginsManagerEmptyText, PluginsManagerEmptyVisibility, PluginsManagerHeading, PluginsManagerItems, PluginsManagerListVisibility (+19 more)
 
 ### Community 189 - "WindowsHardwareIdentityProvider"
 Cohesion: 0.17
@@ -1273,24 +1279,24 @@ Cohesion: 0.12
 Nodes (16): $ref, $ref, $ref, $ref, $ref, $ref, properties, authorizationId (+8 more)
 
 ### Community 191 - "HostMutationAtomicityTests"
-Cohesion: 0.25
-Nodes (8): MutationFixture, Fact, MemberData, Task, Theory, TheoryData, TimeProvider, HostMutationAtomicityTests
+Cohesion: 0.24
+Nodes (8): MutationFixture, Fact, MemberData, Theory, TheoryData, TimeProvider, HostMutationAtomicityTests, SyntheticMutationFailure
 
 ### Community 192 - "SamplePluginPackageFixture"
 Cohesion: 0.26
 Nodes (4): PackageFile, ZipArchive, PackageFile, SamplePluginPackageFixture
 
-### Community 193 - "IBackgroundOperationReporter"
-Cohesion: 0.14
-Nodes (14): IProgress, IBackgroundOperationReporter, CancellationToken, Guid, Task, AuditRetentionMaintenance, IProgress, NoopBackgroundOperationReporter (+6 more)
+### Community 193 - "LoginFirstFixture"
+Cohesion: 0.13
+Nodes (11): LoginFirstFixture, byte, Fact, FakeTimeProvider, IReadOnlyList, List, RecordingProtector, LoginFirstFixture (+3 more)
 
 ### Community 194 - ".Create"
-Cohesion: 0.23
-Nodes (8): Fact, InlineData, Theory, PluginStorageContractTests, Fact, Task, PluginStorageJsonExtensionsTests, SamplePayload
+Cohesion: 0.15
+Nodes (10): PluginStoragePersistenceFixture, Fact, InlineData, Task, Theory, ReadOnlyExpiredEnforcementIntegrationTests, Fact, Task (+2 more)
 
-### Community 195 - "SessionRecord"
-Cohesion: 0.17
-Nodes (7): ILockWindowPresenter, WpfLockWindowPresenter, DateTimeOffset, SessionRecord, RecordingLockWindowPresenter, Fact, ActiveSessionAccessorTests
+### Community 195 - "LicenseLifecycleState"
+Cohesion: 0.13
+Nodes (9): LicenseLifecycleState, LicenseRevisionPolicy, LicenseArtifactStatus, LicenseRuntimeModeMapper, InlineData, Theory, InlineData, Theory (+1 more)
 
 ### Community 196 - "PostLoginTimingTrace"
 Cohesion: 0.16
@@ -1309,12 +1315,12 @@ Cohesion: 0.17
 Nodes (8): Dictionary, IReadOnlyList, string, NavigationRoute, RouteRegistry, Fact, Task, NavigationTests
 
 ### Community 200 - "ShellPluginManagerState"
-Cohesion: 0.23
+Cohesion: 0.19
 Nodes (5): ICollection, IReadOnlyList, ShellPluginManagerDetailRow, ShellPluginManagerItem, ShellPluginManagerState
 
-### Community 201 - ".Create"
-Cohesion: 0.29
-Nodes (4): AuditPersistenceFixture, Fact, AuditPersistenceFixture, DurableAuditTrailTests
+### Community 201 - "LoginService"
+Cohesion: 0.16
+Nodes (10): IOwnerBootstrapCoordinator, IUserCredentialVerifier, UserRow, LoginService, UserRow, int, CountingCredentialVerifier, UnauthorizedCredentialVerifier (+2 more)
 
 ### Community 202 - "required"
 Cohesion: 0.14
@@ -1333,32 +1339,32 @@ Cohesion: 0.13
 Nodes (15): customerId, deploymentId, expiresAt, gracePeriodDays, issuedAt, licenseId, licenseRevision, notBefore (+7 more)
 
 ### Community 206 - "required"
-Cohesion: 0.13
-Nodes (15): default, items, type, required, id, labelKey, minVersion, name (+7 more)
+Cohesion: 0.09
+Nodes (29): default, items, type, items, items, items, minItems, type (+21 more)
 
 ### Community 207 - "GuardGrantReader"
-Cohesion: 0.24
+Cohesion: 0.29
 Nodes (6): GuardGrantReader, Dictionary, Fact, HashSet, GuardGrantReader, UserManagementAuthorizationGuardTests
 
 ### Community 208 - "LicenseImportCoordinatorTests"
 Cohesion: 0.29
 Nodes (6): InMemoryInstalledPluginStateStore, Fact, Func, InMemoryLicenseStateStore, Task, LicenseImportCoordinatorTests
 
-### Community 209 - ".Installed_sample_plugin_activates_navigation_page_model_loader_isolation_and_background_progress"
-Cohesion: 0.18
-Nodes (8): PrivateDependencyPluginFixture, Fact, IReadOnlyDictionary, string, Task, AllowAllTrustVerifier, PluginIntegrationSuiteTests, PrivateDependencyPluginFixture
+### Community 209 - ".TryNormalize"
+Cohesion: 0.22
+Nodes (7): HashSet, IEnumerable, PluginPackagePathPolicy, Fact, InlineData, Theory, PluginPackagePathPolicyTests
 
 ### Community 210 - ".Export"
-Cohesion: 0.20
-Nodes (7): RecoveryRequestFixture, TimeProvider, RecoveryRequestExportCoordinator, RecoveryRequestExportResult, Fact, RecoveryRequestExportTests, RecoveryRequestFixture
+Cohesion: 0.11
+Nodes (15): RecoveryRequestFixture, Action, Func, IHostMutationUnitOfWork, TimeProvider, RecoveryRequestExportCoordinator, RecoveryRequestExportResult, byte (+7 more)
 
-### Community 211 - "SettingsPreferenceFixture"
-Cohesion: 0.13
-Nodes (7): SettingsPreferenceFixture, AzerbaijaniDiacriticsRoundTripTests, SettingsPreferenceFixture, Fact, SettingsPreferenceFixture, ShellPreferenceUserIsolationTests, SettingsPreferenceFixture
+### Community 211 - "StartupThemeSnapshotStoreTests"
+Cohesion: 0.40
+Nodes (3): Fact, StartupThemeSnapshotStoreTests, TempFile
 
-### Community 212 - "IPluginCommandDispatcher"
-Cohesion: 0.16
-Nodes (12): IPluginCommandDispatcher, CancellationToken, TimeSpan, ValueTask, RejectingPluginCommandDispatcher, CancellationToken, List, TaskCompletionSource (+4 more)
+### Community 212 - ".DispatchAsync"
+Cohesion: 0.22
+Nodes (9): CancellationToken, Guid, TimeSpan, ValueTask, HostPluginCommandDispatcher, CancellationToken, ValueTask, IPluginRuntimeLifecycleControl (+1 more)
 
 ### Community 213 - "LoginStartupTimingTrace"
 Cohesion: 0.17
@@ -1372,9 +1378,13 @@ Nodes (4): DirectoryInfo, Fact, HashSet, ShellLocalizationCoverageTests
 Cohesion: 0.22
 Nodes (6): string, LicenseDeviceFingerprintV1, Fact, InlineData, Theory, LicenseDeviceFingerprintV1Tests
 
-### Community 217 - "CredentialVerificationGate"
+### Community 216 - "CredentialVerificationGate"
 Cohesion: 0.17
 Nodes (9): IDisposable, int, SemaphoreSlim, CredentialVerificationGate, Lease, Fact, InlineData, Theory (+1 more)
+
+### Community 217 - ".ExecuteAsync"
+Cohesion: 0.19
+Nodes (9): CancellationToken, Func, ValueTask, CancellationToken, Fact, Task, ValueTask, HostPrintOutputServiceTests (+1 more)
 
 ### Community 218 - "PluginTrustResourcePackagingTests"
 Cohesion: 0.25
@@ -1392,9 +1402,9 @@ Nodes (4): DirectoryInfo, Fact, string, Sprint11ReleaseEvidenceTests
 Cohesion: 0.18
 Nodes (9): DirectoryInfo, Fact, HashSet, IReadOnlyDictionary, MemberData, string, Theory, TheoryData (+1 more)
 
-### Community 222 - "HostLoginRuntime.cs"
-Cohesion: 0.20
-Nodes (7): Dobby.Host.Printing, Dobby.Infrastructure.Printing, Dobby.Application.Printing, Dobby.UnitTests.Application, IReadOnlySet, string, LoginRuntimeCompositionEvents
+### Community 222 - ".RunPostLoginShellWarmupAsync"
+Cohesion: 0.15
+Nodes (11): LicenseSurfaceConfiguration, LicenseSurfaceSnapshot, PluginsManagerSurfaceConfiguration, SettingsAndAboutSnapshot, Action, CancellationToken, IReadOnlyList, Task (+3 more)
 
 ### Community 223 - "CurrentContextPersistenceFixture"
 Cohesion: 0.26
@@ -1428,25 +1438,25 @@ Nodes (10): JsonSchema.Net, NuGet.Versioning, net10.0-windows, Microsoft.NET.Sdk
 Cohesion: 0.26
 Nodes (7): AdminSigningMaterialResult, EnvironmentAdminSigningMaterialProvider, IAdminSigningMaterialProvider, UnavailableAdminSigningMaterialProvider, InMemorySigningMaterialProvider, ECDsa, InMemoryAdminSigningMaterialProvider
 
-### Community 231 - ".ForAuthenticatedUser"
-Cohesion: 0.24
-Nodes (4): SettingsPreferenceScope, DirectoryInfo, Fact, ShellThemePreferenceTests
+### Community 231 - "HostConfigurationSettingsPreferenceSource"
+Cohesion: 0.05
+Nodes (27): IThemePreferenceSource, SettingsPreferenceScope, IReadOnlyList, ShellViewPreference, IReadOnlyDictionary, IReadOnlyList, string, HostConfigurationRow (+19 more)
 
-### Community 232 - "StorageAwarePage"
-Cohesion: 0.21
-Nodes (8): IPluginStorage, Func, string, HostPluginStorage, CancellationToken, ValueTask, NoopBackgroundOperationCancellation, StorageAwarePage
+### Community 232 - ".Classify"
+Cohesion: 0.20
+Nodes (8): WindowsPrintTargetClassifierAdapter, WindowsPrintTargetClass, WindowsPrintTargetClassifier, WindowsPrintTargetDescriptor, Fact, InlineData, Theory, WindowsPrintTargetClassifierAdapterTests
 
-### Community 233 - ".Append"
-Cohesion: 0.21
-Nodes (8): TimeProvider, LoginAuditCoordinator, LoginAttemptKind, LoginAttemptResult, Fact, InlineData, Theory, LoginAuditCoordinatorTests
+### Community 233 - "LoginRuntimeWorkflow"
+Cohesion: 0.14
+Nodes (12): TimeProvider, LoginAuditCoordinator, object, LoginRuntimeWorkflow, LoginRuntimeWorkflowResult, LoginSubmission, LoginAttemptKind, LoginAttemptResult (+4 more)
 
-### Community 234 - "ShellActionOverrides"
-Cohesion: 0.24
-Nodes (10): Action, Guid, IReadOnlyList, ShellActionOverrides, PluginUninstallDataChoice, Window, IPluginUninstallConfirmation, PluginUninstallConfirmationRequest (+2 more)
+### Community 234 - "SettingsPreferences"
+Cohesion: 0.20
+Nodes (4): SecuritySessionPreference, SettingsPreferences, MemoryPreferenceSource, MemoryPreferenceSource
 
-### Community 235 - "SessionLifecycleAuditCoordinator"
-Cohesion: 0.25
-Nodes (5): IReadOnlyDictionary, TimeProvider, SessionLifecycleAuditCoordinator, ISessionMutationCoordinator, SessionMutationAuditKind
+### Community 235 - "PrintOutputPolicyTests"
+Cohesion: 0.18
+Nodes (11): IPrintTargetClassifier, PrintOutputDecision, PrintOutputPolicy, PrintTargetClass, Fact, InlineData, Task, Theory (+3 more)
 
 ### Community 236 - ".Acquire"
 Cohesion: 0.33
@@ -1461,20 +1471,20 @@ Cohesion: 0.22
 Nodes (7): int, string, KdfPolicy, PasswordHash, Pbkdf2PasswordHasher, Fact, SecurityTests
 
 ### Community 239 - "PluginNoInfrastructureReferenceTests"
-Cohesion: 0.24
-Nodes (7): DirectoryInfo, Fact, FileInfo, IEnumerable, IReadOnlyList, PluginNoInfrastructureReferenceTests, TemporaryDirectory
+Cohesion: 0.27
+Nodes (6): DirectoryInfo, Fact, FileInfo, IEnumerable, IReadOnlyList, PluginNoInfrastructureReferenceTests
 
 ### Community 240 - "Window"
 Cohesion: 0.15
 Nodes (8): Application, Dobby.Admin, Application, StartupEventArgs, App, Window, MainWindow, Window
 
-### Community 241 - ".Durable_permission_rows_grant_exact_managed_operation_and_owner_needs_no_rows"
-Cohesion: 0.24
-Nodes (6): AuthorizationPersistenceFixture, Fact, InlineData, Theory, AuthorizationPersistenceFixture, OperationAuthorizationIntegrationTests
+### Community 241 - ".CreateCoordinator"
+Cohesion: 0.31
+Nodes (7): Action, CancellationToken, Fact, Func, IProgress, Task, ShellPluginManagerOperationCoordinatorTests
 
-### Community 242 - "Dobby.Contracts.PluginStorage"
-Cohesion: 0.17
-Nodes (5): Dobby.SDK.PluginFramework, Dobby.Contracts.PluginStorage, Dobby.UnitTests.SDK, Dobby.SDK.PluginStorage, Dobby.UnitTests.Contracts
+### Community 242 - "HostLicenseStateStore"
+Cohesion: 0.25
+Nodes (5): HostLicenseStateStore, LicenseImportCommitMetadata, LicenseImportCommitOutcome, LicenseImportCommitPolicy, LicenseImportCommitResult
 
 ### Community 243 - "$defs"
 Cohesion: 0.15
@@ -1493,24 +1503,24 @@ Cohesion: 0.15
 Nodes (11): Dapper, Microsoft.Data.Sqlite.Core, SQLitePCLRaw.core, SQLitePCLRaw.provider.dynamic_cdecl, System.Management, System.Security.Cryptography.ProtectedData, net10.0, Microsoft.NET.Sdk (+3 more)
 
 ### Community 247 - "SelfServicePasswordChangeTests"
-Cohesion: 0.27
-Nodes (6): PasswordChangeFixture, Fact, MemberData, Theory, TheoryData, SelfServicePasswordChangeTests
+Cohesion: 0.24
+Nodes (7): PasswordChangeFixture, Fact, MemberData, Theory, TheoryData, SelfServicePasswordChangeTests, SyntheticPasswordChangeFailure
 
-### Community 248 - ".ReadOnlyExpired_blocks_all_mutation_surfaces"
-Cohesion: 0.18
-Nodes (7): PluginStoragePersistenceFixture, Fact, InlineData, Task, Theory, PluginStoragePersistenceFixture, ReadOnlyExpiredEnforcementIntegrationTests
-
-### Community 249 - "SessionMutationAtomicityTests"
-Cohesion: 0.18
-Nodes (9): SessionMutationFixture, Fact, FakeTimeProvider, MemberData, Theory, TheoryData, SessionMutationAtomicityTests, SessionMutationFixture (+1 more)
-
-### Community 250 - "SettingsPreferences"
-Cohesion: 0.21
-Nodes (6): AppearancePreference, SettingsPreferences, IReadOnlyList, ShellViewPreference, MemoryPreferenceSource, MemoryPreferenceSource
-
-### Community 251 - ".Normalize"
+### Community 248 - ".Normalize"
 Cohesion: 0.28
 Nodes (6): IReadOnlySet, UsernameCanonicalValidator, Fact, InlineData, Theory, UsernameCanonicalValidatorTests
+
+### Community 249 - "Exception"
+Cohesion: 0.12
+Nodes (15): Exception, SessionMutationFixture, RejectedMutationException, PostAuthenticationMutationException, SyntheticUserManagementFailure, SyntheticLoginCommitFailure, SyntheticLicenseImportFailure, SyntheticRecoveryFailure (+7 more)
+
+### Community 250 - "ProductOptions"
+Cohesion: 0.29
+Nodes (5): ProductArtifactMode, ProductOptions, AboutInfoProvider, Fact, AboutInfoProviderTests
+
+### Community 251 - "HostCustomerDeploymentContextProvisioningCoordinator"
+Cohesion: 0.40
+Nodes (4): IReadOnlyDictionary, string, TimeProvider, HostCustomerDeploymentContextProvisioningCoordinator
 
 ### Community 252 - "LicenseRuntimeModeProviderTests"
 Cohesion: 0.36
@@ -1524,9 +1534,9 @@ Nodes (12): const, type, const, description, type, algorithm, keyVersion, value 
 Cohesion: 0.17
 Nodes (12): format, pattern, type, properties, generatedAtUtc, schemaVersion, sourceCommit, status (+4 more)
 
-### Community 255 - "OwnerBootstrapCoordinator"
-Cohesion: 0.17
-Nodes (12): Exception, RejectedMutationException, PostAuthenticationMutationException, IReadOnlyDictionary, object, TimeProvider, OwnerBootstrapCoordinator, OwnerBootstrapFailedException (+4 more)
+### Community 255 - "Dobby.PluginFramework.Packaging"
+Cohesion: 0.10
+Nodes (9): Dobby.Core.Versioning, Dobby.UnitTests.Core, Dobby.UnitTests.PluginFramework.Packaging, Dobby.UnitTests.PluginFramework, Dobby.UnitTests.PluginFramework.Manifest, Dobby.PluginFramework.Manifest, Dobby.PluginFramework.Packaging, PluginActivationStatus (+1 more)
 
 ### Community 256 - "LoginRuntimeWorkflowTests"
 Cohesion: 0.38
@@ -1540,45 +1550,45 @@ Nodes (3): LoginServiceFixture, Fact, LoginServiceTests
 Cohesion: 0.17
 Nodes (11): Microsoft.Extensions.Configuration.EnvironmentVariables, Microsoft.Extensions.Configuration.Json, Microsoft.Extensions.Configuration.UserSecrets, Microsoft.Extensions.Hosting, Serilog.Extensions.Hosting, Serilog.Settings.Configuration, Serilog.Sinks.Console, Serilog.Sinks.File (+3 more)
 
-### Community 259 - "SelfServicePasswordChangeCoordinator"
-Cohesion: 0.29
-Nodes (6): Action, Func, IHostMutationUnitOfWork, DateTimeOffset, TimeProvider, SelfServicePasswordChangeCoordinator
+### Community 259 - "LoginThrottleBucket"
+Cohesion: 0.36
+Nodes (4): DateTimeOffset, BucketRow, LoginThrottleBucket, Session
 
-### Community 260 - "CorrelationId.cs"
-Cohesion: 0.20
-Nodes (8): AsyncLocal, bool, IDisposable, CorrelationContextAccessor, CorrelationIdGenerator, ICorrelationContextAccessor, ICorrelationIdGenerator, Scope
+### Community 260 - "CorrelationContextAccessorTests"
+Cohesion: 0.13
+Nodes (11): AsyncLocal, bool, IDisposable, CorrelationContextAccessor, CorrelationIdGenerator, ICorrelationContextAccessor, ICorrelationIdGenerator, Scope (+3 more)
 
 ### Community 261 - ".Build"
 Cohesion: 0.32
 Nodes (6): IReadOnlyList, PluginOperationTargetContribution, PluginOperationTargetContributionBuilder, PluginOperationTargetContributionBuildOutcome, Fact, PluginOperationTargetContributionBuilderTests
 
-### Community 262 - "LoginService"
-Cohesion: 0.23
-Nodes (6): IOwnerBootstrapCoordinator, IUserCredentialVerifier, UserRow, LoginService, UserRow, UnauthorizedCredentialVerifier
+### Community 262 - "LoginRuntimeFixture"
+Cohesion: 0.09
+Nodes (16): IReadOnlyDictionary, object, TimeProvider, OwnerBootstrapCoordinator, OwnerBootstrapFailedException, KdfPolicyResolver, OwnerBootstrapService, RememberedLoginAccount (+8 more)
 
 ### Community 263 - ".ToUnpaddedBase64Url"
-Cohesion: 0.35
-Nodes (4): Fact, InlineData, Theory, PluginTrustVerifierTests
+Cohesion: 0.18
+Nodes (7): byte, ECDsa, PluginTrustTestData, Fact, InlineData, Theory, PluginTrustVerifierTests
 
-### Community 264 - "ShellThemeAndSettingsIntegrationTests"
-Cohesion: 0.21
-Nodes (6): byte, Fact, RecordingBackgroundOperationReporter, Task, RecordingProtector, ShellThemeAndSettingsIntegrationTests
+### Community 264 - ".Validate"
+Cohesion: 0.33
+Nodes (5): PasswordPolicyValidator, Fact, InlineData, Theory, PasswordPolicyValidatorTests
 
 ### Community 265 - "LicenseSignatureVerifierTests"
 Cohesion: 0.36
 Nodes (4): Fact, InlineData, Theory, LicenseSignatureVerifierTests
 
-### Community 266 - "PluginsManagerList"
-Cohesion: 0.20
-Nodes (11): FeedbackStatePresentation, NotificationPresentation, PluginsManagerHeading, PluginsManagerItems, PluginsManagerListVisibility, PluginsManagerSelectedDetailRows, FeedbackStatePresentationList, NotificationPresentationList (+3 more)
+### Community 266 - "PluginBaseV2"
+Cohesion: 0.16
+Nodes (8): SamplePluginModule, CancellationToken, ValueTask, PluginBase, PluginBaseV2, Fact, MinimalPlugin, PluginFrameworkContractTests
 
 ### Community 267 - "ProjectBoundaryTests"
 Cohesion: 0.22
 Nodes (5): Dobby.IntegrationTests, DirectoryInfo, Fact, ProjectBoundaryTests, TemporaryDirectory
 
 ### Community 268 - "properties"
-Cohesion: 0.18
-Nodes (11): format, type, properties, maxLength, type, branchDeploymentId, displayName, setupCredentialRef (+3 more)
+Cohesion: 0.20
+Nodes (10): format, type, properties, maxLength, type, minimum, type, branchDeploymentId (+2 more)
 
 ### Community 269 - "payload"
 Cohesion: 0.18
@@ -1600,9 +1610,13 @@ Nodes (6): MarshalAs, DllImport, int, IntPtr, Window, WindowActivationHelper
 Cohesion: 0.18
 Nodes (5): SeekOrigin, Span, bool, ZipArchive, OwnedArchiveEntryStream
 
-### Community 274 - "CorrelationContextAccessorTests"
+### Community 274 - "payload"
+Cohesion: 0.29
+Nodes (7): additionalProperties, type, properties, payload, signature, additionalProperties, type
+
+### Community 275 - ".Compute"
 Cohesion: 0.31
-Nodes (3): Fact, Task, CorrelationContextAccessorTests
+Nodes (5): ReadOnlySpan, string, SupportDeviceCodeV2, Fact, SupportDeviceCodeV2Tests
 
 ### Community 276 - "CrashRecoverySmokeHook"
 Cohesion: 0.31
@@ -1621,12 +1635,12 @@ Cohesion: 0.36
 Nodes (5): PluginStorageValue, CancellationToken, IReadOnlyList, ValueTask, RecordingPluginStorageCompartment
 
 ### Community 280 - "SamplePluginManifestTests"
-Cohesion: 0.33
+Cohesion: 0.38
 Nodes (3): DirectoryInfo, Fact, SamplePluginManifestTests
 
-### Community 281 - "TraceabilityRegisterTests"
-Cohesion: 0.36
-Nodes (4): DirectoryInfo, Fact, HashSet, TraceabilityRegisterTests
+### Community 281 - "TempFixture"
+Cohesion: 0.22
+Nodes (3): TempFixture, TempFixture, TempFixture
 
 ### Community 282 - "Dobby.IntegrationTests.csproj"
 Cohesion: 0.18
@@ -1664,29 +1678,21 @@ Nodes (10): algorithm, format, keyId, purpose, value, additionalProperties, requ
 Cohesion: 0.29
 Nodes (5): Assert-ChildPath(), Get-PortableOutput(), New-AppxManifest(), New-BrandedAsset(), New-PackageStage()
 
-### Community 291 - "SessionFixture"
-Cohesion: 0.31
-Nodes (4): SessionFixture, Fact, SessionFixture, SessionTimeoutIntegrationTests
+### Community 291 - ".ParseOptions"
+Cohesion: 0.36
+Nodes (5): CommandSpec, ParseResult, IReadOnlyList, CommandSpec, ParseResult
 
 ### Community 292 - "Trusted in-process plugin posture"
 Cohesion: 0.20
 Nodes (10): Dobby Trust Resources README, Trusted in-process plugin posture, TEST-ONLY vendor recovery public key, Test-only recovery trust fixture, create-recovery-response README, Owner recovery response CLI, sign-plugin-package README, Dev/QA plugin package signing CLI (+2 more)
 
 ### Community 293 - ".Compute"
-Cohesion: 0.29
-Nodes (5): Dictionary, PluginPackageFingerprint, PluginPackageFingerprintResult, Fact, PluginPackageFingerprintTests
+Cohesion: 0.13
+Nodes (11): PrivateDependencyPluginFixture, Dictionary, PluginPackageFingerprint, PluginPackageFingerprintResult, Fact, IReadOnlyDictionary, string, Task (+3 more)
 
-### Community 294 - "LoginThrottleBucket"
-Cohesion: 0.36
-Nodes (4): DateTimeOffset, BucketRow, LoginThrottleBucket, Session
-
-### Community 295 - ".Validate"
-Cohesion: 0.33
-Nodes (5): PasswordPolicyValidator, Fact, InlineData, Theory, PasswordPolicyValidatorTests
-
-### Community 296 - "LoginRuntimeFixture"
-Cohesion: 0.24
-Nodes (4): RememberedLoginAccount, FakeTimeProvider, RecordingProtector, LoginRuntimeFixture
+### Community 295 - "SessionLogoutAndLockTests"
+Cohesion: 0.50
+Nodes (3): Fact, FakeTimeProvider, SessionLogoutAndLockTests
 
 ### Community 297 - ".InScopeTextFiles"
 Cohesion: 0.29
@@ -1704,16 +1710,16 @@ Nodes (5): DirectoryInfo, Fact, FileInfo, IEnumerable, PublicTypeLayoutTests
 Cohesion: 0.42
 Nodes (3): DirectoryInfo, Fact, Sprint9ReleaseEvidenceTests
 
-### Community 301 - "RecordingUiDispatcher"
-Cohesion: 0.29
-Nodes (5): Action, Func, List, Task, RecordingUiDispatcher
+### Community 301 - ".Plugin_background_operation_updates_shell_status_surface_via_shared_reporter"
+Cohesion: 0.19
+Nodes (8): Action, Fact, Func, List, Task, AllowAllTrustVerifier, PluginBackgroundOperationReportingTests, RecordingUiDispatcher
 
 ### Community 302 - "CrashRecoverySmokeTests"
-Cohesion: 0.31
-Nodes (5): DirectoryInfo, Fact, ProcessResult, CrashRecoverySmokeTests, ProcessResult
+Cohesion: 0.39
+Nodes (4): Fact, ProcessResult, CrashRecoverySmokeTests, ProcessResult
 
 ### Community 303 - "RuntimeOptionsTests"
-Cohesion: 0.27
+Cohesion: 0.31
 Nodes (5): Fact, InlineData, Theory, ValidateOptionsResult, RuntimeOptionsTests
 
 ### Community 304 - "PluginLoadContext"
@@ -1756,25 +1762,25 @@ Nodes (9): additionalProperties, required, name, sha256, subjects, items, maxIte
 Cohesion: 0.31
 Nodes (5): ITextFormatter, LogEvent, LogEventPropertyValue, RedactingTextFormatter, TextWriter
 
-### Community 314 - "LoginAuthorityFixture"
-Cohesion: 0.25
-Nodes (5): LoginAuthorityFixture, FakeTimeProvider, RecordingProtector, string, LoginAuthorityFixture
+### Community 314 - "AssemblyHostBuildMetadataProvider"
+Cohesion: 0.44
+Nodes (4): Assembly, AssemblyHostBuildMetadataProvider, HostBuildMetadata, IHostBuildMetadataProvider
 
 ### Community 315 - "Dobby.Localization.csproj"
 Cohesion: 0.22
 Nodes (7): Microsoft.Extensions.Localization, WPF-UI, net10.0, Microsoft.NET.Sdk, net10.0-windows, CommunityToolkit.Mvvm, Microsoft.NET.Sdk
 
-### Community 316 - ".ToDurablePreference"
-Cohesion: 0.42
-Nodes (3): ShellPreferenceMapper, Fact, ShellPreferenceMapperTests
+### Community 316 - "PreLoginInstrumentation"
+Cohesion: 0.33
+Nodes (4): HashSet, IReadOnlyList, List, PreLoginInstrumentation
 
 ### Community 317 - "LicenseV3Contracts.cs"
 Cohesion: 0.31
 Nodes (8): DateTimeOffset, int, string, LicenseArtifactV3, LicenseGrantIntentV3, LicensePayloadV3, LicenseSignatureBlockV3, LicenseV3Contract
 
-### Community 318 - "PluginBase"
-Cohesion: 0.33
-Nodes (4): PluginBase, Fact, MinimalPlugin, PluginFrameworkContractTests
+### Community 318 - "RecordingBackgroundOperationReporter"
+Cohesion: 0.38
+Nodes (6): IProgress, IReadOnlyList, List, RecordingProgress, RecordingBackgroundOperationReporter, RecordingProgress
 
 ### Community 320 - "Sprint5ReleaseEvidenceTests"
 Cohesion: 0.39
@@ -1812,25 +1818,25 @@ Nodes (6): JsonSchema, Lazy, IReadOnlyList, JsonElement, string, PluginManifestS
 Cohesion: 0.25
 Nodes (7): MouseButtonEventArgs, ShellBody, ShellChrome, ShellStatusBar, TopToolbar, WindowTitleBar, Grid
 
-### Community 329 - ".Create"
-Cohesion: 0.36
-Nodes (3): SecuritySessionPreference, Fact, SettingsPreferenceSurfaceTests
+### Community 329 - "Sprint1ReleaseEvidenceContractTests"
+Cohesion: 0.40
+Nodes (3): DirectoryInfo, Fact, Sprint1ReleaseEvidenceContractTests
 
-### Community 330 - "NoopEventBus"
-Cohesion: 0.32
-Nodes (5): Func, IDisposable, Task, NoopEventBus, Subscription
+### Community 330 - "RecordingBackgroundOperationReporter"
+Cohesion: 0.47
+Nodes (5): IProgress, IReadOnlyList, List, RecordingBackgroundOperationReporter, RecordingProgress
 
-### Community 331 - ".ExecutePluginPrintAsync"
-Cohesion: 0.36
-Nodes (4): CancellationToken, Func, Task, ValueTask
+### Community 331 - "ISupportDeviceCodeProvider"
+Cohesion: 0.25
+Nodes (3): HostSupportDeviceCodeProvider, FixedSupportDeviceCodeProvider, ISupportDeviceCodeProvider
 
-### Community 332 - "LicenseActivationRefreshOutboxHandler"
-Cohesion: 0.29
-Nodes (6): CancellationToken, Func, object, Task, ValueTask, LicenseActivationRefreshOutboxHandler
+### Community 332 - "BackgroundOperationReporter"
+Cohesion: 0.47
+Nodes (4): ReportingProgress, IProgress, BackgroundOperationReporter, ReportingProgress
 
-### Community 333 - ".Recover"
-Cohesion: 0.36
-Nodes (3): IEnumerable, IRuntimeTemporaryOutputRecovery, RuntimeTemporaryOutputRecovery
+### Community 333 - ".Prepare"
+Cohesion: 0.19
+Nodes (7): ILogger, Func, RuntimeFolderPreparer, IEnumerable, RuntimeTemporaryOutputRecovery, Fact, RuntimeFolderRecoveryTests
 
 ### Community 334 - "LicenseImportRequest"
 Cohesion: 0.25
@@ -1848,17 +1854,17 @@ Nodes (3): DirectoryInfo, Fact, Sprint10ReleaseEvidenceTests
 Cohesion: 0.32
 Nodes (7): RecordingBackgroundOperationReporter, Action, IProgress, IReadOnlyList, List, RecordingBackgroundOperationReporter, RecordingProgress
 
-### Community 338 - "RecordingInstallProgress"
-Cohesion: 0.25
-Nodes (6): int, List, ManualResetEventSlim, Task, TaskCompletionSource, RecordingInstallProgress
+### Community 338 - "PluginPackageInstallProgress"
+Cohesion: 0.22
+Nodes (8): PluginPackageInstallProgress, PluginPackageInstallStage, int, List, ManualResetEventSlim, Task, TaskCompletionSource, RecordingInstallProgress
 
 ### Community 339 - "LoginViewModelRememberMeTests"
 Cohesion: 0.39
 Nodes (3): DirectoryInfo, Fact, LoginViewModelRememberMeTests
 
-### Community 340 - "RecordingUiDispatcher"
-Cohesion: 0.32
-Nodes (5): Action, Func, List, Task, RecordingUiDispatcher
+### Community 340 - "PluginsOptionsTests"
+Cohesion: 0.29
+Nodes (4): Fact, InlineData, Theory, PluginsOptionsTests
 
 ### Community 341 - "LicenseV3ContractTests"
 Cohesion: 0.39
@@ -1868,9 +1874,9 @@ Nodes (3): DirectoryInfo, Fact, LicenseV3ContractTests
 Cohesion: 0.29
 Nodes (5): InlineData, MemberData, Theory, TheoryData, HostLoginRecoveryStringCatalogTests
 
-### Community 343 - "SessionLogoutAndLockTests"
-Cohesion: 0.50
-Nodes (3): Fact, FakeTimeProvider, SessionLogoutAndLockTests
+### Community 343 - "HostCustomerDeploymentContextStore"
+Cohesion: 0.29
+Nodes (4): IReadOnlyList, string, CurrentContextRow, HostCustomerDeploymentContextStore
 
 ### Community 344 - "SecurityAutoLockEnabledCheckBox"
 Cohesion: 0.33
@@ -1896,21 +1902,13 @@ Nodes (7): $ref, default, items, maxItems, type, uniqueItems, nativeLibraries
 Cohesion: 0.29
 Nodes (7): plugin-page-region, sidebar, third-bar, top-toolbar, target, enum, type
 
-### Community 350 - "payload"
-Cohesion: 0.29
-Nodes (7): additionalProperties, type, properties, payload, signature, additionalProperties, type
+### Community 353 - "ShellThemeCoordinator.cs"
+Cohesion: 0.40
+Nodes (3): Dobby.UI, string, ThemeTokens
 
-### Community 352 - "LicensePersistenceFixture"
-Cohesion: 0.33
-Nodes (4): LicensePersistenceFixture, Fact, LicensePersistenceFixture, LicensePersistenceMigrationTests
-
-### Community 353 - "PluginActivationContext"
-Cohesion: 0.33
-Nodes (6): CancellationTokenSource, IProgress, NoopBackgroundOperationCancellation, NoopBackgroundOperationReporter, NoopProgress, PluginActivationContext
-
-### Community 354 - "PreLoginInstrumentation"
-Cohesion: 0.33
-Nodes (4): HashSet, IReadOnlyList, List, PreLoginInstrumentation
+### Community 354 - "Sprint7ReleaseEvidenceTests"
+Cohesion: 0.38
+Nodes (3): DirectoryInfo, Fact, Sprint7ReleaseEvidenceTests
 
 ### Community 355 - "PluginManifestSchemaResourcePackagingTests"
 Cohesion: 0.33
@@ -1924,17 +1922,13 @@ Nodes (3): DirectoryInfo, Fact, PluginTrustLanguageAndV2ContractTests
 Cohesion: 0.43
 Nodes (3): DirectoryInfo, Fact, ReleaseEvidenceTests
 
-### Community 358 - "Sprint6ReleaseEvidenceTests"
-Cohesion: 0.38
-Nodes (3): DirectoryInfo, Fact, Sprint6ReleaseEvidenceTests
-
 ### Community 359 - "Sprint8ReleaseEvidenceTests"
 Cohesion: 0.38
 Nodes (3): DirectoryInfo, Fact, Sprint8ReleaseEvidenceTests
 
-### Community 360 - "RecordingBackgroundOperationReporter"
-Cohesion: 0.38
-Nodes (6): IProgress, IReadOnlyList, List, RecordingProgress, RecordingBackgroundOperationReporter, RecordingProgress
+### Community 360 - ".Create_plugin_license_preserves_v3_intent_time_boundaries_and_positive_revision"
+Cohesion: 0.40
+Nodes (3): InlineData, MemberData, Theory
 
 ### Community 361 - "HostRuntimeSurfaceTests"
 Cohesion: 0.43
@@ -1972,29 +1966,25 @@ Nodes (6): Flake-Sensitive Wait Classification, Flake-sensitive wait triage clas
 Cohesion: 0.33
 Nodes (6): Shell Workstation Tabs Design, Workstation tab lifecycle, CRM shell visual language, CRM Reference Shell Polish Design, Chrome-Scale Workstation Tabs Titlebar Design, Chrome-scale tabs with native captions
 
-### Community 370 - ".ApplyMaximizedWorkArea"
-Cohesion: 0.53
-Nodes (3): MONITORINFO, DllImport, IntPtr
+### Community 370 - "WpfShellWindowCloseConfirmation"
+Cohesion: 0.50
+Nodes (3): Window, IShellWindowCloseConfirmation, WpfShellWindowCloseConfirmation
 
-### Community 371 - "BackgroundOperationReporter"
-Cohesion: 0.47
-Nodes (4): ReportingProgress, IProgress, BackgroundOperationReporter, ReportingProgress
-
-### Community 373 - "Sprint1ReleaseEvidenceContractTests"
-Cohesion: 0.40
-Nodes (3): DirectoryInfo, Fact, Sprint1ReleaseEvidenceContractTests
+### Community 371 - ".Validate"
+Cohesion: 0.52
+Nodes (3): Fact, ValidateOptionsResult, ProductOptionsTests
 
 ### Community 375 - "ShellLocalizationDiagnosticsRecorderTests"
 Cohesion: 0.47
 Nodes (3): DirectoryInfo, Fact, ShellLocalizationDiagnosticsRecorderTests
 
-### Community 376 - "RecordingPreferenceExecutor"
-Cohesion: 0.33
-Nodes (3): IReadOnlyList, List, RecordingPreferenceExecutor
+### Community 376 - "PluginStorageContractTests"
+Cohesion: 0.38
+Nodes (4): Fact, InlineData, Theory, PluginStorageContractTests
 
-### Community 377 - "StartupThemeSnapshotStoreTests"
-Cohesion: 0.40
-Nodes (3): Fact, StartupThemeSnapshotStoreTests, TempFile
+### Community 377 - "KdfPolicyResolverTests"
+Cohesion: 0.33
+Nodes (4): Fact, InlineData, Theory, KdfPolicyResolverTests
 
 ### Community 378 - "AppearanceThemeSelector"
 Cohesion: 0.40
@@ -2024,9 +2014,9 @@ Nodes (5): keyId, maxLength, minLength, pattern, type
 Cohesion: 0.40
 Nodes (5): enum, type, intent, granted, revoked
 
-### Community 385 - "base64urlP1363"
-Cohesion: 0.40
-Nodes (5): maxLength, minLength, pattern, type, base64urlP1363
+### Community 385 - "NoopEventBus"
+Cohesion: 0.33
+Nodes (3): Func, NoopEventBus, NoopSubscription
 
 ### Community 386 - "descriptionText"
 Cohesion: 0.40
@@ -2048,9 +2038,9 @@ Nodes (5): keyId, maxLength, minLength, pattern, type
 Cohesion: 0.40
 Nodes (5): packageRelativePath, maxLength, minLength, pattern, type
 
-### Community 391 - "verbs"
+### Community 391 - "InMemoryCurrentContextStore"
 Cohesion: 0.40
-Nodes (5): verbs, maxItems, minItems, type, uniqueItems
+Nodes (3): IReadOnlyList, List, InMemoryCurrentContextStore
 
 ### Community 392 - "nonce"
 Cohesion: 0.40
@@ -2080,25 +2070,21 @@ Nodes (4): Microsoft.Extensions.Options, Microsoft.Extensions.Options.Configurat
 Cohesion: 0.40
 Nodes (3): IReadOnlyDictionary, string, PostLoginPluginPersistenceMigrations
 
-### Community 401 - "RecordingProtector"
+### Community 400 - "base64urlP1363"
 Cohesion: 0.40
-Nodes (3): byte, List, RecordingProtector
+Nodes (5): maxLength, minLength, pattern, type, base64urlP1363
 
-### Community 402 - "LoginServiceFixture"
+### Community 401 - "verbs"
 Cohesion: 0.40
-Nodes (4): FakeTimeProvider, RecordingProtector, string, LoginServiceFixture
+Nodes (5): verbs, maxItems, minItems, type, uniqueItems
 
-### Community 403 - "SettingsPreferenceFixture"
-Cohesion: 0.40
-Nodes (3): Fact, SettingsPreferenceFixture, SettingsPreferencePersistenceTests
+### Community 402 - "Dobby.Contracts.PluginStorage"
+Cohesion: 0.22
+Nodes (4): Dobby.Contracts.PluginStorage, Dobby.UnitTests.SDK, Dobby.SDK.PluginStorage, Dobby.UnitTests.Contracts
 
-### Community 406 - "RecordingReporter"
-Cohesion: 0.60
-Nodes (4): IProgress, List, RecordingReporter, SynchronousProgress
-
-### Community 407 - "RecordingBackgroundReporter"
-Cohesion: 0.60
-Nodes (4): IProgress, List, RecordingBackgroundReporter, SyncProgress
+### Community 405 - "ParsedOptions"
+Cohesion: 0.67
+Nodes (3): IReadOnlyDictionary, IReadOnlySet, ParsedOptions
 
 ### Community 409 - "RecordingTraceListener"
 Cohesion: 0.50
@@ -2148,9 +2134,9 @@ Nodes (4): utc, maxLength, pattern, type
 Cohesion: 0.50
 Nodes (4): utc, maxLength, pattern, type
 
-### Community 422 - "HostStartupJsonSerializerContext.cs"
-Cohesion: 0.50
-Nodes (3): JsonSerializerContext, HostStartupJsonSerializerContext, StartupThemeSnapshot
+### Community 422 - "Dobby.IntegrationTests.Configuration"
+Cohesion: 0.20
+Nodes (5): Dobby.IntegrationTests.Configuration, Fact, NoTelemetryDefaultTests, Fact, RetentionFloorIntegrationTests
 
 ### Community 423 - "AuditEventName"
 Cohesion: 0.50
@@ -2160,17 +2146,17 @@ Nodes (3): IReadOnlyList, string, AuditEventName
 Cohesion: 0.67
 Nodes (3): InstalledPluginVersion, InstalledPluginVersionPointer, PluginInstallOperation
 
+### Community 426 - "setupCredentialRef"
+Cohesion: 0.50
+Nodes (4): setupCredentialRef, description, minLength, type
+
+### Community 430 - "PreLoginMigrationV1.cs"
+Cohesion: 0.27
+Nodes (4): string, PreLoginMigrationV1, string, OwnerBootstrapConcurrencyCollection
+
 ### Community 432 - "SidebarNodeChevron"
 Cohesion: 0.67
 Nodes (3): Foreground, SidebarNodeChevron, Path
-
-### Community 433 - "Document Authority and Audit Baseline"
-Cohesion: 0.67
-Nodes (3): Audit classification vocabulary, Document authority order, Document Authority and Audit Baseline
-
-### Community 434 - "profileVersion"
-Cohesion: 0.67
-Nodes (3): minimum, type, profileVersion
 
 ### Community 435 - "gracePeriodDays"
 Cohesion: 0.67
@@ -2189,24 +2175,24 @@ Cohesion: 0.67
 Nodes (3): SidebarColumn, ThirdBarColumn, ColumnDefinition
 
 ## Knowledge Gaps
-- **1022 isolated node(s):** `$schema`, `$id`, `$comment`, `title`, `type` (+1017 more)
+- **1021 isolated node(s):** `$schema`, `$id`, `$comment`, `title`, `type` (+1016 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **34 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **43 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Result` connect `Result` to `MainWindow`, `InstalledPluginState`, `.Open`, `IPluginActivationContext`, `.Success`, `.Failure`, `RecoveryVerifiedChallenge`, `.ExecuteAsync`, `ShellPluginManagerOperationCoordinator`, `OperationKey`, `ErrorCode`, `.DispatchAsync`, `CorrelationId`, `PluginServiceScope`, `PluginPageRouteCoordinatorTests`, `.VerifyWithOutcome`, `PluginActivationCoreTests`, `AuditEvent`, `PluginRuntimeMode`, `HostLoginRuntime`, `.ActivateAsync`, `CredentialStore`, `.CreateRequest`, `.ReadEntries`, `HostPluginRuntimeCoordinator`, `PluginPageRenderRegistry`, `PluginInstallStagingArea`, `PersistenceResult`, `.InvokeLifecycleClassifiedAsync`, `CurrentCustomerDeploymentContextService`, `ShellSnapshotTests`, `HostPluginPackageInstallCoordinator`, `PluginInstallStatePersistenceTests`, `.CreateSnapshotAsync`, `.ActivateRoute`, `AppThemePreference`, `SampleHomePage`, `InMemoryEventBus`, `.Evaluate`, `PostLoginSessionRuntime`, `HostPluginPackageInstallCoordinatorTests`, `.CreateManifestJson`, `DiagnosticsExportPackageBuilder`, `.Canonical_runtime_storage_auth_and_audit_authority_is_preserved`, `SettingsAndAboutViewModelTests`, `SessionLifecycleService`, `.Resolve`, `PluginPageRenderRegistryTests`, `RecoveryResponseImportCoordinator`, `PluginComponentModelValidator`, `UserManagementAuditCoordinator`, `LicenseLifecycleState`, `LockViewModelActionResult`, `IBackgroundOperationCancellation`, `HostPluginStorageCompartment`, `.ApplySuccessfulLogin`, `PluginStorageKey`, `ILicenseRuntimeModeProvider`, `HostConfigurationSettingsPreferenceSource`, `.Create`, `SessionRecord`, `GuardGrantReader`, `.Export`, `IPluginCommandDispatcher`, `.Compute`, `.Create`, `StorageAwarePage`, `ShellActionOverrides`, `SessionLifecycleAuditCoordinator`, `.Normalize`, `SettingsPreferences`, `.Normalize`, `SelfServicePasswordChangeCoordinator`, `LoginService`, `HostRuntimeModeMutationGate`, `RecordingPluginStorageCompartment`, `.Validate`, `.Create`, `.ExecutePluginPrintAsync`, `.Recover`, `.Create`, `.Resolve`?**
-  _High betweenness centrality (0.128) - this node is a cross-community bridge._
-- **Why does `Dobby.Core` connect `Dobby.Core` to `Result`, `.Resolve`, `.Open`, `CorrelationId.cs`, `Dobby.Host.Plugins`, `Dobby.Infrastructure.Persistence`, `Dobby.Configuration`, `ShellViewModel`, `.Failure`, `RecoveryVerifiedChallenge`, `.ExecuteAsync`, `Dobby.IntegrationTests.Architecture`, `ErrorCode`, `Dobby.UnitTests.Configuration`, `Dobby.Licensing`, `PluginRuntimeMode`, `Dobby.Diagnostics`, `.ActivateAsync`, `.CreateRequest`, `LoginRuntimeWorkflow`, `PersistenceResult`, `.InvokeLifecycleClassifiedAsync`, `.Evaluate`, `HostLoginRuntime.cs`, `BackgroundOperationSnapshot`, `Dobby.Contracts.PluginStorage`, `PluginComponentContracts.cs`?**
+- **Why does `Result` connect `Result` to `.Resolve`, `MainWindow`, `.Execute`, `.Open`, `IPluginServiceCollection`, `.Success`, `RecoveryResponseImportCoordinator`, `PluginComponentModelValidator`, `HostPluginLifecycleCoordinator`, `RecoveryVerifiedChallenge`, `.ExecuteAsync`, `.Create`, `ShellPluginManagerOperationCoordinator`, `PluginBaseV2`, `.Validate`, `UserManagementAuditCoordinator`, `ShellViewModel`, `ShellViewModelNavigationTests`, `IPluginActivationContext`, `ErrorCode`, `RecordingPluginStorageCompartment`, `.CreateDispatcher`, `CorrelationId`, `SessionLifecycleAuditCoordinator`, `PluginServiceScope`, `PluginPageRouteCoordinatorTests`, `.VerifyWithOutcome`, `AuditEvent`, `HostRuntimeModeMutationGate`, `.Resolve`, `HostLoginRuntime`, `.ActivateAsync`, `CredentialStore`, `.CreateRequest`, `.ApplySuccessfulLogin`, `PluginStorageKey`, `HostPluginRuntimeCoordinator`, `.ActivatePostLoginAsync`, `.ReadEntries`, `PluginPageRenderRegistry`, `PluginInstallStagingArea`, `.Create`, `.InvokeLifecycleClassifiedAsync`, `CurrentCustomerDeploymentContextService`, `.RenderShellEvidence`, `LoginService`, `HostPluginPackageInstallCoordinator`, `PluginInstallStatePersistenceTests`, `.CreateSnapshotAsync`, `.Prepare`, `.ActivateRoute`, `.Export`, `SampleHomePage`, `.DispatchAsync`, `OperationAuthorizationPolicy`, `InMemoryEventBus`, `SessionRecord`, `.Compute`, `.ExecuteAsync`, `.Snapshot`, `.Read`, `DiagnosticsExportPackageBuilder`, `HostConfigurationSettingsPreferenceSource`, `SettingsPreferences`, `Dobby.Host`, `.Normalize`, `InstalledPluginState`, `ShellDiagnosticsExportActionTests`, `.CreateCoordinator`, `.Normalize`, `PluginPageRouteCoordinator`?**
+  _High betweenness centrality (0.130) - this node is a cross-community bridge._
+- **Why does `Dobby.Core` connect `Dobby.Core` to `.Resolve`, `CorrelationContextAccessorTests`, `Dobby.Host.Plugins`, `Dobby.Security.Authorization`, `.Success`, `ShellViewModel`, `RecoveryVerifiedChallenge`, `Dobby.IntegrationTests.Architecture`, `ShellViewModelNavigationTests`, `Dobby.Contracts.PluginStorage`, `ErrorCode`, `Dobby.Licensing`, `.Evaluate`, `Dobby.Diagnostics`, `PluginStorageKey`, `HostPersistenceMaintenanceService`, `.InvokeLifecycleClassifiedAsync`, `OperationAuthorizationPolicy`, `SessionRecord`, `ShellThemeCoordinator.cs`, `BackgroundOperationSnapshot`, `PrintOutputPolicyTests`, `Dobby.Host`, `PluginComponentContracts.cs`, `Dobby.PluginFramework.Packaging`?**
   _High betweenness centrality (0.080) - this node is a cross-community bridge._
-- **Why does `MainWindow` connect `MainWindow` to `.Open`, `Dobby.Host.Plugins`, `ShellViewModel`, `.Failure`, `ShellPluginManagerOperationCoordinator`, `Window`, `StartupBootstrapWiringTests`, `PluginRuntimeMode`, `HostLoginRuntime`, `PluginPageRenderRegistry`, `SessionRecord`, `LicenseImportShellAction`, `.New`, `Grid`, `ShellSnapshotTests`, `AppThemePreference`, `PostLoginSessionRuntime`, `ShellActionOverrides`, `Window`, `ShellDiagnosticsExportActionTests`, `.ApplyMaximizedWorkArea`?**
+- **Why does `MainWindow` connect `MainWindow` to `.Open`, `Dobby.Host.Plugins`, `.Success`, `ShellViewModel`, `HostPluginLifecycleCoordinator`, `ShellPluginManagerOperationCoordinator`, `Window`, `ShellViewModelNavigationTests`, `StartupMilestone`, `HostLoginRuntime`, `PluginPageRenderRegistry`, `LicenseImportShellAction`, `.New`, `.RenderShellEvidence`, `Grid`, `ShellLayoutState`, `SessionRecord`, `.RunPostLoginShellWarmupAsync`, `Window`, `ShellDiagnosticsExportActionTests`, `WpfShellWindowCloseConfirmation`, `WorkSessionShellIntegrationTests`?**
   _High betweenness centrality (0.057) - this node is a cross-community bridge._
 - **What connects `$schema`, `$id`, `$comment` to the rest of the system?**
-  _1022 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1021 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Result` be split into smaller, more focused modules?**
-  _Cohesion score 0.04490992878089652 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.04803532008830022 - nodes in this community are weakly interconnected._
 - **Should `MainWindow` be split into smaller, more focused modules?**
-  _Cohesion score 0.04201680672268908 - nodes in this community are weakly interconnected._
-- **Should `InstalledPluginState` be split into smaller, more focused modules?**
-  _Cohesion score 0.0331739823265247 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.0376311844077961 - nodes in this community are weakly interconnected._
+- **Should `.Execute` be split into smaller, more focused modules?**
+  _Cohesion score 0.06588235294117648 - nodes in this community are weakly interconnected._

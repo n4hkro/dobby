@@ -51,7 +51,6 @@ storage/deployment close-out.
 ## 2026-08 Authority Note
 
 Conflicting feature wording is controlled by the amendment sections dated
-2026-08 and `ADR-0058` through `ADR-0061`. Completion status and executable work
-ordering are maintained in `docs/implementation-plan/00_MASTER_EXECUTION_PLAN.md`
-and its traceability companion; historical sprint plans are evidence, not
-current authority.
+2026-08 and `ADR-0058` through `ADR-0061`. Accepted ADRs, the specifications in
+this index, and their executable tests define the current product contract;
+historical sprint and implementation plans are evidence, not current authority.

@@ -5,12 +5,6 @@
     "ast_hash": "cc06aba029d660c5362fa5cea084b222",
     "semantic_hash": "cc06aba029d660c5362fa5cea084b222"
   },
-  "docs/implementation-plan/status-register.json": {
-    "mtime": 1787395642.2043693,
-    "seen": 1787574596.8840296,
-    "ast_hash": "90e0a61740a9e373a13f093238bcdc37",
-    "semantic_hash": "90e0a61740a9e373a13f093238bcdc37"
-  },
   "docs/schemas/branchshared.schema.json": {
     "mtime": 1778225267.9907157,
     "seen": 1787574596.8840382,
@@ -2567,12 +2561,6 @@
     "ast_hash": "29abc3c74465e64ad2ff1ed962d077dc",
     "semantic_hash": "29abc3c74465e64ad2ff1ed962d077dc"
   },
-  "tests/Dobby.IntegrationTests/Architecture/TraceabilityRegisterTests.cs": {
-    "mtime": 1787396090.864615,
-    "seen": 1787574596.886077,
-    "ast_hash": "2bbbb3c3a7eac1c5af8d3644b8d5674e",
-    "semantic_hash": "2bbbb3c3a7eac1c5af8d3644b8d5674e"
-  },
   "tests/Dobby.IntegrationTests/Audit/DurableAuditTrailTests.cs": {
     "mtime": 1787396090.866085,
     "seen": 1787574596.8860803,
@@ -2928,10 +2916,10 @@
     "semantic_hash": "30de9b10e3776c99c911141d0a35ada3"
   },
   "tests/Dobby.SmokeTests/CrashRecoverySmokeTests.cs": {
-    "mtime": 1787400157.8064697,
-    "seen": 1787574596.8863764,
-    "ast_hash": "5e9f932bf42fe2d5fda30eda331871a3",
-    "semantic_hash": "5e9f932bf42fe2d5fda30eda331871a3"
+    "mtime": 1787643627.0412993,
+    "seen": 1787643725.5007498,
+    "ast_hash": "0a069fb5dd8bf457420ed6b17481a4fc",
+    "semantic_hash": ""
   },
   "tests/Dobby.SmokeTests/Dobby.SmokeTests.csproj": {
     "mtime": 1782125355.2374125,
@@ -3917,23 +3905,11 @@
     "ast_hash": "047cfa32ead0b2c6c6a6ddcad90470f3",
     "semantic_hash": "047cfa32ead0b2c6c6a6ddcad90470f3"
   },
-  "tools/verify-traceability/verify-traceability.ps1": {
-    "mtime": 1787308732.362467,
-    "seen": 1787574596.887164,
-    "ast_hash": "6a75b8d50922d3c10f82c4772e9cd34c",
-    "semantic_hash": "6a75b8d50922d3c10f82c4772e9cd34c"
-  },
   "AGENTS.md": {
     "mtime": 1787573255.6016552,
     "seen": 1787574596.8871672,
     "ast_hash": "ee1b3ba229065f30e12a5700b7d00126",
     "semantic_hash": "ee1b3ba229065f30e12a5700b7d00126"
-  },
-  "docs/00_DOCUMENT_AUTHORITY_AND_AUDIT_BASELINE.md": {
-    "mtime": 1787301131.1997533,
-    "seen": 1787574596.8871706,
-    "ast_hash": "906e1c32b1d3289e70e80994bf477d50",
-    "semantic_hash": "906e1c32b1d3289e70e80994bf477d50"
   },
   "docs/01_PRODUCT_SCOPE.md": {
     "mtime": 1787301396.6190925,
@@ -4164,10 +4140,10 @@
     "semantic_hash": "489abb90e17ad4ccc95205dad1deea25"
   },
   "docs/adr/ADR-0037-plugin-compatibility-and-versioning.md": {
-    "mtime": 1787382430.7792423,
-    "seen": 1787574596.8873773,
-    "ast_hash": "a3275be49663700fec1b35709562a639",
-    "semantic_hash": "a3275be49663700fec1b35709562a639"
+    "mtime": 1787641378.3393655,
+    "seen": 1787642707.140609,
+    "ast_hash": "777a289872c9f4e0f31d199f30580b45",
+    "semantic_hash": ""
   },
   "docs/adr/ADR-0038-local-first-authentication.md": {
     "mtime": 1787301287.754638,
@@ -4319,60 +4295,6 @@
     "ast_hash": "ef4a5fb9c5339585d779b2558a51dd15",
     "semantic_hash": "ef4a5fb9c5339585d779b2558a51dd15"
   },
-  "docs/implementation-plan/00_MASTER_EXECUTION_PLAN.md": {
-    "mtime": 1787395491.9606452,
-    "seen": 1787574596.887516,
-    "ast_hash": "271eb7aca65d4cbcb66331a8787ba9c3",
-    "semantic_hash": "271eb7aca65d4cbcb66331a8787ba9c3"
-  },
-  "docs/implementation-plan/01_TRACEABILITY_AND_FINDINGS.md": {
-    "mtime": 1787407153.2307024,
-    "seen": 1787574596.8875222,
-    "ast_hash": "f4a0d7d41ecbd07279736d319d62fcdb",
-    "semantic_hash": "f4a0d7d41ecbd07279736d319d62fcdb"
-  },
-  "docs/implementation-plan/02_IDENTITY_STARTUP_AND_AUTHORIZATION.md": {
-    "mtime": 1787301720.291197,
-    "seen": 1787574596.8875287,
-    "ast_hash": "40b32a9a7c5241a7394c3cc0e9c04c41",
-    "semantic_hash": "40b32a9a7c5241a7394c3cc0e9c04c41"
-  },
-  "docs/implementation-plan/03_PERSISTENCE_ATOMICITY_AND_DIAGNOSTICS.md": {
-    "mtime": 1787301773.391305,
-    "seen": 1787574596.8875346,
-    "ast_hash": "4ff75f2480f86e63fc5fd23e52725cb1",
-    "semantic_hash": "4ff75f2480f86e63fc5fd23e52725cb1"
-  },
-  "docs/implementation-plan/04_PLUGIN_PLATFORM_PACKAGING_AND_UI.md": {
-    "mtime": 1787301856.4018319,
-    "seen": 1787574596.8875399,
-    "ast_hash": "e20e44e9e01ed1b9eee53c08da151d5d",
-    "semantic_hash": "e20e44e9e01ed1b9eee53c08da151d5d"
-  },
-  "docs/implementation-plan/05_LICENSING_PROVISIONING_AND_RUNTIME_GATES.md": {
-    "mtime": 1787301903.3430295,
-    "seen": 1787574596.8875432,
-    "ast_hash": "96c4c361fba2ba8224404f86dbce942e",
-    "semantic_hash": "96c4c361fba2ba8224404f86dbce942e"
-  },
-  "docs/implementation-plan/06_SHELL_ACCESSIBILITY_AND_RESPONSIVENESS.md": {
-    "mtime": 1787301947.8194327,
-    "seen": 1787574596.8875465,
-    "ast_hash": "fd721d240ff943dce8e457d48b31d47a",
-    "semantic_hash": "fd721d240ff943dce8e457d48b31d47a"
-  },
-  "docs/implementation-plan/07_RELEASE_TOOLS_ARTIFACTS_AND_EVIDENCE.md": {
-    "mtime": 1787407371.5208497,
-    "seen": 1787574596.8875496,
-    "ast_hash": "93bccd917cc50b97ab2f4f2e204882c2",
-    "semantic_hash": "93bccd917cc50b97ab2f4f2e204882c2"
-  },
-  "docs/implementation-plan/08_BRANCH_SHARED_FUTURE_TRACK.md": {
-    "mtime": 1787302033.5213594,
-    "seen": 1787574596.887553,
-    "ast_hash": "1307998cd8da0be5c86a0b6cb1b095c4",
-    "semantic_hash": "1307998cd8da0be5c86a0b6cb1b095c4"
-  },
   "docs/schemas/artifact-compatibility-matrix.md": {
     "mtime": 1787308161.5945263,
     "seen": 1787574596.887556,
@@ -4386,10 +4308,10 @@
     "semantic_hash": "336a2934b6795d2d80dd381c6fd08ee7"
   },
   "docs/specs/README.md": {
-    "mtime": 1787301473.8360367,
-    "seen": 1787574596.8875628,
-    "ast_hash": "a1d64ce0ee6529416685b1a302982571",
-    "semantic_hash": "a1d64ce0ee6529416685b1a302982571"
+    "mtime": 1787641378.3306818,
+    "seen": 1787642707.1406522,
+    "ast_hash": "ca8f8cecd1f9cc91728b377872f99ec0",
+    "semantic_hash": ""
   },
   "docs/specs/admin-tool.md": {
     "mtime": 1787394031.7615068,

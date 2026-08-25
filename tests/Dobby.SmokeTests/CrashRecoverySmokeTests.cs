@@ -70,7 +70,7 @@ public sealed class CrashRecoverySmokeTests
 
     private static ProcessResult RunHostCrashRecoveryHook(string root, string phase)
     {
-        var hostExe = Path.Combine(RepoRoot().FullName, "src", "Dobby.Host", "bin", "Debug", "net10.0-windows", "Dobby.Host.exe");
+        var hostExe = Path.Combine(AppContext.BaseDirectory, "Dobby.Host.exe");
         File.Exists(hostExe).ShouldBeTrue($"Smoke requires a built host artifact at {hostExe}.");
 
         using var process = new Process();
@@ -122,14 +122,4 @@ public sealed class CrashRecoverySmokeTests
 
     private sealed record ProcessResult(int ExitCode, string Output);
 
-    private static DirectoryInfo RepoRoot()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current is not null && !File.Exists(Path.Combine(current.FullName, "Dobby.sln")))
-        {
-            current = current.Parent;
-        }
-
-        return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
-    }
 }
