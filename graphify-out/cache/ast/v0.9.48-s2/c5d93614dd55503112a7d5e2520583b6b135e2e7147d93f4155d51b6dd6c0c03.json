@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_tools_verify_plugin_package_verify_plugin_package_ps1", "label": "verify-plugin-package.ps1", "file_type": "code", "source_file": "tools/verify-plugin-package/verify-plugin-package.ps1", "source_location": "L1"}], "edges": [], "raw_calls": []}

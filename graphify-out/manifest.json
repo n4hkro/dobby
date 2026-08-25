@@ -1,0 +1,4718 @@
+{
+  "Dobby.sln": {
+    "mtime": 1778504435.4727714,
+    "seen": 1787574596.88401,
+    "ast_hash": "cc06aba029d660c5362fa5cea084b222",
+    "semantic_hash": "cc06aba029d660c5362fa5cea084b222"
+  },
+  "docs/implementation-plan/status-register.json": {
+    "mtime": 1787395642.2043693,
+    "seen": 1787574596.8840296,
+    "ast_hash": "90e0a61740a9e373a13f093238bcdc37",
+    "semantic_hash": "90e0a61740a9e373a13f093238bcdc37"
+  },
+  "docs/schemas/branchshared.schema.json": {
+    "mtime": 1778225267.9907157,
+    "seen": 1787574596.8840382,
+    "ast_hash": "6ecd727f1ae7371973db2414b77efba0",
+    "semantic_hash": "6ecd727f1ae7371973db2414b77efba0"
+  },
+  "docs/schemas/dobby-branch-setup-authorization-v1.schema.json": {
+    "mtime": 1787308161.5924547,
+    "seen": 1787574596.884042,
+    "ast_hash": "21804639c67967c1aae6d78cdd85fae8",
+    "semantic_hash": "21804639c67967c1aae6d78cdd85fae8"
+  },
+  "docs/schemas/dobby-plugin-license-v3.schema.json": {
+    "mtime": 1787308161.5910292,
+    "seen": 1787574596.884046,
+    "ast_hash": "e5d54e7cc403975fb4ac4e543a046861",
+    "semantic_hash": "e5d54e7cc403975fb4ac4e543a046861"
+  },
+  "docs/schemas/dobby-plugin-license.schema.json": {
+    "mtime": 1787308161.5875945,
+    "seen": 1787574596.8840494,
+    "ast_hash": "53cb51a60236e4bebadb319368526d88",
+    "semantic_hash": "53cb51a60236e4bebadb319368526d88"
+  },
+  "docs/schemas/dobby-plugin-manifest-v2.schema.json": {
+    "mtime": 1787308161.5900722,
+    "seen": 1787574596.8840542,
+    "ast_hash": "8403c0c6c9321d5922ce17584b4455d4",
+    "semantic_hash": "8403c0c6c9321d5922ce17584b4455d4"
+  },
+  "docs/schemas/dobby-plugin-manifest.schema.json": {
+    "mtime": 1787308161.5851882,
+    "seen": 1787574596.8840575,
+    "ast_hash": "4ae75dd5f7087bf783bb92ee245d8732",
+    "semantic_hash": "4ae75dd5f7087bf783bb92ee245d8732"
+  },
+  "docs/schemas/dobby-recovery-request-v2.schema.json": {
+    "mtime": 1787308161.5935168,
+    "seen": 1787574596.8840609,
+    "ast_hash": "37bfe36913c7fd5955d42ce691733312",
+    "semantic_hash": "37bfe36913c7fd5955d42ce691733312"
+  },
+  "docs/schemas/dobby-recovery-response-v2.schema.json": {
+    "mtime": 1787308161.5945263,
+    "seen": 1787574596.8840644,
+    "ast_hash": "735a6843993aaee8a8691e79eca1896e",
+    "semantic_hash": "735a6843993aaee8a8691e79eca1896e"
+  },
+  "docs/schemas/release-external-evidence-v1.schema.json": {
+    "mtime": 1787407356.6656165,
+    "seen": 1787574596.8840675,
+    "ast_hash": "1f59944555f70e95f9639eb7300057ec",
+    "semantic_hash": "1f59944555f70e95f9639eb7300057ec"
+  },
+  "global.json": {
+    "mtime": 1778323581.7696352,
+    "seen": 1787574596.8840728,
+    "ast_hash": "946e00618af5bd851e5c0b4dcb7087f6",
+    "semantic_hash": "946e00618af5bd851e5c0b4dcb7087f6"
+  },
+  "installer/msix/build-rc-msix.ps1": {
+    "mtime": 1787407137.138213,
+    "seen": 1787574596.8840764,
+    "ast_hash": "c35bfc11b245789b5e8ac0fac8a1cd3b",
+    "semantic_hash": "c35bfc11b245789b5e8ac0fac8a1cd3b"
+  },
+  "samples/Dobby.Sample.Plugin/Dobby.Sample.Plugin.csproj": {
+    "mtime": 1787393724.2196014,
+    "seen": 1787574596.8840797,
+    "ast_hash": "c68292af1f494029babd3ec10734df86",
+    "semantic_hash": "c68292af1f494029babd3ec10734df86"
+  },
+  "samples/Dobby.Sample.Plugin/SamplePlugin.cs": {
+    "mtime": 1787396090.9486299,
+    "seen": 1787574596.8840828,
+    "ast_hash": "ce2f40ce4ab2ccedcd2be046a12cb383",
+    "semantic_hash": "ce2f40ce4ab2ccedcd2be046a12cb383"
+  },
+  "samples/Dobby.Sample.Plugin/dobby-plugin.manifest.template.json": {
+    "mtime": 1787393724.0797408,
+    "seen": 1787574596.8840857,
+    "ast_hash": "dd1d6271a37867d6721b5999f8563ce3",
+    "semantic_hash": "dd1d6271a37867d6721b5999f8563ce3"
+  },
+  "src/Dobby.Admin/App.xaml": {
+    "mtime": 1778324093.0811944,
+    "seen": 1787574596.884089,
+    "ast_hash": "f80f7e23a439d1b7792e53f6e093c2f6",
+    "semantic_hash": "f80f7e23a439d1b7792e53f6e093c2f6"
+  },
+  "src/Dobby.Admin/App.xaml.cs": {
+    "mtime": 1781944734.7381902,
+    "seen": 1787574596.8840923,
+    "ast_hash": "768ea1227c2bbea30fed7b0f7ccbe24a",
+    "semantic_hash": "768ea1227c2bbea30fed7b0f7ccbe24a"
+  },
+  "src/Dobby.Admin/Commands/AdminCommandHost.cs": {
+    "mtime": 1787396090.6896856,
+    "seen": 1787574596.8840954,
+    "ast_hash": "9c4b0cb67717dd7ac8369fa03f0330ca",
+    "semantic_hash": "9c4b0cb67717dd7ac8369fa03f0330ca"
+  },
+  "src/Dobby.Admin/Dobby.Admin.csproj": {
+    "mtime": 1781944734.7665658,
+    "seen": 1787574596.8840995,
+    "ast_hash": "5f03195fbc61efecf9cb4bb6fc36ec7e",
+    "semantic_hash": "5f03195fbc61efecf9cb4bb6fc36ec7e"
+  },
+  "src/Dobby.Admin/MainWindow.xaml": {
+    "mtime": 1778324093.11698,
+    "seen": 1787574596.8841028,
+    "ast_hash": "b97cf8e4a952c80f07280cff4c0ca711",
+    "semantic_hash": "b97cf8e4a952c80f07280cff4c0ca711"
+  },
+  "src/Dobby.Admin/MainWindow.xaml.cs": {
+    "mtime": 1778324455.9060147,
+    "seen": 1787574596.884106,
+    "ast_hash": "08bbded59a4993edf1fa910356f30139",
+    "semantic_hash": "08bbded59a4993edf1fa910356f30139"
+  },
+  "src/Dobby.Application/BackgroundOperationReporter.cs": {
+    "mtime": 1779878536.5775197,
+    "seen": 1787574596.8841121,
+    "ast_hash": "6e065a23db83ea06d9a48515737bb49c",
+    "semantic_hash": "6e065a23db83ea06d9a48515737bb49c"
+  },
+  "src/Dobby.Application/Dobby.Application.csproj": {
+    "mtime": 1778323581.9105911,
+    "seen": 1787574596.8841152,
+    "ast_hash": "b2d1d2b7716976cebb5d789b1f65b8cd",
+    "semantic_hash": "b2d1d2b7716976cebb5d789b1f65b8cd"
+  },
+  "src/Dobby.Application/Printing/PrintTargetClassifier.cs": {
+    "mtime": 1783756320.056103,
+    "seen": 1787574596.8841186,
+    "ast_hash": "1fc564c07b04ea52e5a039541c8a6225",
+    "semantic_hash": "1fc564c07b04ea52e5a039541c8a6225"
+  },
+  "src/Dobby.Audit/AuditDetailsSanitizer.cs": {
+    "mtime": 1787396090.414878,
+    "seen": 1787574596.8841214,
+    "ast_hash": "9b481ebdedecb5b4d24a85e1d7e7d447",
+    "semantic_hash": "9b481ebdedecb5b4d24a85e1d7e7d447"
+  },
+  "src/Dobby.Audit/AuditEvent.cs": {
+    "mtime": 1787299450.7829418,
+    "seen": 1787574596.884125,
+    "ast_hash": "21f07005868ab1e8b3ba04f6b4acb514",
+    "semantic_hash": "21f07005868ab1e8b3ba04f6b4acb514"
+  },
+  "src/Dobby.Audit/AuditEventName.cs": {
+    "mtime": 1787396090.415878,
+    "seen": 1787574596.884128,
+    "ast_hash": "0ce81a63abd8ece2643a2e8f65042248",
+    "semantic_hash": "0ce81a63abd8ece2643a2e8f65042248"
+  },
+  "src/Dobby.Audit/AuditResult.cs": {
+    "mtime": 1778661018.5411406,
+    "seen": 1787574596.884131,
+    "ast_hash": "b342489ba347bb2f48ca8bb6c7f1f936",
+    "semantic_hash": "b342489ba347bb2f48ca8bb6c7f1f936"
+  },
+  "src/Dobby.Audit/AuditResultExtensions.cs": {
+    "mtime": 1778661018.5561945,
+    "seen": 1787574596.8841343,
+    "ast_hash": "27dc132ecdab29b7b962531cba0e6650",
+    "semantic_hash": "27dc132ecdab29b7b962531cba0e6650"
+  },
+  "src/Dobby.Audit/Dobby.Audit.csproj": {
+    "mtime": 1778828464.0501258,
+    "seen": 1787574596.884177,
+    "ast_hash": "8623a803cbedec39b07f40a4bed1fb1a",
+    "semantic_hash": "8623a803cbedec39b07f40a4bed1fb1a"
+  },
+  "src/Dobby.Audit/HostMutationUnitOfWork.cs": {
+    "mtime": 1787396090.415878,
+    "seen": 1787574596.8841834,
+    "ast_hash": "50c0252e253d92c822aa68d1086a1ede",
+    "semantic_hash": "50c0252e253d92c822aa68d1086a1ede"
+  },
+  "src/Dobby.Audit/IAuditTrail.cs": {
+    "mtime": 1778661018.5738378,
+    "seen": 1787574596.8841894,
+    "ast_hash": "59940048390c674c34e65540cd0ab841",
+    "semantic_hash": "59940048390c674c34e65540cd0ab841"
+  },
+  "src/Dobby.Audit/IHostMutationContext.cs": {
+    "mtime": 1787396090.4168792,
+    "seen": 1787574596.8841956,
+    "ast_hash": "1edd7078a163b2215bcb5744a9d7f8b8",
+    "semantic_hash": "1edd7078a163b2215bcb5744a9d7f8b8"
+  },
+  "src/Dobby.Audit/IHostMutationUnitOfWork.cs": {
+    "mtime": 1787396090.4178839,
+    "seen": 1787574596.8842015,
+    "ast_hash": "7a08df901e65e844bf00971f8b2d138d",
+    "semantic_hash": "7a08df901e65e844bf00971f8b2d138d"
+  },
+  "src/Dobby.Audit/IHostTransactionAuditTrail.cs": {
+    "mtime": 1779103675.4767687,
+    "seen": 1787574596.8842082,
+    "ast_hash": "bbf84f3fbff60ecca775c3a3dd3fc97e",
+    "semantic_hash": "bbf84f3fbff60ecca775c3a3dd3fc97e"
+  },
+  "src/Dobby.Audit/InMemoryAuditTrail.cs": {
+    "mtime": 1787396090.4178839,
+    "seen": 1787574596.8842142,
+    "ast_hash": "c5c14db5b53b3aed4bf973a1ebf98041",
+    "semantic_hash": "c5c14db5b53b3aed4bf973a1ebf98041"
+  },
+  "src/Dobby.Audit/Persistence/AuditRetentionSweeper.cs": {
+    "mtime": 1787396090.4189,
+    "seen": 1787574596.8842208,
+    "ast_hash": "6e55341cdb6b7c36fd2d8fe9aeb043b4",
+    "semantic_hash": "6e55341cdb6b7c36fd2d8fe9aeb043b4"
+  },
+  "src/Dobby.Audit/Persistence/DurableAuditTrail.cs": {
+    "mtime": 1787396090.419881,
+    "seen": 1787574596.8842275,
+    "ast_hash": "db27bcaf233282ff2310e03b18910435",
+    "semantic_hash": "db27bcaf233282ff2310e03b18910435"
+  },
+  "src/Dobby.Configuration/AppThemePreference.cs": {
+    "mtime": 1779715078.8970003,
+    "seen": 1787574596.8842337,
+    "ast_hash": "835c23f495e5230f678064f139586fdb",
+    "semantic_hash": "835c23f495e5230f678064f139586fdb"
+  },
+  "src/Dobby.Configuration/AppearancePreference.cs": {
+    "mtime": 1779715078.8899336,
+    "seen": 1787574596.884239,
+    "ast_hash": "0ec07b6c6f4fa8bcb7d42b534b1ace41",
+    "semantic_hash": "0ec07b6c6f4fa8bcb7d42b534b1ace41"
+  },
+  "src/Dobby.Configuration/AuditOptions.cs": {
+    "mtime": 1778661018.3532612,
+    "seen": 1787574596.8842418,
+    "ast_hash": "5d1f2eb394ee961573546d3b3d415882",
+    "semantic_hash": "5d1f2eb394ee961573546d3b3d415882"
+  },
+  "src/Dobby.Configuration/AuthOptions.cs": {
+    "mtime": 1787396090.401077,
+    "seen": 1787574596.884245,
+    "ast_hash": "092a731d5b0eebbfcdfbf0dee21035a8",
+    "semantic_hash": "092a731d5b0eebbfcdfbf0dee21035a8"
+  },
+  "src/Dobby.Configuration/BranchSharedOptions.cs": {
+    "mtime": 1778661018.384132,
+    "seen": 1787574596.884252,
+    "ast_hash": "89c825207fd6f62b8840304ce000aef9",
+    "semantic_hash": "89c825207fd6f62b8840304ce000aef9"
+  },
+  "src/Dobby.Configuration/DiagnosticsOptions.cs": {
+    "mtime": 1778661018.3931353,
+    "seen": 1787574596.8842554,
+    "ast_hash": "2338bbb672b843f8678be892d8a90325",
+    "semantic_hash": "2338bbb672b843f8678be892d8a90325"
+  },
+  "src/Dobby.Configuration/Dobby.Configuration.csproj": {
+    "mtime": 1778323581.873115,
+    "seen": 1787574596.8842587,
+    "ast_hash": "260b5e0b40fb563e46511479336ab8fd",
+    "semantic_hash": "260b5e0b40fb563e46511479336ab8fd"
+  },
+  "src/Dobby.Configuration/DobbyOptions.cs": {
+    "mtime": 1787396090.4030764,
+    "seen": 1787574596.884262,
+    "ast_hash": "b3ece2bd555cab8c01cbef5bd53fad1e",
+    "semantic_hash": "b3ece2bd555cab8c01cbef5bd53fad1e"
+  },
+  "src/Dobby.Configuration/DobbyOptionsValidator.cs": {
+    "mtime": 1787396090.4060934,
+    "seen": 1787574596.884266,
+    "ast_hash": "ee79e2065128e64488f10eb79de31b2b",
+    "semantic_hash": "ee79e2065128e64488f10eb79de31b2b"
+  },
+  "src/Dobby.Configuration/ISettingsPreferenceSource.cs": {
+    "mtime": 1779715078.9039226,
+    "seen": 1787574596.8842692,
+    "ast_hash": "378f6f5164f854c7a359c8f371be72b4",
+    "semantic_hash": "378f6f5164f854c7a359c8f371be72b4"
+  },
+  "src/Dobby.Configuration/IThemePreferenceSource.cs": {
+    "mtime": 1783174115.6624603,
+    "seen": 1787574596.8842723,
+    "ast_hash": "31b56203a8239e7c07ab797a798e3078",
+    "semantic_hash": "31b56203a8239e7c07ab797a798e3078"
+  },
+  "src/Dobby.Configuration/LicensingOptions.cs": {
+    "mtime": 1778661018.412823,
+    "seen": 1787574596.8842752,
+    "ast_hash": "09263f3165d4ae86de7a9eab7b818849",
+    "semantic_hash": "09263f3165d4ae86de7a9eab7b818849"
+  },
+  "src/Dobby.Configuration/LocalizationOptions.cs": {
+    "mtime": 1779457863.5356944,
+    "seen": 1787574596.8842788,
+    "ast_hash": "ae22bdbea34ff13dea022cfd62181a82",
+    "semantic_hash": "ae22bdbea34ff13dea022cfd62181a82"
+  },
+  "src/Dobby.Configuration/PluginsOptions.cs": {
+    "mtime": 1787396090.4060934,
+    "seen": 1787574596.8842816,
+    "ast_hash": "4773f48236d57f2f83d86d4b44c37d9e",
+    "semantic_hash": "4773f48236d57f2f83d86d4b44c37d9e"
+  },
+  "src/Dobby.Configuration/ProductArtifactMode.cs": {
+    "mtime": 1787396090.4074311,
+    "seen": 1787574596.8842847,
+    "ast_hash": "07b445e2dff070fb0ab64eb516adea1b",
+    "semantic_hash": "07b445e2dff070fb0ab64eb516adea1b"
+  },
+  "src/Dobby.Configuration/ProductOptions.cs": {
+    "mtime": 1787396090.4074311,
+    "seen": 1787574596.8842878,
+    "ast_hash": "551499fa57248d5251f8d19cf985b390",
+    "semantic_hash": "551499fa57248d5251f8d19cf985b390"
+  },
+  "src/Dobby.Configuration/RuntimeEnvironmentName.cs": {
+    "mtime": 1779515806.3247006,
+    "seen": 1787574596.884291,
+    "ast_hash": "046e55d8b141ba0d3e8c2740331aefc8",
+    "semantic_hash": "046e55d8b141ba0d3e8c2740331aefc8"
+  },
+  "src/Dobby.Configuration/RuntimeOptions.cs": {
+    "mtime": 1779515806.3317018,
+    "seen": 1787574596.884294,
+    "ast_hash": "4cf315a40e83e92d92274ee37ed5388a",
+    "semantic_hash": "4cf315a40e83e92d92274ee37ed5388a"
+  },
+  "src/Dobby.Configuration/SecuritySessionPreference.cs": {
+    "mtime": 1779715078.9188235,
+    "seen": 1787574596.884298,
+    "ast_hash": "5793f0ca30f9aef3ab0f0189f0f87856",
+    "semantic_hash": "5793f0ca30f9aef3ab0f0189f0f87856"
+  },
+  "src/Dobby.Configuration/SessionOptions.cs": {
+    "mtime": 1778661018.4542844,
+    "seen": 1787574596.884301,
+    "ast_hash": "a2dd67bb8934b08370f6b34d9232261f",
+    "semantic_hash": "a2dd67bb8934b08370f6b34d9232261f"
+  },
+  "src/Dobby.Configuration/SettingsPreferenceScope.cs": {
+    "mtime": 1779869479.090672,
+    "seen": 1787574596.8843038,
+    "ast_hash": "3acf044e9a82654a6bbe423d16431e18",
+    "semantic_hash": "3acf044e9a82654a6bbe423d16431e18"
+  },
+  "src/Dobby.Configuration/SettingsPreferences.cs": {
+    "mtime": 1779869479.0827146,
+    "seen": 1787574596.884307,
+    "ast_hash": "5f9f3817c42d4d7bd2b84cfa83ed2a86",
+    "semantic_hash": "5f9f3817c42d4d7bd2b84cfa83ed2a86"
+  },
+  "src/Dobby.Configuration/ShellViewPreference.cs": {
+    "mtime": 1779869479.0946734,
+    "seen": 1787574596.8843102,
+    "ast_hash": "ff78a068ce37d642f3bb7055bd716705",
+    "semantic_hash": "ff78a068ce37d642f3bb7055bd716705"
+  },
+  "src/Dobby.Configuration/StorageOptions.cs": {
+    "mtime": 1787134289.8727663,
+    "seen": 1787574596.884313,
+    "ast_hash": "dc9a4c23b22bb763dd22d0dc4b42870d",
+    "semantic_hash": "dc9a4c23b22bb763dd22d0dc4b42870d"
+  },
+  "src/Dobby.Configuration/StorageProviderMode.cs": {
+    "mtime": 1779515806.3464482,
+    "seen": 1787574596.8843162,
+    "ast_hash": "9425bfca3321763a3f9b2a33773194cb",
+    "semantic_hash": "9425bfca3321763a3f9b2a33773194cb"
+  },
+  "src/Dobby.Contracts/BackgroundOperations/BackgroundOperationContracts.cs": {
+    "mtime": 1787136611.0898876,
+    "seen": 1787574596.884319,
+    "ast_hash": "87577e0eb40554343851ec8a638e2d1e",
+    "semantic_hash": "87577e0eb40554343851ec8a638e2d1e"
+  },
+  "src/Dobby.Contracts/Dobby.Contracts.csproj": {
+    "mtime": 1778323581.8305843,
+    "seen": 1787574596.8843224,
+    "ast_hash": "2b3855f574b8229d83ffe7f02f77cb95",
+    "semantic_hash": "2b3855f574b8229d83ffe7f02f77cb95"
+  },
+  "src/Dobby.Contracts/Events/EventContracts.cs": {
+    "mtime": 1778324455.6277208,
+    "seen": 1787574596.8843253,
+    "ast_hash": "c8374b39a9a05bcec5ed42d7d00e8892",
+    "semantic_hash": "c8374b39a9a05bcec5ed42d7d00e8892"
+  },
+  "src/Dobby.Contracts/Licensing/LicensingContracts.cs": {
+    "mtime": 1787396090.1027584,
+    "seen": 1787574596.8843284,
+    "ast_hash": "2461bf5440b55e0ffed4d051e6b4a4a4",
+    "semantic_hash": "2461bf5440b55e0ffed4d051e6b4a4a4"
+  },
+  "src/Dobby.Contracts/Ordering/UiOrderingKey.cs": {
+    "mtime": 1778324455.6469505,
+    "seen": 1787574596.8843315,
+    "ast_hash": "840f912582fa77530a43b0879e45912c",
+    "semantic_hash": "840f912582fa77530a43b0879e45912c"
+  },
+  "src/Dobby.Contracts/PluginFramework/PluginContracts.cs": {
+    "mtime": 1787396090.1057756,
+    "seen": 1787574596.8843346,
+    "ast_hash": "9a100a30630589a658d9b7cd41fa626c",
+    "semantic_hash": "9a100a30630589a658d9b7cd41fa626c"
+  },
+  "src/Dobby.Contracts/PluginPages/PluginComponentContracts.cs": {
+    "mtime": 1787396090.1107569,
+    "seen": 1787574596.884338,
+    "ast_hash": "e243ca29405ef7ae3f9f81aa48fd7570",
+    "semantic_hash": "e243ca29405ef7ae3f9f81aa48fd7570"
+  },
+  "src/Dobby.Contracts/PluginPages/PluginComponentModelValidator.cs": {
+    "mtime": 1787396090.1217618,
+    "seen": 1787574596.8843412,
+    "ast_hash": "a72fa5c2a4f4bffc757632c9a339293e",
+    "semantic_hash": "a72fa5c2a4f4bffc757632c9a339293e"
+  },
+  "src/Dobby.Contracts/PluginPages/PluginNavigationContracts.cs": {
+    "mtime": 1781599037.9792194,
+    "seen": 1787574596.8843443,
+    "ast_hash": "fffccc91c7518862c1ff5cb279b73384",
+    "semantic_hash": "fffccc91c7518862c1ff5cb279b73384"
+  },
+  "src/Dobby.Contracts/PluginPages/PluginPageContracts.cs": {
+    "mtime": 1787396090.1268744,
+    "seen": 1787574596.8843477,
+    "ast_hash": "22a9cdd6141618434caed5ee260783d7",
+    "semantic_hash": "22a9cdd6141618434caed5ee260783d7"
+  },
+  "src/Dobby.Contracts/PluginStorage/PluginStorageContracts.cs": {
+    "mtime": 1787129305.3633525,
+    "seen": 1787574596.8843508,
+    "ast_hash": "8ead449162a80b595404f22dd8f7dbe9",
+    "semantic_hash": "8ead449162a80b595404f22dd8f7dbe9"
+  },
+  "src/Dobby.Contracts/Policies/PolicyContracts.cs": {
+    "mtime": 1778585803.579775,
+    "seen": 1787574596.8843539,
+    "ast_hash": "b06f6fd3e89fd781b383dff2db09221b",
+    "semantic_hash": "b06f6fd3e89fd781b383dff2db09221b"
+  },
+  "src/Dobby.Core/CorrelationId.cs": {
+    "mtime": 1778585803.5593069,
+    "seen": 1787574596.8843918,
+    "ast_hash": "b191b5ac7c6e67d988dcfa2e0c2b214b",
+    "semantic_hash": "b191b5ac7c6e67d988dcfa2e0c2b214b"
+  },
+  "src/Dobby.Core/Dobby.Core.csproj": {
+    "mtime": 1778323581.8216844,
+    "seen": 1787574596.8843977,
+    "ast_hash": "19edc64557ac16fc308a8aaedcce1a2c",
+    "semantic_hash": "19edc64557ac16fc308a8aaedcce1a2c"
+  },
+  "src/Dobby.Core/Result.cs": {
+    "mtime": 1787396090.077749,
+    "seen": 1787574596.884404,
+    "ast_hash": "b0395fe50e496633432f630be21dc039",
+    "semantic_hash": "b0395fe50e496633432f630be21dc039"
+  },
+  "src/Dobby.Core/Versioning/HostVersion.cs": {
+    "mtime": 1778585803.5722451,
+    "seen": 1787574596.8844101,
+    "ast_hash": "fd46ceed21dbbaf13b7573fddde7616d",
+    "semantic_hash": "fd46ceed21dbbaf13b7573fddde7616d"
+  },
+  "src/Dobby.Diagnostics/DiagnosticRedactor.cs": {
+    "mtime": 1787396090.411879,
+    "seen": 1787574596.8844156,
+    "ast_hash": "68675a868a676aa9f545c4470befa072",
+    "semantic_hash": "68675a868a676aa9f545c4470befa072"
+  },
+  "src/Dobby.Diagnostics/DiagnosticsExportPackage.cs": {
+    "mtime": 1778661018.47628,
+    "seen": 1787574596.8844225,
+    "ast_hash": "d7884cd9b03f52bc42566a775146fe28",
+    "semantic_hash": "d7884cd9b03f52bc42566a775146fe28"
+  },
+  "src/Dobby.Diagnostics/DiagnosticsExportPackageBuilder.cs": {
+    "mtime": 1787396090.41288,
+    "seen": 1787574596.884429,
+    "ast_hash": "3cfbedaa77ca49ef1b744db492e2b97c",
+    "semantic_hash": "3cfbedaa77ca49ef1b744db492e2b97c"
+  },
+  "src/Dobby.Diagnostics/Dobby.Diagnostics.csproj": {
+    "mtime": 1778323581.9207263,
+    "seen": 1787574596.8844352,
+    "ast_hash": "99e9aba5c279545476677d4ecafd4040",
+    "semantic_hash": "99e9aba5c279545476677d4ecafd4040"
+  },
+  "src/Dobby.Diagnostics/LocalizationMissingKeyEvent.cs": {
+    "mtime": 1787299450.8129435,
+    "seen": 1787574596.8844416,
+    "ast_hash": "2baa82e6044150aee36a018407e89f24",
+    "semantic_hash": "2baa82e6044150aee36a018407e89f24"
+  },
+  "src/Dobby.Diagnostics/StartupMilestone.cs": {
+    "mtime": 1778661018.5018692,
+    "seen": 1787574596.8844476,
+    "ast_hash": "de760413b4212d86a557dc3067b1b77c",
+    "semantic_hash": "de760413b4212d86a557dc3067b1b77c"
+  },
+  "src/Dobby.Diagnostics/StartupMilestoneNames.cs": {
+    "mtime": 1778829472.2936065,
+    "seen": 1787574596.8844564,
+    "ast_hash": "88e54e5bd6f5e8d10d6c2dc8a00cae85",
+    "semantic_hash": "88e54e5bd6f5e8d10d6c2dc8a00cae85"
+  },
+  "src/Dobby.Host/App.xaml": {
+    "mtime": 1783174115.6634662,
+    "seen": 1787574596.8844597,
+    "ast_hash": "617a3b196f7a2e4dc894e39ab524cb37",
+    "semantic_hash": "617a3b196f7a2e4dc894e39ab524cb37"
+  },
+  "src/Dobby.Host/App.xaml.cs": {
+    "mtime": 1787396090.5385728,
+    "seen": 1787574596.884463,
+    "ast_hash": "972d764cb52ec8815bb189656dc28d5a",
+    "semantic_hash": "972d764cb52ec8815bb189656dc28d5a"
+  },
+  "src/Dobby.Host/Dobby.Host.csproj": {
+    "mtime": 1784019453.076125,
+    "seen": 1787574596.8844662,
+    "ast_hash": "36a722bc0b4931f2a04e1d77012aede0",
+    "semantic_hash": "36a722bc0b4931f2a04e1d77012aede0"
+  },
+  "src/Dobby.Host/HostConfigurationSourceOptions.cs": {
+    "mtime": 1779527374.950051,
+    "seen": 1787574596.8844697,
+    "ast_hash": "975a170383a61e1fa9feb4ab6c7faf4d",
+    "semantic_hash": "975a170383a61e1fa9feb4ab6c7faf4d"
+  },
+  "src/Dobby.Host/HostConfigurationSources.cs": {
+    "mtime": 1787396090.5405722,
+    "seen": 1787574596.8844726,
+    "ast_hash": "52714ddcc4cd95273472f633f9032f99",
+    "semantic_hash": "52714ddcc4cd95273472f633f9032f99"
+  },
+  "src/Dobby.Host/HostCustomerDeploymentContextProvisioningCoordinator.cs": {
+    "mtime": 1787130528.682599,
+    "seen": 1787574596.884476,
+    "ast_hash": "abd2c17060c219ca7e2d97cd79d2c661",
+    "semantic_hash": "abd2c17060c219ca7e2d97cd79d2c661"
+  },
+  "src/Dobby.Host/HostCustomerDeploymentContextStore.cs": {
+    "mtime": 1783756320.0651033,
+    "seen": 1787574596.884479,
+    "ast_hash": "0ca22727a18b8c3c6f724fec55159842",
+    "semantic_hash": "0ca22727a18b8c3c6f724fec55159842"
+  },
+  "src/Dobby.Host/HostLicenseStateStore.cs": {
+    "mtime": 1787396090.5455737,
+    "seen": 1787574596.8844821,
+    "ast_hash": "8e14d225710b81ae8572844abd4058f3",
+    "semantic_hash": "8e14d225710b81ae8572844abd4058f3"
+  },
+  "src/Dobby.Host/HostStartupJsonSerializerContext.cs": {
+    "mtime": 1787396090.5485892,
+    "seen": 1787574596.884485,
+    "ast_hash": "7b7e5612a23aafaae8cd442edf95e272",
+    "semantic_hash": "7b7e5612a23aafaae8cd442edf95e272"
+  },
+  "src/Dobby.Host/LocalDiagnosticsConfigurator.cs": {
+    "mtime": 1787299450.81996,
+    "seen": 1787574596.884488,
+    "ast_hash": "e0299f686aad654f03e27cd20a6120b6",
+    "semantic_hash": "e0299f686aad654f03e27cd20a6120b6"
+  },
+  "src/Dobby.Host/Login/AuditRetentionMaintenance.cs": {
+    "mtime": 1787396090.5565865,
+    "seen": 1787574596.884491,
+    "ast_hash": "d36b222b66d07d6a2fc6ca1e3799e3da",
+    "semantic_hash": "d36b222b66d07d6a2fc6ca1e3799e3da"
+  },
+  "src/Dobby.Host/Login/AuthenticatedPersistenceMaintenanceCoordinator.cs": {
+    "mtime": 1787396090.5625722,
+    "seen": 1787574596.884494,
+    "ast_hash": "c997bfa1c3007d6da2b2575503c2f3b9",
+    "semantic_hash": "c997bfa1c3007d6da2b2575503c2f3b9"
+  },
+  "src/Dobby.Host/Login/DeferredLoginRuntimeWorkflow.cs": {
+    "mtime": 1787396090.5645885,
+    "seen": 1787574596.884498,
+    "ast_hash": "fc7205c21cda183d3018023d3f6017e0",
+    "semantic_hash": "fc7205c21cda183d3018023d3f6017e0"
+  },
+  "src/Dobby.Host/Login/HostLoginRuntime.cs": {
+    "mtime": 1787396090.5666401,
+    "seen": 1787574596.884501,
+    "ast_hash": "0561a55cdf8e0a1a0f4047540b4bc344",
+    "semantic_hash": "0561a55cdf8e0a1a0f4047540b4bc344"
+  },
+  "src/Dobby.Host/Login/HostLoginRuntimeFactory.cs": {
+    "mtime": 1787396090.567624,
+    "seen": 1787574596.8845043,
+    "ast_hash": "1cf8c22bf4e8e580915e69595b4f58a0",
+    "semantic_hash": "1cf8c22bf4e8e580915e69595b4f58a0"
+  },
+  "src/Dobby.Host/Login/LockRuntimeWorkflow.cs": {
+    "mtime": 1787396090.568624,
+    "seen": 1787574596.8845072,
+    "ast_hash": "33fa8ff653d59dd47dca87798169a262",
+    "semantic_hash": "33fa8ff653d59dd47dca87798169a262"
+  },
+  "src/Dobby.Host/Login/LockViewModel.cs": {
+    "mtime": 1783756320.0795822,
+    "seen": 1787574596.8845105,
+    "ast_hash": "dc307e95f7e6e91515d0485281da2ed4",
+    "semantic_hash": "dc307e95f7e6e91515d0485281da2ed4"
+  },
+  "src/Dobby.Host/Login/LockWindow.xaml": {
+    "mtime": 1787391649.2279866,
+    "seen": 1787574596.8845136,
+    "ast_hash": "1e3a2f6f8290641b72b3335e4e2776fd",
+    "semantic_hash": "1e3a2f6f8290641b72b3335e4e2776fd"
+  },
+  "src/Dobby.Host/Login/LockWindow.xaml.cs": {
+    "mtime": 1783756320.0855837,
+    "seen": 1787574596.8845174,
+    "ast_hash": "e4f27519b6a897d80aff145a9d2b3b13",
+    "semantic_hash": "e4f27519b6a897d80aff145a9d2b3b13"
+  },
+  "src/Dobby.Host/Login/LoginAuditCoordinator.cs": {
+    "mtime": 1787396090.571624,
+    "seen": 1787574596.8845208,
+    "ast_hash": "9a3acb4ba531fad0d5a2dad3c4db9dba",
+    "semantic_hash": "9a3acb4ba531fad0d5a2dad3c4db9dba"
+  },
+  "src/Dobby.Host/Login/LoginRuntimePreparer.cs": {
+    "mtime": 1787396090.5726266,
+    "seen": 1787574596.8845239,
+    "ast_hash": "622ad82726630eafdc6bad7ee7787245",
+    "semantic_hash": "622ad82726630eafdc6bad7ee7787245"
+  },
+  "src/Dobby.Host/Login/LoginRuntimeWorkflow.cs": {
+    "mtime": 1787396090.573635,
+    "seen": 1787574596.8845267,
+    "ast_hash": "e3f9a90f972a48ffca83804480fae25c",
+    "semantic_hash": "e3f9a90f972a48ffca83804480fae25c"
+  },
+  "src/Dobby.Host/Login/LoginStartupSnapshot.cs": {
+    "mtime": 1787396090.5750115,
+    "seen": 1787574596.8845298,
+    "ast_hash": "b49f4ee1e37ca8dbef1e8ea718a968b2",
+    "semantic_hash": "b49f4ee1e37ca8dbef1e8ea718a968b2"
+  },
+  "src/Dobby.Host/Login/LoginStartupSnapshotLoader.cs": {
+    "mtime": 1787396090.5750115,
+    "seen": 1787574596.8845327,
+    "ast_hash": "9e42ea76f506a8894b30ca455691bd70",
+    "semantic_hash": "9e42ea76f506a8894b30ca455691bd70"
+  },
+  "src/Dobby.Host/Login/LoginStartupTimingTrace.cs": {
+    "mtime": 1783174115.673715,
+    "seen": 1787574596.8845358,
+    "ast_hash": "ae0f0d7ab324c0e260692bc8cb2c28d9",
+    "semantic_hash": "ae0f0d7ab324c0e260692bc8cb2c28d9"
+  },
+  "src/Dobby.Host/Login/LoginViewModel.cs": {
+    "mtime": 1787396090.5761354,
+    "seen": 1787574596.8845391,
+    "ast_hash": "0c2be54f69e969a2f0025900f5b2bc14",
+    "semantic_hash": "0c2be54f69e969a2f0025900f5b2bc14"
+  },
+  "src/Dobby.Host/Login/LoginWindow.xaml": {
+    "mtime": 1787391649.223987,
+    "seen": 1787574596.8845422,
+    "ast_hash": "b93016bdeff671350d924d53be75b31d",
+    "semantic_hash": "b93016bdeff671350d924d53be75b31d"
+  },
+  "src/Dobby.Host/Login/LoginWindow.xaml.cs": {
+    "mtime": 1787396090.5772715,
+    "seen": 1787574596.8845453,
+    "ast_hash": "44c203a803d8ff24608fcff5b16eec5e",
+    "semantic_hash": "44c203a803d8ff24608fcff5b16eec5e"
+  },
+  "src/Dobby.Host/Login/PostLoginSessionRuntime.cs": {
+    "mtime": 1787396090.5782652,
+    "seen": 1787574596.8845487,
+    "ast_hash": "a847234754b7335ca2db18913d28a6d6",
+    "semantic_hash": "a847234754b7335ca2db18913d28a6d6"
+  },
+  "src/Dobby.Host/Login/PostLoginTimingTrace.cs": {
+    "mtime": 1787299450.853592,
+    "seen": 1787574596.8845518,
+    "ast_hash": "7efa8dca580d39516ab6e9361c741a9c",
+    "semantic_hash": "7efa8dca580d39516ab6e9361c741a9c"
+  },
+  "src/Dobby.Host/Login/RecoveryPasswordResetDialog.xaml": {
+    "mtime": 1787391649.2310035,
+    "seen": 1787574596.8845553,
+    "ast_hash": "2e570d893bde36a44ba615d797135355",
+    "semantic_hash": "2e570d893bde36a44ba615d797135355"
+  },
+  "src/Dobby.Host/Login/RecoveryPasswordResetDialog.xaml.cs": {
+    "mtime": 1787396090.579265,
+    "seen": 1787574596.8845587,
+    "ast_hash": "3fff001fa019ab67ed63ad973d8b97f6",
+    "semantic_hash": "3fff001fa019ab67ed63ad973d8b97f6"
+  },
+  "src/Dobby.Host/Login/RecoveryPasswordResetPrompt.cs": {
+    "mtime": 1779197916.8503745,
+    "seen": 1787574596.8845618,
+    "ast_hash": "6c39fa48d1613435e6ad42680962317d",
+    "semantic_hash": "6c39fa48d1613435e6ad42680962317d"
+  },
+  "src/Dobby.Host/Login/RecoveryRequestExportCoordinator.cs": {
+    "mtime": 1787396090.5802674,
+    "seen": 1787574596.8845649,
+    "ast_hash": "59ee837002c755e724ea47847e7dc2e3",
+    "semantic_hash": "59ee837002c755e724ea47847e7dc2e3"
+  },
+  "src/Dobby.Host/Login/RecoveryResponseImportCoordinator.cs": {
+    "mtime": 1787396090.5812647,
+    "seen": 1787574596.8845677,
+    "ast_hash": "f1df7b5d5d0829eb4ef999c124df0293",
+    "semantic_hash": "f1df7b5d5d0829eb4ef999c124df0293"
+  },
+  "src/Dobby.Host/Login/RecoveryView.xaml": {
+    "mtime": 1787391147.460428,
+    "seen": 1787574596.884604,
+    "ast_hash": "4848beb4f62fc37a1cb6995e74d95eeb",
+    "semantic_hash": "4848beb4f62fc37a1cb6995e74d95eeb"
+  },
+  "src/Dobby.Host/Login/RecoveryView.xaml.cs": {
+    "mtime": 1779273947.042097,
+    "seen": 1787574596.8846104,
+    "ast_hash": "34a4bb622380c5a3e1c94186fa13e9a5",
+    "semantic_hash": "34a4bb622380c5a3e1c94186fa13e9a5"
+  },
+  "src/Dobby.Host/Login/RecoveryViewModel.cs": {
+    "mtime": 1779197916.8693638,
+    "seen": 1787574596.8846471,
+    "ast_hash": "46867b5edc026f091db5a31ea4623c97",
+    "semantic_hash": "46867b5edc026f091db5a31ea4623c97"
+  },
+  "src/Dobby.Host/Login/SelfServicePasswordChangeCoordinator.cs": {
+    "mtime": 1787396090.582266,
+    "seen": 1787574596.884655,
+    "ast_hash": "8667ca9e46b9f00de0464376e037040d",
+    "semantic_hash": "8667ca9e46b9f00de0464376e037040d"
+  },
+  "src/Dobby.Host/Login/WindowsRecoveryExportFolderOpener.cs": {
+    "mtime": 1779184049.9451568,
+    "seen": 1787574596.8846614,
+    "ast_hash": "c956d269cb7d484f3bb5e5dfdc097fd5",
+    "semantic_hash": "c956d269cb7d484f3bb5e5dfdc097fd5"
+  },
+  "src/Dobby.Host/Login/WindowsRecoveryExportPathClipboard.cs": {
+    "mtime": 1779184049.95016,
+    "seen": 1787574596.884665,
+    "ast_hash": "8b15d94b2effa921d4b73a719a23f4ad",
+    "semantic_hash": "8b15d94b2effa921d4b73a719a23f4ad"
+  },
+  "src/Dobby.Host/Login/WindowsRecoveryFilePicker.cs": {
+    "mtime": 1779184049.9563613,
+    "seen": 1787574596.884668,
+    "ast_hash": "386e84a7babc2f537f3f23af1b1078ac",
+    "semantic_hash": "386e84a7babc2f537f3f23af1b1078ac"
+  },
+  "src/Dobby.Host/Login/WpfLockWindowPresenter.cs": {
+    "mtime": 1779197916.886457,
+    "seen": 1787574596.8846717,
+    "ast_hash": "58965f62a037419a5097148485770cda",
+    "semantic_hash": "58965f62a037419a5097148485770cda"
+  },
+  "src/Dobby.Host/MainWindow.xaml": {
+    "mtime": 1787391716.5148976,
+    "seen": 1787574596.8846753,
+    "ast_hash": "a4906887e2300494ae6e80a720fa1d74",
+    "semantic_hash": "a4906887e2300494ae6e80a720fa1d74"
+  },
+  "src/Dobby.Host/MainWindow.xaml.cs": {
+    "mtime": 1787396090.584264,
+    "seen": 1787574596.8846784,
+    "ast_hash": "d191047a85d08cefcc3985fe6538b9ea",
+    "semantic_hash": "d191047a85d08cefcc3985fe6538b9ea"
+  },
+  "src/Dobby.Host/Plugins/HostInstalledPluginMetadataCache.cs": {
+    "mtime": 1787396090.5852647,
+    "seen": 1787574596.8846817,
+    "ast_hash": "b3d005a6a01ec5eb3aa2c2ba33fcdb8b",
+    "semantic_hash": "b3d005a6a01ec5eb3aa2c2ba33fcdb8b"
+  },
+  "src/Dobby.Host/Plugins/HostInstalledPluginStateStore.cs": {
+    "mtime": 1787396090.5882664,
+    "seen": 1787574596.884685,
+    "ast_hash": "1068dcf8c241bef7ae2327f6e47548cc",
+    "semantic_hash": "1068dcf8c241bef7ae2327f6e47548cc"
+  },
+  "src/Dobby.Host/Plugins/HostPluginActivationCancellation.cs": {
+    "mtime": 1781599037.9876294,
+    "seen": 1787574596.8846884,
+    "ast_hash": "d6a2449011c7111e38929459313b92ea",
+    "semantic_hash": "d6a2449011c7111e38929459313b92ea"
+  },
+  "src/Dobby.Host/Plugins/HostPluginActivationStatusPersistence.cs": {
+    "mtime": 1787396090.5902693,
+    "seen": 1787574596.8846915,
+    "ast_hash": "d587300c27e1bd1544b19b587cdd5ace",
+    "semantic_hash": "d587300c27e1bd1544b19b587cdd5ace"
+  },
+  "src/Dobby.Host/Plugins/HostPluginCommandDispatcher.cs": {
+    "mtime": 1787396090.591266,
+    "seen": 1787574596.8846953,
+    "ast_hash": "82e73dec89d7229997197052e2df3586",
+    "semantic_hash": "82e73dec89d7229997197052e2df3586"
+  },
+  "src/Dobby.Host/Plugins/HostPluginInstallStateCommitter.cs": {
+    "mtime": 1787396090.5972645,
+    "seen": 1787574596.8846986,
+    "ast_hash": "40a6ef9415195e062d4581284d50dfe7",
+    "semantic_hash": "40a6ef9415195e062d4581284d50dfe7"
+  },
+  "src/Dobby.Host/Plugins/HostPluginLifecycleCoordinator.cs": {
+    "mtime": 1787396090.6053338,
+    "seen": 1787574596.8847017,
+    "ast_hash": "29cfd8e8dff8014c44ae9611b82f1fbf",
+    "semantic_hash": "29cfd8e8dff8014c44ae9611b82f1fbf"
+  },
+  "src/Dobby.Host/Plugins/HostPluginPackageInstallCoordinator.cs": {
+    "mtime": 1787400157.7819474,
+    "seen": 1787574596.884705,
+    "ast_hash": "a8caa07a6cd1083becf7498d0b4ca991",
+    "semantic_hash": "a8caa07a6cd1083becf7498d0b4ca991"
+  },
+  "src/Dobby.Host/Plugins/HostPluginRuntimeCoordinator.cs": {
+    "mtime": 1787396090.6142654,
+    "seen": 1787574596.8847082,
+    "ast_hash": "0d08a499ae9dc6183acfef861e9ebcf5",
+    "semantic_hash": "0d08a499ae9dc6183acfef861e9ebcf5"
+  },
+  "src/Dobby.Host/Plugins/HostPluginStorage.cs": {
+    "mtime": 1787129243.4215827,
+    "seen": 1787574596.8847115,
+    "ast_hash": "9ce0042656b31177e37bf12b1d95f7f9",
+    "semantic_hash": "9ce0042656b31177e37bf12b1d95f7f9"
+  },
+  "src/Dobby.Host/Plugins/HostPluginStorageCompartment.cs": {
+    "mtime": 1787396090.616282,
+    "seen": 1787574596.8847146,
+    "ast_hash": "47fcf55ec41446a7c7debdcad800807f",
+    "semantic_hash": "47fcf55ec41446a7c7debdcad800807f"
+  },
+  "src/Dobby.Host/Plugins/HostRuntimeModeMutationGate.cs": {
+    "mtime": 1787396090.6172657,
+    "seen": 1787574596.884718,
+    "ast_hash": "c961c65651c408526cdc3927a7afebdd",
+    "semantic_hash": "c961c65651c408526cdc3927a7afebdd"
+  },
+  "src/Dobby.Host/Plugins/LicenseActivationRefreshOutboxHandler.cs": {
+    "mtime": 1787396090.6182647,
+    "seen": 1787574596.8847208,
+    "ast_hash": "67ce13d6652f15f0d557bb3975cbb55f",
+    "semantic_hash": "67ce13d6652f15f0d557bb3975cbb55f"
+  },
+  "src/Dobby.Host/Plugins/LicenseImportCoordinator.cs": {
+    "mtime": 1787396090.6192667,
+    "seen": 1787574596.8847241,
+    "ast_hash": "27b40a6fd473ab44c7feee0549afec03",
+    "semantic_hash": "27b40a6fd473ab44c7feee0549afec03"
+  },
+  "src/Dobby.Host/Plugins/LicenseImportShellAction.cs": {
+    "mtime": 1783756320.1282842,
+    "seen": 1787574596.884727,
+    "ast_hash": "5ecb78a93343d876806368d34a9f24f1",
+    "semantic_hash": "5ecb78a93343d876806368d34a9f24f1"
+  },
+  "src/Dobby.Host/Plugins/PluginCurrentProcessActivationTracker.cs": {
+    "mtime": 1782108114.7389765,
+    "seen": 1787574596.88473,
+    "ast_hash": "3df4556d397c5b36284377cccaa864f2",
+    "semantic_hash": "3df4556d397c5b36284377cccaa864f2"
+  },
+  "src/Dobby.Host/Plugins/PluginDataRetentionStore.cs": {
+    "mtime": 1783756320.1312888,
+    "seen": 1787574596.8847332,
+    "ast_hash": "b830cf3ff882e3e7bd681ad71ffd41e5",
+    "semantic_hash": "b830cf3ff882e3e7bd681ad71ffd41e5"
+  },
+  "src/Dobby.Host/Plugins/PluginInstallConcurrencyGate.cs": {
+    "mtime": 1787396090.6217465,
+    "seen": 1787574596.884736,
+    "ast_hash": "dbf5f243cd2f90fc5b0c5c56b13d26c8",
+    "semantic_hash": "dbf5f243cd2f90fc5b0c5c56b13d26c8"
+  },
+  "src/Dobby.Host/Plugins/PluginInstallStagingArea.cs": {
+    "mtime": 1787396090.623241,
+    "seen": 1787574596.8847394,
+    "ast_hash": "9bb25b1655e140dcedb2dd25226e2b0b",
+    "semantic_hash": "9bb25b1655e140dcedb2dd25226e2b0b"
+  },
+  "src/Dobby.Host/Plugins/PluginPageRouteCoordinator.cs": {
+    "mtime": 1787396090.6242602,
+    "seen": 1787574596.8847432,
+    "ast_hash": "e26f95bfe53fd2407e9a2a90b8dbda32",
+    "semantic_hash": "e26f95bfe53fd2407e9a2a90b8dbda32"
+  },
+  "src/Dobby.Host/Plugins/PluginRuntimeAuditCoordinator.cs": {
+    "mtime": 1787396090.6252637,
+    "seen": 1787574596.8847466,
+    "ast_hash": "a78fb0c3a0e6b9caf6eac7670489f7f8",
+    "semantic_hash": "a78fb0c3a0e6b9caf6eac7670489f7f8"
+  },
+  "src/Dobby.Host/Plugins/PluginRuntimeDiagnosticsCoordinator.cs": {
+    "mtime": 1787396090.6262617,
+    "seen": 1787574596.8847504,
+    "ast_hash": "9ac38fd35cf705d5a317488cdb8a953f",
+    "semantic_hash": "9ac38fd35cf705d5a317488cdb8a953f"
+  },
+  "src/Dobby.Host/Plugins/PluginRuntimeDiagnosticsFileSink.cs": {
+    "mtime": 1787299450.8865607,
+    "seen": 1787574596.8847535,
+    "ast_hash": "bf013105cb04c580b109b3c8f7d3c5bd",
+    "semantic_hash": "bf013105cb04c580b109b3c8f7d3c5bd"
+  },
+  "src/Dobby.Host/Plugins/PluginRuntimeFaultPolicy.cs": {
+    "mtime": 1787396090.6262617,
+    "seen": 1787574596.8847566,
+    "ast_hash": "5b1260040fb91f9b511d1a612c17e79b",
+    "semantic_hash": "5b1260040fb91f9b511d1a612c17e79b"
+  },
+  "src/Dobby.Host/Plugins/PluginUninstallConfirmation.cs": {
+    "mtime": 1782129473.3619034,
+    "seen": 1787574596.8847597,
+    "ast_hash": "9878e41d3d0b2cc0a9b844a15b0ca35a",
+    "semantic_hash": "9878e41d3d0b2cc0a9b844a15b0ca35a"
+  },
+  "src/Dobby.Host/Plugins/ShellPluginManagerOperationCoordinator.cs": {
+    "mtime": 1787396090.6272674,
+    "seen": 1787574596.8847625,
+    "ast_hash": "4e89c948efdceb5e15f9a61a3d9351d1",
+    "semantic_hash": "4e89c948efdceb5e15f9a61a3d9351d1"
+  },
+  "src/Dobby.Host/Plugins/ShellPluginWorkSessionService.cs": {
+    "mtime": 1787396090.6282592,
+    "seen": 1787574596.884766,
+    "ast_hash": "ea87beefca7eb0a57bb7f464c296bafa",
+    "semantic_hash": "ea87beefca7eb0a57bb7f464c296bafa"
+  },
+  "src/Dobby.Host/Plugins/WindowsLicenseFilePicker.cs": {
+    "mtime": 1781944734.947995,
+    "seen": 1787574596.8847692,
+    "ast_hash": "ce2b356ccf4bf7e72f647169415edda0",
+    "semantic_hash": "ce2b356ccf4bf7e72f647169415edda0"
+  },
+  "src/Dobby.Host/PostLoginShellPresenter.cs": {
+    "mtime": 1787396090.6292589,
+    "seen": 1787574596.8847725,
+    "ast_hash": "ae3f6e8484872fd8a8ed925737ca28f9",
+    "semantic_hash": "ae3f6e8484872fd8a8ed925737ca28f9"
+  },
+  "src/Dobby.Host/Printing/HostPrintOutputCoordinator.cs": {
+    "mtime": 1787396090.6292589,
+    "seen": 1787574596.8847756,
+    "ast_hash": "efc209643bb8973da192001fc45fcc0e",
+    "semantic_hash": "efc209643bb8973da192001fc45fcc0e"
+  },
+  "src/Dobby.Host/Printing/HostPrintOutputService.cs": {
+    "mtime": 1787396090.6302621,
+    "seen": 1787574596.884779,
+    "ast_hash": "e0669d7c4c44aebb2928783f3e17b188",
+    "semantic_hash": "e0669d7c4c44aebb2928783f3e17b188"
+  },
+  "src/Dobby.Host/ProcessExitEscalator.cs": {
+    "mtime": 1783174115.687179,
+    "seen": 1787574596.884782,
+    "ast_hash": "3b06a3910bc541bcbd2bb82a6686f907",
+    "semantic_hash": "3b06a3910bc541bcbd2bb82a6686f907"
+  },
+  "src/Dobby.Host/RuntimeFolderLayout.cs": {
+    "mtime": 1787299450.89805,
+    "seen": 1787574596.8847854,
+    "ast_hash": "85b162a1d6befacf56c72e62f17b2a97",
+    "semantic_hash": "85b162a1d6befacf56c72e62f17b2a97"
+  },
+  "src/Dobby.Host/RuntimeFolderPreparer.cs": {
+    "mtime": 1779285366.7695603,
+    "seen": 1787574596.884789,
+    "ast_hash": "e48b7cc71ad36f09f4b4b9b2a66063db",
+    "semantic_hash": "e48b7cc71ad36f09f4b4b9b2a66063db"
+  },
+  "src/Dobby.Host/Sessions/SessionLifecycleAuditCoordinator.cs": {
+    "mtime": 1787396090.6312482,
+    "seen": 1787574596.884792,
+    "ast_hash": "7a5e87549ca5221c05122ea356323011",
+    "semantic_hash": "7a5e87549ca5221c05122ea356323011"
+  },
+  "src/Dobby.Host/Settings/AboutInfo.cs": {
+    "mtime": 1787396090.632262,
+    "seen": 1787574596.8848302,
+    "ast_hash": "98f66e33aa12e99f9b1410fda6f433c0",
+    "semantic_hash": "98f66e33aa12e99f9b1410fda6f433c0"
+  },
+  "src/Dobby.Host/Settings/AboutInfoProvider.cs": {
+    "mtime": 1787396090.6332626,
+    "seen": 1787574596.8848372,
+    "ast_hash": "1043ec33b583e5b097fff3b44e2d539e",
+    "semantic_hash": "1043ec33b583e5b097fff3b44e2d539e"
+  },
+  "src/Dobby.Host/Settings/AboutSettingsModel.cs": {
+    "mtime": 1787396090.6332626,
+    "seen": 1787574596.8848436,
+    "ast_hash": "be9d5a55bb0f988201a8e4459ef65940",
+    "semantic_hash": "be9d5a55bb0f988201a8e4459ef65940"
+  },
+  "src/Dobby.Host/Settings/AccountSettingsModel.cs": {
+    "mtime": 1787396090.6342494,
+    "seen": 1787574596.8848503,
+    "ast_hash": "617e75863366b0ebd3b26edfb18dc3af",
+    "semantic_hash": "617e75863366b0ebd3b26edfb18dc3af"
+  },
+  "src/Dobby.Host/Settings/AppearanceSettingsModel.cs": {
+    "mtime": 1783756320.1662865,
+    "seen": 1787574596.8848832,
+    "ast_hash": "cb6a6630dc49732e0ac105621041e475",
+    "semantic_hash": "cb6a6630dc49732e0ac105621041e475"
+  },
+  "src/Dobby.Host/Settings/AssemblyHostBuildMetadataProvider.cs": {
+    "mtime": 1779782839.0267386,
+    "seen": 1787574596.8848891,
+    "ast_hash": "e298f4a778445ebe0fed349e290d45e9",
+    "semantic_hash": "e298f4a778445ebe0fed349e290d45e9"
+  },
+  "src/Dobby.Host/Settings/AssemblyHostVersionProvider.cs": {
+    "mtime": 1779782839.0298004,
+    "seen": 1787574596.884893,
+    "ast_hash": "c061194298f5a165c217a0bfdcbfc773",
+    "semantic_hash": "c061194298f5a165c217a0bfdcbfc773"
+  },
+  "src/Dobby.Host/Settings/FixedSupportDeviceCodeProvider.cs": {
+    "mtime": 1779715463.7189007,
+    "seen": 1787574596.8848963,
+    "ast_hash": "f5b45a4200f626c0a721632f0c51827e",
+    "semantic_hash": "f5b45a4200f626c0a721632f0c51827e"
+  },
+  "src/Dobby.Host/Settings/HostBuildMetadata.cs": {
+    "mtime": 1779782839.0338082,
+    "seen": 1787574596.8848996,
+    "ast_hash": "8820517d29b5585a2acd17b777fff378",
+    "semantic_hash": "8820517d29b5585a2acd17b777fff378"
+  },
+  "src/Dobby.Host/Settings/HostConfigurationSettingsPreferenceSource.cs": {
+    "mtime": 1783174115.6911798,
+    "seen": 1787574596.884903,
+    "ast_hash": "78ea884540c8c673d7defaee3861e8d2",
+    "semantic_hash": "78ea884540c8c673d7defaee3861e8d2"
+  },
+  "src/Dobby.Host/Settings/ISupportDeviceCodeProvider.cs": {
+    "mtime": 1779715463.7249641,
+    "seen": 1787574596.8849063,
+    "ast_hash": "868a5b627503c263c542b2339506a81a",
+    "semantic_hash": "868a5b627503c263c542b2339506a81a"
+  },
+  "src/Dobby.Host/Settings/PluginAboutInfo.cs": {
+    "mtime": 1779715463.7329607,
+    "seen": 1787574596.8849096,
+    "ast_hash": "666a2c8b29f47cdc4ac3608c1836f996",
+    "semantic_hash": "666a2c8b29f47cdc4ac3608c1836f996"
+  },
+  "src/Dobby.Host/Settings/RenderedSettingsSections.cs": {
+    "mtime": 1783756320.168289,
+    "seen": 1787574596.8849127,
+    "ast_hash": "29398ddc052975c976907ada1c651bee",
+    "semantic_hash": "29398ddc052975c976907ada1c651bee"
+  },
+  "src/Dobby.Host/Settings/SecuritySessionSettingsModel.cs": {
+    "mtime": 1783756320.171286,
+    "seen": 1787574596.884916,
+    "ast_hash": "e4604acceec2f4d928bed60e09b18a84",
+    "semantic_hash": "e4604acceec2f4d928bed60e09b18a84"
+  },
+  "src/Dobby.Host/Settings/SettingsCategory.cs": {
+    "mtime": 1779715463.7389634,
+    "seen": 1787574596.884919,
+    "ast_hash": "4d3bed2f61dd6bb297006fefba77d72c",
+    "semantic_hash": "4d3bed2f61dd6bb297006fefba77d72c"
+  },
+  "src/Dobby.Host/Settings/SettingsNavigationModel.cs": {
+    "mtime": 1779715463.7449763,
+    "seen": 1787574596.884922,
+    "ast_hash": "3823a6d11f3689806efe99a5c4971a07",
+    "semantic_hash": "3823a6d11f3689806efe99a5c4971a07"
+  },
+  "src/Dobby.Host/Settings/SupportDeviceCodeV2.cs": {
+    "mtime": 1787396090.6352642,
+    "seen": 1787574596.8849251,
+    "ast_hash": "c352f306824b2afdc77e900c54f0a37c",
+    "semantic_hash": "c352f306824b2afdc77e900c54f0a37c"
+  },
+  "src/Dobby.Host/Settings/UserManagementAuditCoordinator.cs": {
+    "mtime": 1787396090.6370256,
+    "seen": 1787574596.8849285,
+    "ast_hash": "2a498cda1b9b2cc60a7c355e7d85b457",
+    "semantic_hash": "2a498cda1b9b2cc60a7c355e7d85b457"
+  },
+  "src/Dobby.Host/Settings/UserManagementSettingsModel.cs": {
+    "mtime": 1783756320.173285,
+    "seen": 1787574596.8849318,
+    "ast_hash": "b03d53a4904bbd04df3268d34ca28003",
+    "semantic_hash": "b03d53a4904bbd04df3268d34ca28003"
+  },
+  "src/Dobby.Host/ShellBackgroundOperationCoordinator.cs": {
+    "mtime": 1787396090.6400359,
+    "seen": 1787574596.8849354,
+    "ast_hash": "1a029dc5e3ba2a2be5f4fe37fc66b83e",
+    "semantic_hash": "1a029dc5e3ba2a2be5f4fe37fc66b83e"
+  },
+  "src/Dobby.Host/ShellDiagnosticsExportCoordinator.cs": {
+    "mtime": 1787396090.6582408,
+    "seen": 1787574596.8849387,
+    "ast_hash": "f70e1e2a00228dce405507c99d841800",
+    "semantic_hash": "f70e1e2a00228dce405507c99d841800"
+  },
+  "src/Dobby.Host/ShellLocalizationDiagnosticsRecorder.cs": {
+    "mtime": 1787299450.911156,
+    "seen": 1787574596.8849418,
+    "ast_hash": "d7bb0c46e959174b1c8b7ad9e01e6ef4",
+    "semantic_hash": "d7bb0c46e959174b1c8b7ad9e01e6ef4"
+  },
+  "src/Dobby.Host/ShellPreferenceMapper.cs": {
+    "mtime": 1779948262.5167584,
+    "seen": 1787574596.884945,
+    "ast_hash": "1fe91b4ea0883ce04ed852312edf3727",
+    "semantic_hash": "1fe91b4ea0883ce04ed852312edf3727"
+  },
+  "src/Dobby.Host/ShellThemeCoordinator.cs": {
+    "mtime": 1783174115.6921797,
+    "seen": 1787574596.8849483,
+    "ast_hash": "ca6eb9a74ddc4245fac6d4685462e22f",
+    "semantic_hash": "ca6eb9a74ddc4245fac6d4685462e22f"
+  },
+  "src/Dobby.Host/ShellWindowCloseConfirmation.cs": {
+    "mtime": 1782797644.7705364,
+    "seen": 1787574596.8849514,
+    "ast_hash": "17ab43c7bdae7ababde2fbe69a544910",
+    "semantic_hash": "17ab43c7bdae7ababde2fbe69a544910"
+  },
+  "src/Dobby.Host/StartupRememberMeLegacyCleaner.cs": {
+    "mtime": 1787396090.6666365,
+    "seen": 1787574596.8849545,
+    "ast_hash": "39e0b6702ab67797449d31c16b26f242",
+    "semantic_hash": "39e0b6702ab67797449d31c16b26f242"
+  },
+  "src/Dobby.Host/StartupThemeSnapshotStore.cs": {
+    "mtime": 1783174115.698186,
+    "seen": 1787574596.8849576,
+    "ast_hash": "7538fbc9f6572b9c3d3c51701953aea9",
+    "semantic_hash": "7538fbc9f6572b9c3d3c51701953aea9"
+  },
+  "src/Dobby.Host/Startup/CrashRecoverySmokeHook.cs": {
+    "mtime": 1787396090.6756072,
+    "seen": 1787574596.8849602,
+    "ast_hash": "821205a19285e0e03d8fe8242cb7c864",
+    "semantic_hash": "821205a19285e0e03d8fe8242cb7c864"
+  },
+  "src/Dobby.Host/Startup/HostBootstrapOptions.cs": {
+    "mtime": 1787299450.915875,
+    "seen": 1787574596.8849633,
+    "ast_hash": "124b5b3d3bae17acf23f38534773354f",
+    "semantic_hash": "124b5b3d3bae17acf23f38534773354f"
+  },
+  "src/Dobby.Host/Startup/HostBootstrapResult.cs": {
+    "mtime": 1778661018.637113,
+    "seen": 1787574596.8849666,
+    "ast_hash": "36d3a9fc57a960589be8c491b5221427",
+    "semantic_hash": "36d3a9fc57a960589be8c491b5221427"
+  },
+  "src/Dobby.Host/Startup/HostBootstrapper.cs": {
+    "mtime": 1787396090.6836376,
+    "seen": 1787574596.8849697,
+    "ast_hash": "fbb94da35b0fae60f5488fd521cb51f5",
+    "semantic_hash": "fbb94da35b0fae60f5488fd521cb51f5"
+  },
+  "src/Dobby.Host/Startup/ISingleInstanceCoordinator.cs": {
+    "mtime": 1779105857.4144757,
+    "seen": 1787574596.8849726,
+    "ast_hash": "2ea94c3f8f691a58e8bd2353e9d53615",
+    "semantic_hash": "2ea94c3f8f691a58e8bd2353e9d53615"
+  },
+  "src/Dobby.Host/Startup/OwnerBootstrapCoordinator.cs": {
+    "mtime": 1787299450.927462,
+    "seen": 1787574596.8849761,
+    "ast_hash": "34280c2f9ce20049db1c4f4614579046",
+    "semantic_hash": "34280c2f9ce20049db1c4f4614579046"
+  },
+  "src/Dobby.Host/Startup/PreLoginInstrumentation.cs": {
+    "mtime": 1779543637.0337794,
+    "seen": 1787574596.8849792,
+    "ast_hash": "48061b74443cbb70cd65c983f77ac179",
+    "semantic_hash": "48061b74443cbb70cd65c983f77ac179"
+  },
+  "src/Dobby.Host/Startup/RuntimeTemporaryOutputRecovery.cs": {
+    "mtime": 1787396090.6856859,
+    "seen": 1787574596.8849823,
+    "ast_hash": "4b4da3af8df0b2905f3e9056592582d1",
+    "semantic_hash": "4b4da3af8df0b2905f3e9056592582d1"
+  },
+  "src/Dobby.Host/Startup/SingleInstanceCoordinator.cs": {
+    "mtime": 1783174115.6951866,
+    "seen": 1787574596.8849854,
+    "ast_hash": "8f0fe9913a1e9bc398731e6c2b220f08",
+    "semantic_hash": "8f0fe9913a1e9bc398731e6c2b220f08"
+  },
+  "src/Dobby.Host/Startup/StartupPlan.cs": {
+    "mtime": 1778661018.647127,
+    "seen": 1787574596.8849883,
+    "ast_hash": "d9b303afcb178c3536a2b81cbbde26a5",
+    "semantic_hash": "d9b303afcb178c3536a2b81cbbde26a5"
+  },
+  "src/Dobby.Host/WindowActivationHelper.cs": {
+    "mtime": 1783174115.6991858,
+    "seen": 1787574596.8849924,
+    "ast_hash": "c4e725b098827f23f717041e3bcd48a5",
+    "semantic_hash": "c4e725b098827f23f717041e3bcd48a5"
+  },
+  "src/Dobby.Host/WindowsPrintTargetClassifierAdapter.cs": {
+    "mtime": 1781781785.2114706,
+    "seen": 1787574596.8849952,
+    "ast_hash": "c2d520b103df5ea69a60377b102da2bf",
+    "semantic_hash": "c2d520b103df5ea69a60377b102da2bf"
+  },
+  "src/Dobby.Host/WorkspaceTabSizingConverters.cs": {
+    "mtime": 1783409133.3513217,
+    "seen": 1787574596.8849983,
+    "ast_hash": "d10bd2946330e99c11452d82a6aeee0b",
+    "semantic_hash": "d10bd2946330e99c11452d82a6aeee0b"
+  },
+  "src/Dobby.Host/appsettings.json": {
+    "mtime": 1787390766.2666435,
+    "seen": 1787574596.8850017,
+    "ast_hash": "997669aa41c553f0d08e22cfc6de9b1e",
+    "semantic_hash": "997669aa41c553f0d08e22cfc6de9b1e"
+  },
+  "src/Dobby.Infrastructure/Dobby.Infrastructure.csproj": {
+    "mtime": 1787380269.7695634,
+    "seen": 1787574596.8850048,
+    "ast_hash": "e5301740d87c9d38e344464f080f09f6",
+    "semantic_hash": "e5301740d87c9d38e344464f080f09f6"
+  },
+  "src/Dobby.Infrastructure/HardwareIdentity/HardwareIdentitySnapshot.cs": {
+    "mtime": 1779104820.8181753,
+    "seen": 1787574596.8850086,
+    "ast_hash": "483894a2cbb1955ac1f731ee1192100a",
+    "semantic_hash": "483894a2cbb1955ac1f731ee1192100a"
+  },
+  "src/Dobby.Infrastructure/HardwareIdentity/IHardwareIdentityProvider.cs": {
+    "mtime": 1779104820.8181753,
+    "seen": 1787574596.885012,
+    "ast_hash": "fcf578992cbcb821a3e6ba3654715993",
+    "semantic_hash": "fcf578992cbcb821a3e6ba3654715993"
+  },
+  "src/Dobby.Infrastructure/HardwareIdentity/WindowsHardwareIdentityProvider.cs": {
+    "mtime": 1779105032.8809469,
+    "seen": 1787574596.8850157,
+    "ast_hash": "fe1dd2f9e7338138a12eb28047be805a",
+    "semantic_hash": "fe1dd2f9e7338138a12eb28047be805a"
+  },
+  "src/Dobby.Infrastructure/Persistence/EncryptedSqliteConnectionFactory.cs": {
+    "mtime": 1787396090.4670093,
+    "seen": 1787574596.885019,
+    "ast_hash": "9db96c76319d129b696eab129a06394c",
+    "semantic_hash": "9db96c76319d129b696eab129a06394c"
+  },
+  "src/Dobby.Infrastructure/Persistence/HostOutbox.cs": {
+    "mtime": 1787396090.4684846,
+    "seen": 1787574596.885067,
+    "ast_hash": "25801aab379ce7f15aee327866f7e233",
+    "semantic_hash": "25801aab379ce7f15aee327866f7e233"
+  },
+  "src/Dobby.Infrastructure/Persistence/HostOutboxDispatcher.cs": {
+    "mtime": 1787396090.4694946,
+    "seen": 1787574596.8850737,
+    "ast_hash": "88d3cba5f9399ff753e1b8c189276d95",
+    "semantic_hash": "88d3cba5f9399ff753e1b8c189276d95"
+  },
+  "src/Dobby.Infrastructure/Persistence/HostPersistenceAccessGate.cs": {
+    "mtime": 1787396090.4724953,
+    "seen": 1787574596.8850799,
+    "ast_hash": "48c0df542e8c63b1a2235bcb57528b4f",
+    "semantic_hash": "48c0df542e8c63b1a2235bcb57528b4f"
+  },
+  "src/Dobby.Infrastructure/Persistence/HostPersistenceCommandExecutor.cs": {
+    "mtime": 1783174115.7001853,
+    "seen": 1787574596.8850863,
+    "ast_hash": "8ff656c47404ee259d5c6bc465bc7354",
+    "semantic_hash": "8ff656c47404ee259d5c6bc465bc7354"
+  },
+  "src/Dobby.Infrastructure/Persistence/HostPersistenceConnection.cs": {
+    "mtime": 1787396090.4739046,
+    "seen": 1787574596.8850925,
+    "ast_hash": "e9ef4d21247f60e22b45d26a51bea5c2",
+    "semantic_hash": "e9ef4d21247f60e22b45d26a51bea5c2"
+  },
+  "src/Dobby.Infrastructure/Persistence/HostPersistenceMaintenanceService.cs": {
+    "mtime": 1787396090.4816577,
+    "seen": 1787574596.8850992,
+    "ast_hash": "60a069435334c44aca52f87351641484",
+    "semantic_hash": "60a069435334c44aca52f87351641484"
+  },
+  "src/Dobby.Infrastructure/Persistence/HostPersistenceMigrator.cs": {
+    "mtime": 1787396090.4897504,
+    "seen": 1787574596.8851058,
+    "ast_hash": "7357977a327d50f6baf5c79cb83fc052",
+    "semantic_hash": "7357977a327d50f6baf5c79cb83fc052"
+  },
+  "src/Dobby.Infrastructure/Persistence/HostPersistenceOptions.cs": {
+    "mtime": 1778829472.5200553,
+    "seen": 1787574596.8851118,
+    "ast_hash": "551fda08e1cff4843e3d39f99d88d02e",
+    "semantic_hash": "551fda08e1cff4843e3d39f99d88d02e"
+  },
+  "src/Dobby.Infrastructure/Persistence/HostPersistenceTransactionScope.cs": {
+    "mtime": 1787396090.4934888,
+    "seen": 1787574596.8851182,
+    "ast_hash": "9323ede31decf957bd117c2d38a62905",
+    "semantic_hash": "9323ede31decf957bd117c2d38a62905"
+  },
+  "src/Dobby.Infrastructure/Persistence/IHostPersistenceCommandExecutor.cs": {
+    "mtime": 1778829472.5300612,
+    "seen": 1787574596.8851242,
+    "ast_hash": "24dc8f016826400af8d10231bf7c3ef8",
+    "semantic_hash": "24dc8f016826400af8d10231bf7c3ef8"
+  },
+  "src/Dobby.Infrastructure/Persistence/IHostPersistenceConnectionFactory.cs": {
+    "mtime": 1778829472.537573,
+    "seen": 1787574596.8851273,
+    "ast_hash": "9f16ff2d18541265705537a5696f2f5c",
+    "semantic_hash": "9f16ff2d18541265705537a5696f2f5c"
+  },
+  "src/Dobby.Infrastructure/Persistence/IHostPersistenceMigrator.cs": {
+    "mtime": 1778829472.5425727,
+    "seen": 1787574596.8851304,
+    "ast_hash": "65cc1aab61bb7cd6abbde43556b0bf09",
+    "semantic_hash": "65cc1aab61bb7cd6abbde43556b0bf09"
+  },
+  "src/Dobby.Infrastructure/Persistence/IHostPersistenceTransactionFaultInjector.cs": {
+    "mtime": 1787396090.4967132,
+    "seen": 1787574596.8851342,
+    "ast_hash": "e0fe657c1b323d76cf07fb8093ca028a",
+    "semantic_hash": "e0fe657c1b323d76cf07fb8093ca028a"
+  },
+  "src/Dobby.Infrastructure/Persistence/IHostPersistenceTransactionScope.cs": {
+    "mtime": 1778829472.5491755,
+    "seen": 1787574596.8851373,
+    "ast_hash": "c06307e80dfecf4ad0ed29f2f6cdba7f",
+    "semantic_hash": "c06307e80dfecf4ad0ed29f2f6cdba7f"
+  },
+  "src/Dobby.Infrastructure/Persistence/Migrations/0002_postlogin_bootstrap.sql": {
+    "mtime": 1781599037.9957366,
+    "seen": 1787574596.8851404,
+    "ast_hash": "61a0eb88ac4bc649b8d76e1f1bd58ab2",
+    "semantic_hash": "61a0eb88ac4bc649b8d76e1f1bd58ab2"
+  },
+  "src/Dobby.Infrastructure/Persistence/Migrations/0003_license_state.sql": {
+    "mtime": 1781781785.2145731,
+    "seen": 1787574596.8851438,
+    "ast_hash": "154d9fc424d4ecf7ee87c088d665a744",
+    "semantic_hash": "154d9fc424d4ecf7ee87c088d665a744"
+  },
+  "src/Dobby.Infrastructure/Persistence/Migrations/0004_license_lifecycle_inputs.sql": {
+    "mtime": 1781785609.2196982,
+    "seen": 1787574596.8851473,
+    "ast_hash": "8fa0d990218ea424dace074a6efdc23f",
+    "semantic_hash": "8fa0d990218ea424dace074a6efdc23f"
+  },
+  "src/Dobby.Infrastructure/Persistence/Migrations/0005_plugin_lifecycle_state.sql": {
+    "mtime": 1781944734.9705036,
+    "seen": 1787574596.8851507,
+    "ast_hash": "40ff53879a8079d97903b13c0127f547",
+    "semantic_hash": "40ff53879a8079d97903b13c0127f547"
+  },
+  "src/Dobby.Infrastructure/Persistence/Migrations/0006_plugin_storage_values.sql": {
+    "mtime": 1783756320.1842842,
+    "seen": 1787574596.8851538,
+    "ast_hash": "dd71f38b9656722b3bf5be7ba4c1dc7b",
+    "semantic_hash": "dd71f38b9656722b3bf5be7ba4c1dc7b"
+  },
+  "src/Dobby.Infrastructure/Persistence/Migrations/0007_license_v3_state.sql": {
+    "mtime": 1787318435.1245809,
+    "seen": 1787574596.8851569,
+    "ast_hash": "5f2b1f317504cf8bed5abf0145473cb7",
+    "semantic_hash": "5f2b1f317504cf8bed5abf0145473cb7"
+  },
+  "src/Dobby.Infrastructure/Persistence/Migrations/0008_plugin_install_operations.sql": {
+    "mtime": 1787380269.7667036,
+    "seen": 1787574596.88516,
+    "ast_hash": "e6bb418f2617559a9f5b67b4f3feef37",
+    "semantic_hash": "e6bb418f2617559a9f5b67b4f3feef37"
+  },
+  "src/Dobby.Infrastructure/Persistence/PersistenceError.cs": {
+    "mtime": 1787396090.4977148,
+    "seen": 1787574596.8851635,
+    "ast_hash": "ce32b6fef6c5630b0f17d6723ad58618",
+    "semantic_hash": "ce32b6fef6c5630b0f17d6723ad58618"
+  },
+  "src/Dobby.Infrastructure/Persistence/PersistenceResult.cs": {
+    "mtime": 1778829472.5587964,
+    "seen": 1787574596.8851666,
+    "ast_hash": "b4af607bdacf420b20ec171daf4c8440",
+    "semantic_hash": "b4af607bdacf420b20ec171daf4c8440"
+  },
+  "src/Dobby.Infrastructure/Persistence/PersistenceResultOfT.cs": {
+    "mtime": 1778829472.5624957,
+    "seen": 1787574596.88517,
+    "ast_hash": "66f2101a3395236d21b39dfff024b046",
+    "semantic_hash": "66f2101a3395236d21b39dfff024b046"
+  },
+  "src/Dobby.Infrastructure/Persistence/PostLoginPluginPersistenceMigrations.cs": {
+    "mtime": 1787396090.5027173,
+    "seen": 1787574596.885173,
+    "ast_hash": "aeac4154ec0bf9c84fe0a102e913d091",
+    "semantic_hash": "aeac4154ec0bf9c84fe0a102e913d091"
+  },
+  "src/Dobby.Infrastructure/Persistence/PreLoginMigrationV1.cs": {
+    "mtime": 1787125866.33529,
+    "seen": 1787574596.8851762,
+    "ast_hash": "a6493e0022ace363bc27d550ae44a35e",
+    "semantic_hash": "a6493e0022ace363bc27d550ae44a35e"
+  },
+  "src/Dobby.Infrastructure/Persistence/PreLoginOutboxEvidenceMigrationV11.cs": {
+    "mtime": 1787396090.5047133,
+    "seen": 1787574596.885179,
+    "ast_hash": "fbe495ee1f29409fe24f0c898876f014",
+    "semantic_hash": "fbe495ee1f29409fe24f0c898876f014"
+  },
+  "src/Dobby.Infrastructure/Persistence/PreLoginOutboxMigrationV9.cs": {
+    "mtime": 1787396090.5137255,
+    "seen": 1787574596.8851824,
+    "ast_hash": "163f4448d5ec53d907d33768dedd4ca8",
+    "semantic_hash": "163f4448d5ec53d907d33768dedd4ca8"
+  },
+  "src/Dobby.Infrastructure/Persistence/PreLoginPersistenceOpener.cs": {
+    "mtime": 1787299450.9609318,
+    "seen": 1787574596.8851857,
+    "ast_hash": "221e03b6839d9c5bbc365eeed06da3c9",
+    "semantic_hash": "221e03b6839d9c5bbc365eeed06da3c9"
+  },
+  "src/Dobby.Infrastructure/Persistence/PreLoginRecoveryRequestMigrationV10.cs": {
+    "mtime": 1787396090.5177102,
+    "seen": 1787574596.885189,
+    "ast_hash": "a3053247eff6fecafb53cdff2ac16b52",
+    "semantic_hash": "a3053247eff6fecafb53cdff2ac16b52"
+  },
+  "src/Dobby.Infrastructure/Persistence/PreLoginRememberedAccountMigrationV7.cs": {
+    "mtime": 1787396090.520727,
+    "seen": 1787574596.885192,
+    "ast_hash": "823602d4b86be9e917f7399f056fe9b3",
+    "semantic_hash": "823602d4b86be9e917f7399f056fe9b3"
+  },
+  "src/Dobby.Infrastructure/Persistence/PreLoginThrottleMigrationV8.cs": {
+    "mtime": 1787396090.5228887,
+    "seen": 1787574596.8851955,
+    "ast_hash": "2f69136c7ee7d85f56c4f4afe2906a38",
+    "semantic_hash": "2f69136c7ee7d85f56c4f4afe2906a38"
+  },
+  "src/Dobby.Infrastructure/Persistence/SqliteProviderInitializer.cs": {
+    "mtime": 1779285366.7513266,
+    "seen": 1787574596.8851988,
+    "ast_hash": "3e4cf05229d1fee6d53a783458093a90",
+    "semantic_hash": "3e4cf05229d1fee6d53a783458093a90"
+  },
+  "src/Dobby.Infrastructure/Printing/WindowsPrintTargetClassifier.cs": {
+    "mtime": 1781781785.2175725,
+    "seen": 1787574596.885202,
+    "ast_hash": "7cc296ef490fa3d8ea7f7ca1c671578e",
+    "semantic_hash": "7cc296ef490fa3d8ea7f7ca1c671578e"
+  },
+  "src/Dobby.Infrastructure/ProtectedStorage/DpapiCurrentUserProtector.cs": {
+    "mtime": 1778829472.5818937,
+    "seen": 1787574596.885206,
+    "ast_hash": "734b6f23c0f0a11ff4094e8200797b0b",
+    "semantic_hash": "734b6f23c0f0a11ff4094e8200797b0b"
+  },
+  "src/Dobby.Infrastructure/ProtectedStorage/DpapiLocalMachineProtector.cs": {
+    "mtime": 1778829472.5866342,
+    "seen": 1787574596.885209,
+    "ast_hash": "51fc21bd188ca92b4f0aac6090b223ad",
+    "semantic_hash": "51fc21bd188ca92b4f0aac6090b223ad"
+  },
+  "src/Dobby.Infrastructure/ProtectedStorage/IProtectedDataProtector.cs": {
+    "mtime": 1779103514.427763,
+    "seen": 1787574596.8852122,
+    "ast_hash": "58d6683a5d1b992f6d244905f4cbe594",
+    "semantic_hash": "58d6683a5d1b992f6d244905f4cbe594"
+  },
+  "src/Dobby.Infrastructure/ProtectedStorage/IProtectedMaterialSource.cs": {
+    "mtime": 1778829472.5977485,
+    "seen": 1787574596.8852153,
+    "ast_hash": "cde585080122e4a58f168f5085ff281c",
+    "semantic_hash": "cde585080122e4a58f168f5085ff281c"
+  },
+  "src/Dobby.Infrastructure/ProtectedStorage/ProtectedMaterialAvailabilityProbe.cs": {
+    "mtime": 1787396090.5238984,
+    "seen": 1787574596.8852186,
+    "ast_hash": "535f74519be5f1d9584e065759a66864",
+    "semantic_hash": "535f74519be5f1d9584e065759a66864"
+  },
+  "src/Dobby.Infrastructure/ProtectedStorage/ProtectedMaterialPaths.cs": {
+    "mtime": 1787396090.5248992,
+    "seen": 1787574596.885222,
+    "ast_hash": "9e8166ba7d8e83b5fc3838a282f04ce4",
+    "semantic_hash": "9e8166ba7d8e83b5fc3838a282f04ce4"
+  },
+  "src/Dobby.Infrastructure/ProtectedStorage/ProtectedMaterialSet.cs": {
+    "mtime": 1787396090.5270526,
+    "seen": 1787574596.885225,
+    "ast_hash": "0eb76110745b30768a78b644d17ea5aa",
+    "semantic_hash": "0eb76110745b30768a78b644d17ea5aa"
+  },
+  "src/Dobby.Licensing/Dobby.Licensing.csproj": {
+    "mtime": 1781781785.2185726,
+    "seen": 1787574596.885228,
+    "ast_hash": "1ad58949d485c16f769d710578250ff7",
+    "semantic_hash": "1ad58949d485c16f769d710578250ff7"
+  },
+  "src/Dobby.Licensing/ILicenseRuntimeModeProvider.cs": {
+    "mtime": 1781781785.2195735,
+    "seen": 1787574596.885231,
+    "ast_hash": "b3f85f9e3b3de601c69be75b6ce58dee",
+    "semantic_hash": "b3f85f9e3b3de601c69be75b6ce58dee"
+  },
+  "src/Dobby.Licensing/ILicenseStateStore.cs": {
+    "mtime": 1787396090.3623974,
+    "seen": 1787574596.885234,
+    "ast_hash": "fd2593d47e7a2eb378b600c4b26658a5",
+    "semantic_hash": "fd2593d47e7a2eb378b600c4b26658a5"
+  },
+  "src/Dobby.Licensing/LicenseArtifact.cs": {
+    "mtime": 1781781785.2205727,
+    "seen": 1787574596.8852372,
+    "ast_hash": "5d926bd856a9b7011ad13be70266fad1",
+    "semantic_hash": "5d926bd856a9b7011ad13be70266fad1"
+  },
+  "src/Dobby.Licensing/LicenseArtifactParseResult.cs": {
+    "mtime": 1781781785.2215724,
+    "seen": 1787574596.8852751,
+    "ast_hash": "faa0c30446483c8734882d3bb12270e9",
+    "semantic_hash": "faa0c30446483c8734882d3bb12270e9"
+  },
+  "src/Dobby.Licensing/LicenseArtifactParser.cs": {
+    "mtime": 1787396090.363409,
+    "seen": 1787574596.8852813,
+    "ast_hash": "fd453905ce3d9ea1cc2971819900dcc6",
+    "semantic_hash": "fd453905ce3d9ea1cc2971819900dcc6"
+  },
+  "src/Dobby.Licensing/LicenseCanonicalJsonWriter.cs": {
+    "mtime": 1781781785.2225752,
+    "seen": 1787574596.8852875,
+    "ast_hash": "1926243080086d73275901582161f379",
+    "semantic_hash": "1926243080086d73275901582161f379"
+  },
+  "src/Dobby.Licensing/LicenseDeviceFingerprintV1.cs": {
+    "mtime": 1781781785.2235744,
+    "seen": 1787574596.8852937,
+    "ast_hash": "c397641aafb72a02183b11f4ef5a4f90",
+    "semantic_hash": "c397641aafb72a02183b11f4ef5a4f90"
+  },
+  "src/Dobby.Licensing/LicenseImportAttestation.cs": {
+    "mtime": 1781781785.2235744,
+    "seen": 1787574596.8853006,
+    "ast_hash": "18b26797ef2e3a9e88e2dd4cff68b0bc",
+    "semantic_hash": "18b26797ef2e3a9e88e2dd4cff68b0bc"
+  },
+  "src/Dobby.Licensing/LicenseImportRequest.cs": {
+    "mtime": 1787396090.3643968,
+    "seen": 1787574596.8853073,
+    "ast_hash": "11d1abba9cc2381bdf2c9509233446ba",
+    "semantic_hash": "11d1abba9cc2381bdf2c9509233446ba"
+  },
+  "src/Dobby.Licensing/LicenseImportResult.cs": {
+    "mtime": 1787396090.3658955,
+    "seen": 1787574596.8853133,
+    "ast_hash": "d266db86a24695db21b03e9e77590e7c",
+    "semantic_hash": "d266db86a24695db21b03e9e77590e7c"
+  },
+  "src/Dobby.Licensing/LicenseImportService.cs": {
+    "mtime": 1787396090.367051,
+    "seen": 1787574596.8853197,
+    "ast_hash": "073c0f0f4dcfe226855f432c945eee69",
+    "semantic_hash": "073c0f0f4dcfe226855f432c945eee69"
+  },
+  "src/Dobby.Licensing/LicenseLifecycleState.cs": {
+    "mtime": 1787396090.3680618,
+    "seen": 1787574596.885326,
+    "ast_hash": "57ee9fcd58b1b9f7289239f3037d315a",
+    "semantic_hash": "57ee9fcd58b1b9f7289239f3037d315a"
+  },
+  "src/Dobby.Licensing/LicensePayload.cs": {
+    "mtime": 1787396090.3690884,
+    "seen": 1787574596.8853312,
+    "ast_hash": "3c72ea1e69708a87b371d42226e54908",
+    "semantic_hash": "3c72ea1e69708a87b371d42226e54908"
+  },
+  "src/Dobby.Licensing/LicensePayloadValidationResult.cs": {
+    "mtime": 1781781785.2286224,
+    "seen": 1787574596.8853354,
+    "ast_hash": "f140bb948b343547bf5b067305b87951",
+    "semantic_hash": "f140bb948b343547bf5b067305b87951"
+  },
+  "src/Dobby.Licensing/LicensePayloadValidator.cs": {
+    "mtime": 1787396090.371104,
+    "seen": 1787574596.885339,
+    "ast_hash": "957fb61d0acb6741489154147f936f61",
+    "semantic_hash": "957fb61d0acb6741489154147f936f61"
+  },
+  "src/Dobby.Licensing/LicenseRejectReasons.cs": {
+    "mtime": 1781855871.5227416,
+    "seen": 1787574596.8853424,
+    "ast_hash": "60bf71f583cc2ee3d2a4c980e3410a03",
+    "semantic_hash": "60bf71f583cc2ee3d2a4c980e3410a03"
+  },
+  "src/Dobby.Licensing/LicenseRevisionPolicy.cs": {
+    "mtime": 1781781785.2316368,
+    "seen": 1787574596.8853457,
+    "ast_hash": "3f5d7f0e13c663d233896c241fb84133",
+    "semantic_hash": "3f5d7f0e13c663d233896c241fb84133"
+  },
+  "src/Dobby.Licensing/LicenseRuntimeModeMapper.cs": {
+    "mtime": 1787396090.3734398,
+    "seen": 1787574596.8853493,
+    "ast_hash": "6c0355d0d0a7ef2dddb024a74f1c1df0",
+    "semantic_hash": "6c0355d0d0a7ef2dddb024a74f1c1df0"
+  },
+  "src/Dobby.Licensing/LicenseRuntimeModeProvider.cs": {
+    "mtime": 1787396090.3754396,
+    "seen": 1787574596.8853526,
+    "ast_hash": "a50c34e8e48e101e54714475173791e3",
+    "semantic_hash": "a50c34e8e48e101e54714475173791e3"
+  },
+  "src/Dobby.Licensing/LicenseRuntimeModeService.cs": {
+    "mtime": 1787396090.379943,
+    "seen": 1787574596.885356,
+    "ast_hash": "20969d4120a0ac2024878faa91abe4e3",
+    "semantic_hash": "20969d4120a0ac2024878faa91abe4e3"
+  },
+  "src/Dobby.Licensing/LicenseSignatureBlock.cs": {
+    "mtime": 1787396090.3854806,
+    "seen": 1787574596.8853598,
+    "ast_hash": "3fa20fb3f68b5a6aeada7f8598459a2f",
+    "semantic_hash": "3fa20fb3f68b5a6aeada7f8598459a2f"
+  },
+  "src/Dobby.Licensing/LicenseSignatureVerificationResult.cs": {
+    "mtime": 1781781785.2366104,
+    "seen": 1787574596.8853629,
+    "ast_hash": "086197ee882f9be618fe301a6eb65a06",
+    "semantic_hash": "086197ee882f9be618fe301a6eb65a06"
+  },
+  "src/Dobby.Licensing/LicenseSignatureVerifier.cs": {
+    "mtime": 1787396090.3926563,
+    "seen": 1787574596.8853664,
+    "ast_hash": "9ccb3491d1afd83f43972866f1fe001c",
+    "semantic_hash": "9ccb3491d1afd83f43972866f1fe001c"
+  },
+  "src/Dobby.Licensing/LicenseStateRecord.cs": {
+    "mtime": 1787396090.398068,
+    "seen": 1787574596.8853695,
+    "ast_hash": "1348a50a1d4b680f1d536921d2a0af81",
+    "semantic_hash": "1348a50a1d4b680f1d536921d2a0af81"
+  },
+  "src/Dobby.Licensing/LicenseV3Contracts.cs": {
+    "mtime": 1787396090.3990781,
+    "seen": 1787574596.8853726,
+    "ast_hash": "9c03ff7c0f09752eaf2a8980aef0fc48",
+    "semantic_hash": "9c03ff7c0f09752eaf2a8980aef0fc48"
+  },
+  "src/Dobby.Licensing/PluginCapabilityLicensing.cs": {
+    "mtime": 1781781785.2376277,
+    "seen": 1787574596.8853757,
+    "ast_hash": "f0d8a44a962973c52ee4cbaa67e87367",
+    "semantic_hash": "f0d8a44a962973c52ee4cbaa67e87367"
+  },
+  "src/Dobby.Licensing/RevisionSeriesKey.cs": {
+    "mtime": 1781781785.2386248,
+    "seen": 1787574596.885379,
+    "ast_hash": "2b8bdd2525659a99378c3a24f1f77904",
+    "semantic_hash": "2b8bdd2525659a99378c3a24f1f77904"
+  },
+  "src/Dobby.Localization/Dobby.Localization.csproj": {
+    "mtime": 1778323581.8820279,
+    "seen": 1787574596.8853824,
+    "ast_hash": "078ce80580da388b62e261684d274282",
+    "semantic_hash": "078ce80580da388b62e261684d274282"
+  },
+  "src/Dobby.Localization/HostResourceKeys.cs": {
+    "mtime": 1787396090.409878,
+    "seen": 1787574596.8853858,
+    "ast_hash": "4f7b3c502fff56b151f9a7053f4494d3",
+    "semantic_hash": "4f7b3c502fff56b151f9a7053f4494d3"
+  },
+  "src/Dobby.Localization/HostStringCatalog.cs": {
+    "mtime": 1787396090.4108782,
+    "seen": 1787574596.8853889,
+    "ast_hash": "eb6163448675a4f7d3e8786899c173d2",
+    "semantic_hash": "eb6163448675a4f7d3e8786899c173d2"
+  },
+  "src/Dobby.Messaging/Dobby.Messaging.csproj": {
+    "mtime": 1778323581.90156,
+    "seen": 1787574596.8853922,
+    "ast_hash": "b2d1d2b7716976cebb5d789b1f65b8cd",
+    "semantic_hash": "b2d1d2b7716976cebb5d789b1f65b8cd"
+  },
+  "src/Dobby.Messaging/InMemoryEventBus.cs": {
+    "mtime": 1783756320.2072852,
+    "seen": 1787574596.8853958,
+    "ast_hash": "0ea684af7555a83f932eb0a16739db2e",
+    "semantic_hash": "0ea684af7555a83f932eb0a16739db2e"
+  },
+  "src/Dobby.Messaging/UiDispatch/IUiDispatcher.cs": {
+    "mtime": 1778324455.7829328,
+    "seen": 1787574596.8853989,
+    "ast_hash": "d378064becf5e8077bab0b2e80a6802b",
+    "semantic_hash": "d378064becf5e8077bab0b2e80a6802b"
+  },
+  "src/Dobby.Navigation/DefaultUiOrderingComparer.cs": {
+    "mtime": 1778324455.7661338,
+    "seen": 1787574596.8854022,
+    "ast_hash": "c6b229c009b45d09e62b56c363560199",
+    "semantic_hash": "c6b229c009b45d09e62b56c363560199"
+  },
+  "src/Dobby.Navigation/Dobby.Navigation.csproj": {
+    "mtime": 1778323581.891116,
+    "seen": 1787574596.8854053,
+    "ast_hash": "b2d1d2b7716976cebb5d789b1f65b8cd",
+    "semantic_hash": "b2d1d2b7716976cebb5d789b1f65b8cd"
+  },
+  "src/Dobby.Navigation/NavigationComposer.cs": {
+    "mtime": 1779948262.5107527,
+    "seen": 1787574596.8854084,
+    "ast_hash": "91938f3d266e76566732bd6581502b32",
+    "semantic_hash": "91938f3d266e76566732bd6581502b32"
+  },
+  "src/Dobby.Navigation/NavigationContribution.cs": {
+    "mtime": 1779948262.5117514,
+    "seen": 1787574596.8854115,
+    "ast_hash": "6a5d509cf21a116692fffcaecbb539d3",
+    "semantic_hash": "6a5d509cf21a116692fffcaecbb539d3"
+  },
+  "src/Dobby.Navigation/PluginNavigationContributionMapper.cs": {
+    "mtime": 1781599037.997748,
+    "seen": 1787574596.8854158,
+    "ast_hash": "e40926270e23cb180b5fd46eb18b98a8",
+    "semantic_hash": "e40926270e23cb180b5fd46eb18b98a8"
+  },
+  "src/Dobby.Navigation/PluginRouteNormalizer.cs": {
+    "mtime": 1781599037.997748,
+    "seen": 1787574596.885419,
+    "ast_hash": "2e8f1bb5125ba608c5d143301c2f49e5",
+    "semantic_hash": "2e8f1bb5125ba608c5d143301c2f49e5"
+  },
+  "src/Dobby.Navigation/RouteRegistry.cs": {
+    "mtime": 1778324455.770148,
+    "seen": 1787574596.885422,
+    "ast_hash": "45d20939bf29842cceba79b6357b3909",
+    "semantic_hash": "45d20939bf29842cceba79b6357b3909"
+  },
+  "src/Dobby.PluginFramework/Activation/IPluginRuntimeLifecycleControl.cs": {
+    "mtime": 1787396090.1352997,
+    "seen": 1787574596.8854253,
+    "ast_hash": "98c7aebd2acf681c6ff9718f3eb95dfa",
+    "semantic_hash": "98c7aebd2acf681c6ff9718f3eb95dfa"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginActivationStatus.cs": {
+    "mtime": 1787396090.1443045,
+    "seen": 1787574596.8854284,
+    "ast_hash": "0ff24b6c686189b6807aa1c9ef435ba4",
+    "semantic_hash": "0ff24b6c686189b6807aa1c9ef435ba4"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginDependencyGraph.cs": {
+    "mtime": 1781599037.9988537,
+    "seen": 1787574596.8854318,
+    "ast_hash": "72c9cc506394c1a0da36dc8473813df4",
+    "semantic_hash": "72c9cc506394c1a0da36dc8473813df4"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginDependencySorter.cs": {
+    "mtime": 1778324455.685664,
+    "seen": 1787574596.8854349,
+    "ast_hash": "909a0dfc4942d3c85ae12a521bc7e73b",
+    "semantic_hash": "909a0dfc4942d3c85ae12a521bc7e73b"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginExceptionBoundary.cs": {
+    "mtime": 1787396090.1486895,
+    "seen": 1787574596.885438,
+    "ast_hash": "9cf7a6495aa282659a4093c4616096ea",
+    "semantic_hash": "9cf7a6495aa282659a4093c4616096ea"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginExtensionPointRegistry.cs": {
+    "mtime": 1781599037.999868,
+    "seen": 1787574596.8854413,
+    "ast_hash": "e994a2ea7807874632284a4ffb1becde",
+    "semantic_hash": "e994a2ea7807874632284a4ffb1becde"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginHostServices.cs": {
+    "mtime": 1787396090.1537073,
+    "seen": 1787574596.8854446,
+    "ast_hash": "20b46dd0bf4ff67a211d09431257b18b",
+    "semantic_hash": "20b46dd0bf4ff67a211d09431257b18b"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginLifecycleExecutionOptions.cs": {
+    "mtime": 1787396090.160354,
+    "seen": 1787574596.8854477,
+    "ast_hash": "7fa3931abd826307c7b2f1331e2cea56",
+    "semantic_hash": "7fa3931abd826307c7b2f1331e2cea56"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginLifetimeManager.cs": {
+    "mtime": 1781599037.999868,
+    "seen": 1787574596.8854508,
+    "ast_hash": "1ca45a1ad38a9819130c9f30c8196fc9",
+    "semantic_hash": "1ca45a1ad38a9819130c9f30c8196fc9"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginLoadContext.cs": {
+    "mtime": 1781599038.0013218,
+    "seen": 1787574596.8854847,
+    "ast_hash": "281e4358beb2c7808a6c2e1ccc6c8e81",
+    "semantic_hash": "281e4358beb2c7808a6c2e1ccc6c8e81"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginServiceCollectionBuilder.cs": {
+    "mtime": 1781599038.0023313,
+    "seen": 1787574596.8854911,
+    "ast_hash": "516d11b8c6ccadca5114ca9098c95d97",
+    "semantic_hash": "516d11b8c6ccadca5114ca9098c95d97"
+  },
+  "src/Dobby.PluginFramework/Activation/PluginServiceRegistrationBridge.cs": {
+    "mtime": 1787396090.1708074,
+    "seen": 1787574596.8854983,
+    "ast_hash": "cd4b7186481f725ab64217277ea73e22",
+    "semantic_hash": "cd4b7186481f725ab64217277ea73e22"
+  },
+  "src/Dobby.PluginFramework/Activation/PostLoginPluginActivator.cs": {
+    "mtime": 1787396090.178093,
+    "seen": 1787574596.8855047,
+    "ast_hash": "ef199821d2dd11724098fdbaa8360c04",
+    "semantic_hash": "ef199821d2dd11724098fdbaa8360c04"
+  },
+  "src/Dobby.PluginFramework/Dobby.PluginFramework.csproj": {
+    "mtime": 1787382703.6474,
+    "seen": 1787574596.885511,
+    "ast_hash": "634cb6e494dc09627116ed1f06b52188",
+    "semantic_hash": "634cb6e494dc09627116ed1f06b52188"
+  },
+  "src/Dobby.PluginFramework/Manifest/PluginCompatibilityMatrix.cs": {
+    "mtime": 1787396090.1884737,
+    "seen": 1787574596.8855178,
+    "ast_hash": "05e5b37dfdb168ee587a955fde1eeafe",
+    "semantic_hash": "05e5b37dfdb168ee587a955fde1eeafe"
+  },
+  "src/Dobby.PluginFramework/Manifest/PluginManifest.cs": {
+    "mtime": 1787396090.1965022,
+    "seen": 1787574596.8855243,
+    "ast_hash": "f308aa97a9b765ac164d07ed8fba9503",
+    "semantic_hash": "f308aa97a9b765ac164d07ed8fba9503"
+  },
+  "src/Dobby.PluginFramework/Manifest/PluginManifestV2.cs": {
+    "mtime": 1787396090.2104893,
+    "seen": 1787574596.8855307,
+    "ast_hash": "323ac45e4e9ae59276d870227f3aa15f",
+    "semantic_hash": "323ac45e4e9ae59276d870227f3aa15f"
+  },
+  "src/Dobby.PluginFramework/Manifest/PluginManifestValidator.cs": {
+    "mtime": 1787396090.2148647,
+    "seen": 1787574596.8855374,
+    "ast_hash": "a02a48ca053816c5300fc18eaad4012a",
+    "semantic_hash": "a02a48ca053816c5300fc18eaad4012a"
+  },
+  "src/Dobby.PluginFramework/Manifest/PluginOperationTargetContributionBuilder.cs": {
+    "mtime": 1781599038.0053363,
+    "seen": 1787574596.8855436,
+    "ast_hash": "e4c2dfc01b89a7d6fb1e5b3d853f5ff8",
+    "semantic_hash": "e4c2dfc01b89a7d6fb1e5b3d853f5ff8"
+  },
+  "src/Dobby.PluginFramework/Packaging/IPluginInstallStateCommitter.cs": {
+    "mtime": 1787396090.2208612,
+    "seen": 1787574596.8855484,
+    "ast_hash": "6b2d7cfa23ba4dce6148ba2aa4452280",
+    "semantic_hash": "6b2d7cfa23ba4dce6148ba2aa4452280"
+  },
+  "src/Dobby.PluginFramework/Packaging/InstalledPluginMetadataCache.cs": {
+    "mtime": 1781944735.0229256,
+    "seen": 1787574596.8855517,
+    "ast_hash": "aef0a34e53e181b499e064ca7efe0b22",
+    "semantic_hash": "aef0a34e53e181b499e064ca7efe0b22"
+  },
+  "src/Dobby.PluginFramework/Packaging/InstalledPluginStateStore.cs": {
+    "mtime": 1781944735.0320625,
+    "seen": 1787574596.8855553,
+    "ast_hash": "e54a237208d10d82f1548799bf583836",
+    "semantic_hash": "e54a237208d10d82f1548799bf583836"
+  },
+  "src/Dobby.PluginFramework/Packaging/PluginManifestSchemaValidator.cs": {
+    "mtime": 1787396090.2238686,
+    "seen": 1787574596.8855584,
+    "ast_hash": "717c5009ed9aac5d77074c465fa6309d",
+    "semantic_hash": "717c5009ed9aac5d77074c465fa6309d"
+  },
+  "src/Dobby.PluginFramework/Packaging/PluginPackageDescriptor.cs": {
+    "mtime": 1787396090.2338507,
+    "seen": 1787574596.885562,
+    "ast_hash": "2834e35edcd4d3e8a17ef0be18d27131",
+    "semantic_hash": "2834e35edcd4d3e8a17ef0be18d27131"
+  },
+  "src/Dobby.PluginFramework/Packaging/PluginPackageFingerprint.cs": {
+    "mtime": 1787396090.2418628,
+    "seen": 1787574596.885565,
+    "ast_hash": "d677e7df255a5485203b892030655d52",
+    "semantic_hash": "d677e7df255a5485203b892030655d52"
+  },
+  "src/Dobby.PluginFramework/Packaging/PluginPackageInstaller.cs": {
+    "mtime": 1787396090.2518618,
+    "seen": 1787574596.8855681,
+    "ast_hash": "28b4b8b2028f65383865bc65abf6a803",
+    "semantic_hash": "28b4b8b2028f65383865bc65abf6a803"
+  },
+  "src/Dobby.PluginFramework/Packaging/PluginPackageLimits.cs": {
+    "mtime": 1787396090.2578502,
+    "seen": 1787574596.8855715,
+    "ast_hash": "1ae2bc028743ee4a9648ed46222d29c0",
+    "semantic_hash": "1ae2bc028743ee4a9648ed46222d29c0"
+  },
+  "src/Dobby.PluginFramework/Packaging/PluginPackagePathPolicy.cs": {
+    "mtime": 1787396090.2608519,
+    "seen": 1787574596.8855755,
+    "ast_hash": "b7b69ff1b6acd37dfdb66dc6949974c1",
+    "semantic_hash": "b7b69ff1b6acd37dfdb66dc6949974c1"
+  },
+  "src/Dobby.PluginFramework/Packaging/PluginPackageReader.cs": {
+    "mtime": 1787396090.2641897,
+    "seen": 1787574596.8855784,
+    "ast_hash": "3ef459cc51feb51e36ca84b594ad1701",
+    "semantic_hash": "3ef459cc51feb51e36ca84b594ad1701"
+  },
+  "src/Dobby.PluginFramework/Packaging/PluginPackageValidationReason.cs": {
+    "mtime": 1781599038.009741,
+    "seen": 1787574596.885582,
+    "ast_hash": "363b50798a06dfd603b31434a4d15e55",
+    "semantic_hash": "363b50798a06dfd603b31434a4d15e55"
+  },
+  "src/Dobby.PluginFramework/Packaging/PluginPackageValidator.cs": {
+    "mtime": 1787396090.2708302,
+    "seen": 1787574596.885585,
+    "ast_hash": "741e97d82233948f864c1e6847a21924",
+    "semantic_hash": "741e97d82233948f864c1e6847a21924"
+  },
+  "src/Dobby.SDK/Dobby.SDK.csproj": {
+    "mtime": 1778323581.8386936,
+    "seen": 1787574596.8855884,
+    "ast_hash": "b2d1d2b7716976cebb5d789b1f65b8cd",
+    "semantic_hash": "b2d1d2b7716976cebb5d789b1f65b8cd"
+  },
+  "src/Dobby.SDK/PluginFramework/PluginBase.cs": {
+    "mtime": 1787396090.12912,
+    "seen": 1787574596.8855917,
+    "ast_hash": "d5695acc69d5924d402235dc60eebf43",
+    "semantic_hash": "d5695acc69d5924d402235dc60eebf43"
+  },
+  "src/Dobby.SDK/PluginStorage/PluginStorageJsonExtensions.cs": {
+    "mtime": 1778324455.6806595,
+    "seen": 1787574596.8855956,
+    "ast_hash": "e2291632e0834b509d69e8ae5450be85",
+    "semantic_hash": "e2291632e0834b509d69e8ae5450be85"
+  },
+  "src/Dobby.Security/Authentication/ActiveSessionAccessor.cs": {
+    "mtime": 1787396090.2828157,
+    "seen": 1787574596.8855991,
+    "ast_hash": "6d1124fbcbb3b27d1afe9da7cc728d39",
+    "semantic_hash": "6d1124fbcbb3b27d1afe9da7cc728d39"
+  },
+  "src/Dobby.Security/Authentication/CredentialStore.cs": {
+    "mtime": 1787396090.2848167,
+    "seen": 1787574596.8856025,
+    "ast_hash": "42ba4abe650a94e92cd2b7fd8fafb913",
+    "semantic_hash": "42ba4abe650a94e92cd2b7fd8fafb913"
+  },
+  "src/Dobby.Security/Authentication/CredentialVerificationGate.cs": {
+    "mtime": 1787396090.289818,
+    "seen": 1787574596.8856056,
+    "ast_hash": "b77794ab7e8485b86970ba3a601c4fda",
+    "semantic_hash": "b77794ab7e8485b86970ba3a601c4fda"
+  },
+  "src/Dobby.Security/Authentication/DisplayNameValidator.cs": {
+    "mtime": 1787396090.2908194,
+    "seen": 1787574596.885609,
+    "ast_hash": "1a9a5e0856ab167ad498b8ee4d1dfbb1",
+    "semantic_hash": "1a9a5e0856ab167ad498b8ee4d1dfbb1"
+  },
+  "src/Dobby.Security/Authentication/IManagedUserAuditSink.cs": {
+    "mtime": 1787396090.2928166,
+    "seen": 1787574596.885612,
+    "ast_hash": "e9b16575756974ef5c6e164fb5b1ee7b",
+    "semantic_hash": "e9b16575756974ef5c6e164fb5b1ee7b"
+  },
+  "src/Dobby.Security/Authentication/IOwnerBootstrapCoordinator.cs": {
+    "mtime": 1779104083.2456486,
+    "seen": 1787574596.8856251,
+    "ast_hash": "8abec769edfd1d32bb2ce66c3615f995",
+    "semantic_hash": "8abec769edfd1d32bb2ce66c3615f995"
+  },
+  "src/Dobby.Security/Authentication/ISessionStore.cs": {
+    "mtime": 1779276659.253242,
+    "seen": 1787574596.8856287,
+    "ast_hash": "57a3f6b68097d4be85ba8e244ce0b0b4",
+    "semantic_hash": "57a3f6b68097d4be85ba8e244ce0b0b4"
+  },
+  "src/Dobby.Security/Authentication/IUserCredentialVerifier.cs": {
+    "mtime": 1779184049.9726439,
+    "seen": 1787574596.885632,
+    "ast_hash": "6d021391c30fe2db54270d926f934fd5",
+    "semantic_hash": "6d021391c30fe2db54270d926f934fd5"
+  },
+  "src/Dobby.Security/Authentication/IVendorRecoveryPublicKey.cs": {
+    "mtime": 1787396090.2928166,
+    "seen": 1787574596.8856351,
+    "ast_hash": "dfe04c94a1911df6a7b0ad450f5bf7d2",
+    "semantic_hash": "dfe04c94a1911df6a7b0ad450f5bf7d2"
+  },
+  "src/Dobby.Security/Authentication/KdfPolicyResolver.cs": {
+    "mtime": 1787396090.293816,
+    "seen": 1787574596.885639,
+    "ast_hash": "c9a663be309c91d5cb221897682ef636",
+    "semantic_hash": "c9a663be309c91d5cb221897682ef636"
+  },
+  "src/Dobby.Security/Authentication/LoginAttemptResult.cs": {
+    "mtime": 1787396090.2951765,
+    "seen": 1787574596.8856425,
+    "ast_hash": "e199eaf28413a6a87bee78cd8b2a8fe3",
+    "semantic_hash": "e199eaf28413a6a87bee78cd8b2a8fe3"
+  },
+  "src/Dobby.Security/Authentication/LoginService.cs": {
+    "mtime": 1787396090.2962353,
+    "seen": 1787574596.8856456,
+    "ast_hash": "f6ac6da6cf63f3e394792fa46baeaece",
+    "semantic_hash": "f6ac6da6cf63f3e394792fa46baeaece"
+  },
+  "src/Dobby.Security/Authentication/LoginThrottleService.cs": {
+    "mtime": 1787396090.2976832,
+    "seen": 1787574596.88565,
+    "ast_hash": "9619037929dbecb3884f0a9779556504",
+    "semantic_hash": "9619037929dbecb3884f0a9779556504"
+  },
+  "src/Dobby.Security/Authentication/ManagedUserAuditAction.cs": {
+    "mtime": 1779717262.6106787,
+    "seen": 1787574596.8856628,
+    "ast_hash": "8e04815bd674f934653a646b01d2f9dc",
+    "semantic_hash": "8e04815bd674f934653a646b01d2f9dc"
+  },
+  "src/Dobby.Security/Authentication/ManagedUserDetail.cs": {
+    "mtime": 1779715463.6012285,
+    "seen": 1787574596.8856664,
+    "ast_hash": "c8358c605cdf467578fe5cc1e22ee0ca",
+    "semantic_hash": "c8358c605cdf467578fe5cc1e22ee0ca"
+  },
+  "src/Dobby.Security/Authentication/ManagedUserService.cs": {
+    "mtime": 1787396090.2991173,
+    "seen": 1787574596.8856695,
+    "ast_hash": "1457a6d5c6455504ac9568026fa4e425",
+    "semantic_hash": "1457a6d5c6455504ac9568026fa4e425"
+  },
+  "src/Dobby.Security/Authentication/ManagedUserSummary.cs": {
+    "mtime": 1779715463.619296,
+    "seen": 1787574596.885673,
+    "ast_hash": "d9330f555540c160896c916a3e2af28a",
+    "semantic_hash": "d9330f555540c160896c916a3e2af28a"
+  },
+  "src/Dobby.Security/Authentication/NoOpManagedUserAuditSink.cs": {
+    "mtime": 1787396090.2991173,
+    "seen": 1787574596.8856764,
+    "ast_hash": "230e1aeb2f5f2779a8564a0850881298",
+    "semantic_hash": "230e1aeb2f5f2779a8564a0850881298"
+  },
+  "src/Dobby.Security/Authentication/OwnerBootstrapService.cs": {
+    "mtime": 1787396090.3004363,
+    "seen": 1787574596.8856797,
+    "ast_hash": "f136f84db7be116ffdc8cc572265ab22",
+    "semantic_hash": "f136f84db7be116ffdc8cc572265ab22"
+  },
+  "src/Dobby.Security/Authentication/PasswordPolicyValidator.cs": {
+    "mtime": 1779103061.191491,
+    "seen": 1787574596.885683,
+    "ast_hash": "e7d059518df117bdac1f0afd7a320a70",
+    "semantic_hash": "e7d059518df117bdac1f0afd7a320a70"
+  },
+  "src/Dobby.Security/Authentication/Pbkdf2PasswordHasher.cs": {
+    "mtime": 1787396090.3019528,
+    "seen": 1787574596.8857222,
+    "ast_hash": "2190cee00118c7a9cd1b3555a9a51e6e",
+    "semantic_hash": "2190cee00118c7a9cd1b3555a9a51e6e"
+  },
+  "src/Dobby.Security/Authentication/ProtectedStorageEntropy.cs": {
+    "mtime": 1779199438.8753104,
+    "seen": 1787574596.8857286,
+    "ast_hash": "dafaef3cbeb30dfaf2731eea7f95126f",
+    "semantic_hash": "dafaef3cbeb30dfaf2731eea7f95126f"
+  },
+  "src/Dobby.Security/Authentication/RecoveryCanonicalJsonWriter.cs": {
+    "mtime": 1787396090.3019528,
+    "seen": 1787574596.8857346,
+    "ast_hash": "c836655ffddc3aaab844907fe8c90c1d",
+    "semantic_hash": "c836655ffddc3aaab844907fe8c90c1d"
+  },
+  "src/Dobby.Security/Authentication/RecoveryRequestExporter.cs": {
+    "mtime": 1787396090.3054461,
+    "seen": 1787574596.8857412,
+    "ast_hash": "de292019b92d764458ff9c70b9ab6ab5",
+    "semantic_hash": "de292019b92d764458ff9c70b9ab6ab5"
+  },
+  "src/Dobby.Security/Authentication/RecoveryRequestVerifier.cs": {
+    "mtime": 1787396090.3074472,
+    "seen": 1787574596.8857474,
+    "ast_hash": "973a1cc7cd2b92813ada48d9676dfaa5",
+    "semantic_hash": "973a1cc7cd2b92813ada48d9676dfaa5"
+  },
+  "src/Dobby.Security/Authentication/RecoveryResponseImporter.cs": {
+    "mtime": 1787396090.3124573,
+    "seen": 1787574596.8857548,
+    "ast_hash": "36d5d8105fef12a5b10b39f8045476f1",
+    "semantic_hash": "36d5d8105fef12a5b10b39f8045476f1"
+  },
+  "src/Dobby.Security/Authentication/RecoveryResponsePayload.cs": {
+    "mtime": 1787396090.3154607,
+    "seen": 1787574596.8857622,
+    "ast_hash": "1bfde14ef8ed29a15e69246ac8e3c234",
+    "semantic_hash": "1bfde14ef8ed29a15e69246ac8e3c234"
+  },
+  "src/Dobby.Security/Authentication/RememberMeSlotService.cs": {
+    "mtime": 1787396090.3254468,
+    "seen": 1787574596.8857694,
+    "ast_hash": "d745a872226baebc73b694bc162d6362",
+    "semantic_hash": "d745a872226baebc73b694bc162d6362"
+  },
+  "src/Dobby.Security/Authentication/SessionLifecycleService.cs": {
+    "mtime": 1787396090.328447,
+    "seen": 1787574596.8857756,
+    "ast_hash": "7658aaae9406a24143d40aa6f867134a",
+    "semantic_hash": "7658aaae9406a24143d40aa6f867134a"
+  },
+  "src/Dobby.Security/Authentication/SessionRecord.cs": {
+    "mtime": 1779104480.725042,
+    "seen": 1787574596.8857806,
+    "ast_hash": "a1bd7f6f927a30076b427ea7c25588e0",
+    "semantic_hash": "a1bd7f6f927a30076b427ea7c25588e0"
+  },
+  "src/Dobby.Security/Authentication/SessionStore.cs": {
+    "mtime": 1779276659.282108,
+    "seen": 1787574596.885784,
+    "ast_hash": "a767fe48476984e92140b6289bc566c3",
+    "semantic_hash": "a767fe48476984e92140b6289bc566c3"
+  },
+  "src/Dobby.Security/Authentication/UsernameCanonicalValidator.cs": {
+    "mtime": 1779103060.9627125,
+    "seen": 1787574596.8857872,
+    "ast_hash": "e048a88d85c5cff452abf335711262a7",
+    "semantic_hash": "e048a88d85c5cff452abf335711262a7"
+  },
+  "src/Dobby.Security/Authentication/VendorRecoveryPublicKey.cs": {
+    "mtime": 1787396090.3317132,
+    "seen": 1787574596.88579,
+    "ast_hash": "48ff7381fc5009e50d44bfe494d74632",
+    "semantic_hash": "48ff7381fc5009e50d44bfe494d74632"
+  },
+  "src/Dobby.Security/Authorization/BuiltInOperationTargets.cs": {
+    "mtime": 1787396090.3367805,
+    "seen": 1787574596.8857934,
+    "ast_hash": "dac167f63c85fc5e2064003ca0edfe38",
+    "semantic_hash": "dac167f63c85fc5e2064003ca0edfe38"
+  },
+  "src/Dobby.Security/Authorization/IPermissionGrantReader.cs": {
+    "mtime": 1779715463.626306,
+    "seen": 1787574596.8857968,
+    "ast_hash": "e9a193d2befb3a55fdceb1a3e80fcd47",
+    "semantic_hash": "e9a193d2befb3a55fdceb1a3e80fcd47"
+  },
+  "src/Dobby.Security/Authorization/OperationAuthorizationPolicy.cs": {
+    "mtime": 1779715078.8619337,
+    "seen": 1787574596.8858001,
+    "ast_hash": "3be455a47e9f59c82c9ec34def83f46c",
+    "semantic_hash": "3be455a47e9f59c82c9ec34def83f46c"
+  },
+  "src/Dobby.Security/Authorization/OperationKey.cs": {
+    "mtime": 1779715463.6332986,
+    "seen": 1787574596.8858035,
+    "ast_hash": "1f0ab3adc223fd6df17664ddf32423d8",
+    "semantic_hash": "1f0ab3adc223fd6df17664ddf32423d8"
+  },
+  "src/Dobby.Security/Authorization/OperationTarget.cs": {
+    "mtime": 1779715463.6382985,
+    "seen": 1787574596.8858073,
+    "ast_hash": "b194f59253950576861b1b3ae3553856",
+    "semantic_hash": "b194f59253950576861b1b3ae3553856"
+  },
+  "src/Dobby.Security/Authorization/OperationTargetOrigin.cs": {
+    "mtime": 1779715463.6502998,
+    "seen": 1787574596.8858106,
+    "ast_hash": "d02873189fbfbe5730885877ceba955b",
+    "semantic_hash": "d02873189fbfbe5730885877ceba955b"
+  },
+  "src/Dobby.Security/Authorization/OperationTargetRegistry.cs": {
+    "mtime": 1779715078.876935,
+    "seen": 1787574596.885814,
+    "ast_hash": "5d363e05d7a8402567520eff11f1bfb6",
+    "semantic_hash": "5d363e05d7a8402567520eff11f1bfb6"
+  },
+  "src/Dobby.Security/Authorization/OperationVerb.cs": {
+    "mtime": 1779715463.6577945,
+    "seen": 1787574596.885817,
+    "ast_hash": "cbe7788854a356360f8426c0f1f42c34",
+    "semantic_hash": "cbe7788854a356360f8426c0f1f42c34"
+  },
+  "src/Dobby.Security/Authorization/OperationVerbParser.cs": {
+    "mtime": 1779715463.665907,
+    "seen": 1787574596.8858204,
+    "ast_hash": "63247d13b8d4dab18b38a18cbd70fe6b",
+    "semantic_hash": "63247d13b8d4dab18b38a18cbd70fe6b"
+  },
+  "src/Dobby.Security/Authorization/PermissionGrantStore.cs": {
+    "mtime": 1787396090.3499558,
+    "seen": 1787574596.8858237,
+    "ast_hash": "eb2425d98b9e7b7883ef348a4155ac7f",
+    "semantic_hash": "eb2425d98b9e7b7883ef348a4155ac7f"
+  },
+  "src/Dobby.Security/Authorization/UserManagementAuthorizationGuard.cs": {
+    "mtime": 1779717262.6263864,
+    "seen": 1787574596.8858268,
+    "ast_hash": "a9ec501dae4b88fad01694cee5f37d5f",
+    "semantic_hash": "a9ec501dae4b88fad01694cee5f37d5f"
+  },
+  "src/Dobby.Security/Authorization/UserPermissionState.cs": {
+    "mtime": 1779715463.6779084,
+    "seen": 1787574596.88583,
+    "ast_hash": "27184417a7572401572477a2cdd8d000",
+    "semantic_hash": "27184417a7572401572477a2cdd8d000"
+  },
+  "src/Dobby.Security/CurrentContext/CurrentCustomerDeploymentContext.cs": {
+    "mtime": 1781781785.245971,
+    "seen": 1787574596.8858333,
+    "ast_hash": "4ee4916a160ae0a5f6630411d2dfcb74",
+    "semantic_hash": "4ee4916a160ae0a5f6630411d2dfcb74"
+  },
+  "src/Dobby.Security/CurrentContext/CurrentCustomerDeploymentContextResult.cs": {
+    "mtime": 1781781785.24698,
+    "seen": 1787574596.8858364,
+    "ast_hash": "b9ce1be27d3bd6b0fbc9175991bde20b",
+    "semantic_hash": "b9ce1be27d3bd6b0fbc9175991bde20b"
+  },
+  "src/Dobby.Security/CurrentContext/CurrentCustomerDeploymentContextService.cs": {
+    "mtime": 1787130316.3589952,
+    "seen": 1787574596.88584,
+    "ast_hash": "af2362c09e1c25c33c03ada385feac80",
+    "semantic_hash": "af2362c09e1c25c33c03ada385feac80"
+  },
+  "src/Dobby.Security/CurrentContext/ICurrentCustomerDeploymentContextStore.cs": {
+    "mtime": 1783756320.230652,
+    "seen": 1787574596.885843,
+    "ast_hash": "a7c5309e682d8a0033c381084f683d27",
+    "semantic_hash": "a7c5309e682d8a0033c381084f683d27"
+  },
+  "src/Dobby.Security/Dobby.Security.csproj": {
+    "mtime": 1787377721.7875443,
+    "seen": 1787574596.8858464,
+    "ast_hash": "7951b9e4a98795f347a24e76ee671f59",
+    "semantic_hash": "7951b9e4a98795f347a24e76ee671f59"
+  },
+  "src/Dobby.Security/Trust/ArtifactSignatureProfile.cs": {
+    "mtime": 1787396090.3549473,
+    "seen": 1787574596.8858497,
+    "ast_hash": "54ed93afcef3703bdd56292b05655798",
+    "semantic_hash": "54ed93afcef3703bdd56292b05655798"
+  },
+  "src/Dobby.Security/Trust/DobbyPluginTrustProfile.cs": {
+    "mtime": 1781599038.0141065,
+    "seen": 1787574596.8858538,
+    "ast_hash": "56c61e7ffdbb7a44150ec2a432327cfb",
+    "semantic_hash": "56c61e7ffdbb7a44150ec2a432327cfb"
+  },
+  "src/Dobby.Security/Trust/PluginTrustContracts.cs": {
+    "mtime": 1787396090.3563862,
+    "seen": 1787574596.885857,
+    "ast_hash": "dacb5d2de11c9034f83993bec6d5392b",
+    "semantic_hash": "dacb5d2de11c9034f83993bec6d5392b"
+  },
+  "src/Dobby.Security/Trust/PluginTrustPublicKeyProvider.cs": {
+    "mtime": 1787396090.3584003,
+    "seen": 1787574596.885861,
+    "ast_hash": "0ece450d6759c7b05c2563dbe2240eb5",
+    "semantic_hash": "0ece450d6759c7b05c2563dbe2240eb5"
+  },
+  "src/Dobby.Security/Trust/PluginTrustVerifier.cs": {
+    "mtime": 1787396090.360398,
+    "seen": 1787574596.8858643,
+    "ast_hash": "fadfa02cc5577d447e7bd54d3e40d3f4",
+    "semantic_hash": "fadfa02cc5577d447e7bd54d3e40d3f4"
+  },
+  "src/Dobby.Shell/Dobby.Shell.csproj": {
+    "mtime": 1787136535.6093218,
+    "seen": 1787574596.8858676,
+    "ast_hash": "ba4acaba6273c8612146d3b537b87ff7",
+    "semantic_hash": "ba4acaba6273c8612146d3b537b87ff7"
+  },
+  "src/Dobby.Shell/Layout/ShellLayoutState.cs": {
+    "mtime": 1787396090.5285249,
+    "seen": 1787574596.885871,
+    "ast_hash": "bac06927b9e3c8c5821715c6f5db5a26",
+    "semantic_hash": "bac06927b9e3c8c5821715c6f5db5a26"
+  },
+  "src/Dobby.Shell/PluginPages/PluginLocalizationResolver.cs": {
+    "mtime": 1787396090.5299237,
+    "seen": 1787574596.8858743,
+    "ast_hash": "69f7410e0cc37c60782674574aa485b3",
+    "semantic_hash": "69f7410e0cc37c60782674574aa485b3"
+  },
+  "src/Dobby.Shell/PluginPages/PluginPageRenderRegistry.cs": {
+    "mtime": 1787396090.5313315,
+    "seen": 1787574596.8858771,
+    "ast_hash": "93cfa952b5ec4f9f7bc3b6efea4cc535",
+    "semantic_hash": "93cfa952b5ec4f9f7bc3b6efea4cc535"
+  },
+  "src/Dobby.Shell/ShellRouteHost.cs": {
+    "mtime": 1783756320.2596743,
+    "seen": 1787574596.8858802,
+    "ast_hash": "156c6bceb69d4bdce01ae6dc9f81fdb3",
+    "semantic_hash": "156c6bceb69d4bdce01ae6dc9f81fdb3"
+  },
+  "src/Dobby.Shell/ShellViewModel.cs": {
+    "mtime": 1787396090.532782,
+    "seen": 1787574596.8858838,
+    "ast_hash": "9da5a82c8abde787cbac117132cede13",
+    "semantic_hash": "9da5a82c8abde787cbac117132cede13"
+  },
+  "src/Dobby.Shell/State/ShellLicenseState.cs": {
+    "mtime": 1787396090.5337918,
+    "seen": 1787574596.8858874,
+    "ast_hash": "0207729a106b5fbce9f87312485fccad",
+    "semantic_hash": "0207729a106b5fbce9f87312485fccad"
+  },
+  "src/Dobby.Shell/State/ShellPluginManagerState.cs": {
+    "mtime": 1787396090.5357897,
+    "seen": 1787574596.8858907,
+    "ast_hash": "dcfa9b8e7e556940055f4af595b4b1a6",
+    "semantic_hash": "dcfa9b8e7e556940055f4af595b4b1a6"
+  },
+  "src/Dobby.Shell/UiDispatch/WpfUiDispatcher.cs": {
+    "mtime": 1779869479.1372616,
+    "seen": 1787574596.8858938,
+    "ast_hash": "0c055402ffa2f900b649676fdb8465c5",
+    "semantic_hash": "0c055402ffa2f900b649676fdb8465c5"
+  },
+  "src/Dobby.Shell/WorkSessions/WorkSessionCloseCoordinator.cs": {
+    "mtime": 1783756320.2853436,
+    "seen": 1787574596.8858974,
+    "ast_hash": "5b2e301ee65d760567fa068507a346c6",
+    "semantic_hash": "5b2e301ee65d760567fa068507a346c6"
+  },
+  "src/Dobby.Shell/WorkSessions/WorkSessionRegistry.cs": {
+    "mtime": 1779869479.147354,
+    "seen": 1787574596.8859007,
+    "ast_hash": "1de7fd2e51df3cda69ac74e4fafe829c",
+    "semantic_hash": "1de7fd2e51df3cda69ac74e4fafe829c"
+  },
+  "src/Dobby.Shell/WorkspaceTabs/ShellWorkspaceTab.cs": {
+    "mtime": 1782797644.7794495,
+    "seen": 1787574596.8859384,
+    "ast_hash": "2bc113177d09daea0073985063021225",
+    "semantic_hash": "2bc113177d09daea0073985063021225"
+  },
+  "src/Dobby.UI/Dobby.UI.csproj": {
+    "mtime": 1778323581.9499657,
+    "seen": 1787574596.8859448,
+    "ast_hash": "a1f6b3e453808b0646b05465d6a58ba4",
+    "semantic_hash": "a1f6b3e453808b0646b05465d6a58ba4"
+  },
+  "src/Dobby.UI/ThemeTokens.cs": {
+    "mtime": 1783410718.5172644,
+    "seen": 1787574596.885951,
+    "ast_hash": "81b9c88eedec56d985b73a282ee5d8da",
+    "semantic_hash": "81b9c88eedec56d985b73a282ee5d8da"
+  },
+  "src/Dobby.UI/Themes/DarkTheme.xaml": {
+    "mtime": 1783323789.345163,
+    "seen": 1787574596.885957,
+    "ast_hash": "9cc1507d09e0c87584ed72d2fae973df",
+    "semantic_hash": "9cc1507d09e0c87584ed72d2fae973df"
+  },
+  "src/Dobby.UI/Themes/DesignTokens.xaml": {
+    "mtime": 1783404267.8955169,
+    "seen": 1787574596.8859634,
+    "ast_hash": "e60876ec6ad5430b145fc175491b7f92",
+    "semantic_hash": "e60876ec6ad5430b145fc175491b7f92"
+  },
+  "src/Dobby.UI/Themes/LightTheme.xaml": {
+    "mtime": 1783323789.3441653,
+    "seen": 1787574596.88597,
+    "ast_hash": "40a3fabdd81713b7d5fee07009e7a32e",
+    "semantic_hash": "40a3fabdd81713b7d5fee07009e7a32e"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/AdminToolStaticScanTests.cs": {
+    "mtime": 1781944735.0673602,
+    "seen": 1787574596.8859763,
+    "ast_hash": "4980cec7e1b7acf03bb101eed15a8435",
+    "semantic_hash": "4980cec7e1b7acf03bb101eed15a8435"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/ArchitectureDependencyBoundaryTests.cs": {
+    "mtime": 1787396090.8337488,
+    "seen": 1787574596.8859835,
+    "ast_hash": "1459dbe79d6518b45d8384896c5df240",
+    "semantic_hash": "1459dbe79d6518b45d8384896c5df240"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/ContractsCoreSurfaceTests.cs": {
+    "mtime": 1778585803.633489,
+    "seen": 1787574596.8859897,
+    "ast_hash": "7899b5ca36c3964af6c58be41f0dadc5",
+    "semantic_hash": "7899b5ca36c3964af6c58be41f0dadc5"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/EncodingBoundaryTests.cs": {
+    "mtime": 1778504582.64948,
+    "seen": 1787574596.8859956,
+    "ast_hash": "652cc28ef967629e3557a69e7892a60c",
+    "semantic_hash": "652cc28ef967629e3557a69e7892a60c"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/PackageGovernanceTests.cs": {
+    "mtime": 1787299451.0289016,
+    "seen": 1787574596.885999,
+    "ast_hash": "0caed2f9bc8edf952fad71518ea3d714",
+    "semantic_hash": "0caed2f9bc8edf952fad71518ea3d714"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/PluginAndSdkBoundaryTests.cs": {
+    "mtime": 1778504582.6640167,
+    "seen": 1787574596.8860025,
+    "ast_hash": "271480cef0a163b4b7fb44d89978bbfd",
+    "semantic_hash": "271480cef0a163b4b7fb44d89978bbfd"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/PluginManifestSchemaResourcePackagingTests.cs": {
+    "mtime": 1781782529.576343,
+    "seen": 1787574596.8860059,
+    "ast_hash": "2842ca6607cf3b821dab26ccde9c1d11",
+    "semantic_hash": "2842ca6607cf3b821dab26ccde9c1d11"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/PluginNoInfrastructureReferenceTests.cs": {
+    "mtime": 1779543637.0720289,
+    "seen": 1787574596.8860095,
+    "ast_hash": "d401b3ab5969e3885bae6a364444fc1f",
+    "semantic_hash": "d401b3ab5969e3885bae6a364444fc1f"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/PluginTrustLanguageAndV2ContractTests.cs": {
+    "mtime": 1787396090.8387296,
+    "seen": 1787574596.886013,
+    "ast_hash": "72c53c558f33698277bedb2e35cea563",
+    "semantic_hash": "72c53c558f33698277bedb2e35cea563"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/PluginTrustResourcePackagingTests.cs": {
+    "mtime": 1787396090.8468537,
+    "seen": 1787574596.886016,
+    "ast_hash": "36deab5b244dec918ae582fd4ec0c249",
+    "semantic_hash": "36deab5b244dec918ae582fd4ec0c249"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/PortablePublishScriptTests.cs": {
+    "mtime": 1787396090.8536327,
+    "seen": 1787574596.886019,
+    "ast_hash": "eaa307510581149f7ef7eb39b555c0f6",
+    "semantic_hash": "eaa307510581149f7ef7eb39b555c0f6"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/ProductionReleasePackagingStaticScanTests.cs": {
+    "mtime": 1783491234.6709485,
+    "seen": 1787574596.8860223,
+    "ast_hash": "6ce92fcd49c25f990bea0c8806b9a64a",
+    "semantic_hash": "6ce92fcd49c25f990bea0c8806b9a64a"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/PublicTypeLayoutTests.cs": {
+    "mtime": 1779527374.9784822,
+    "seen": 1787574596.886026,
+    "ast_hash": "ab6dca369de9ee0bd169db1e1961385d",
+    "semantic_hash": "ab6dca369de9ee0bd169db1e1961385d"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/ReleaseEvidenceTests.cs": {
+    "mtime": 1779341714.6839573,
+    "seen": 1787574596.8860292,
+    "ast_hash": "b0600bb84d14b211eac2919b254befba",
+    "semantic_hash": "b0600bb84d14b211eac2919b254befba"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/ReleaseExternalEvidenceValidatorTests.cs": {
+    "mtime": 1787407698.7197716,
+    "seen": 1787574596.8860326,
+    "ast_hash": "437e9c936fbf6f18b09ff18a8a4c08a6",
+    "semantic_hash": "437e9c936fbf6f18b09ff18a8a4c08a6"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/ReleaseToolingContractTests.cs": {
+    "mtime": 1787407698.7387774,
+    "seen": 1787574596.886036,
+    "ast_hash": "e6832fe60fb6e1e4ffadb4a0add2c201",
+    "semantic_hash": "e6832fe60fb6e1e4ffadb4a0add2c201"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/RemainingProductWorkAuthorityTests.cs": {
+    "mtime": 1787398280.1653073,
+    "seen": 1787574596.8860393,
+    "ast_hash": "1ab43a2db6919a0b881507dd42adddc1",
+    "semantic_hash": "1ab43a2db6919a0b881507dd42adddc1"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/SamplePluginManifestTests.cs": {
+    "mtime": 1787396090.8595972,
+    "seen": 1787574596.8860424,
+    "ast_hash": "da00ef3adb1c54dfbfa66cf42a26ddf4",
+    "semantic_hash": "da00ef3adb1c54dfbfa66cf42a26ddf4"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/ShellUiStaticScanTests.cs": {
+    "mtime": 1787403133.50321,
+    "seen": 1787574596.8860455,
+    "ast_hash": "bb00459f81ddc65890015625c0a06e46",
+    "semantic_hash": "bb00459f81ddc65890015625c0a06e46"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/Sprint10ReleaseEvidenceTests.cs": {
+    "mtime": 1781956990.8948863,
+    "seen": 1787574596.886049,
+    "ast_hash": "d3c7d04a7c80af816db3a9ab13ecf722",
+    "semantic_hash": "d3c7d04a7c80af816db3a9ab13ecf722"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/Sprint11ReleaseEvidenceTests.cs": {
+    "mtime": 1783490579.6608827,
+    "seen": 1787574596.8860526,
+    "ast_hash": "845f6278fa9f8a6730aba146aed113d4",
+    "semantic_hash": "845f6278fa9f8a6730aba146aed113d4"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/Sprint1ReleaseEvidenceContractTests.cs": {
+    "mtime": 1779341714.69195,
+    "seen": 1787574596.8860564,
+    "ast_hash": "08c9134ce43f4c2390cb0bb8e417a7ed",
+    "semantic_hash": "08c9134ce43f4c2390cb0bb8e417a7ed"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/Sprint5ReleaseEvidenceTests.cs": {
+    "mtime": 1779341714.696952,
+    "seen": 1787574596.88606,
+    "ast_hash": "1cee0547a64efe39fb0f494c31965aaf",
+    "semantic_hash": "1cee0547a64efe39fb0f494c31965aaf"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/Sprint6ReleaseEvidenceTests.cs": {
+    "mtime": 1779715079.053011,
+    "seen": 1787574596.886063,
+    "ast_hash": "c9d10df83f20e78742b33b53965ed49d",
+    "semantic_hash": "c9d10df83f20e78742b33b53965ed49d"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/Sprint7ReleaseEvidenceTests.cs": {
+    "mtime": 1779969230.36429,
+    "seen": 1787574596.8860667,
+    "ast_hash": "2f935d2ef4089bdf343c733443cfcc66",
+    "semantic_hash": "2f935d2ef4089bdf343c733443cfcc66"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/Sprint8ReleaseEvidenceTests.cs": {
+    "mtime": 1781599038.0221274,
+    "seen": 1787574596.88607,
+    "ast_hash": "85a902ebc71cb4c9637684716eb18507",
+    "semantic_hash": "85a902ebc71cb4c9637684716eb18507"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/Sprint9ReleaseEvidenceTests.cs": {
+    "mtime": 1787396090.863597,
+    "seen": 1787574596.886073,
+    "ast_hash": "29abc3c74465e64ad2ff1ed962d077dc",
+    "semantic_hash": "29abc3c74465e64ad2ff1ed962d077dc"
+  },
+  "tests/Dobby.IntegrationTests/Architecture/TraceabilityRegisterTests.cs": {
+    "mtime": 1787396090.864615,
+    "seen": 1787574596.886077,
+    "ast_hash": "2bbbb3c3a7eac1c5af8d3644b8d5674e",
+    "semantic_hash": "2bbbb3c3a7eac1c5af8d3644b8d5674e"
+  },
+  "tests/Dobby.IntegrationTests/Audit/DurableAuditTrailTests.cs": {
+    "mtime": 1787396090.866085,
+    "seen": 1787574596.8860803,
+    "ast_hash": "c6386668e07bf902e8b526f34f8b12b0",
+    "semantic_hash": "c6386668e07bf902e8b526f34f8b12b0"
+  },
+  "tests/Dobby.IntegrationTests/Auth/CredentialStoreRoundTripTests.cs": {
+    "mtime": 1787396090.8675268,
+    "seen": 1787574596.8860836,
+    "ast_hash": "a9697ca2dcffaf610dc4a5a9a0c89cfb",
+    "semantic_hash": "a9697ca2dcffaf610dc4a5a9a0c89cfb"
+  },
+  "tests/Dobby.IntegrationTests/Auth/DurableLoginThrottleTests.cs": {
+    "mtime": 1787396090.8675268,
+    "seen": 1787574596.8860877,
+    "ast_hash": "9db2b0c3c689ac500ef5a599683b1e48",
+    "semantic_hash": "9db2b0c3c689ac500ef5a599683b1e48"
+  },
+  "tests/Dobby.IntegrationTests/Auth/LoginServiceTests.cs": {
+    "mtime": 1787396090.8697495,
+    "seen": 1787574596.886091,
+    "ast_hash": "58035df18baab47b4b266521a2505127",
+    "semantic_hash": "58035df18baab47b4b266521a2505127"
+  },
+  "tests/Dobby.IntegrationTests/Auth/OwnerBootstrapConcurrencyCollection.cs": {
+    "mtime": 1779263983.2372158,
+    "seen": 1787574596.886094,
+    "ast_hash": "a4a45dddd68d9d7d1796c6552f334cef",
+    "semantic_hash": "a4a45dddd68d9d7d1796c6552f334cef"
+  },
+  "tests/Dobby.IntegrationTests/Auth/OwnerBootstrapCoordinatorTests.cs": {
+    "mtime": 1779263983.250132,
+    "seen": 1787574596.8860981,
+    "ast_hash": "34eb81e48d79ba35c3553705f76998bb",
+    "semantic_hash": "34eb81e48d79ba35c3553705f76998bb"
+  },
+  "tests/Dobby.IntegrationTests/Auth/OwnerBootstrapTransactionTests.cs": {
+    "mtime": 1787299451.0457642,
+    "seen": 1787574596.8861012,
+    "ast_hash": "bb45baa1258dc0ffccdbbeb7f3be9e96",
+    "semantic_hash": "bb45baa1258dc0ffccdbbeb7f3be9e96"
+  },
+  "tests/Dobby.IntegrationTests/Auth/RememberMeSlotTests.cs": {
+    "mtime": 1787396090.8717504,
+    "seen": 1787574596.8861046,
+    "ast_hash": "88bbb9ae171f5aa2ed21debbd661f73a",
+    "semantic_hash": "88bbb9ae171f5aa2ed21debbd661f73a"
+  },
+  "tests/Dobby.IntegrationTests/Auth/SelfServicePasswordChangeTests.cs": {
+    "mtime": 1787396090.873769,
+    "seen": 1787574596.886108,
+    "ast_hash": "0b45eec26e91101e1447982bca84de88",
+    "semantic_hash": "0b45eec26e91101e1447982bca84de88"
+  },
+  "tests/Dobby.IntegrationTests/Auth/UserManagementServiceTests.cs": {
+    "mtime": 1787396090.8797488,
+    "seen": 1787574596.8861113,
+    "ast_hash": "b0eeed38e4c42923b9c22bcb49cb2a1b",
+    "semantic_hash": "b0eeed38e4c42923b9c22bcb49cb2a1b"
+  },
+  "tests/Dobby.IntegrationTests/Configuration/ConfigurationSourceOrderTests.cs": {
+    "mtime": 1779515806.3888247,
+    "seen": 1787574596.8861146,
+    "ast_hash": "8ed1ff8f32e1dac847ad00251f7203ba",
+    "semantic_hash": "8ed1ff8f32e1dac847ad00251f7203ba"
+  },
+  "tests/Dobby.IntegrationTests/Configuration/DobbyOptionsBindingTests.cs": {
+    "mtime": 1787396090.884754,
+    "seen": 1787574596.8861177,
+    "ast_hash": "7e8dbef784131e2d714e2a9090c0a3af",
+    "semantic_hash": "7e8dbef784131e2d714e2a9090c0a3af"
+  },
+  "tests/Dobby.IntegrationTests/Configuration/NoTelemetryDefaultTests.cs": {
+    "mtime": 1778661018.8157682,
+    "seen": 1787574596.8861544,
+    "ast_hash": "5ee6d621080c9d4dcec7ea605f620ead",
+    "semantic_hash": "5ee6d621080c9d4dcec7ea605f620ead"
+  },
+  "tests/Dobby.IntegrationTests/Configuration/RetentionFloorIntegrationTests.cs": {
+    "mtime": 1778661018.8242922,
+    "seen": 1787574596.8861606,
+    "ast_hash": "b0515155113cbba01658b12206612da6",
+    "semantic_hash": "b0515155113cbba01658b12206612da6"
+  },
+  "tests/Dobby.IntegrationTests/Diagnostics/DiagnosticsExportBoundaryTests.cs": {
+    "mtime": 1787396090.892248,
+    "seen": 1787574596.8861673,
+    "ast_hash": "d65177f2f15b8c977483683122c3b7c5",
+    "semantic_hash": "d65177f2f15b8c977483683122c3b7c5"
+  },
+  "tests/Dobby.IntegrationTests/Diagnostics/LocalDiagnosticsSinkTests.cs": {
+    "mtime": 1787299451.0597737,
+    "seen": 1787574596.8861732,
+    "ast_hash": "f953e7102bd805480197967a643217e1",
+    "semantic_hash": "f953e7102bd805480197967a643217e1"
+  },
+  "tests/Dobby.IntegrationTests/Dobby.IntegrationTests.csproj": {
+    "mtime": 1781961960.807008,
+    "seen": 1787574596.8861794,
+    "ast_hash": "91bd25410c26f152b8ea9973f063385c",
+    "semantic_hash": "91bd25410c26f152b8ea9973f063385c"
+  },
+  "tests/Dobby.IntegrationTests/GlobalUsings.cs": {
+    "mtime": 1778661018.84232,
+    "seen": 1787574596.886186,
+    "ast_hash": "ad4d0b77e24e64d549baf2af96d01861",
+    "semantic_hash": "ad4d0b77e24e64d549baf2af96d01861"
+  },
+  "tests/Dobby.IntegrationTests/Host/AzerbaijaniDiacriticsRoundTripTests.cs": {
+    "mtime": 1787396090.894247,
+    "seen": 1787574596.8861923,
+    "ast_hash": "31a66c589ba6ccbd504fcabbe6dd573e",
+    "semantic_hash": "31a66c589ba6ccbd504fcabbe6dd573e"
+  },
+  "tests/Dobby.IntegrationTests/Host/HostLoginRuntimeFactoryTests.cs": {
+    "mtime": 1787551271.9686167,
+    "seen": 1787574596.8861988,
+    "ast_hash": "b3255d61a9d763538496e64597d86850",
+    "semantic_hash": "b3255d61a9d763538496e64597d86850"
+  },
+  "tests/Dobby.IntegrationTests/Host/LoginRuntimeWorkflowTests.cs": {
+    "mtime": 1787396090.8986976,
+    "seen": 1787574596.886205,
+    "ast_hash": "565df946b0b091bed2b1ca06f039a97a",
+    "semantic_hash": "565df946b0b091bed2b1ca06f039a97a"
+  },
+  "tests/Dobby.IntegrationTests/Host/SettingsPreferencePersistenceTests.cs": {
+    "mtime": 1779878536.6345196,
+    "seen": 1787574596.886211,
+    "ast_hash": "824c1b9e08c491535c0776d219d0f95a",
+    "semantic_hash": "824c1b9e08c491535c0776d219d0f95a"
+  },
+  "tests/Dobby.IntegrationTests/Host/ShellDiagnosticsExportActionTests.cs": {
+    "mtime": 1787403086.3382692,
+    "seen": 1787574596.886215,
+    "ast_hash": "7622f506207f36830f5d53c9a917b9af",
+    "semantic_hash": "7622f506207f36830f5d53c9a917b9af"
+  },
+  "tests/Dobby.IntegrationTests/Host/ShellPreferenceUserIsolationTests.cs": {
+    "mtime": 1779878536.639521,
+    "seen": 1787574596.886218,
+    "ast_hash": "dd55b48cb927f0c18097e08cfa814ef1",
+    "semantic_hash": "dd55b48cb927f0c18097e08cfa814ef1"
+  },
+  "tests/Dobby.IntegrationTests/Host/ShellThemeAndSettingsIntegrationTests.cs": {
+    "mtime": 1787396090.9007065,
+    "seen": 1787574596.8862212,
+    "ast_hash": "f21d9ed5d624d499bd9cb62dafc7bef1",
+    "semantic_hash": "f21d9ed5d624d499bd9cb62dafc7bef1"
+  },
+  "tests/Dobby.IntegrationTests/Host/WorkSessionShellIntegrationTests.cs": {
+    "mtime": 1783756320.3310275,
+    "seen": 1787574596.8862243,
+    "ast_hash": "7fa28dde7db84347c323204b49589ef6",
+    "semantic_hash": "7fa28dde7db84347c323204b49589ef6"
+  },
+  "tests/Dobby.IntegrationTests/Infrastructure/ProtectedMaterialDpapiTests.cs": {
+    "mtime": 1787299451.0831137,
+    "seen": 1787574596.8862276,
+    "ast_hash": "8131f852414a00706ef37e90c5d5765a",
+    "semantic_hash": "8131f852414a00706ef37e90c5d5765a"
+  },
+  "tests/Dobby.IntegrationTests/Licensing/CustomerDeploymentContextIntegrationTests.cs": {
+    "mtime": 1783756320.3340268,
+    "seen": 1787574596.8862307,
+    "ast_hash": "16585cd6875f5cbed45380bfa4e7ec02",
+    "semantic_hash": "16585cd6875f5cbed45380bfa4e7ec02"
+  },
+  "tests/Dobby.IntegrationTests/Licensing/LicenseImportAtomicityTests.cs": {
+    "mtime": 1787396090.901706,
+    "seen": 1787574596.8862345,
+    "ast_hash": "7e0b2e7ce9eafb0dfd7f9cdb8ec78565",
+    "semantic_hash": "7e0b2e7ce9eafb0dfd7f9cdb8ec78565"
+  },
+  "tests/Dobby.IntegrationTests/Licensing/LicenseImportIntegrationTests.cs": {
+    "mtime": 1787396090.90371,
+    "seen": 1787574596.8862376,
+    "ast_hash": "f443a363b12b963331282b8fcf13e1c0",
+    "semantic_hash": "f443a363b12b963331282b8fcf13e1c0"
+  },
+  "tests/Dobby.IntegrationTests/Licensing/LicensePersistenceMigrationTests.cs": {
+    "mtime": 1787396090.9067264,
+    "seen": 1787574596.886241,
+    "ast_hash": "d05cfbf8a22d543dc379d228442a237b",
+    "semantic_hash": "d05cfbf8a22d543dc379d228442a237b"
+  },
+  "tests/Dobby.IntegrationTests/Licensing/LicenseRuntimeModeIntegrationTests.cs": {
+    "mtime": 1783756320.3400266,
+    "seen": 1787574596.8862443,
+    "ast_hash": "90963c3000e4f13060e93f9091367e3c",
+    "semantic_hash": "90963c3000e4f13060e93f9091367e3c"
+  },
+  "tests/Dobby.IntegrationTests/Licensing/ReadOnlyExpiredEnforcementIntegrationTests.cs": {
+    "mtime": 1787396090.9077058,
+    "seen": 1787574596.8862476,
+    "ast_hash": "d1091f4343cd35cafd7e9b921d0e307e",
+    "semantic_hash": "d1091f4343cd35cafd7e9b921d0e307e"
+  },
+  "tests/Dobby.IntegrationTests/Persistence/HostMutationAtomicityTests.cs": {
+    "mtime": 1787396090.9097052,
+    "seen": 1787574596.8862514,
+    "ast_hash": "f8cfc2a0191be6bd18cbad8583915074",
+    "semantic_hash": "f8cfc2a0191be6bd18cbad8583915074"
+  },
+  "tests/Dobby.IntegrationTests/Persistence/HostPersistenceTests.cs": {
+    "mtime": 1787396090.911705,
+    "seen": 1787574596.886255,
+    "ast_hash": "43e89b9a90f2c7d4ed8b54c9d0b3bcad",
+    "semantic_hash": "43e89b9a90f2c7d4ed8b54c9d0b3bcad"
+  },
+  "tests/Dobby.IntegrationTests/Persistence/PluginInstallStatePersistenceTests.cs": {
+    "mtime": 1787396090.9127164,
+    "seen": 1787574596.8862581,
+    "ast_hash": "5938b81ff3e62cc4209e6e989c30d41f",
+    "semantic_hash": "5938b81ff3e62cc4209e6e989c30d41f"
+  },
+  "tests/Dobby.IntegrationTests/Plugins/PluginActivationRuntimeIntegrationTests.cs": {
+    "mtime": 1787396090.9137201,
+    "seen": 1787574596.8862615,
+    "ast_hash": "4a848baa6b330bcf8d4ef3e8c10ce92d",
+    "semantic_hash": "4a848baa6b330bcf8d4ef3e8c10ce92d"
+  },
+  "tests/Dobby.IntegrationTests/Plugins/PluginBackgroundOperationReportingTests.cs": {
+    "mtime": 1787398280.1838012,
+    "seen": 1787574596.8862646,
+    "ast_hash": "38431334aa231f89b2544d334a0d37a4",
+    "semantic_hash": "38431334aa231f89b2544d334a0d37a4"
+  },
+  "tests/Dobby.IntegrationTests/Plugins/PluginIntegrationSuiteTests.cs": {
+    "mtime": 1787396090.915754,
+    "seen": 1787574596.8862674,
+    "ast_hash": "a0f1f9f369a62ea17eb3f23a1e3b1cce",
+    "semantic_hash": "a0f1f9f369a62ea17eb3f23a1e3b1cce"
+  },
+  "tests/Dobby.IntegrationTests/ProjectBoundaryTests.cs": {
+    "mtime": 1778504582.672757,
+    "seen": 1787574596.8862705,
+    "ast_hash": "004e6651880e47292dc86b1621b7f635",
+    "semantic_hash": "004e6651880e47292dc86b1621b7f635"
+  },
+  "tests/Dobby.IntegrationTests/Recovery/RecoveryRequestExportTests.cs": {
+    "mtime": 1787396090.915754,
+    "seen": 1787574596.8862739,
+    "ast_hash": "748240dfa3bb50d32121e8c51367b5d5",
+    "semantic_hash": "748240dfa3bb50d32121e8c51367b5d5"
+  },
+  "tests/Dobby.IntegrationTests/Recovery/RecoveryResponseImportConfirmTests.cs": {
+    "mtime": 1787396090.9167812,
+    "seen": 1787574596.886277,
+    "ast_hash": "619c427b02f98b8535487a0dc249eb54",
+    "semantic_hash": "619c427b02f98b8535487a0dc249eb54"
+  },
+  "tests/Dobby.IntegrationTests/Recovery/RecoveryResponseImportFixtureTests.cs": {
+    "mtime": 1787396090.917775,
+    "seen": 1787574596.8862798,
+    "ast_hash": "988bf7ff88a438c1f1996999cf3067cd",
+    "semantic_hash": "988bf7ff88a438c1f1996999cf3067cd"
+  },
+  "tests/Dobby.IntegrationTests/Runtime/RuntimeFolderLayoutTests.cs": {
+    "mtime": 1787299451.0941017,
+    "seen": 1787574596.886284,
+    "ast_hash": "7fb8d894d8f94fb31d44c422568dbbae",
+    "semantic_hash": "7fb8d894d8f94fb31d44c422568dbbae"
+  },
+  "tests/Dobby.IntegrationTests/Runtime/RuntimeFolderRecoveryTests.cs": {
+    "mtime": 1787396090.917775,
+    "seen": 1787574596.8862872,
+    "ast_hash": "c36dc3f5ea7cca7dfd5ce63eddd448e0",
+    "semantic_hash": "c36dc3f5ea7cca7dfd5ce63eddd448e0"
+  },
+  "tests/Dobby.IntegrationTests/Security/NoPlaintextSecretContentScanTests.cs": {
+    "mtime": 1787396090.9187644,
+    "seen": 1787574596.8862913,
+    "ast_hash": "790a254a9c0819b3f12858d94dd4c846",
+    "semantic_hash": "790a254a9c0819b3f12858d94dd4c846"
+  },
+  "tests/Dobby.IntegrationTests/Security/OperationAuthorizationIntegrationTests.cs": {
+    "mtime": 1779782839.0621593,
+    "seen": 1787574596.8862946,
+    "ast_hash": "c9057fc9636168d9d74ea6d227a563c5",
+    "semantic_hash": "c9057fc9636168d9d74ea6d227a563c5"
+  },
+  "tests/Dobby.IntegrationTests/Sessions/SessionMutationAtomicityTests.cs": {
+    "mtime": 1787396090.9219346,
+    "seen": 1787574596.886298,
+    "ast_hash": "bf2c93158761af5601a53d98a13330d6",
+    "semantic_hash": "bf2c93158761af5601a53d98a13330d6"
+  },
+  "tests/Dobby.IntegrationTests/Sessions/SessionTimeoutIntegrationTests.cs": {
+    "mtime": 1779276659.294107,
+    "seen": 1787574596.886301,
+    "ast_hash": "ed21514007159a12279d4b9b95f3feeb",
+    "semantic_hash": "ed21514007159a12279d4b9b95f3feeb"
+  },
+  "tests/Dobby.IntegrationTests/Shell/LicenseImportShellSurfaceTests.cs": {
+    "mtime": 1783756320.4110239,
+    "seen": 1787574596.886305,
+    "ast_hash": "62b364ce88f458a7c40dd0ae9b8b42f8",
+    "semantic_hash": "62b364ce88f458a7c40dd0ae9b8b42f8"
+  },
+  "tests/Dobby.IntegrationTests/Shell/ShellSnapshotTests.cs": {
+    "mtime": 1787396090.9229338,
+    "seen": 1787574596.8863082,
+    "ast_hash": "35b6a6b2cc2b058d88915b8d7a4632d0",
+    "semantic_hash": "35b6a6b2cc2b058d88915b8d7a4632d0"
+  },
+  "tests/Dobby.IntegrationTests/Shell/WpfIntegrationTestCollection.cs": {
+    "mtime": 1782212336.0036368,
+    "seen": 1787574596.8863115,
+    "ast_hash": "2237762c94187f62cc8aa419cc4f8987",
+    "semantic_hash": "2237762c94187f62cc8aa419cc4f8987"
+  },
+  "tests/Dobby.IntegrationTests/Startup/HostRuntimeSurfaceTests.cs": {
+    "mtime": 1783174115.7321863,
+    "seen": 1787574596.8863153,
+    "ast_hash": "9ebf19f53b49fe7c58a1d275f7698678",
+    "semantic_hash": "9ebf19f53b49fe7c58a1d275f7698678"
+  },
+  "tests/Dobby.IntegrationTests/Startup/PreLoginAllowedWorkloadTests.cs": {
+    "mtime": 1779543637.1565132,
+    "seen": 1787574596.8863184,
+    "ast_hash": "54a235a2888af706774a2590bb61da7e",
+    "semantic_hash": "54a235a2888af706774a2590bb61da7e"
+  },
+  "tests/Dobby.IntegrationTests/Startup/SingleInstanceCoordinatorCollection.cs": {
+    "mtime": 1783410071.535143,
+    "seen": 1787574596.8863213,
+    "ast_hash": "17b11f227efe5f256dd35e74b767fb21",
+    "semantic_hash": "17b11f227efe5f256dd35e74b767fb21"
+  },
+  "tests/Dobby.IntegrationTests/Startup/SingleInstanceCoordinatorTests.cs": {
+    "mtime": 1783410071.5361438,
+    "seen": 1787574596.8863256,
+    "ast_hash": "33719b27f5c49bd76b168e9f7f14abea",
+    "semantic_hash": "33719b27f5c49bd76b168e9f7f14abea"
+  },
+  "tests/Dobby.IntegrationTests/Startup/StartupBootstrapWiringTests.cs": {
+    "mtime": 1787396090.9262602,
+    "seen": 1787574596.8863285,
+    "ast_hash": "884607c475bd3764956e03f959d9514e",
+    "semantic_hash": "884607c475bd3764956e03f959d9514e"
+  },
+  "tests/Dobby.IntegrationTests/Startup/StrictLoginFirstRuntimeTests.cs": {
+    "mtime": 1787555775.842553,
+    "seen": 1787574596.8863318,
+    "ast_hash": "1330ba44be8d6aeab114ca4498b3452e",
+    "semantic_hash": "1330ba44be8d6aeab114ca4498b3452e"
+  },
+  "tests/Dobby.IntegrationTests/TemporaryDirectory.cs": {
+    "mtime": 1778661018.8697846,
+    "seen": 1787574596.88637,
+    "ast_hash": "30de9b10e3776c99c911141d0a35ada3",
+    "semantic_hash": "30de9b10e3776c99c911141d0a35ada3"
+  },
+  "tests/Dobby.SmokeTests/CrashRecoverySmokeTests.cs": {
+    "mtime": 1787400157.8064697,
+    "seen": 1787574596.8863764,
+    "ast_hash": "5e9f932bf42fe2d5fda30eda331871a3",
+    "semantic_hash": "5e9f932bf42fe2d5fda30eda331871a3"
+  },
+  "tests/Dobby.SmokeTests/Dobby.SmokeTests.csproj": {
+    "mtime": 1782125355.2374125,
+    "seen": 1787574596.8863826,
+    "ast_hash": "947ca5e8e111b056efeb5071b0fff771",
+    "semantic_hash": "947ca5e8e111b056efeb5071b0fff771"
+  },
+  "tests/Dobby.SmokeTests/ShellKeyboardSmokeTests.cs": {
+    "mtime": 1787396090.9416335,
+    "seen": 1787574596.8863888,
+    "ast_hash": "676bbc69c314fe3ee26876c3a24833c0",
+    "semantic_hash": "676bbc69c314fe3ee26876c3a24833c0"
+  },
+  "tests/Dobby.SmokeTests/ShellSmokeTests.cs": {
+    "mtime": 1787396090.9446273,
+    "seen": 1787574596.886395,
+    "ast_hash": "9509c782f874c9c1cb9072607af9f5a1",
+    "semantic_hash": "9509c782f874c9c1cb9072607af9f5a1"
+  },
+  "tests/Dobby.UnitTests/Admin/AdminCommandHostTests.cs": {
+    "mtime": 1787396090.6926904,
+    "seen": 1787574596.886401,
+    "ast_hash": "6d7992d96fe9f209a6bfbc6db88a7d2d",
+    "semantic_hash": "6d7992d96fe9f209a6bfbc6db88a7d2d"
+  },
+  "tests/Dobby.UnitTests/Application/PrintOutputPolicyTests.cs": {
+    "mtime": 1783756320.4372702,
+    "seen": 1787574596.8864076,
+    "ast_hash": "ca4d89cf265f3e1cf6efe5bc36de01f2",
+    "semantic_hash": "ca4d89cf265f3e1cf6efe5bc36de01f2"
+  },
+  "tests/Dobby.UnitTests/Audit/AuditDetailsSanitizerTests.cs": {
+    "mtime": 1787396090.6936882,
+    "seen": 1787574596.8864138,
+    "ast_hash": "1ea04b3c3bdd415db457355a6a61106b",
+    "semantic_hash": "1ea04b3c3bdd415db457355a6a61106b"
+  },
+  "tests/Dobby.UnitTests/Audit/AuditEventNameTests.cs": {
+    "mtime": 1787396090.6951263,
+    "seen": 1787574596.8864202,
+    "ast_hash": "2d06239b8840b16ccb9f1415ade51bb4",
+    "semantic_hash": "2d06239b8840b16ccb9f1415ade51bb4"
+  },
+  "tests/Dobby.UnitTests/Audit/AuditEventTests.cs": {
+    "mtime": 1787299451.1160817,
+    "seen": 1787574596.886427,
+    "ast_hash": "91f402e2cc3cec6cb2340fd60db1d6fe",
+    "semantic_hash": "91f402e2cc3cec6cb2340fd60db1d6fe"
+  },
+  "tests/Dobby.UnitTests/Audit/InMemoryAuditTrailTests.cs": {
+    "mtime": 1779459305.1876905,
+    "seen": 1787574596.8864334,
+    "ast_hash": "599ad7bfb4d2544904d71762a6e3798c",
+    "semantic_hash": "599ad7bfb4d2544904d71762a6e3798c"
+  },
+  "tests/Dobby.UnitTests/Configuration/AuditOptionsTests.cs": {
+    "mtime": 1778661018.6851785,
+    "seen": 1787574596.8864396,
+    "ast_hash": "1fec5e1f2eb0d849806aa602d0c70f8b",
+    "semantic_hash": "1fec5e1f2eb0d849806aa602d0c70f8b"
+  },
+  "tests/Dobby.UnitTests/Configuration/AuthOptionsTests.cs": {
+    "mtime": 1787396090.6951263,
+    "seen": 1787574596.886446,
+    "ast_hash": "3f6310564ea1a960e29506bfb9eb9df7",
+    "semantic_hash": "3f6310564ea1a960e29506bfb9eb9df7"
+  },
+  "tests/Dobby.UnitTests/Configuration/BranchSharedOptionsTests.cs": {
+    "mtime": 1778661018.7017212,
+    "seen": 1787574596.886452,
+    "ast_hash": "b4a84ed8974480822c84d4a73db5e42e",
+    "semantic_hash": "b4a84ed8974480822c84d4a73db5e42e"
+  },
+  "tests/Dobby.UnitTests/Configuration/ConfigurationTests.cs": {
+    "mtime": 1779515806.3704674,
+    "seen": 1787574596.8864582,
+    "ast_hash": "23ca6706d3b7e065b19cf702b181f793",
+    "semantic_hash": "23ca6706d3b7e065b19cf702b181f793"
+  },
+  "tests/Dobby.UnitTests/Configuration/DiagnosticsOptionsTests.cs": {
+    "mtime": 1787299451.1189618,
+    "seen": 1787574596.886464,
+    "ast_hash": "e16de548238629231edc1c58b20fc426",
+    "semantic_hash": "e16de548238629231edc1c58b20fc426"
+  },
+  "tests/Dobby.UnitTests/Configuration/LicensingOptionsTests.cs": {
+    "mtime": 1778661018.7174609,
+    "seen": 1787574596.8864706,
+    "ast_hash": "f3cf22e16117a0efedfea70a6693bd2d",
+    "semantic_hash": "f3cf22e16117a0efedfea70a6693bd2d"
+  },
+  "tests/Dobby.UnitTests/Configuration/LocalizationOptionsTests.cs": {
+    "mtime": 1779457863.5831995,
+    "seen": 1787574596.886477,
+    "ast_hash": "028348a75c2020b957d1822dbb8877d6",
+    "semantic_hash": "028348a75c2020b957d1822dbb8877d6"
+  },
+  "tests/Dobby.UnitTests/Configuration/PluginsOptionsTests.cs": {
+    "mtime": 1787396090.697369,
+    "seen": 1787574596.8864832,
+    "ast_hash": "e0e69b5dfd8a766cb4a6118eb896c6b2",
+    "semantic_hash": "e0e69b5dfd8a766cb4a6118eb896c6b2"
+  },
+  "tests/Dobby.UnitTests/Configuration/ProductOptionsTests.cs": {
+    "mtime": 1787396090.69837,
+    "seen": 1787574596.8864896,
+    "ast_hash": "f1e6af52a9a87c4857bd1c8a0a42acea",
+    "semantic_hash": "f1e6af52a9a87c4857bd1c8a0a42acea"
+  },
+  "tests/Dobby.UnitTests/Configuration/RuntimeOptionsTests.cs": {
+    "mtime": 1779515806.3754458,
+    "seen": 1787574596.8864956,
+    "ast_hash": "a61fbe1009cefc7ecefde23cdc587c10",
+    "semantic_hash": "a61fbe1009cefc7ecefde23cdc587c10"
+  },
+  "tests/Dobby.UnitTests/Configuration/SessionOptionsTests.cs": {
+    "mtime": 1778661018.7477627,
+    "seen": 1787574596.8864985,
+    "ast_hash": "d31eeda327307db533a7dd9dca967240",
+    "semantic_hash": "d31eeda327307db533a7dd9dca967240"
+  },
+  "tests/Dobby.UnitTests/Configuration/SettingsPreferenceSurfaceTests.cs": {
+    "mtime": 1779869479.188024,
+    "seen": 1787574596.8865018,
+    "ast_hash": "84d787955880a977738f9814ec23b62e",
+    "semantic_hash": "84d787955880a977738f9814ec23b62e"
+  },
+  "tests/Dobby.UnitTests/Configuration/StorageOptionsTests.cs": {
+    "mtime": 1787396090.6993687,
+    "seen": 1787574596.8865051,
+    "ast_hash": "b5474b19b58ca3b62584515f9ada0d42",
+    "semantic_hash": "b5474b19b58ca3b62584515f9ada0d42"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/branch-setup-authorization-v1.license-purpose.invalid.json": {
+    "mtime": 1787308232.2535715,
+    "seen": 1787574596.8865082,
+    "ast_hash": "51d908f5363447d9b731db4c20daae4c",
+    "semantic_hash": "51d908f5363447d9b731db4c20daae4c"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/branch-setup-authorization-v1.unbounded-id.invalid.json": {
+    "mtime": 1787308232.2545717,
+    "seen": 1787574596.8865116,
+    "ast_hash": "04466c8a9d59b5f2741aea6e09badc8b",
+    "semantic_hash": "04466c8a9d59b5f2741aea6e09badc8b"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/plugin-license-v3.extra-authority.invalid.json": {
+    "mtime": 1787308232.2525716,
+    "seen": 1787574596.8865147,
+    "ast_hash": "314882da8ea2c063585fd01dd0d071f1",
+    "semantic_hash": "314882da8ea2c063585fd01dd0d071f1"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/plugin-license-v3.non-utc-date.invalid.json": {
+    "mtime": 1787308435.039893,
+    "seen": 1787574596.8865178,
+    "ast_hash": "79073345c7f40b2abc2cbbfa5c2277c9",
+    "semantic_hash": "79073345c7f40b2abc2cbbfa5c2277c9"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/plugin-license-v3.revision-overflow.invalid.json": {
+    "mtime": 1787308435.0428784,
+    "seen": 1787574596.886521,
+    "ast_hash": "12b9eefe954569e1fc86a91be435363d",
+    "semantic_hash": "12b9eefe954569e1fc86a91be435363d"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/plugin-license-v3.signed-runtime-state.invalid.json": {
+    "mtime": 1787308232.2515652,
+    "seen": 1787574596.8865244,
+    "ast_hash": "a0c057c4da37f8649ecd0f1ba327fc20",
+    "semantic_hash": "a0c057c4da37f8649ecd0f1ba327fc20"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/plugin-manifest-v2.cross-purpose.invalid.json": {
+    "mtime": 1787308232.2486424,
+    "seen": 1787574596.8865278,
+    "ast_hash": "0c9abf1c5e977143cdb750d72c5cc3c5",
+    "semantic_hash": "0c9abf1c5e977143cdb750d72c5cc3c5"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/plugin-manifest-v2.unbounded-path.invalid.json": {
+    "mtime": 1787308232.2500994,
+    "seen": 1787574596.8865309,
+    "ast_hash": "23416caa53862b461c9f15daf013c161",
+    "semantic_hash": "23416caa53862b461c9f15daf013c161"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/recovery-request-v2.missing-proof.invalid.json": {
+    "mtime": 1787308232.2555733,
+    "seen": 1787574596.886534,
+    "ast_hash": "7786d46f49db8045175e0b497ab9aa83",
+    "semantic_hash": "7786d46f49db8045175e0b497ab9aa83"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/recovery-request-v2.short-nonce.invalid.json": {
+    "mtime": 1787308232.2555733,
+    "seen": 1787574596.8865373,
+    "ast_hash": "c5c173b7b6108625e57bd575711b3e3f",
+    "semantic_hash": "c5c173b7b6108625e57bd575711b3e3f"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/recovery-response-v2.cross-purpose.invalid.json": {
+    "mtime": 1787308232.257578,
+    "seen": 1787574596.8865402,
+    "ast_hash": "bf229b5668db2c75881e1d9412812609",
+    "semantic_hash": "bf229b5668db2c75881e1d9412812609"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/negative/recovery-response-v2.wrong-action.invalid.json": {
+    "mtime": 1787308232.2565718,
+    "seen": 1787574596.8865433,
+    "ast_hash": "c3c711299788fba472aee3d264e6d611",
+    "semantic_hash": "c3c711299788fba472aee3d264e6d611"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/positive/branch-setup-authorization-v1.valid.json": {
+    "mtime": 1787308232.2451346,
+    "seen": 1787574596.8865466,
+    "ast_hash": "e8c5265f517178f4b0935304a67ccbf9",
+    "semantic_hash": "e8c5265f517178f4b0935304a67ccbf9"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/positive/plugin-license-v3.valid.json": {
+    "mtime": 1787308232.2441256,
+    "seen": 1787574596.8865497,
+    "ast_hash": "7c3fbc36b78162ff9f6ec68d17648818",
+    "semantic_hash": "7c3fbc36b78162ff9f6ec68d17648818"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/positive/plugin-manifest-v2.valid.json": {
+    "mtime": 1787308232.2430387,
+    "seen": 1787574596.8865528,
+    "ast_hash": "30ba3e25b9a42c3adad8493946a6a3cc",
+    "semantic_hash": "30ba3e25b9a42c3adad8493946a6a3cc"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/positive/recovery-request-v2.valid.json": {
+    "mtime": 1787308232.246132,
+    "seen": 1787574596.8865566,
+    "ast_hash": "6f69ad778f319e86f2e1d424c205b9a4",
+    "semantic_hash": "6f69ad778f319e86f2e1d424c205b9a4"
+  },
+  "tests/Dobby.UnitTests/ContractFixtures/positive/recovery-response-v2.valid.json": {
+    "mtime": 1787308232.246637,
+    "seen": 1787574596.88656,
+    "ast_hash": "a7621f49327622e43895dc0527d93e3c",
+    "semantic_hash": "a7621f49327622e43895dc0527d93e3c"
+  },
+  "tests/Dobby.UnitTests/Contracts/PluginContractDefaultsTests.cs": {
+    "mtime": 1787396090.7013726,
+    "seen": 1787574596.8865633,
+    "ast_hash": "4c30971dd39cfe8464468dabbb8b9090",
+    "semantic_hash": "4c30971dd39cfe8464468dabbb8b9090"
+  },
+  "tests/Dobby.UnitTests/Contracts/PluginFrameworkContractTests.cs": {
+    "mtime": 1778585803.5999417,
+    "seen": 1787574596.8865669,
+    "ast_hash": "67d1ebc58619123a46059d3b99d443eb",
+    "semantic_hash": "67d1ebc58619123a46059d3b99d443eb"
+  },
+  "tests/Dobby.UnitTests/Contracts/PluginStorageContractTests.cs": {
+    "mtime": 1787299451.1219795,
+    "seen": 1787574596.88657,
+    "ast_hash": "5d039a9c7a841d4c5e6d8df7d8f4297f",
+    "semantic_hash": "5d039a9c7a841d4c5e6d8df7d8f4297f"
+  },
+  "tests/Dobby.UnitTests/Contracts/SuccessorArtifactSchemaFixtureTests.cs": {
+    "mtime": 1787396090.7023702,
+    "seen": 1787574596.8865733,
+    "ast_hash": "2806ad7ed3d5dadb4e2bfa21978be40f",
+    "semantic_hash": "2806ad7ed3d5dadb4e2bfa21978be40f"
+  },
+  "tests/Dobby.UnitTests/Core/CorrelationContextAccessorTests.cs": {
+    "mtime": 1778585803.605671,
+    "seen": 1787574596.8865764,
+    "ast_hash": "a9339559dbeacf23aa62ef089ced479b",
+    "semantic_hash": "a9339559dbeacf23aa62ef089ced479b"
+  },
+  "tests/Dobby.UnitTests/Core/HostVersionTests.cs": {
+    "mtime": 1778585803.6113617,
+    "seen": 1787574596.8866313,
+    "ast_hash": "d9cf8390f4aba4d493228f767842c0ed",
+    "semantic_hash": "d9cf8390f4aba4d493228f767842c0ed"
+  },
+  "tests/Dobby.UnitTests/Core/ResultTests.cs": {
+    "mtime": 1778324455.935287,
+    "seen": 1787574596.8866374,
+    "ast_hash": "6564a0af1098f861848d6014ea39af6a",
+    "semantic_hash": "6564a0af1098f861848d6014ea39af6a"
+  },
+  "tests/Dobby.UnitTests/Diagnostics/DiagnosticRedactorTests.cs": {
+    "mtime": 1787396090.706371,
+    "seen": 1787574596.8866441,
+    "ast_hash": "a15930772c8dd576822d74da044787ed",
+    "semantic_hash": "a15930772c8dd576822d74da044787ed"
+  },
+  "tests/Dobby.UnitTests/Diagnostics/DiagnosticsAndAuditTests.cs": {
+    "mtime": 1778661018.7758994,
+    "seen": 1787574596.8866508,
+    "ast_hash": "7846a5379ecf520a5380e03449c6b036",
+    "semantic_hash": "7846a5379ecf520a5380e03449c6b036"
+  },
+  "tests/Dobby.UnitTests/Diagnostics/LocalizationMissingKeyEventTests.cs": {
+    "mtime": 1787299451.1409771,
+    "seen": 1787574596.8866572,
+    "ast_hash": "7948af85bf2a7e050483e337054b138e",
+    "semantic_hash": "7948af85bf2a7e050483e337054b138e"
+  },
+  "tests/Dobby.UnitTests/Diagnostics/StartupMilestoneNamesTests.cs": {
+    "mtime": 1778829472.638703,
+    "seen": 1787574596.8866637,
+    "ast_hash": "0f0fc4b52b24f014c3ae179663e0fa05",
+    "semantic_hash": "0f0fc4b52b24f014c3ae179663e0fa05"
+  },
+  "tests/Dobby.UnitTests/Dobby.UnitTests.csproj": {
+    "mtime": 1787299451.1439764,
+    "seen": 1787574596.88667,
+    "ast_hash": "58623acb628186add8a40064a6464d47",
+    "semantic_hash": "58623acb628186add8a40064a6464d47"
+  },
+  "tests/Dobby.UnitTests/GlobalUsings.cs": {
+    "mtime": 1781599038.0268977,
+    "seen": 1787574596.8866751,
+    "ast_hash": "959b0b1072ce87ee81d1052f2c8b7607",
+    "semantic_hash": "959b0b1072ce87ee81d1052f2c8b7607"
+  },
+  "tests/Dobby.UnitTests/Host/AboutInfoProviderTests.cs": {
+    "mtime": 1787396090.7083707,
+    "seen": 1787574596.8866787,
+    "ast_hash": "64132375dedd4579019fa6c912290be9",
+    "semantic_hash": "64132375dedd4579019fa6c912290be9"
+  },
+  "tests/Dobby.UnitTests/Host/AuthenticatedPersistenceMaintenanceCoordinatorTests.cs": {
+    "mtime": 1787396090.713372,
+    "seen": 1787574596.886682,
+    "ast_hash": "5b58cb223f1253e36c4dcddc45fa533b",
+    "semantic_hash": "5b58cb223f1253e36c4dcddc45fa533b"
+  },
+  "tests/Dobby.UnitTests/Host/HostCustomerDeploymentContextProvisioningCoordinatorTests.cs": {
+    "mtime": 1783756320.4472682,
+    "seen": 1787574596.8866851,
+    "ast_hash": "26fd46fe1e2b2e4f15c4b69152b7b38f",
+    "semantic_hash": "26fd46fe1e2b2e4f15c4b69152b7b38f"
+  },
+  "tests/Dobby.UnitTests/Host/HostPluginCommandDispatcherTests.cs": {
+    "mtime": 1787396090.7184114,
+    "seen": 1787574596.8866885,
+    "ast_hash": "38ea7942593775c8f42bcae0f2f7468d",
+    "semantic_hash": "38ea7942593775c8f42bcae0f2f7468d"
+  },
+  "tests/Dobby.UnitTests/Host/HostPluginLifecycleCoordinatorTests.cs": {
+    "mtime": 1787396090.7273698,
+    "seen": 1787574596.8866916,
+    "ast_hash": "efdaed79eb5299ff4e7906365bf8eee9",
+    "semantic_hash": "efdaed79eb5299ff4e7906365bf8eee9"
+  },
+  "tests/Dobby.UnitTests/Host/HostPluginPackageInstallCoordinatorTests.cs": {
+    "mtime": 1787396090.731369,
+    "seen": 1787574596.886695,
+    "ast_hash": "82be9986ab95807fbfc262dad0eaa1e5",
+    "semantic_hash": "82be9986ab95807fbfc262dad0eaa1e5"
+  },
+  "tests/Dobby.UnitTests/Host/HostPluginRuntimeCoordinatorTests.cs": {
+    "mtime": 1787396090.7333684,
+    "seen": 1787574596.886698,
+    "ast_hash": "c84a3ec744d559c25a5270f9026a9087",
+    "semantic_hash": "c84a3ec744d559c25a5270f9026a9087"
+  },
+  "tests/Dobby.UnitTests/Host/HostPluginStorageTests.cs": {
+    "mtime": 1787396090.7343678,
+    "seen": 1787574596.8867013,
+    "ast_hash": "fcbe855ffb143daa7c68e467a1bd8550",
+    "semantic_hash": "fcbe855ffb143daa7c68e467a1bd8550"
+  },
+  "tests/Dobby.UnitTests/Host/HostPrintOutputServiceTests.cs": {
+    "mtime": 1783756320.4682095,
+    "seen": 1787574596.8867044,
+    "ast_hash": "c7127311fd671f3b474d5d04c549ed89",
+    "semantic_hash": "c7127311fd671f3b474d5d04c549ed89"
+  },
+  "tests/Dobby.UnitTests/Host/LicenseImportCoordinatorTests.cs": {
+    "mtime": 1787396090.7363696,
+    "seen": 1787574596.8867075,
+    "ast_hash": "5213efe0c9b452cac55fd9f023f486d3",
+    "semantic_hash": "5213efe0c9b452cac55fd9f023f486d3"
+  },
+  "tests/Dobby.UnitTests/Host/LockViewModelTests.cs": {
+    "mtime": 1783756320.4707408,
+    "seen": 1787574596.8867106,
+    "ast_hash": "67bcdfe2d7a973d1d1bf1b1e04f09feb",
+    "semantic_hash": "67bcdfe2d7a973d1d1bf1b1e04f09feb"
+  },
+  "tests/Dobby.UnitTests/Host/LoginAuditCoordinatorTests.cs": {
+    "mtime": 1787299451.147974,
+    "seen": 1787574596.8867135,
+    "ast_hash": "50b77dfe11004aad70072dc615168346",
+    "semantic_hash": "50b77dfe11004aad70072dc615168346"
+  },
+  "tests/Dobby.UnitTests/Host/LoginViewModelRememberMeTests.cs": {
+    "mtime": 1787396090.739386,
+    "seen": 1787574596.8867168,
+    "ast_hash": "e48d5670606a2e41b03a7cbe59a1ad8a",
+    "semantic_hash": "e48d5670606a2e41b03a7cbe59a1ad8a"
+  },
+  "tests/Dobby.UnitTests/Host/LoginViewModelThrottleStateTests.cs": {
+    "mtime": 1787396090.7403986,
+    "seen": 1787574596.88672,
+    "ast_hash": "87f10b67007b73c8b640702628f46ae7",
+    "semantic_hash": "87f10b67007b73c8b640702628f46ae7"
+  },
+  "tests/Dobby.UnitTests/Host/LoginWindowRuntimeWiringTests.cs": {
+    "mtime": 1787396090.742393,
+    "seen": 1787574596.8867233,
+    "ast_hash": "5dc386f1476e2d3870ae1fdbc32fd5a7",
+    "semantic_hash": "5dc386f1476e2d3870ae1fdbc32fd5a7"
+  },
+  "tests/Dobby.UnitTests/Host/PluginInstallConcurrencyGateTests.cs": {
+    "mtime": 1787396090.7433934,
+    "seen": 1787574596.8867264,
+    "ast_hash": "1290d4647b679d2ed7a4095f09e69460",
+    "semantic_hash": "1290d4647b679d2ed7a4095f09e69460"
+  },
+  "tests/Dobby.UnitTests/Host/PluginPageRouteCoordinatorTests.cs": {
+    "mtime": 1787396090.7433934,
+    "seen": 1787574596.8867295,
+    "ast_hash": "1b916c772ce8c80232105882fb860268",
+    "semantic_hash": "1b916c772ce8c80232105882fb860268"
+  },
+  "tests/Dobby.UnitTests/Host/PluginRuntimeAuditCoordinatorTests.cs": {
+    "mtime": 1787396090.7443933,
+    "seen": 1787574596.8867323,
+    "ast_hash": "5bda450252f169b7538c42e8c3befd80",
+    "semantic_hash": "5bda450252f169b7538c42e8c3befd80"
+  },
+  "tests/Dobby.UnitTests/Host/PluginRuntimeDiagnosticsCoordinatorTests.cs": {
+    "mtime": 1787396090.745392,
+    "seen": 1787574596.8867357,
+    "ast_hash": "6ccdbc1fc7be8dcfa6857cbd318c4c0a",
+    "semantic_hash": "6ccdbc1fc7be8dcfa6857cbd318c4c0a"
+  },
+  "tests/Dobby.UnitTests/Host/PostLoginSessionRuntimeTests.cs": {
+    "mtime": 1783756320.52678,
+    "seen": 1787574596.886739,
+    "ast_hash": "d6b870c4d7962da6aa4510a98b2d9ae0",
+    "semantic_hash": "d6b870c4d7962da6aa4510a98b2d9ae0"
+  },
+  "tests/Dobby.UnitTests/Host/PostLoginShellPresenterWiringTests.cs": {
+    "mtime": 1783756320.5277755,
+    "seen": 1787574596.886742,
+    "ast_hash": "34886fd113d7e7d62b3946f9a8463dcb",
+    "semantic_hash": "34886fd113d7e7d62b3946f9a8463dcb"
+  },
+  "tests/Dobby.UnitTests/Host/ProcessExitEscalatorTests.cs": {
+    "mtime": 1783174115.7401836,
+    "seen": 1787574596.8867457,
+    "ast_hash": "9a176ec451c48945ff398f9cc44bda6b",
+    "semantic_hash": "9a176ec451c48945ff398f9cc44bda6b"
+  },
+  "tests/Dobby.UnitTests/Host/RecoveryViewModelFileInteractionTests.cs": {
+    "mtime": 1787396090.746392,
+    "seen": 1787574596.8867483,
+    "ast_hash": "65b22fae92588fbf312bc89b87203543",
+    "semantic_hash": "65b22fae92588fbf312bc89b87203543"
+  },
+  "tests/Dobby.UnitTests/Host/SessionLifecycleAuditCoordinatorTests.cs": {
+    "mtime": 1779199438.9206288,
+    "seen": 1787574596.8867514,
+    "ast_hash": "d8aa279db24f023be2d9ca8405723b59",
+    "semantic_hash": "d8aa279db24f023be2d9ca8405723b59"
+  },
+  "tests/Dobby.UnitTests/Host/SettingsAndAboutViewModelTests.cs": {
+    "mtime": 1787396090.746392,
+    "seen": 1787574596.8867545,
+    "ast_hash": "85dccd8cf08168c606483235f7c575ad",
+    "semantic_hash": "85dccd8cf08168c606483235f7c575ad"
+  },
+  "tests/Dobby.UnitTests/Host/ShellBackgroundOperationCoordinatorTests.cs": {
+    "mtime": 1787396090.7473924,
+    "seen": 1787574596.8867579,
+    "ast_hash": "7e9f1f1183afb5ac051626f50fdc6abc",
+    "semantic_hash": "7e9f1f1183afb5ac051626f50fdc6abc"
+  },
+  "tests/Dobby.UnitTests/Host/ShellLocalizationDiagnosticsRecorderTests.cs": {
+    "mtime": 1787299451.1579764,
+    "seen": 1787574596.8867612,
+    "ast_hash": "ced6725320d30f593f4570b472b58303",
+    "semantic_hash": "ced6725320d30f593f4570b472b58303"
+  },
+  "tests/Dobby.UnitTests/Host/ShellPluginManagerOperationCoordinatorTests.cs": {
+    "mtime": 1787396090.748396,
+    "seen": 1787574596.8867643,
+    "ast_hash": "883277a15726bcf6f0c104e374070712",
+    "semantic_hash": "883277a15726bcf6f0c104e374070712"
+  },
+  "tests/Dobby.UnitTests/Host/ShellPreferenceMapperTests.cs": {
+    "mtime": 1779948262.5177753,
+    "seen": 1787574596.8867676,
+    "ast_hash": "29427f9d0e1b2a1c87646f9bde5bc2de",
+    "semantic_hash": "29427f9d0e1b2a1c87646f9bde5bc2de"
+  },
+  "tests/Dobby.UnitTests/Host/ShellThemePreferenceTests.cs": {
+    "mtime": 1783409133.363734,
+    "seen": 1787574596.886771,
+    "ast_hash": "dfdf46dcaf65e4fbf4bab9392c1163f2",
+    "semantic_hash": "dfdf46dcaf65e4fbf4bab9392c1163f2"
+  },
+  "tests/Dobby.UnitTests/Host/StartupRememberMeLegacyCleanerTests.cs": {
+    "mtime": 1787396090.748396,
+    "seen": 1787574596.8867743,
+    "ast_hash": "8be78c7c43411dd7b58f28aa1ec7a7d3",
+    "semantic_hash": "8be78c7c43411dd7b58f28aa1ec7a7d3"
+  },
+  "tests/Dobby.UnitTests/Host/StartupThemeSnapshotStoreTests.cs": {
+    "mtime": 1783174115.7441869,
+    "seen": 1787574596.8867776,
+    "ast_hash": "9bb03bfba7a682819817f3befb549d5f",
+    "semantic_hash": "9bb03bfba7a682819817f3befb549d5f"
+  },
+  "tests/Dobby.UnitTests/Host/SupportDeviceCodeV2Tests.cs": {
+    "mtime": 1787396090.7493925,
+    "seen": 1787574596.886781,
+    "ast_hash": "522f2bfbfe5f19f4b893fdf4ae089334",
+    "semantic_hash": "522f2bfbfe5f19f4b893fdf4ae089334"
+  },
+  "tests/Dobby.UnitTests/Host/UserManagementAuditCoordinatorTests.cs": {
+    "mtime": 1779782839.0446913,
+    "seen": 1787574596.886784,
+    "ast_hash": "e1d6b5e4dce397e7a4abf1e6f06cf3a7",
+    "semantic_hash": "e1d6b5e4dce397e7a4abf1e6f06cf3a7"
+  },
+  "tests/Dobby.UnitTests/Host/WindowsPrintTargetClassifierAdapterTests.cs": {
+    "mtime": 1781781785.2649803,
+    "seen": 1787574596.8867874,
+    "ast_hash": "541b0085f66b1b95fda70ea75729a836",
+    "semantic_hash": "541b0085f66b1b95fda70ea75729a836"
+  },
+  "tests/Dobby.UnitTests/Host/WindowsRecoveryAdapterTests.cs": {
+    "mtime": 1779184050.0191138,
+    "seen": 1787574596.8867905,
+    "ast_hash": "c06d902d0449d2ce58c9c845b0905d40",
+    "semantic_hash": "c06d902d0449d2ce58c9c845b0905d40"
+  },
+  "tests/Dobby.UnitTests/Host/WorkspaceTabSizingConvertersTests.cs": {
+    "mtime": 1783409133.3650882,
+    "seen": 1787574596.8867936,
+    "ast_hash": "bdebba8180540a9a3e621072edc7a6d7",
+    "semantic_hash": "bdebba8180540a9a3e621072edc7a6d7"
+  },
+  "tests/Dobby.UnitTests/Infrastructure/ProtectedMaterialAvailabilityProbeTests.cs": {
+    "mtime": 1787396090.7493925,
+    "seen": 1787574596.8867967,
+    "ast_hash": "f86c1fb0e472f20e8925f3d0cbaeb526",
+    "semantic_hash": "f86c1fb0e472f20e8925f3d0cbaeb526"
+  },
+  "tests/Dobby.UnitTests/Infrastructure/ProtectedMaterialUnitTestBoundaryTests.cs": {
+    "mtime": 1779543637.054783,
+    "seen": 1787574596.8868365,
+    "ast_hash": "9e2d2d31ab9f9b3fc820184750199696",
+    "semantic_hash": "9e2d2d31ab9f9b3fc820184750199696"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicenseArtifactFixtureBuilder.cs": {
+    "mtime": 1787396090.7513938,
+    "seen": 1787574596.886843,
+    "ast_hash": "261ee2bbfbcab087ce6bfcd969918430",
+    "semantic_hash": "261ee2bbfbcab087ce6bfcd969918430"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicenseArtifactParserTests.cs": {
+    "mtime": 1787396090.752407,
+    "seen": 1787574596.8868492,
+    "ast_hash": "5d6b569008a8fa464847a90f75aaeefd",
+    "semantic_hash": "5d6b569008a8fa464847a90f75aaeefd"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicenseCanonicalJsonWriterTests.cs": {
+    "mtime": 1781781785.2669792,
+    "seen": 1787574596.8868554,
+    "ast_hash": "3fa05abbaa65e0bb935c6d98a6df9757",
+    "semantic_hash": "3fa05abbaa65e0bb935c6d98a6df9757"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicenseDeviceFingerprintV1Tests.cs": {
+    "mtime": 1781781785.2679832,
+    "seen": 1787574596.8868625,
+    "ast_hash": "156604df8b6b9a06345e6c4c6d8a3657",
+    "semantic_hash": "156604df8b6b9a06345e6c4c6d8a3657"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicenseImportServiceTests.cs": {
+    "mtime": 1787396090.755395,
+    "seen": 1787574596.8868694,
+    "ast_hash": "d2cb4f3f2e5677089638f51d423df393",
+    "semantic_hash": "d2cb4f3f2e5677089638f51d423df393"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicensePayloadValidatorTests.cs": {
+    "mtime": 1787396090.7573955,
+    "seen": 1787574596.8868756,
+    "ast_hash": "bbb100ff08b5ab6c9118d27de44ba7b8",
+    "semantic_hash": "bbb100ff08b5ab6c9118d27de44ba7b8"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicenseRuntimeModeProviderTests.cs": {
+    "mtime": 1783756320.5357735,
+    "seen": 1787574596.8868823,
+    "ast_hash": "e0d57971e58d893f316e5830f01e8eb5",
+    "semantic_hash": "e0d57971e58d893f316e5830f01e8eb5"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicenseRuntimeModeServiceTests.cs": {
+    "mtime": 1787396090.7623975,
+    "seen": 1787574596.8868883,
+    "ast_hash": "1c42b4cda22c7da8df5c93edf662fb29",
+    "semantic_hash": "1c42b4cda22c7da8df5c93edf662fb29"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicenseSignatureVerifierTests.cs": {
+    "mtime": 1787396090.7664304,
+    "seen": 1787574596.8868926,
+    "ast_hash": "71d08962520ff88171cad75a019525f1",
+    "semantic_hash": "71d08962520ff88171cad75a019525f1"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicenseV3ContractTests.cs": {
+    "mtime": 1787396090.7754095,
+    "seen": 1787574596.886896,
+    "ast_hash": "816db000a56f614408d7b9ee0e54a3d0",
+    "semantic_hash": "816db000a56f614408d7b9ee0e54a3d0"
+  },
+  "tests/Dobby.UnitTests/Licensing/LicensingTests.cs": {
+    "mtime": 1778324455.9492881,
+    "seen": 1787574596.8869,
+    "ast_hash": "e5a7fb2f898fbd2e5fdb51357b8d24de",
+    "semantic_hash": "e5a7fb2f898fbd2e5fdb51357b8d24de"
+  },
+  "tests/Dobby.UnitTests/Licensing/PluginRuntimeActionPolicyTests.cs": {
+    "mtime": 1787396090.7803924,
+    "seen": 1787574596.8869035,
+    "ast_hash": "00056c588146ebbf8070a3ff00edff50",
+    "semantic_hash": "00056c588146ebbf8070a3ff00edff50"
+  },
+  "tests/Dobby.UnitTests/Localization/HostLoginRecoveryStringCatalogTests.cs": {
+    "mtime": 1787396090.7813933,
+    "seen": 1787574596.8869069,
+    "ast_hash": "370b5ee0d4354ad15e1304ce43c95a7a",
+    "semantic_hash": "370b5ee0d4354ad15e1304ce43c95a7a"
+  },
+  "tests/Dobby.UnitTests/Localization/SettingsLocalizationStringCatalogTests.cs": {
+    "mtime": 1783756320.5367737,
+    "seen": 1787574596.8869102,
+    "ast_hash": "e64c4c8fa3997774bb3318555a196b38",
+    "semantic_hash": "e64c4c8fa3997774bb3318555a196b38"
+  },
+  "tests/Dobby.UnitTests/Localization/ShellLocalizationCoverageTests.cs": {
+    "mtime": 1787299451.1669827,
+    "seen": 1787574596.8869133,
+    "ast_hash": "f3f624e30795adaa8a675eb874467933",
+    "semantic_hash": "f3f624e30795adaa8a675eb874467933"
+  },
+  "tests/Dobby.UnitTests/Messaging/InMemoryEventBusTests.cs": {
+    "mtime": 1783756320.5457747,
+    "seen": 1787574596.8869164,
+    "ast_hash": "0630f6b42e2a0f315381a9275f7fa4e5",
+    "semantic_hash": "0630f6b42e2a0f315381a9275f7fa4e5"
+  },
+  "tests/Dobby.UnitTests/Navigation/NavigationComposerTests.cs": {
+    "mtime": 1779948262.5187502,
+    "seen": 1787574596.8869202,
+    "ast_hash": "6663650b2677bc0ef5b51070915f93ba",
+    "semantic_hash": "6663650b2677bc0ef5b51070915f93ba"
+  },
+  "tests/Dobby.UnitTests/Navigation/NavigationTests.cs": {
+    "mtime": 1783756320.5487816,
+    "seen": 1787574596.8869236,
+    "ast_hash": "9b8f95abb5318d3352c30302ac11e49a",
+    "semantic_hash": "9b8f95abb5318d3352c30302ac11e49a"
+  },
+  "tests/Dobby.UnitTests/Navigation/PluginNavigationContributionMapperTests.cs": {
+    "mtime": 1781599038.0332453,
+    "seen": 1787574596.8869267,
+    "ast_hash": "c85e48de789c2a272aae2f0ecdc32c05",
+    "semantic_hash": "c85e48de789c2a272aae2f0ecdc32c05"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Activation/PluginActivationCoreTests.cs": {
+    "mtime": 1787396090.7824101,
+    "seen": 1787574596.88693,
+    "ast_hash": "07fed90af1c82c181f3d6bbe07e447f4",
+    "semantic_hash": "07fed90af1c82c181f3d6bbe07e447f4"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Activation/PostLoginPluginActivatorTests.cs": {
+    "mtime": 1787396090.783738,
+    "seen": 1787574596.8869328,
+    "ast_hash": "529aba6d382188efd0545db47fc70066",
+    "semantic_hash": "529aba6d382188efd0545db47fc70066"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Manifest/PluginManifestValidatorTests.cs": {
+    "mtime": 1781599038.0362518,
+    "seen": 1787574596.8869357,
+    "ast_hash": "03ae994e95d01f067488a47c415129bb",
+    "semantic_hash": "03ae994e95d01f067488a47c415129bb"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Manifest/PluginOperationTargetContributionBuilderTests.cs": {
+    "mtime": 1781599038.03729,
+    "seen": 1787574596.886939,
+    "ast_hash": "f4c2e6fb21101c45185687c583ac9819",
+    "semantic_hash": "f4c2e6fb21101c45185687c583ac9819"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Packaging/PluginPackageFingerprintTests.cs": {
+    "mtime": 1781599038.0383072,
+    "seen": 1787574596.8869421,
+    "ast_hash": "6445f0d6b4ce9510785a862d50e2b945",
+    "semantic_hash": "6445f0d6b4ce9510785a862d50e2b945"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Packaging/PluginPackageInstallerTests.cs": {
+    "mtime": 1787396090.7861779,
+    "seen": 1787574596.886945,
+    "ast_hash": "e63820ff7a586961870bef8b61af40f6",
+    "semantic_hash": "e63820ff7a586961870bef8b61af40f6"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Packaging/PluginPackagePathPolicyTests.cs": {
+    "mtime": 1787396090.7892058,
+    "seen": 1787574596.886948,
+    "ast_hash": "8ce6b46e4e5651a023aed8b9895a3d48",
+    "semantic_hash": "8ce6b46e4e5651a023aed8b9895a3d48"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Packaging/PluginPackageReaderTests.cs": {
+    "mtime": 1787396090.790515,
+    "seen": 1787574596.8869514,
+    "ast_hash": "d835e850a15d2d0a349c96b7c1d294dd",
+    "semantic_hash": "d835e850a15d2d0a349c96b7c1d294dd"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Packaging/PluginPackageTestData.cs": {
+    "mtime": 1787396090.7915392,
+    "seen": 1787574596.8869545,
+    "ast_hash": "aaf47cf644178a5fbba9b64616479482",
+    "semantic_hash": "aaf47cf644178a5fbba9b64616479482"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/Packaging/PluginPackageValidatorTests.cs": {
+    "mtime": 1781782529.5743413,
+    "seen": 1787574596.886958,
+    "ast_hash": "3aa1c634719ba7f83ef242373a57a9e0",
+    "semantic_hash": "3aa1c634719ba7f83ef242373a57a9e0"
+  },
+  "tests/Dobby.UnitTests/PluginFramework/PluginFrameworkTests.cs": {
+    "mtime": 1787396090.7925415,
+    "seen": 1787574596.886961,
+    "ast_hash": "3849cfd87491532d9b08fa75bcb68cca",
+    "semantic_hash": "3849cfd87491532d9b08fa75bcb68cca"
+  },
+  "tests/Dobby.UnitTests/Recovery/RecoveryCanonicalJsonWriterTests.cs": {
+    "mtime": 1787396090.7935362,
+    "seen": 1787574596.886964,
+    "ast_hash": "6fd76201d3be4bd0849e57eefee583be",
+    "semantic_hash": "6fd76201d3be4bd0849e57eefee583be"
+  },
+  "tests/Dobby.UnitTests/Recovery/RecoveryRequestVerifierTests.cs": {
+    "mtime": 1787396090.7945304,
+    "seen": 1787574596.8869677,
+    "ast_hash": "9330539b0628e248310ac87c9bdf8ea6",
+    "semantic_hash": "9330539b0628e248310ac87c9bdf8ea6"
+  },
+  "tests/Dobby.UnitTests/Recovery/RecoveryResponseImporterUnitTests.cs": {
+    "mtime": 1787396090.7955408,
+    "seen": 1787574596.886971,
+    "ast_hash": "ba3a13a68eef1ab607d02dcf8b8866b2",
+    "semantic_hash": "ba3a13a68eef1ab607d02dcf8b8866b2"
+  },
+  "tests/Dobby.UnitTests/Recovery/VendorRecoveryPublicKeyTests.cs": {
+    "mtime": 1787396090.7965312,
+    "seen": 1787574596.8869736,
+    "ast_hash": "c8939f3bc4cc3f0519b5eeed2e74dcd1",
+    "semantic_hash": "c8939f3bc4cc3f0519b5eeed2e74dcd1"
+  },
+  "tests/Dobby.UnitTests/Recovery/WindowsHardwareIdentityProviderTests.cs": {
+    "mtime": 1779105007.125235,
+    "seen": 1787574596.886977,
+    "ast_hash": "c6b22aa9acf70bc59f97669f81b35454",
+    "semantic_hash": "c6b22aa9acf70bc59f97669f81b35454"
+  },
+  "tests/Dobby.UnitTests/SDK/PluginStorageJsonExtensionsTests.cs": {
+    "mtime": 1778585803.6274884,
+    "seen": 1787574596.88698,
+    "ast_hash": "a7da6b7646534f4cc1e154f9908b97fd",
+    "semantic_hash": "a7da6b7646534f4cc1e154f9908b97fd"
+  },
+  "tests/Dobby.UnitTests/Security/CredentialVerificationGateTests.cs": {
+    "mtime": 1787396090.7975445,
+    "seen": 1787574596.8869832,
+    "ast_hash": "f9926cc8c2123e74461822ccdd73a324",
+    "semantic_hash": "f9926cc8c2123e74461822ccdd73a324"
+  },
+  "tests/Dobby.UnitTests/Security/CurrentContext/CurrentCustomerDeploymentContextTests.cs": {
+    "mtime": 1783756320.577929,
+    "seen": 1787574596.8869863,
+    "ast_hash": "604be6c0bd723d164708a00ec9e234dd",
+    "semantic_hash": "604be6c0bd723d164708a00ec9e234dd"
+  },
+  "tests/Dobby.UnitTests/Security/DisplayNameValidatorTests.cs": {
+    "mtime": 1787396090.7985654,
+    "seen": 1787574596.8869896,
+    "ast_hash": "416fc94396d23cd19e9ac51ded9371ef",
+    "semantic_hash": "416fc94396d23cd19e9ac51ded9371ef"
+  },
+  "tests/Dobby.UnitTests/Security/KdfPolicyResolverTests.cs": {
+    "mtime": 1787396090.7995536,
+    "seen": 1787574596.8869927,
+    "ast_hash": "6488681dc002e112f8b4e1e8d733bd5a",
+    "semantic_hash": "6488681dc002e112f8b4e1e8d733bd5a"
+  },
+  "tests/Dobby.UnitTests/Security/LoginThrottleServiceTests.cs": {
+    "mtime": 1787396090.7995536,
+    "seen": 1787574596.8869958,
+    "ast_hash": "20b6f4996536b78475c8ce9fefb5981e",
+    "semantic_hash": "20b6f4996536b78475c8ce9fefb5981e"
+  },
+  "tests/Dobby.UnitTests/Security/OperationAuthorizationPolicyTests.cs": {
+    "mtime": 1779715079.0335388,
+    "seen": 1787574596.886999,
+    "ast_hash": "ee27bbbc87413cc62de7cc6987d1136d",
+    "semantic_hash": "ee27bbbc87413cc62de7cc6987d1136d"
+  },
+  "tests/Dobby.UnitTests/Security/OperationTargetRegistryTests.cs": {
+    "mtime": 1787396090.800944,
+    "seen": 1787574596.8870022,
+    "ast_hash": "142698d0cbd307c83f78013099bd301d",
+    "semantic_hash": "142698d0cbd307c83f78013099bd301d"
+  },
+  "tests/Dobby.UnitTests/Security/OperationVerbParserTests.cs": {
+    "mtime": 1779715079.0420094,
+    "seen": 1787574596.887005,
+    "ast_hash": "116dd59ff3a07828ecaa05e3d52b703d",
+    "semantic_hash": "116dd59ff3a07828ecaa05e3d52b703d"
+  },
+  "tests/Dobby.UnitTests/Security/PasswordPolicyValidatorTests.cs": {
+    "mtime": 1787396090.800944,
+    "seen": 1787574596.88704,
+    "ast_hash": "b3ad9e57a95a3e7800ad0c7daaac78dc",
+    "semantic_hash": "b3ad9e57a95a3e7800ad0c7daaac78dc"
+  },
+  "tests/Dobby.UnitTests/Security/PluginTrustPublicKeyProviderTests.cs": {
+    "mtime": 1787396090.8044767,
+    "seen": 1787574596.887046,
+    "ast_hash": "befec41769c221936ee37c1db2628c15",
+    "semantic_hash": "befec41769c221936ee37c1db2628c15"
+  },
+  "tests/Dobby.UnitTests/Security/PluginTrustTestData.cs": {
+    "mtime": 1781599038.0426965,
+    "seen": 1787574596.887053,
+    "ast_hash": "714a6d94f5702e48d1480e417ce1c184",
+    "semantic_hash": "714a6d94f5702e48d1480e417ce1c184"
+  },
+  "tests/Dobby.UnitTests/Security/PluginTrustVerifierTests.cs": {
+    "mtime": 1787396090.8064594,
+    "seen": 1787574596.8870595,
+    "ast_hash": "a709cc9955fcbbf2eb25d7fb93c8da34",
+    "semantic_hash": "a709cc9955fcbbf2eb25d7fb93c8da34"
+  },
+  "tests/Dobby.UnitTests/Security/SecurityTests.cs": {
+    "mtime": 1787396090.8084593,
+    "seen": 1787574596.8870656,
+    "ast_hash": "3c47486d3d5f66dbade71a76dc50c0e7",
+    "semantic_hash": "3c47486d3d5f66dbade71a76dc50c0e7"
+  },
+  "tests/Dobby.UnitTests/Security/UserManagementAuthorizationGuardTests.cs": {
+    "mtime": 1779717262.6420145,
+    "seen": 1787574596.8870726,
+    "ast_hash": "dc9a29b5f2dd24ceed3cb6c3e02a33b8",
+    "semantic_hash": "dc9a29b5f2dd24ceed3cb6c3e02a33b8"
+  },
+  "tests/Dobby.UnitTests/Security/UsernameCanonicalValidatorTests.cs": {
+    "mtime": 1787396090.8144586,
+    "seen": 1787574596.887079,
+    "ast_hash": "5be535a5f38c11239e0e1d85c3e21cd8",
+    "semantic_hash": "5be535a5f38c11239e0e1d85c3e21cd8"
+  },
+  "tests/Dobby.UnitTests/Sessions/ActiveSessionAccessorTests.cs": {
+    "mtime": 1779104190.390012,
+    "seen": 1787574596.887085,
+    "ast_hash": "4eb38436fcce12c8b2368b7e6d471cd8",
+    "semantic_hash": "4eb38436fcce12c8b2368b7e6d471cd8"
+  },
+  "tests/Dobby.UnitTests/Sessions/SessionLifecycleServiceTests.cs": {
+    "mtime": 1787396090.8184814,
+    "seen": 1787574596.8870916,
+    "ast_hash": "86ce79c5b4708ce7385ad51ce92065ec",
+    "semantic_hash": "86ce79c5b4708ce7385ad51ce92065ec"
+  },
+  "tests/Dobby.UnitTests/Sessions/SessionLogoutAndLockTests.cs": {
+    "mtime": 1779199438.9291284,
+    "seen": 1787574596.8870974,
+    "ast_hash": "0c5e3473fb264d06fa839a8b7b77c907",
+    "semantic_hash": "0c5e3473fb264d06fa839a8b7b77c907"
+  },
+  "tests/Dobby.UnitTests/Shell/PluginPageRenderRegistryTests.cs": {
+    "mtime": 1787396090.8264952,
+    "seen": 1787574596.8871021,
+    "ast_hash": "592378fd20f9340aed08a35eaedd40bb",
+    "semantic_hash": "592378fd20f9340aed08a35eaedd40bb"
+  },
+  "tests/Dobby.UnitTests/Shell/ShellLayoutStateTests.cs": {
+    "mtime": 1783756320.5908625,
+    "seen": 1787574596.8871052,
+    "ast_hash": "21d447c5055da50b3c3d7b36dee2944e",
+    "semantic_hash": "21d447c5055da50b3c3d7b36dee2944e"
+  },
+  "tests/Dobby.UnitTests/Shell/ShellViewModelLicenseSurfaceTests.cs": {
+    "mtime": 1782797644.575167,
+    "seen": 1787574596.8871083,
+    "ast_hash": "df169a23c673c8ab48338f7924f7107a",
+    "semantic_hash": "df169a23c673c8ab48338f7924f7107a"
+  },
+  "tests/Dobby.UnitTests/Shell/ShellViewModelNavigationTests.cs": {
+    "mtime": 1783756320.594882,
+    "seen": 1787574596.8871117,
+    "ast_hash": "b56083395bf7e1546aa4df1e03e17e82",
+    "semantic_hash": "b56083395bf7e1546aa4df1e03e17e82"
+  },
+  "tests/Dobby.UnitTests/Shell/ShellViewModelPluginsManagerTests.cs": {
+    "mtime": 1787396090.8284614,
+    "seen": 1787574596.8871152,
+    "ast_hash": "91d3c222564583ac2a02e24ecdd2c038",
+    "semantic_hash": "91d3c222564583ac2a02e24ecdd2c038"
+  },
+  "tests/Dobby.UnitTests/Shell/ShellViewModelWorkspaceTabTests.cs": {
+    "mtime": 1783756320.6049926,
+    "seen": 1787574596.8871183,
+    "ast_hash": "eed2d036e7128797e7edf4dfb547a8c7",
+    "semantic_hash": "eed2d036e7128797e7edf4dfb547a8c7"
+  },
+  "tests/Dobby.UnitTests/Shell/WorkSessionLifecycleTests.cs": {
+    "mtime": 1783756320.6079912,
+    "seen": 1787574596.8871217,
+    "ast_hash": "d4ed15f8275645b24f9843feec356cb7",
+    "semantic_hash": "d4ed15f8275645b24f9843feec356cb7"
+  },
+  "tests/Dobby.UnitTests/Shell/WorkSessionRegistryTests.cs": {
+    "mtime": 1778324455.9861834,
+    "seen": 1787574596.8871248,
+    "ast_hash": "2219099f7719a679b91d52084f1dcfce",
+    "semantic_hash": "2219099f7719a679b91d52084f1dcfce"
+  },
+  "tools/create-plugin-license/create-plugin-license.ps1": {
+    "mtime": 1781944735.224627,
+    "seen": 1787574596.887128,
+    "ast_hash": "cae5175fb2f00cd21e54d50c0398fd50",
+    "semantic_hash": "cae5175fb2f00cd21e54d50c0398fd50"
+  },
+  "tools/create-recovery-response/create-recovery-response.ps1": {
+    "mtime": 1781944735.2445962,
+    "seen": 1787574596.8871317,
+    "ast_hash": "5683babf48211712baedbaf33b9ff8e2",
+    "semantic_hash": "5683babf48211712baedbaf33b9ff8e2"
+  },
+  "tools/generate-sbom/generate-sbom.ps1": {
+    "mtime": 1787395188.3337224,
+    "seen": 1787574596.8871348,
+    "ast_hash": "8df4ab1f3f6aaa84ef64837f9fbb7bdc",
+    "semantic_hash": "8df4ab1f3f6aaa84ef64837f9fbb7bdc"
+  },
+  "tools/publish-portable/publish-portable.ps1": {
+    "mtime": 1787394217.685091,
+    "seen": 1787574596.887138,
+    "ast_hash": "3e46090a750d660629313b54e0583d5b",
+    "semantic_hash": "3e46090a750d660629313b54e0583d5b"
+  },
+  "tools/sign-plugin-package/sign-plugin-package.ps1": {
+    "mtime": 1781944735.267712,
+    "seen": 1787574596.8871412,
+    "ast_hash": "34ae82a26f667b0335c7915bcdc60985",
+    "semantic_hash": "34ae82a26f667b0335c7915bcdc60985"
+  },
+  "tools/verify-flake-sensitive-tests/verify-flake-sensitive-tests.ps1": {
+    "mtime": 1787400448.5446136,
+    "seen": 1787574596.8871439,
+    "ast_hash": "741c91b8b359c1464bfbed3fab9d4f71",
+    "semantic_hash": "741c91b8b359c1464bfbed3fab9d4f71"
+  },
+  "tools/verify-plugin-package/verify-plugin-package.ps1": {
+    "mtime": 1787394015.2367065,
+    "seen": 1787574596.8871472,
+    "ast_hash": "02cec071942b5a03b92ecf0049b18ae2",
+    "semantic_hash": "02cec071942b5a03b92ecf0049b18ae2"
+  },
+  "tools/verify-portable-launch/verify-portable-launch.ps1": {
+    "mtime": 1787395371.9474406,
+    "seen": 1787574596.8871517,
+    "ast_hash": "6cd21b0041304cd8831b3e92490def70",
+    "semantic_hash": "6cd21b0041304cd8831b3e92490def70"
+  },
+  "tools/verify-release-candidate/validate-external-evidence.ps1": {
+    "mtime": 1787407421.1285334,
+    "seen": 1787574596.8871543,
+    "ast_hash": "eb8788f4425ea97c71bf44e506a365fd",
+    "semantic_hash": "eb8788f4425ea97c71bf44e506a365fd"
+  },
+  "tools/verify-release-candidate/verify-release-candidate.ps1": {
+    "mtime": 1787407371.513518,
+    "seen": 1787574596.8871574,
+    "ast_hash": "ecb458d03ecc8bd1dd297323fd18b5ac",
+    "semantic_hash": "ecb458d03ecc8bd1dd297323fd18b5ac"
+  },
+  "tools/verify-security-regressions/verify-security-regressions.ps1": {
+    "mtime": 1787394439.0057385,
+    "seen": 1787574596.8871608,
+    "ast_hash": "047cfa32ead0b2c6c6a6ddcad90470f3",
+    "semantic_hash": "047cfa32ead0b2c6c6a6ddcad90470f3"
+  },
+  "tools/verify-traceability/verify-traceability.ps1": {
+    "mtime": 1787308732.362467,
+    "seen": 1787574596.887164,
+    "ast_hash": "6a75b8d50922d3c10f82c4772e9cd34c",
+    "semantic_hash": "6a75b8d50922d3c10f82c4772e9cd34c"
+  },
+  "AGENTS.md": {
+    "mtime": 1787573255.6016552,
+    "seen": 1787574596.8871672,
+    "ast_hash": "ee1b3ba229065f30e12a5700b7d00126",
+    "semantic_hash": "ee1b3ba229065f30e12a5700b7d00126"
+  },
+  "docs/00_DOCUMENT_AUTHORITY_AND_AUDIT_BASELINE.md": {
+    "mtime": 1787301131.1997533,
+    "seen": 1787574596.8871706,
+    "ast_hash": "906e1c32b1d3289e70e80994bf477d50",
+    "semantic_hash": "906e1c32b1d3289e70e80994bf477d50"
+  },
+  "docs/01_PRODUCT_SCOPE.md": {
+    "mtime": 1787301396.6190925,
+    "seen": 1787574596.887174,
+    "ast_hash": "d54ec42bde5f8fc93c1c2ed3ef724141",
+    "semantic_hash": "d54ec42bde5f8fc93c1c2ed3ef724141"
+  },
+  "docs/02_ARCHITECTURE_MAP.md": {
+    "mtime": 1787308350.2640102,
+    "seen": 1787574596.8871772,
+    "ast_hash": "a0e9852a9e6b0e97f394b6ef449aacb2",
+    "semantic_hash": "a0e9852a9e6b0e97f394b6ef449aacb2"
+  },
+  "docs/03_TECH_STACK_AND_VERSIONS.md": {
+    "mtime": 1787301396.6290917,
+    "seen": 1787574596.8871803,
+    "ast_hash": "41ad5de78c513e1b64192475bea3aa99",
+    "semantic_hash": "41ad5de78c513e1b64192475bea3aa99"
+  },
+  "docs/04_RESULT_VS_EXCEPTION_POLICY.md": {
+    "mtime": 1787382671.3802154,
+    "seen": 1787574596.887184,
+    "ast_hash": "410fa4639a0da349a1128b40285bb9bd",
+    "semantic_hash": "410fa4639a0da349a1128b40285bb9bd"
+  },
+  "docs/05_FUNCTIONAL_REQUIREMENTS.md": {
+    "mtime": 1787311976.0657122,
+    "seen": 1787574596.887187,
+    "ast_hash": "8fbae9fa395e8d499ed2125786794709",
+    "semantic_hash": "8fbae9fa395e8d499ed2125786794709"
+  },
+  "docs/06_NON_FUNCTIONAL_REQUIREMENTS.md": {
+    "mtime": 1787301396.6403434,
+    "seen": 1787574596.88719,
+    "ast_hash": "c3c24c6887f67f6648a1d3235d54b376",
+    "semantic_hash": "c3c24c6887f67f6648a1d3235d54b376"
+  },
+  "docs/07_ACCEPTANCE_CRITERIA.md": {
+    "mtime": 1787311976.07508,
+    "seen": 1787574596.8871932,
+    "ast_hash": "1f0333ba8316d7bf0b1a4145d06f9c3a",
+    "semantic_hash": "1f0333ba8316d7bf0b1a4145d06f9c3a"
+  },
+  "docs/08_CODING_STANDARDS.md": {
+    "mtime": 1787301396.6474943,
+    "seen": 1787574596.8871963,
+    "ast_hash": "d165e4cf0baee4ce13cefb153ba3b598",
+    "semantic_hash": "d165e4cf0baee4ce13cefb153ba3b598"
+  },
+  "docs/09_BUILD_RUN_AND_RELEASE.md": {
+    "mtime": 1787407471.6339955,
+    "seen": 1787574596.8871994,
+    "ast_hash": "2498a60b94ea1aeb65e36219bb25c0cc",
+    "semantic_hash": "2498a60b94ea1aeb65e36219bb25c0cc"
+  },
+  "docs/_perf/README.md": {
+    "mtime": 1778225348.9923046,
+    "seen": 1787574596.8872025,
+    "ast_hash": "9b182e0f8e88213bffd0bb725d01604d",
+    "semantic_hash": "9b182e0f8e88213bffd0bb725d01604d"
+  },
+  "docs/adr/ADR-0000-template.md": {
+    "mtime": 1776946894.6910868,
+    "seen": 1787574596.8872056,
+    "ast_hash": "efb7045266e6e45ac82e49c50cd70cc8",
+    "semantic_hash": "efb7045266e6e45ac82e49c50cd70cc8"
+  },
+  "docs/adr/ADR-0001-contracts-dependency-boundary.md": {
+    "mtime": 1778225207.6724315,
+    "seen": 1787574596.8872087,
+    "ast_hash": "37b890200751099086c7d9069f808358",
+    "semantic_hash": "37b890200751099086c7d9069f808358"
+  },
+  "docs/adr/ADR-0003-plugin-storage-boundary-and-access-model.md": {
+    "mtime": 1778243171.2138286,
+    "seen": 1787574596.8872118,
+    "ast_hash": "f81bb330af1969e673ad469c5c7e325b",
+    "semantic_hash": "f81bb330af1969e673ad469c5c7e325b"
+  },
+  "docs/adr/ADR-0004-capability-enforcement-model.md": {
+    "mtime": 1777548119.7656,
+    "seen": 1787574596.8872151,
+    "ast_hash": "601a290ce85ea261078b0919d94177be",
+    "semantic_hash": "601a290ce85ea261078b0919d94177be"
+  },
+  "docs/adr/ADR-0005-ui-ordering-model.md": {
+    "mtime": 1778156423.7143855,
+    "seen": 1787574596.8872182,
+    "ast_hash": "d9e08bc902a60a8028ebccb52bb1da2e",
+    "semantic_hash": "d9e08bc902a60a8028ebccb52bb1da2e"
+  },
+  "docs/adr/ADR-0006-plugin-di-registration.md": {
+    "mtime": 1778225147.5624516,
+    "seen": 1787574596.8872547,
+    "ast_hash": "18dee84703883642cbaa16b4adad95ba",
+    "semantic_hash": "18dee84703883642cbaa16b4adad95ba"
+  },
+  "docs/adr/ADR-0007-plugin-load-context-strategy.md": {
+    "mtime": 1778225126.8760684,
+    "seen": 1787574596.8872612,
+    "ast_hash": "9c35e47e40566476c5c2470268f26965",
+    "semantic_hash": "9c35e47e40566476c5c2470268f26965"
+  },
+  "docs/adr/ADR-0008-deferred-plugin-activation.md": {
+    "mtime": 1778073149.990385,
+    "seen": 1787574596.8872674,
+    "ast_hash": "4240ab04414fed8a621d64e9e73732e3",
+    "semantic_hash": "4240ab04414fed8a621d64e9e73732e3"
+  },
+  "docs/adr/ADR-0009-plugin-dependency-graph.md": {
+    "mtime": 1777557538.931272,
+    "seen": 1787574596.8872736,
+    "ast_hash": "da817e713b1a98caf60b5eb289797960",
+    "semantic_hash": "da817e713b1a98caf60b5eb289797960"
+  },
+  "docs/adr/ADR-0010-plugin-communication-policy.md": {
+    "mtime": 1778243331.881047,
+    "seen": 1787574596.8872802,
+    "ast_hash": "90c0dfc4e7a00c3da59c431d20172ce5",
+    "semantic_hash": "90c0dfc4e7a00c3da59c431d20172ce5"
+  },
+  "docs/adr/ADR-0011-plugin-sandbox-enforcement-principle.md": {
+    "mtime": 1787308350.2630093,
+    "seen": 1787574596.887287,
+    "ast_hash": "0edeeef55555185babf8ec47a2441cec",
+    "semantic_hash": "0edeeef55555185babf8ec47a2441cec"
+  },
+  "docs/adr/ADR-0012-plugin-capability-boundary.md": {
+    "mtime": 1777287168.7577715,
+    "seen": 1787574596.8872936,
+    "ast_hash": "2da2d96d43e894b110cd8dae7d9ffd25",
+    "semantic_hash": "2da2d96d43e894b110cd8dae7d9ffd25"
+  },
+  "docs/adr/ADR-0013-routing-and-deep-link-model.md": {
+    "mtime": 1777552341.0036447,
+    "seen": 1787574596.8873,
+    "ast_hash": "c122dc7324debf72595f0cd867b954c7",
+    "semantic_hash": "c122dc7324debf72595f0cd867b954c7"
+  },
+  "docs/adr/ADR-0015-background-operation-reporting.md": {
+    "mtime": 1787299450.6776018,
+    "seen": 1787574596.8873062,
+    "ast_hash": "a0c49caa12de41706f2499ee222e9572",
+    "semantic_hash": "a0c49caa12de41706f2499ee222e9572"
+  },
+  "docs/adr/ADR-0016-logging-strategy.md": {
+    "mtime": 1777552341.0160568,
+    "seen": 1787574596.8873107,
+    "ast_hash": "5072053cb8ca4922773b692d24c2b7d3",
+    "semantic_hash": "5072053cb8ca4922773b692d24c2b7d3"
+  },
+  "docs/adr/ADR-0019-audit-vs-diagnostics-boundary.md": {
+    "mtime": 1778057792.8351583,
+    "seen": 1787574596.8873138,
+    "ast_hash": "5d5d960c49f258bf113b84ca4071ee0a",
+    "semantic_hash": "5d5d960c49f258bf113b84ca4071ee0a"
+  },
+  "docs/adr/ADR-0021-sdk-surface-area.md": {
+    "mtime": 1778243179.9094992,
+    "seen": 1787574596.8873174,
+    "ast_hash": "caab4dffa36b193a4fa0ee8ff6740385",
+    "semantic_hash": "caab4dffa36b193a4fa0ee8ff6740385"
+  },
+  "docs/adr/ADR-0023-admin-host-boundary.md": {
+    "mtime": 1778055402.4192047,
+    "seen": 1787574596.887342,
+    "ast_hash": "099bad16badf882cc6e90741daca1c7e",
+    "semantic_hash": "099bad16badf882cc6e90741daca1c7e"
+  },
+  "docs/adr/ADR-0026-license-lifecycle.md": {
+    "mtime": 1778243455.7737193,
+    "seen": 1787574596.8873453,
+    "ast_hash": "514027c1644808f99abd1561e75f85e5",
+    "semantic_hash": "514027c1644808f99abd1561e75f85e5"
+  },
+  "docs/adr/ADR-0027-configuration-model.md": {
+    "mtime": 1787299450.6795921,
+    "seen": 1787574596.8873487,
+    "ast_hash": "91e9d32d2b33258891d7e1624131a375",
+    "semantic_hash": "91e9d32d2b33258891d7e1624131a375"
+  },
+  "docs/adr/ADR-0028-shell-composition-ordering-render.md": {
+    "mtime": 1787299450.6825912,
+    "seen": 1787574596.887352,
+    "ast_hash": "15de3228d56fc86672bf19a5aee8771c",
+    "semantic_hash": "15de3228d56fc86672bf19a5aee8771c"
+  },
+  "docs/adr/ADR-0029-correlation-id-ownership.md": {
+    "mtime": 1778058322.1549773,
+    "seen": 1787574596.8873553,
+    "ast_hash": "c2821da70d5a86be10825ebdf873b566",
+    "semantic_hash": "c2821da70d5a86be10825ebdf873b566"
+  },
+  "docs/adr/ADR-0030-host-persistence-and-plugin-storage-boundary.md": {
+    "mtime": 1778055402.4332125,
+    "seen": 1787574596.8873587,
+    "ast_hash": "78f8cd0ce22977daa7aeb4b141929873",
+    "semantic_hash": "78f8cd0ce22977daa7aeb4b141929873"
+  },
+  "docs/adr/ADR-0031-session-lifecycle-and-refresh.md": {
+    "mtime": 1787311976.0830784,
+    "seen": 1787574596.887362,
+    "ast_hash": "eff44e81c055e8e8b7577cda6555b182",
+    "semantic_hash": "eff44e81c055e8e8b7577cda6555b182"
+  },
+  "docs/adr/ADR-0032-plugin-signature-trust-model.md": {
+    "mtime": 1777628295.551964,
+    "seen": 1787574596.887365,
+    "ast_hash": "cf52391db32720998ed2be6ae0f5fb81",
+    "semantic_hash": "cf52391db32720998ed2be6ae0f5fb81"
+  },
+  "docs/adr/ADR-0033-signing-key-ownership.md": {
+    "mtime": 1778225297.0893455,
+    "seen": 1787574596.8873682,
+    "ast_hash": "cfd46a1085d264d126e9930f4b4f6741",
+    "semantic_hash": "cfd46a1085d264d126e9930f4b4f6741"
+  },
+  "docs/adr/ADR-0035-tenant-customer-context-scope.md": {
+    "mtime": 1778243460.688027,
+    "seen": 1787574596.8873713,
+    "ast_hash": "19fba6ecd8c46e5caa8b3dc7633a406f",
+    "semantic_hash": "19fba6ecd8c46e5caa8b3dc7633a406f"
+  },
+  "docs/adr/ADR-0036-plugin-manifest-schema.md": {
+    "mtime": 1778243247.7172096,
+    "seen": 1787574596.8873742,
+    "ast_hash": "489abb90e17ad4ccc95205dad1deea25",
+    "semantic_hash": "489abb90e17ad4ccc95205dad1deea25"
+  },
+  "docs/adr/ADR-0037-plugin-compatibility-and-versioning.md": {
+    "mtime": 1787382430.7792423,
+    "seen": 1787574596.8873773,
+    "ast_hash": "a3275be49663700fec1b35709562a639",
+    "semantic_hash": "a3275be49663700fec1b35709562a639"
+  },
+  "docs/adr/ADR-0038-local-first-authentication.md": {
+    "mtime": 1787301287.754638,
+    "seen": 1787574596.8873801,
+    "ast_hash": "fe3730f3f39b7b526a5ad0ffe506e671",
+    "semantic_hash": "fe3730f3f39b7b526a5ad0ffe506e671"
+  },
+  "docs/adr/ADR-0039-owner-password-recovery.md": {
+    "mtime": 1787301287.7576377,
+    "seen": 1787574596.8873832,
+    "ast_hash": "82ddbb19518ebdf29f0007920e1c17a8",
+    "semantic_hash": "82ddbb19518ebdf29f0007920e1c17a8"
+  },
+  "docs/adr/ADR-0040-internal-host-adapters-boundary.md": {
+    "mtime": 1778308841.0883493,
+    "seen": 1787574596.8873863,
+    "ast_hash": "5b1198b7bfc0f16c65f22f1de0957c07",
+    "semantic_hash": "5b1198b7bfc0f16c65f22f1de0957c07"
+  },
+  "docs/adr/ADR-0041-login-first-startup-policy.md": {
+    "mtime": 1787301287.7606394,
+    "seen": 1787574596.8873894,
+    "ast_hash": "51e17485d874a6dc8fbbb5fd4a6d08a0",
+    "semantic_hash": "51e17485d874a6dc8fbbb5fd4a6d08a0"
+  },
+  "docs/adr/ADR-0042-release-gate-hardware-baseline.md": {
+    "mtime": 1777030958.2306452,
+    "seen": 1787574596.8873925,
+    "ast_hash": "117729ff7d2247cab8e3068abd6c2c30",
+    "semantic_hash": "117729ff7d2247cab8e3068abd6c2c30"
+  },
+  "docs/adr/ADR-0043-initial-ui-culture-and-fallback-chain.md": {
+    "mtime": 1777109416.0392046,
+    "seen": 1787574596.8873956,
+    "ast_hash": "c5687e4edd03e6f2378ac829625afadb",
+    "semantic_hash": "c5687e4edd03e6f2378ac829625afadb"
+  },
+  "docs/adr/ADR-0044-localization-resource-organization.md": {
+    "mtime": 1777452284.43298,
+    "seen": 1787574596.887399,
+    "ast_hash": "0169695bf55ebe598c18ef9a69d230cc",
+    "semantic_hash": "0169695bf55ebe598c18ef9a69d230cc"
+  },
+  "docs/adr/ADR-0045-plugin-package-and-license-artifact-boundary.md": {
+    "mtime": 1778225227.639335,
+    "seen": 1787574596.887402,
+    "ast_hash": "5005ae1d32b8ae167bc9bf42da81a0a6",
+    "semantic_hash": "5005ae1d32b8ae167bc9bf42da81a0a6"
+  },
+  "docs/adr/ADR-0046-ui-and-code-terminology-mapping.md": {
+    "mtime": 1778156653.573665,
+    "seen": 1787574596.8874054,
+    "ast_hash": "4d72de226a6cf3b565205127c2ff9c0e",
+    "semantic_hash": "4d72de226a6cf3b565205127c2ff9c0e"
+  },
+  "docs/adr/ADR-0047-host-installer-and-portable-artifact-policy.md": {
+    "mtime": 1778059062.6029615,
+    "seen": 1787574596.8874087,
+    "ast_hash": "54ed9a2015161913281113a049fb301d",
+    "semantic_hash": "54ed9a2015161913281113a049fb301d"
+  },
+  "docs/adr/ADR-0048-operation-based-authorization.md": {
+    "mtime": 1778243208.0682626,
+    "seen": 1787574596.8874145,
+    "ast_hash": "e79f64d6acf75bfe478fa5fa3d2e1e34",
+    "semantic_hash": "e79f64d6acf75bfe478fa5fa3d2e1e34"
+  },
+  "docs/adr/ADR-0049-hierarchical-navigation-contribution-model.md": {
+    "mtime": 1778243313.6061232,
+    "seen": 1787574596.8874178,
+    "ast_hash": "1fa919f70e0adc361aac1d5ffb2e512c",
+    "semantic_hash": "1fa919f70e0adc361aac1d5ffb2e512c"
+  },
+  "docs/adr/ADR-0050-in-memory-work-sessions.md": {
+    "mtime": 1787299450.6846242,
+    "seen": 1787574596.887421,
+    "ast_hash": "acef2fa9e091afb653c390c1e43353fe",
+    "semantic_hash": "acef2fa9e091afb653c390c1e43353fe"
+  },
+  "docs/adr/ADR-0051-license-lifecycle-v2.md": {
+    "mtime": 1787301287.7506447,
+    "seen": 1787574596.8874242,
+    "ast_hash": "a996831b5738c1e9a932bdacac2dfde0",
+    "semantic_hash": "a996831b5738c1e9a932bdacac2dfde0"
+  },
+  "docs/adr/ADR-0052-tenant-customer-context-v2.md": {
+    "mtime": 1783756320.0241048,
+    "seen": 1787574596.8874273,
+    "ast_hash": "62d7cccda425f0bb93e16340ebb863f4",
+    "semantic_hash": "62d7cccda425f0bb93e16340ebb863f4"
+  },
+  "docs/adr/ADR-0053-capability-surface-runtime-mode.md": {
+    "mtime": 1778243349.7973843,
+    "seen": 1787574596.8874304,
+    "ast_hash": "98264ef2ba096b485587e220914cef3f",
+    "semantic_hash": "98264ef2ba096b485587e220914cef3f"
+  },
+  "docs/adr/ADR-0054-db-at-rest-protection-provider.md": {
+    "mtime": 1778156678.1209736,
+    "seen": 1787574596.8874335,
+    "ast_hash": "1e2e2b71e096ba586fb59e62e430ab43",
+    "semantic_hash": "1e2e2b71e096ba586fb59e62e430ab43"
+  },
+  "docs/adr/ADR-0055-protected-storage-scope-and-key-wrapping.md": {
+    "mtime": 1787301287.7676423,
+    "seen": 1787574596.8874369,
+    "ast_hash": "945576e4b0a36780d5fc03718b343eb9",
+    "semantic_hash": "945576e4b0a36780d5fc03718b343eb9"
+  },
+  "docs/adr/ADR-0056-deployment-modes-and-storage-providers.md": {
+    "mtime": 1778225275.5594997,
+    "seen": 1787574596.8874404,
+    "ast_hash": "9441ed6d03e181d09d5dca046f0b2b44",
+    "semantic_hash": "9441ed6d03e181d09d5dca046f0b2b44"
+  },
+  "docs/adr/ADR-0057-mode-aware-authentication-boundary.md": {
+    "mtime": 1787301287.7717855,
+    "seen": 1787574596.8874438,
+    "ast_hash": "d8ef14740d32629c932ee5bb81571795",
+    "semantic_hash": "d8ef14740d32629c932ee5bb81571795"
+  },
+  "docs/adr/ADR-0058-credential-and-recovery-hardening-v2.md": {
+    "mtime": 1787302170.21545,
+    "seen": 1787574596.8874836,
+    "ast_hash": "1e64d1c6bbdf7b157c5ca4cfd24bebc7",
+    "semantic_hash": "1e64d1c6bbdf7b157c5ca4cfd24bebc7"
+  },
+  "docs/adr/ADR-0059-plugin-trust-package-and-ui-contract-v2.md": {
+    "mtime": 1787386032.2992315,
+    "seen": 1787574596.8874907,
+    "ast_hash": "ca0aa262e80053b5de13bd5e53573373",
+    "semantic_hash": "ca0aa262e80053b5de13bd5e53573373"
+  },
+  "docs/adr/ADR-0060-license-lifecycle-and-import-v3.md": {
+    "mtime": 1787302170.2185779,
+    "seen": 1787574596.8874967,
+    "ast_hash": "90eac357614ccc15106da8280455e190",
+    "semantic_hash": "90eac357614ccc15106da8280455e190"
+  },
+  "docs/adr/ADR-0061-login-first-runtime-and-atomic-mutation-boundary.md": {
+    "mtime": 1787302170.2195795,
+    "seen": 1787574596.8875027,
+    "ast_hash": "8fe55caea0267eb55fc3f8933cf37b8c",
+    "semantic_hash": "8fe55caea0267eb55fc3f8933cf37b8c"
+  },
+  "docs/adr/README.md": {
+    "mtime": 1787301287.7446468,
+    "seen": 1787574596.8875093,
+    "ast_hash": "ef4a5fb9c5339585d779b2558a51dd15",
+    "semantic_hash": "ef4a5fb9c5339585d779b2558a51dd15"
+  },
+  "docs/implementation-plan/00_MASTER_EXECUTION_PLAN.md": {
+    "mtime": 1787395491.9606452,
+    "seen": 1787574596.887516,
+    "ast_hash": "271eb7aca65d4cbcb66331a8787ba9c3",
+    "semantic_hash": "271eb7aca65d4cbcb66331a8787ba9c3"
+  },
+  "docs/implementation-plan/01_TRACEABILITY_AND_FINDINGS.md": {
+    "mtime": 1787407153.2307024,
+    "seen": 1787574596.8875222,
+    "ast_hash": "f4a0d7d41ecbd07279736d319d62fcdb",
+    "semantic_hash": "f4a0d7d41ecbd07279736d319d62fcdb"
+  },
+  "docs/implementation-plan/02_IDENTITY_STARTUP_AND_AUTHORIZATION.md": {
+    "mtime": 1787301720.291197,
+    "seen": 1787574596.8875287,
+    "ast_hash": "40b32a9a7c5241a7394c3cc0e9c04c41",
+    "semantic_hash": "40b32a9a7c5241a7394c3cc0e9c04c41"
+  },
+  "docs/implementation-plan/03_PERSISTENCE_ATOMICITY_AND_DIAGNOSTICS.md": {
+    "mtime": 1787301773.391305,
+    "seen": 1787574596.8875346,
+    "ast_hash": "4ff75f2480f86e63fc5fd23e52725cb1",
+    "semantic_hash": "4ff75f2480f86e63fc5fd23e52725cb1"
+  },
+  "docs/implementation-plan/04_PLUGIN_PLATFORM_PACKAGING_AND_UI.md": {
+    "mtime": 1787301856.4018319,
+    "seen": 1787574596.8875399,
+    "ast_hash": "e20e44e9e01ed1b9eee53c08da151d5d",
+    "semantic_hash": "e20e44e9e01ed1b9eee53c08da151d5d"
+  },
+  "docs/implementation-plan/05_LICENSING_PROVISIONING_AND_RUNTIME_GATES.md": {
+    "mtime": 1787301903.3430295,
+    "seen": 1787574596.8875432,
+    "ast_hash": "96c4c361fba2ba8224404f86dbce942e",
+    "semantic_hash": "96c4c361fba2ba8224404f86dbce942e"
+  },
+  "docs/implementation-plan/06_SHELL_ACCESSIBILITY_AND_RESPONSIVENESS.md": {
+    "mtime": 1787301947.8194327,
+    "seen": 1787574596.8875465,
+    "ast_hash": "fd721d240ff943dce8e457d48b31d47a",
+    "semantic_hash": "fd721d240ff943dce8e457d48b31d47a"
+  },
+  "docs/implementation-plan/07_RELEASE_TOOLS_ARTIFACTS_AND_EVIDENCE.md": {
+    "mtime": 1787407371.5208497,
+    "seen": 1787574596.8875496,
+    "ast_hash": "93bccd917cc50b97ab2f4f2e204882c2",
+    "semantic_hash": "93bccd917cc50b97ab2f4f2e204882c2"
+  },
+  "docs/implementation-plan/08_BRANCH_SHARED_FUTURE_TRACK.md": {
+    "mtime": 1787302033.5213594,
+    "seen": 1787574596.887553,
+    "ast_hash": "1307998cd8da0be5c86a0b6cb1b095c4",
+    "semantic_hash": "1307998cd8da0be5c86a0b6cb1b095c4"
+  },
+  "docs/schemas/artifact-compatibility-matrix.md": {
+    "mtime": 1787308161.5945263,
+    "seen": 1787574596.887556,
+    "ast_hash": "87c09bc288c2c6cf08dc70db1074b697",
+    "semantic_hash": "87c09bc288c2c6cf08dc70db1074b697"
+  },
+  "docs/schemas/license-v3-lifecycle-truth-table.md": {
+    "mtime": 1787308435.028731,
+    "seen": 1787574596.8875594,
+    "ast_hash": "336a2934b6795d2d80dd381c6fd08ee7",
+    "semantic_hash": "336a2934b6795d2d80dd381c6fd08ee7"
+  },
+  "docs/specs/README.md": {
+    "mtime": 1787301473.8360367,
+    "seen": 1787574596.8875628,
+    "ast_hash": "a1d64ce0ee6529416685b1a302982571",
+    "semantic_hash": "a1d64ce0ee6529416685b1a302982571"
+  },
+  "docs/specs/admin-tool.md": {
+    "mtime": 1787394031.7615068,
+    "seen": 1787574596.8875659,
+    "ast_hash": "04521bff0b521b47083951ed66ca2bb6",
+    "semantic_hash": "04521bff0b521b47083951ed66ca2bb6"
+  },
+  "docs/specs/audit-and-diagnostics.md": {
+    "mtime": 1787301473.807807,
+    "seen": 1787574596.8875692,
+    "ast_hash": "282fbf9c90645b1e97fa5d4e1e6f69a8",
+    "semantic_hash": "282fbf9c90645b1e97fa5d4e1e6f69a8"
+  },
+  "docs/specs/backup-restore-migration.md": {
+    "mtime": 1787388318.2560623,
+    "seen": 1787574596.8875723,
+    "ast_hash": "f18c92ddee0dd55b1fb7bc8549d4953f",
+    "semantic_hash": "f18c92ddee0dd55b1fb7bc8549d4953f"
+  },
+  "docs/specs/data-retention.md": {
+    "mtime": 1787388318.2575388,
+    "seen": 1787574596.8875754,
+    "ast_hash": "6a2a3c8e840f4c1c04a4beeb26afd3fe",
+    "semantic_hash": "6a2a3c8e840f4c1c04a4beeb26afd3fe"
+  },
+  "docs/specs/design-system-assets.md": {
+    "mtime": 1787299450.7058918,
+    "seen": 1787574596.8875782,
+    "ast_hash": "765491d8a7aa18981a71fe5758fb67cd",
+    "semantic_hash": "765491d8a7aa18981a71fe5758fb67cd"
+  },
+  "docs/specs/device-lifecycle.md": {
+    "mtime": 1787301473.8240373,
+    "seen": 1787574596.8875816,
+    "ast_hash": "0f04245a0a21e53335bfb68bd1d59043",
+    "semantic_hash": "0f04245a0a21e53335bfb68bd1d59043"
+  },
+  "docs/specs/license-import.md": {
+    "mtime": 1787301473.8190377,
+    "seen": 1787574596.8875847,
+    "ast_hash": "640d37037ba19a0ef643b76568d28436",
+    "semantic_hash": "640d37037ba19a0ef643b76568d28436"
+  },
+  "docs/specs/onboarding-and-provisioning.md": {
+    "mtime": 1787301473.822053,
+    "seen": 1787574596.8875878,
+    "ast_hash": "e71d63c2a5b8ce0671ed37155c285624",
+    "semantic_hash": "e71d63c2a5b8ce0671ed37155c285624"
+  },
+  "docs/specs/plugins-manager.md": {
+    "mtime": 1787301473.8120413,
+    "seen": 1787574596.887591,
+    "ast_hash": "2699265af7d3ba561f8196377a694332",
+    "semantic_hash": "2699265af7d3ba561f8196377a694332"
+  },
+  "docs/specs/postgres-deployment-ops.md": {
+    "mtime": 1778058060.3126183,
+    "seen": 1787574596.887594,
+    "ast_hash": "eba56a78869aa0b766ff13fc6500497e",
+    "semantic_hash": "eba56a78869aa0b766ff13fc6500497e"
+  },
+  "docs/specs/sample-plugin.md": {
+    "mtime": 1787393781.3592343,
+    "seen": 1787574596.8875973,
+    "ast_hash": "483dd3aa356ff3fe4eeaac22dd562faf",
+    "semantic_hash": "483dd3aa356ff3fe4eeaac22dd562faf"
+  },
+  "docs/specs/session-lifecycle.md": {
+    "mtime": 1787311976.078093,
+    "seen": 1787574596.8876004,
+    "ast_hash": "ea9e3a6949e7984a6f357ce66532cf3e",
+    "semantic_hash": "ea9e3a6949e7984a6f357ce66532cf3e"
+  },
+  "docs/specs/settings-and-about.md": {
+    "mtime": 1787301473.8270333,
+    "seen": 1787574596.8876033,
+    "ast_hash": "aadf427b8870566884693c8a0710fb74",
+    "semantic_hash": "aadf427b8870566884693c8a0710fb74"
+  },
+  "docs/specs/shared-data-tools.md": {
+    "mtime": 1778055479.340598,
+    "seen": 1787574596.8876064,
+    "ast_hash": "2f9a67cb6872dd56c1a331dca91a784f",
+    "semantic_hash": "2f9a67cb6872dd56c1a331dca91a784f"
+  },
+  "docs/specs/shell-ui.md": {
+    "mtime": 1787299450.7346177,
+    "seen": 1787574596.8876092,
+    "ast_hash": "ff742752944daa8b97e9046841024ae8",
+    "semantic_hash": "ff742752944daa8b97e9046841024ae8"
+  },
+  "docs/specs/storage-and-data-protection.md": {
+    "mtime": 1787388318.258546,
+    "seen": 1787574596.8876123,
+    "ast_hash": "e3a0f00dcfa56e0834813db8c08fad29",
+    "semantic_hash": "e3a0f00dcfa56e0834813db8c08fad29"
+  },
+  "docs/specs/user-management.md": {
+    "mtime": 1787301473.8028083,
+    "seen": 1787574596.8876245,
+    "ast_hash": "6da5609a5a569bdd6c248bcbc5954c26",
+    "semantic_hash": "6da5609a5a569bdd6c248bcbc5954c26"
+  },
+  "docs/specs/work-sessions.md": {
+    "mtime": 1787299450.7437868,
+    "seen": 1787574596.8876278,
+    "ast_hash": "fada1c87b35f963c1c0bf9d8f6a4b07f",
+    "semantic_hash": "fada1c87b35f963c1c0bf9d8f6a4b07f"
+  },
+  "docs/superpowers/flake-sensitive-wait-classification.md": {
+    "mtime": 1782216825.1008394,
+    "seen": 1787574596.8876312,
+    "ast_hash": "821d8273a01905dd722c92e2bbdaadf7",
+    "semantic_hash": "821d8273a01905dd722c92e2bbdaadf7"
+  },
+  "docs/superpowers/plans/2026-06-23-flake-prevention.md": {
+    "mtime": 1787400448.5504248,
+    "seen": 1787574596.8876343,
+    "ast_hash": "fb3a0d3b350b7b625bc791954c65cfb1",
+    "semantic_hash": "fb3a0d3b350b7b625bc791954c65cfb1"
+  },
+  "docs/superpowers/plans/2026-06-29-portable-folder-publish.md": {
+    "mtime": 1782797644.5517814,
+    "seen": 1787574596.8876376,
+    "ast_hash": "d47b052f82bdc266420f0554b211586b",
+    "semantic_hash": "d47b052f82bdc266420f0554b211586b"
+  },
+  "docs/superpowers/plans/2026-06-29-shell-workstation-tabs.md": {
+    "mtime": 1783174115.6604614,
+    "seen": 1787574596.8876405,
+    "ast_hash": "93fa1358152200537de6e2453c9365ce",
+    "semantic_hash": "93fa1358152200537de6e2453c9365ce"
+  },
+  "docs/superpowers/plans/2026-06-30-approved-crm-shell-polish.md": {
+    "mtime": 1783410071.523739,
+    "seen": 1787574596.887644,
+    "ast_hash": "f15a63976f15a2caf966cda938d4a9bd",
+    "semantic_hash": "f15a63976f15a2caf966cda938d4a9bd"
+  },
+  "docs/superpowers/plans/2026-07-06-chrome-scale-tabs-titlebar.md": {
+    "mtime": 1783409133.3443222,
+    "seen": 1787574596.8876472,
+    "ast_hash": "b9e1de94b1968af7c85722c2f2e00c4e",
+    "semantic_hash": "b9e1de94b1968af7c85722c2f2e00c4e"
+  },
+  "docs/superpowers/plans/2026-07-07-p1-release-gate-closure.md": {
+    "mtime": 1783488989.192391,
+    "seen": 1787574596.8876507,
+    "ast_hash": "0574e80e88890647f3b73e28eabed806",
+    "semantic_hash": "0574e80e88890647f3b73e28eabed806"
+  },
+  "docs/superpowers/plans/2026-07-08-remaining-product-work-implementation.md": {
+    "mtime": 1787299450.7553315,
+    "seen": 1787574596.887654,
+    "ast_hash": "f2f22630e4b066ff25fd1faf5c786a73",
+    "semantic_hash": "f2f22630e4b066ff25fd1faf5c786a73"
+  },
+  "docs/superpowers/plans/2026-07-14-deterministic-credential-warmup-completion.md": {
+    "mtime": 1784019453.0616224,
+    "seen": 1787574596.8876572,
+    "ast_hash": "4ada2943bdcfd40ff919999cbebc9025",
+    "semantic_hash": "4ada2943bdcfd40ff919999cbebc9025"
+  },
+  "docs/superpowers/plans/remaining-product-work/task-01-authority-reconciliation-execution-note.md": {
+    "mtime": 1783756320.0401037,
+    "seen": 1787574596.8876605,
+    "ast_hash": "7fe5b84f95d2056d58ac1836f2ffb717",
+    "semantic_hash": "7fe5b84f95d2056d58ac1836f2ffb717"
+  },
+  "docs/superpowers/plans/remaining-product-work/task-02-plugin-storage-runtime-layout-execution-note.md": {
+    "mtime": 1783756320.0431035,
+    "seen": 1787574596.8876638,
+    "ast_hash": "cec075d664846bf9fe253ac643ce6db0",
+    "semantic_hash": "cec075d664846bf9fe253ac643ce6db0"
+  },
+  "docs/superpowers/plans/remaining-product-work/task-03-login-first-auth-lock-password-change-execution-note.md": {
+    "mtime": 1783756320.044103,
+    "seen": 1787574596.887705,
+    "ast_hash": "945442d009d0d5e0c680efb52f5c7732",
+    "semantic_hash": "945442d009d0d5e0c680efb52f5c7732"
+  },
+  "docs/superpowers/plans/remaining-product-work/task-04-rendered-settings-user-management-about-theme-localization-execution-note.md": {
+    "mtime": 1783756320.0450957,
+    "seen": 1787574596.8877115,
+    "ast_hash": "df4e83913ea8b8240ebd7ec336927642",
+    "semantic_hash": "df4e83913ea8b8240ebd7ec336927642"
+  },
+  "docs/superpowers/plans/remaining-product-work/task-05-main-shell-layout-navigation-profile-status-execution-note.md": {
+    "mtime": 1787299450.7593255,
+    "seen": 1787574596.887718,
+    "ast_hash": "e70193407b1550812b803e2bdda26efc",
+    "semantic_hash": "e70193407b1550812b803e2bdda26efc"
+  },
+  "docs/superpowers/plans/remaining-product-work/task-06-plugin-page-rendering-background-status-exception-boundary-fault-ui-execution-note.md": {
+    "mtime": 1783756320.0501032,
+    "seen": 1787574596.8877237,
+    "ast_hash": "9b3afa21fe7ca77fa2bad899b559b60c",
+    "semantic_hash": "9b3afa21fe7ca77fa2bad899b559b60c"
+  },
+  "docs/superpowers/plans/remaining-product-work/task-07-license-context-readonly-execution-note.md": {
+    "mtime": 1783756320.0521016,
+    "seen": 1787574596.8877301,
+    "ast_hash": "102e52dee10936c5f747d48882f90a3f",
+    "semantic_hash": "102e52dee10936c5f747d48882f90a3f"
+  },
+  "docs/superpowers/plans/remaining-product-work/task-08-plugins-manager-lifecycle-execution-note.md": {
+    "mtime": 1783756320.0541034,
+    "seen": 1787574596.8877368,
+    "ast_hash": "df61e2fdbcee4e510c05753edff4c2da",
+    "semantic_hash": "df61e2fdbcee4e510c05753edff4c2da"
+  },
+  "docs/superpowers/specs/2026-06-29-portable-folder-publish-design.md": {
+    "mtime": 1782797644.5547774,
+    "seen": 1787574596.8877432,
+    "ast_hash": "c1b1ab1e642cec1f2617a7498696ed75",
+    "semantic_hash": "c1b1ab1e642cec1f2617a7498696ed75"
+  },
+  "docs/superpowers/specs/2026-06-29-shell-workstation-tabs-design.md": {
+    "mtime": 1787299450.7627988,
+    "seen": 1787574596.8877497,
+    "ast_hash": "44c898e1f52024cbd4e9b2881331c71f",
+    "semantic_hash": "44c898e1f52024cbd4e9b2881331c71f"
+  },
+  "docs/superpowers/specs/2026-06-30-crm-reference-shell-polish-design.md": {
+    "mtime": 1787299450.7694013,
+    "seen": 1787574596.8877559,
+    "ast_hash": "74389f74bd3fe8a864026a2685cd5662",
+    "semantic_hash": "74389f74bd3fe8a864026a2685cd5662"
+  },
+  "docs/superpowers/specs/2026-07-06-chrome-scale-tabs-titlebar-design.md": {
+    "mtime": 1783409133.3453288,
+    "seen": 1787574596.8877609,
+    "ast_hash": "111314cf99a7d5b3c7754896510b0b25",
+    "semantic_hash": "111314cf99a7d5b3c7754896510b0b25"
+  },
+  "docs/superpowers/specs/2026-07-14-credential-warmup-completion-design.md": {
+    "mtime": 1784019453.0736227,
+    "seen": 1787574596.887764,
+    "ast_hash": "9db1272b241690b83f639dc8355d4abe",
+    "semantic_hash": "9db1272b241690b83f639dc8355d4abe"
+  },
+  "installer/README.md": {
+    "mtime": 1787395506.332949,
+    "seen": 1787574596.8877673,
+    "ast_hash": "07bd0321652d75fb15b73c16bfb48696",
+    "semantic_hash": "07bd0321652d75fb15b73c16bfb48696"
+  },
+  "src/Dobby.Host/Trust/README.md": {
+    "mtime": 1787377721.7861528,
+    "seen": 1787574596.887771,
+    "ast_hash": "5a60d6c652840fd2f204b62d7357425c",
+    "semantic_hash": "5a60d6c652840fd2f204b62d7357425c"
+  },
+  "tests/Dobby.IntegrationTests/Recovery/Fixtures/TEST-ONLY/vendor-recovery-public-key.TEST-ONLY.txt": {
+    "mtime": 1779183418.2874103,
+    "seen": 1787574596.8877745,
+    "ast_hash": "6683c5a83ba9993cb021a42e7f53b25d",
+    "semantic_hash": "6683c5a83ba9993cb021a42e7f53b25d"
+  },
+  "tools/create-plugin-license/README.md": {
+    "mtime": 1781944735.2355955,
+    "seen": 1787574596.8877778,
+    "ast_hash": "3517fcd629a0bdf3884b4ebf422fe030",
+    "semantic_hash": "3517fcd629a0bdf3884b4ebf422fe030"
+  },
+  "tools/create-recovery-response/README.md": {
+    "mtime": 1787314537.1660483,
+    "seen": 1787574596.8877819,
+    "ast_hash": "cc8167711b4a0f483f9dc3d5976ede4f",
+    "semantic_hash": "cc8167711b4a0f483f9dc3d5976ede4f"
+  },
+  "tools/generate-sbom/README.md": {
+    "mtime": 1787394438.9338028,
+    "seen": 1787574596.8877852,
+    "ast_hash": "bcc5ef75412619f85e950b6732f0b3f3",
+    "semantic_hash": "bcc5ef75412619f85e950b6732f0b3f3"
+  },
+  "tools/publish-portable/README.md": {
+    "mtime": 1787394217.6893036,
+    "seen": 1787574596.8877885,
+    "ast_hash": "2ed8b787dd5379d03c6ff73417ac4b29",
+    "semantic_hash": "2ed8b787dd5379d03c6ff73417ac4b29"
+  },
+  "tools/sign-plugin-package/README.md": {
+    "mtime": 1781944735.2605975,
+    "seen": 1787574596.8877916,
+    "ast_hash": "c53e04856e998a95874c896439db8cc5",
+    "semantic_hash": "c53e04856e998a95874c896439db8cc5"
+  },
+  "tools/verify-flake-sensitive-tests/README.md": {
+    "mtime": 1787400448.5474164,
+    "seen": 1787574596.8877945,
+    "ast_hash": "478f77646bcb2883cff092759ae949ef",
+    "semantic_hash": "478f77646bcb2883cff092759ae949ef"
+  },
+  "tools/verify-plugin-package/README.md": {
+    "mtime": 1787394015.2408602,
+    "seen": 1787574596.887798,
+    "ast_hash": "ffd7f00e80ed0f38f28166d4f784c92c",
+    "semantic_hash": "ffd7f00e80ed0f38f28166d4f784c92c"
+  },
+  "tools/verify-portable-launch/README.md": {
+    "mtime": 1787395360.7954488,
+    "seen": 1787574596.8878014,
+    "ast_hash": "ae67cd0836c857ae6041fccb4e2a6804",
+    "semantic_hash": "ae67cd0836c857ae6041fccb4e2a6804"
+  },
+  "tools/verify-release-candidate/README.md": {
+    "mtime": 1787407371.5175714,
+    "seen": 1787574596.8878047,
+    "ast_hash": "59fc1b51dfacc270b7c05a0e5dfb7ec9",
+    "semantic_hash": "59fc1b51dfacc270b7c05a0e5dfb7ec9"
+  },
+  "tools/verify-security-regressions/README.md": {
+    "mtime": 1787394439.007717,
+    "seen": 1787574596.887808,
+    "ast_hash": "5ae1cbd477a287e7dfd308f0344e5b96",
+    "semantic_hash": "5ae1cbd477a287e7dfd308f0344e5b96"
+  },
+  "samples/Dobby.Sample.Plugin/assets/sample-plugin.png": {
+    "mtime": 1781942932.1614592,
+    "seen": 1787574596.8878112,
+    "ast_hash": "724667926e6f5e304573692627816db0",
+    "semantic_hash": "724667926e6f5e304573692627816db0"
+  }
+}
