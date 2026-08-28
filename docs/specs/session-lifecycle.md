@@ -54,18 +54,17 @@ Logout cleanup minimumu:
 - active work session varsa user-ə warning göstərilir;
 - user təsdiqləyəndən sonra active work session-lar controlled close/cancel edilir.
 
-Logout remember-me persistent slot-unu silmir. Saved credential yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə persistent olaraq boşaldılır.
+Logout remember-me persistent username slot-unu silmir. Remembered username yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə persistent olaraq boşaldılır.
 
 ## Remember-Me Qarşılıqlı Təsiri
 
-Remember-me qaydası `ADR-0038`-ə tabedir:
+Remember-me qaydası `ADR-0058`-ə (və onun amend etdiyi `ADR-0038`-ə) tabedir:
 
 - auto-login yoxdur;
-- saved username + masked password login formunda hazır görünə bilər;
-- stored password üçün reveal yoxdur;
-- password field edit ediləndə field-level clear baş verir;
+- yalnız saved normalized username login formunda hazır görünə bilər; password heç vaxt saxlanmır, snapshot-lanmır və replay olunmur;
+- password field hər process start-da boş başlayır; masked placeholder saxlanmış password-u əvəz edə bilməz;
 - persistent slot yalnız uğurlu login zamanı remember-me OFF seçildikdə boşaldılır;
-- hər uğurlu login saved slot-u replace edir: remember-me aktivdirsə yeni user/credential, passivdirsə boş dəyər.
+- hər uğurlu login saved slot-u replace edir: remember-me aktivdirsə yeni normalized username, passivdirsə boş dəyər.
 
 Logout və auto-lock persistent clear etmir.
 
@@ -121,7 +120,7 @@ Uğurlu self-service password change:
 
 User Management daxilində başqa managed user üçün password reset recovery deyil. Əgər target user-in active session-ı varsa, həmin session invalid edilir.
 
-Owner password recovery ayrıca vendor-assisted recovery flow-dur və `ADR-0039` ilə idarə olunur.
+Owner password recovery ayrıca vendor-assisted recovery flow-dur və `ADR-0058` ilə idarə olunur.
 
 ## Active User Deactivation
 

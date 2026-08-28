@@ -66,7 +66,7 @@ Minimum status vocabulary:
 | `ReadOnlyExpired` | License expired olsa da read-only mode-da köhnə data/render görünə bilər. |
 | `Pending uninstall` | Activated plugin uninstall təsdiqlənib; plugin disabled/hidden qalır və restart runtime fayl deletion üçün required-dır. |
 
-License runtime mode-ları `ADR-0051` və `ADR-0053` ilə idarə olunur; plugin raw license detail görmür.
+License runtime mode-ları `ADR-0060` və `ADR-0053` ilə idarə olunur; plugin raw license detail görmür.
 
 ## UI States
 
@@ -102,8 +102,12 @@ Install flow:
 
 1. User `Plugins` bölməsində local file picker açır.
 2. Yalnız `.dobbyplugin` package seçilir.
-3. Host package-i parse edir və `docs/schemas/dobby-plugin-manifest.schema.json`
-   üzrə manifest schema validation aparır.
+3. Host əvvəlcə bounded archive resource limitlərini (entry sayı/ölçüsü,
+   compression ratio) və safe canonical path qaydalarını yoxlayır (`ADR-0059`),
+   sonra package-i parse edir və `docs/schemas/dobby-plugin-manifest-v2.schema.json`
+   üzrə manifest schema validation aparır (yeni package-lər üçün v2 məcburidir;
+   v1 `docs/schemas/dobby-plugin-manifest.schema.json` yalnız legacy inventory
+   read-compatibility üçündür — `docs/schemas/artifact-compatibility-matrix.md`).
 4. Package completeness, forbidden content, hash, signature və trust verification
    yoxlanılır; JSON Schema ilə ifadə olunmayan parent cycle, duplicate id,
    namespace ownership və trust-store lookup qaydaları ADR-0036/ADR-0045/ADR-0048
@@ -137,7 +141,7 @@ failure kimi göstərilmir. `.dobbylicense` import `ReadOnlyExpired`
 mutation/import block-un recovery exception-ı olaraq qalır. License/runtime mode
 host mutation-a icazə verdikdə structurally valid, signed və trusted package
 install oluna bilər; post-install runtime/license status surface-ində
-`ADR-0051` və `ADR-0053` qaydaları ilə `Denied`, `ReadOnlyExpired` və ya UI
+`ADR-0060` və `ADR-0053` qaydaları ilə `Denied`, `ReadOnlyExpired` və ya UI
 status kimi görünür.
 
 Missing dependency install validation failure deyil. Structurally valid, signed və

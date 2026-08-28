@@ -116,7 +116,7 @@ Plugin install/enable/disable **restart tələb etmir** Phase 1-də, amma hot-re
 - `docs/adr/ADR-0041-login-first-startup-policy.md` — pre-login forbidden work
 - `docs/adr/ADR-0009-plugin-dependency-graph.md` — dependency sort və failure propagation
 - `docs/adr/ADR-0037-plugin-compatibility-and-versioning.md` — compatibility check gate
-- `docs/adr/ADR-0051-license-lifecycle-v2.md` — license state machine
+- `docs/adr/ADR-0051-license-lifecycle-v2.md` — license state machine (superseded by `ADR-0060`; state names preserved as derived states)
 - `docs/adr/ADR-0053-capability-surface-runtime-mode.md` — plugin runtime mode
 - `docs/adr/ADR-0006-plugin-di-registration.md` — `IPluginModule.RegisterServices` və `OnActivated` activation steps
 - `docs/adr/ADR-0007-plugin-load-context-strategy.md` — plugin ALC assembly load step

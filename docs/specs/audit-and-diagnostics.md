@@ -27,7 +27,7 @@ The audit spec owns exact event names and operationalizes the minimum payload. A
 | User Management | `user.create`, `user.update`, `user.password.change`, `user.password.reset`, `user.activate`, `user.deactivate` |
 | Permission | `permission.grant`, `permission.revoke`, `permission.denied`, `owner.protection.denied` |
 | Plugin install/trust | `plugin.install.attempted`, `plugin.install.verified`, `plugin.install.rejected`, `plugin.install.signature-failed`, `plugin.install.trust-failed` |
-| Plugin lifecycle | `plugin.enable`, `plugin.disable`, `plugin.uninstall`, `plugin.activation.skipped`, `plugin.activation.rejected`, `plugin.runtime.faulted` |
+| Plugin lifecycle | `plugin.enable`, `plugin.disable`, `plugin.uninstall`, `plugin.activation.skipped`, `plugin.activation.rejected`, `plugin.runtime.faulted`, `plugin.lifecycle.v1-adapter-used` |
 | Recovery və License | `recovery.export`, `recovery.import`, `license.import.attempted`, `license.import.succeeded`, `license.import.rejected`, `license.enforcement.denied`, `license.enforcement.warning` |
 | Customer/deployment context | `customer-deployment-context.provision` |
 | Diagnostics Export | `diagnostics.export.created` |

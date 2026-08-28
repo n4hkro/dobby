@@ -157,4 +157,4 @@ authorization üçün `OperationPermissionCapability` modeli `ADR-0048` ilə ayr
 - `docs/specs/license-import.md`
 - `docs/adr/ADR-0004-capability-enforcement-model.md` — typed policy pattern
 - `docs/adr/ADR-0012-plugin-capability-boundary.md` — non-disclosing capability boundary
-- `docs/adr/ADR-0051-license-lifecycle-v2.md` — lifecycle state machine
+- `docs/adr/ADR-0051-license-lifecycle-v2.md` — lifecycle state machine (superseded by `ADR-0060`; runtime-mode mapping unchanged)

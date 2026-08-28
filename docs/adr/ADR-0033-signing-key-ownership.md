@@ -1,6 +1,6 @@
 # ADR-0033: Signing Key Ownership
 
-**Status:** Accepted
+**Status:** Accepted (single shared vendor-master key model amended by ADR-0058/ADR-0059/ADR-0060 — purpose-separated versioned signing key rings; plugin, license, recovery and BranchSetup artifacts no longer share one master key)
 **Date:** 2026-04-24
 
 ## Context
@@ -101,7 +101,7 @@ process-i yenidən tərif etmir.
 
 - `docs/02_ARCHITECTURE_MAP.md` — Row 38 `Plugin Trust Verification`, Row 86 `Owner Recovery Artefakt Generation`, Cədvəl 3 `Signing Key Ownership` risk sətri
 - `docs/adr/ADR-0032-plugin-signature-trust-model.md` — public side signature verification flow
-- `docs/adr/ADR-0039-owner-password-recovery.md` — recovery artefakt imzalama flow
+- `docs/adr/ADR-0039-owner-password-recovery.md` — recovery artefakt imzalama flow (superseded by `ADR-0058` recovery v2)
 - `docs/02_ARCHITECTURE_MAP.md` — Row 82-83 `Dobby.Update` P2 update boundary (deferred)
 - `docs/specs/admin-tool.md` — P1 minimal scripted operator artifact path
 - `docs/specs/sample-plugin.md` — dev/QA verification artifact boundary

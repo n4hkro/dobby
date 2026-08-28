@@ -117,7 +117,7 @@ multi-customer runtime və ya license import-dan opportunistic provisioning yara
 - `docs/07_ACCEPTANCE_CRITERIA.md` — `AC-020`
 - `docs/specs/license-import.md`
 - `docs/adr/ADR-0030-host-persistence-and-plugin-storage-boundary.md` — tenant storage scope
-- `docs/adr/ADR-0051-license-lifecycle-v2.md` — mandatory binding fields
+- `docs/adr/ADR-0051-license-lifecycle-v2.md` — mandatory binding fields (superseded by `ADR-0060`; binding fields carried forward)
 - `docs/adr/ADR-0053-capability-surface-runtime-mode.md` — non-disclosing plugin surface
 
 ## Branch Shared Identity Amendment

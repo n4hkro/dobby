@@ -31,7 +31,7 @@ Sample plugin aşağıdakı invariantları yoxlamağa imkan verməlidir:
 
 | Invariant | Sample plugin behavior |
 |---|---|
-| Manifest typed model | Valid manifest uses ADR-0036 canonical field names and validates against `docs/schemas/dobby-plugin-manifest.schema.json`: `pluginId`, `version`, `vendorId`, `minHostVersion`, `entryAssembly`, `displayName`, `description`, optional `icon`, `dependsOn`, `capabilities`, `operationTargets`, `extensionPoints`, `files` and `signature`. |
+| Manifest typed model | Valid manifest uses the ADR-0059 v2 schema and validates against `docs/schemas/dobby-plugin-manifest-v2.schema.json`: `schemaVersion: 2`, `purpose`, `hostApiVersion`, plus the ADR-0036 canonical field names `pluginId`, `version`, `vendorId`, `minHostVersion`, `entryAssembly`, `displayName`, `description`, optional `icon`, `dependsOn`, `capabilities`, `operationTargets`, `extensionPoints`, `files` and `signature`. |
 | Extension point hosting | Manifest-declared extension point render/hosting contract-ı yoxlanılır. |
 | Signed package install | Signed `.dobbyplugin` artifact kimi install olunur. |
 | Main Content hosting | Bir page yalnız `Dobby.Contracts` / `Dobby.SDK` contract ilə host olunur; page code `Result<IPluginPageModel>` qaytarır və host-owned page render registry-si approved model contract type-ını host view-a map edir. |
@@ -121,7 +121,7 @@ fingerprint, vendor private key material, host internal configuration, host
 persistence migration script, raw WPF view type names, assembly-qualified view
 model names or customer production trust material.
 
-The sample manifest fixture must pass `docs/schemas/dobby-plugin-manifest.schema.json`
+The sample manifest fixture must pass `docs/schemas/dobby-plugin-manifest-v2.schema.json`
 before signing/package verification. Procedural checks that JSON Schema cannot fully
 express, such as parent cycle detection and trust-store vendor lookup, still run in
 the package validation flow.

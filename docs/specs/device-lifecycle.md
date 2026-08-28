@@ -78,7 +78,7 @@ operators.
 - `docs/adr/ADR-0057-mode-aware-authentication-boundary.md`
 - `docs/specs/onboarding-and-provisioning.md`
 - `docs/specs/postgres-deployment-ops.md`
-- `docs/adr/ADR-0051-license-lifecycle-v2.md`
+- `docs/adr/ADR-0060-license-lifecycle-and-import-v3.md`
 - `docs/adr/ADR-0052-tenant-customer-context-v2.md`
 
 ## Revision History

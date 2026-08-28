@@ -1,6 +1,6 @@
 # ADR-0023: Admin-Host Boundary
 
-**Status:** Accepted
+**Status:** Accepted (recovery-artifact and license-generation references now execute under ADR-0058 recovery v2 and ADR-0060 license v3; the admin-host boundary itself is unchanged)
 **Date:** 2026-04-24
 
 ## Context
@@ -78,8 +78,8 @@ Shared behavior duplication deyil, reuse ilə təmin olunur: Admin və Host eyni
 - `docs/02_ARCHITECTURE_MAP.md` — Row 84 `Dobby.Admin`, Row 85 `Admin Application Composition`, Row 86 `Owner Recovery Artefakt Generation`, Cədvəl 3 `Dobby.Admin` risk sətri, Engineering Conventions `Admin DRY Qaydası`, `Admin-in Təbiəti`
 - `docs/adr/ADR-0032-plugin-signature-trust-model.md` — plugin signing cryptographic flow
 - `docs/adr/ADR-0033-signing-key-ownership.md` — vendor private key mülkiyyəti
-- `docs/adr/ADR-0051-license-lifecycle-v2.md` — license artifact generation
-- `docs/adr/ADR-0039-owner-password-recovery.md` — recovery artefakt generation ownership
+- `docs/adr/ADR-0051-license-lifecycle-v2.md` — license artifact generation (superseded by `ADR-0060` license v3)
+- `docs/adr/ADR-0039-owner-password-recovery.md` — recovery artefakt generation ownership (superseded by `ADR-0058` recovery v2)
 
 ## BranchSetup Boundary Amendment
 

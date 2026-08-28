@@ -31,7 +31,10 @@ forbidden. BranchSetup has its own local coordinator separate from the
 
 - Windows local administrator execution;
 - protected `dobby_setup` credential;
-- existing `.dobbylicense` file supplied as read-only setup proof.
+- a dedicated bounded, purpose-signed BranchSetup authorization artifact
+  (`docs/schemas/dobby-branch-setup-authorization-v1.schema.json`) as setup
+  proof. Per `ADR-0060`, an ordinary plugin `.dobbylicense` is not setup proof;
+  the earlier `HD-001` license-as-setup-proof wording is superseded.
 
 BranchSetup license handling is verification-only. It does not import license
 state, mutate license state, create entitlement, activate plugins, or authorize

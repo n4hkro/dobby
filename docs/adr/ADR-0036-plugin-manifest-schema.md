@@ -1,6 +1,6 @@
 # ADR-0036: Plugin Manifest Schema
 
-**Status:** Accepted
+**Status:** Accepted (v1 schema is legacy read-compatibility only; ADR-0059 manifest v2 — `schemaVersion: 2`, `purpose`, `hostApiVersion`, `docs/schemas/dobby-plugin-manifest-v2.schema.json` — controls new packages)
 **Date:** 2026-04-22
 
 ## Context

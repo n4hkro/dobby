@@ -1,6 +1,6 @@
 # ADR-0040: Internal Host Adapters Boundary (Dobby.Infrastructure)
 
-**Status:** Accepted
+**Status:** Accepted (ADR-0039 5-hash composite recovery references are historical — recovery now follows ADR-0058 device recovery key model; the Dobby.Infrastructure adapter boundary itself is unchanged)
 **Date:** 2026-04-24
 
 ## Context
@@ -153,7 +153,7 @@ These resolved decisions must not be reopened for preference-only reasons.
 
 - `docs/02_ARCHITECTURE_MAP.md` — Row 87 `Dobby.Infrastructure`, Row 88 `Hardware Identity`, Row 89 `Host Persistence / Consumed Nonces`, Cədvəl 3 `Dobby.Infrastructure Boundary` risk sətri
 - `docs/adr/ADR-0030-host-persistence-and-plugin-storage-boundary.md` — host persistence internal saxlanması qaydası
-- `docs/adr/ADR-0039-owner-password-recovery.md` — `Dobby.Infrastructure` hardware identity + consumed nonce usage
+- `docs/adr/ADR-0039-owner-password-recovery.md` — `Dobby.Infrastructure` hardware identity + consumed nonce usage (superseded by `ADR-0058`; nonce/replay state qalır, fuzzy hardware match yoxdur)
 - `docs/adr/ADR-0019-audit-vs-diagnostics-boundary.md` — audit storage boundary
 - `docs/adr/ADR-0038-local-first-authentication.md` — DPAPI session material storage
 - `docs/06_NON_FUNCTIONAL_REQUIREMENTS.md` — `NFR-007`

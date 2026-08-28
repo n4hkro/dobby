@@ -16,7 +16,6 @@ Normal business data field-level şifrələnmir. Bunun səbəbi query, sort, fil
 Yalnız secret sayılan data DB qorumasından əlavə field-level/protected-storage qoruması alır:
 
 - password hash və credential material
-- remember-me secret
 - session material
 - token/key material
 - recovery secret və recovery nonce ilə bağlı həssas material
@@ -33,8 +32,9 @@ Qoruma açarı Dobby-nin yaratdığı lokal gizli məlumatlar və cihazın qorun
 Protected-storage scope və key wrapping secret/material tipinə görə `ADR-0055`
 ilə bağlanır. Machine-bound material DPAPI `LocalMachine`-ı təkbaşına security
 boundary kimi qəbul etmir; Dobby application-level entropy və host storage
-boundary ilə birlikdə istifadə olunur. Remember-me, session və plugin
-`UserScopedStorage` secret-ləri `CurrentUser`-bound davranış tələb edir.
+boundary ilə birlikdə istifadə olunur. Session və plugin `UserScopedStorage`
+secret-ləri `CurrentUser`-bound davranış tələb edir; remember-me slot-u secret
+saxlamır — yalnız non-secret normalized username saxlayır (`ADR-0058`).
 
 Local data başqa cihaza self-service folder copy ilə açılmamalıdır. Cross-device restore/migration yalnız ayrıca vendor-assisted migration flow ilə mümkündür.
 
@@ -135,7 +135,7 @@ state-lər yalnız `P1 Persistence Materialization Pass` zamanı schema-ready
 materializə olunur. Həmin pass ən azı bu sahələri bağlamalıdır:
 
 - `CustomerDeploymentContext` minimum field set-i (`ADR-0052`);
-- license state, revision və artifact attestation metadata (`ADR-0051`);
+- license state, revision və artifact attestation metadata (`ADR-0060`);
 - plugin install/lifecycle/cache state (`docs/specs/plugins-manager.md`);
 - host preferences;
 - per-user shell UI state və favorites;
@@ -171,7 +171,7 @@ set-i yarada və ya verify edə bilər:
 |---|---|---|
 | `Users` | Local user identity və Owner bootstrap marker-i | login və first-user Owner creation |
 | `Credentials` | Password hash metadata və credential version/salt metadata | credential verification |
-| `RememberMeSlot` | single masked saved-login slot metadata; successful login replaces or clears the same slot according to remember-me state | login form prefill |
+| `RememberMeSlot` | single non-secret remembered-username slot (no password or credential material); successful login replaces or clears the same slot according to remember-me state | login form username prefill |
 | `Sessions` | current/last session metadata və invalidation markers | lock/logout/session cleanup |
 | `Permissions` | minimal Owner/all-grants və user activation status checks | authenticated shell entry gate |
 | `AuditLog` | pre-auth login/recovery/security attempts | audit storage allowed pre-login workload |

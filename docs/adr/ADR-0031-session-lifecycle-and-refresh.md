@@ -1,6 +1,6 @@
 # ADR-0031: Session Lifecycle and Refresh
 
-**Status:** Accepted
+**Status:** Accepted (password-change atomicity and recovery pointer amended by ADR-0058/ADR-0061)
 **Date:** 2026-04-22
 
 ## Context
@@ -91,7 +91,7 @@ controlling hardening qaydaları tətbiq olunur:
 User Management daxilində başqa managed user üçün password reset recovery flow deyil.
 Həmin user-in mövcud active session-ı varsa invalid edilir. `Owner` password
 recovery isə Owner session materialını və recovery nonce state-ini ayrıca
-invalid/rebind edir (`ADR-0039`).
+invalid/rebind edir (`ADR-0058`; əvvəlki `ADR-0039` supersede olunub).
 
 ## Consequences
 

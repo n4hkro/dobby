@@ -90,6 +90,6 @@ hardcoded UI string siyahısı deyil.
 - `docs/specs/shell-ui.md`
 - `docs/specs/README.md` — glossary ownership reference
 - `docs/adr/ADR-0033-signing-key-ownership.md`
-- `docs/adr/ADR-0051-license-lifecycle-v2.md`
+- `docs/adr/ADR-0051-license-lifecycle-v2.md` (superseded by `ADR-0060` license v3)
 - `docs/adr/ADR-0053-capability-surface-runtime-mode.md`
 - `docs/adr/ADR-0056-deployment-modes-and-storage-providers.md`

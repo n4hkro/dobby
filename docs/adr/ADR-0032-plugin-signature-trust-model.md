@@ -1,6 +1,6 @@
 # ADR-0032: Plugin Signature Trust Model
 
-**Status:** Accepted
+**Status:** Accepted (shared-master-key and shared-primitive wording amended by ADR-0058/ADR-0059 — plugin package signatures use a purpose-separated versioned plugin trust key ring with `IeeeP1363FixedFieldConcatenation` base64url-no-padding signatures; the ECDSA P-256/SHA-256 primitive choice remains)
 **Date:** 2026-04-24
 
 ## Context
@@ -71,4 +71,4 @@ Hər addımın nəticəsi `Dobby.Audit / Audit Trail` (Row 70) vasitəsilə qeyd
 - `docs/adr/ADR-0033-signing-key-ownership.md` — vendor private key mülkiyyəti və provisioning
 - `docs/adr/ADR-0036-plugin-manifest-schema.md` — `signature` və `vendorId` field-ləri
 - `docs/adr/ADR-0045-plugin-package-and-license-artifact-boundary.md` — canonical signed payload, files section və package fingerprint
-- `docs/adr/ADR-0039-owner-password-recovery.md` — ortaq ECDSA P-256 primitive-i
+- `docs/adr/ADR-0039-owner-password-recovery.md` — ortaq ECDSA P-256 primitive-i (superseded by `ADR-0058`; primitive seçimi qalır, key ring-lər `ADR-0059` ilə purpose-separated-dir)

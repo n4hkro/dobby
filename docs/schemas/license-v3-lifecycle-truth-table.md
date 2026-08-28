@@ -9,7 +9,7 @@ Rules are evaluated from top to bottom:
 |---|---|---|---|
 | malformed, bad signature, bad purpose/key, binding failure or anti-rollback failure | any | any | Denied |
 | revoked | any | any | Denied |
-| granted | unhealthy or rollback detected | any | any | Denied |
+| granted | unhealthy or rollback detected | any | Denied |
 | granted | healthy | `now < notBefore` | Pending |
 | granted | healthy | `notBefore <= now <= expiresAt` | Active |
 | granted | healthy | `expiresAt < now <= checked(expiresAt + gracePeriodDays)` | Grace |

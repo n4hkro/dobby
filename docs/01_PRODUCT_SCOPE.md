@@ -57,7 +57,7 @@ Yəni məhsulun dəyəri konkret bir business vertical-da sərt bağlanmaq yox, 
 - Sonradan yaranan istifadəçilər `Owner` deyil, normal idarə olunan local istifadəçilərdir
 - İstifadəçi və icazə modeli lokal cihaz daxilində işləyir; cloud identity provider məhsulun default hissəsi deyil
 - Eyni Dobby prosesində yalnız bir active user session olur; yeni user login-i əvvəlki session logout/cleanup olandan sonra başlayır
-- Logout cari session-u və in-memory user state-i bitirir, amma remember-me saved login-i silmir; saved login yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə boşaldılır
+- Logout cari session-u və in-memory user state-i bitirir, amma remember-me saved username slot-unu silmir; slot yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə boşaldılır (remember-me yalnız non-secret username saxlayır, password saxlamır)
 - Manual lock və auto-lock logout deyil: lock screen cari user üçün unlock və ya logout seçimləri göstərir, başqa user login-i üçün logout vasitəsilə login ekranına qayıtmaq lazımdır
 
 ## Owner Recovery / Reset Password

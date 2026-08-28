@@ -2,7 +2,7 @@
 
 **Status:** P1 canonical spec
 **Phase:** P1-core
-**Sources:** `FR-016`, `FR-017`, `FR-018`, `FR-028`, `AC-006`, `AC-020`, `AC-021`, `AC-034`, `NFR-015`, `NFR-016`, `ADR-0048`, `ADR-0051`, `ADR-0052`, `ADR-0053`
+**Sources:** `FR-016`, `FR-017`, `FR-018`, `FR-028`, `AC-006`, `AC-020`, `AC-021`, `AC-034`, `NFR-015`, `NFR-016`, `ADR-0048`, `ADR-0060`, `ADR-0052`, `ADR-0053`
 
 ## Məqsəd
 
@@ -39,11 +39,16 @@ Import validates artifact binding against that context and never creates or chan
 
 1. User `Plugins > License` içində `Import license` action-ını seçir.
 2. File picker yalnız `.dobbylicense` artifact-larını göstərir; köhnə `.entitlement` extension canonical deyil.
-3. Host selected file extension, UTF-8 JSON parse və exact `{ payload, signature }`
-   artifact shape yoxlaması edir (`ADR-0051` wire format owner-dir;
-   `docs/schemas/dobby-plugin-license.schema.json` machine-readable schema-dır).
-4. Vendor signature canonical `payload` serialization üzərində yoxlanılır və trust
-   verification aparılır.
+3. Host əvvəlcə bounded artifact bytes/string length/range limitlərini, sonra
+   selected file extension, UTF-8 JSON parse və exact `{ payload, signature }`
+   artifact shape yoxlaması edir (`ADR-0060` wire format owner-dir;
+   `docs/schemas/dobby-plugin-license-v3.schema.json` canonical machine-readable
+   schema-dır; v2 `docs/schemas/dobby-plugin-license.schema.json` yalnız bounded
+   migration window-da legacy LKG oxunuşu üçündür — bax
+   `docs/schemas/artifact-compatibility-matrix.md`).
+4. Vendor signature canonical `payload` serialization üzərində purpose-separated
+   license signing key ring ilə yoxlanılır (signature purpose/key ID daxil) və
+   trust verification aparılır.
 5. Artifact-dakı plugin/package/customer/deployment/device binding current host context-ə qarşı yoxlanılır.
 6. `packageFingerprint` installed plugin package fingerprint-i ilə tutuşdurulur.
 7. Eyni binding scope üçün prior state yoxdursa positive `licenseRevision`, prior state varsa saxlanılmış revision-dan strictly greater `licenseRevision` persisted olur.
@@ -52,13 +57,14 @@ Import validates artifact binding against that context and never creates or chan
 
 For a first valid import with no persisted revision for the same binding, a positive
 `licenseRevision` is accepted. After persistence, imports with an older or equal revision
-follow ADR-0051 replay/downgrade rules.
+follow `ADR-0060` anti-rollback/replay rules and never replace last-known-good state.
 
-Signed artifact `payload.status` values are artifact-declared only and are limited
-to `active`, `pending`, `readonly`, and `denied`. `no-license` is persisted
-absence/state-machine vocabulary, not an importable `.dobbylicense` status.
-`grace` is host-computed from `expiresAt`, `gracePeriodDays`, and current time,
-not declared by the vendor artifact.
+Signed artifact intent yalnız `granted` və ya `revoked` ola bilər (`ADR-0060`,
+`docs/schemas/license-v3-lifecycle-truth-table.md`). Pending/Active/Grace/
+ReadOnlyExpired/Denied runtime state-ləri heç vaxt artifact-dan qəbul edilmir —
+intent, binding, trusted time və policy-dən hər evaluation-da derive olunur.
+Legacy v2 `payload.status` dəyərləri yalnız bounded migration window-da
+non-escalating LKG oxunuşu üçündür; v2 status yeni v3 grant yarada bilməz.
 
 Uğurlu import post-login runtime statusunu yeniləyə bilər, amma plugin raw license artifact detail almır.
 
@@ -82,7 +88,7 @@ Bu table user-facing typed reason code vocabulary-sidir. Audit action ID-ləri
 `docs/specs/audit-and-diagnostics.md` tərəfindən idarə olunur; dotted audit event
 names license import user-facing reason code kimi istifadə edilmir.
 
-Older/equal revision checks use the ADR-0051 distinction between artifact binding
+Older/equal revision checks use the `ADR-0060` (carried forward from ADR-0051) distinction between artifact binding
 and revision series: `ArtifactBindingKey = (pluginId, customerId, deploymentId,
 deviceFingerprint)` decides whether an imported artifact matches this host, while
 `RevisionSeriesKey = (pluginId, customerId, deploymentId)` owns monotonic
@@ -122,9 +128,11 @@ göstərə bilər:
 surface-də `Denied` kimi görünür.
 
 `Grace` də import artifact statusu deyil; `grace` lifecycle state-i yalnız host
-refresh/activation zamanı `ADR-0051` state machine-ə görə computed olur.
+refresh/activation zamanı `ADR-0060` derived-state truth table-ına görə computed olur.
 
-Status mapping-in canonical source-u `ADR-0051 § 8a`-dır: lowercase lifecycle
+Status mapping-in canonical source-u `ADR-0060` və
+`docs/schemas/license-v3-lifecycle-truth-table.md`-dir (vocabulary bölgüsü
+`ADR-0051 § 8a`-dan carried forward): lowercase lifecycle
 state-lər persisted/state-machine vocabulary-dir, PascalCase runtime mode/status
 adları isə code-facing runtime və broad UI-facing status səthlərinə bölünür.
 

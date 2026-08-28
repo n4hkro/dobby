@@ -113,7 +113,7 @@ Restore-to-production preserves `branchDeploymentId`. Restore-to-test/staging
 requires explicit BranchSetup reassignment so cloned environments do not collide
 with production identity.
 
-Owner recovery password flow remains consistent with `ADR-0039` and `ADR-0055`.
+Owner recovery password flow remains consistent with `ADR-0058` and `ADR-0055`.
 BranchSetup does not auto-generate `.dobbyrecoveryrequest` and does not convert
 setup proof into recovery proof.
 

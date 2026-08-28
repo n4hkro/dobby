@@ -1,6 +1,6 @@
 # ADR-0055: Protected Storage Scope and Key Wrapping
 
-**Status:** Accepted (remembered-login material amended by ADR-0058)
+**Status:** Accepted (remembered-login material amended by ADR-0058; ADR-0039 recovery-secret references are historical — recovery material now follows the ADR-0058 device recovery key model; ADR-0051 license fingerprint references continue under ADR-0060 with unchanged binding semantics)
 **Date:** 2026-04-28
 
 ## Context
@@ -135,7 +135,7 @@ Aşağıdakı material DPAPI scope qərarından kənardır:
 
 - `docs/adr/ADR-0030-host-persistence-and-plugin-storage-boundary.md` — storage taxonomy və key-source boundary
 - `docs/adr/ADR-0038-local-first-authentication.md` — local auth, password hash, remember-me və session material
-- `docs/adr/ADR-0039-owner-password-recovery.md` — Owner recovery secret və consumed nonce material
+- `docs/adr/ADR-0039-owner-password-recovery.md` — Owner recovery secret və consumed nonce material (superseded by `ADR-0058` device recovery key model)
 - `docs/adr/ADR-0054-db-at-rest-protection-provider.md` — DB-at-rest provider key / DEK wrapping
 - `docs/specs/storage-and-data-protection.md` — storage/data protection executable spec
 - `docs/06_NON_FUNCTIONAL_REQUIREMENTS.md` — `NFR-007`, `NFR-020`
