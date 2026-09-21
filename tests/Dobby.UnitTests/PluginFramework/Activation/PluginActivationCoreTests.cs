@@ -4,10 +4,14 @@ using Dobby.Contracts.Events;
 using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginFramework;
 using Dobby.Contracts.PluginPages;
+using Dobby.Contracts.PluginStorage;
+using Dobby.Contracts.Policies;
 using Dobby.Core;
 using Dobby.Core.Versioning;
 using Dobby.Messaging;
 using Dobby.PluginFramework.Activation;
+using Dobby.Security.Authentication;
+using Dobby.Security.Authorization;
 using Dobby.UnitTests.PluginFramework.Packaging;
 using NSubstitute;
 using Shouldly;
@@ -278,6 +282,179 @@ public sealed class PluginActivationCoreTests
     }
 
     [Fact]
+    public async Task Registration_bridge_denies_work_session_mutation_across_plugins()
+    {
+        var workSessions = new TrackingPluginWorkSessionService();
+        await using var lifetimes = new PluginLifetimeManager();
+        await using var bridge = new PluginServiceRegistrationBridge(
+            new PluginExtensionPointRegistry(),
+            lifetimes,
+            new PluginHostServices(
+                new InMemoryEventBus(),
+                new RecordingBackgroundOperationReporter(),
+                new RecordingBackgroundOperationCancellation(),
+                pluginWorkSessions: workSessions));
+        var first = bridge.Register("com.dobby.first", new EmptyModule());
+        var second = bridge.Register("com.dobby.second", new EmptyModule());
+        first.IsSuccess.ShouldBeTrue();
+        second.IsSuccess.ShouldBeTrue();
+        var firstSessions = first.Value.Resolve<IPluginWorkSessionService>();
+        var secondSessions = second.Value.Resolve<IPluginWorkSessionService>();
+
+        var opened = firstSessions.Open(
+            "com.dobby.first",
+            "plugin/com.dobby.first/work",
+            "first.work");
+        opened.IsSuccess.ShouldBeTrue();
+        var victimSessionId = opened.Value.SessionId;
+
+        secondSessions.UpdateProgress(victimSessionId, 50).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        secondSessions.RecordResult(victimSessionId, "attacker.result").ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        secondSessions.RecordError(victimSessionId, "attacker.error").ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        secondSessions.Close(victimSessionId).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+
+        workSessions.Mutations.ShouldBeEmpty();
+        firstSessions.UpdateProgress(victimSessionId, 50).IsSuccess.ShouldBeTrue();
+        firstSessions.Close(victimSessionId).IsSuccess.ShouldBeTrue();
+        workSessions.Mutations.ShouldBe([$"progress:{victimSessionId}:50", $"close:{victimSessionId}"]);
+
+        firstSessions.UpdateProgress(victimSessionId, 60).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Plugin_cleanup_revokes_work_session_grants_for_that_plugin_only()
+    {
+        var workSessions = new TrackingPluginWorkSessionService();
+        await using var lifetimes = new PluginLifetimeManager();
+        await using var bridge = new PluginServiceRegistrationBridge(
+            new PluginExtensionPointRegistry(),
+            lifetimes,
+            new PluginHostServices(
+                new InMemoryEventBus(),
+                new RecordingBackgroundOperationReporter(),
+                new RecordingBackgroundOperationCancellation(),
+                pluginWorkSessions: workSessions));
+        var first = bridge.Register("com.dobby.first", new EmptyModule());
+        var second = bridge.Register("com.dobby.second", new EmptyModule());
+        var firstSessions = first.Value.Resolve<IPluginWorkSessionService>();
+        var secondSessions = second.Value.Resolve<IPluginWorkSessionService>();
+        var firstSession = firstSessions.Open(
+            "com.dobby.first",
+            "plugin/com.dobby.first/work",
+            "first.work");
+        var secondSession = secondSessions.Open(
+            "com.dobby.second",
+            "plugin/com.dobby.second/work",
+            "second.work");
+        firstSession.IsSuccess.ShouldBeTrue();
+        secondSession.IsSuccess.ShouldBeTrue();
+
+        await bridge.CleanupPluginAsync("com.dobby.first");
+
+        firstSessions.UpdateProgress(firstSession.Value.SessionId, 10)
+            .ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        firstSessions.Close(firstSession.Value.SessionId).ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        secondSessions.UpdateProgress(secondSession.Value.SessionId, 10).IsSuccess.ShouldBeTrue();
+
+        await bridge.CleanupAllAsync();
+
+        secondSessions.UpdateProgress(secondSession.Value.SessionId, 20)
+            .ErrorCode.ShouldBe(ErrorCode.Forbidden);
+    }
+
+    // ADR-0012 §2a closes the P1 host-injectable capability set. Evidence for closedness has to
+    // come from the plugin-facing resolution path itself: reading the host's service dictionary or
+    // grepping for `TryResolve` would restate the implementation instead of proving what a real
+    // registered plugin module can obtain (NFR-027, ADR-0061). Both halves are load-bearing —
+    // every listed type resolves, and a type the host merely happens to own does not, including
+    // ones declared in the plugin-visible Dobby.Contracts assembly.
+    [Fact]
+    public async Task Plugin_scope_resolves_the_documented_capability_set_and_refuses_other_host_types()
+    {
+        await using var lifetimes = new PluginLifetimeManager();
+        await using var bridge = new PluginServiceRegistrationBridge(
+            new PluginExtensionPointRegistry(),
+            lifetimes,
+            new PluginHostServices(
+                new InMemoryEventBus(),
+                new RecordingBackgroundOperationReporter(),
+                new RecordingBackgroundOperationCancellation(),
+                _ => new StaticCapabilityLicensing(PluginRuntimeMode.FullAccess),
+                pluginWorkSessions: new RecordingPluginWorkSessionService(),
+                pluginStorageFactory: _ => Substitute.For<IPluginStorage>()));
+        var registration = bridge.Register("com.dobby.sample", new EmptyModule());
+        registration.IsSuccess.ShouldBeTrue();
+        var scope = registration.Value;
+
+        scope.Resolve<IEventBus>().ShouldNotBeNull();
+        scope.Resolve<IPluginStorage>().ShouldNotBeNull();
+        scope.Resolve<ICapabilityLicensing>().ShouldNotBeNull();
+        scope.Resolve<IPluginWorkSessionService>().ShouldNotBeNull();
+        scope.Resolve<IBackgroundOperationReporter>().ShouldNotBeNull();
+        scope.Resolve<IBackgroundOperationCancellation>().ShouldNotBeNull();
+        scope.Resolve<ICapabilityPolicy<OperationPermissionCapability>>().ShouldNotBeNull();
+
+        // Host-owned privilege surfaces, including the work-session cleanup contract that can close
+        // another plugin's sessions and the trust/session/permission stores behind login.
+        Should.Throw<InvalidOperationException>(() => scope.Resolve<IPluginWorkSessionCleanup>());
+        Should.Throw<InvalidOperationException>(() => scope.Resolve<IPermissionGrantReader>());
+        Should.Throw<InvalidOperationException>(() => scope.Resolve<ISessionStore>());
+        Should.Throw<InvalidOperationException>(() => scope.Resolve<IVendorRecoveryPublicKey>());
+        Should.Throw<InvalidOperationException>(() => scope.Resolve<IServiceProvider>());
+        Should.Throw<InvalidOperationException>(() => scope.Resolve<PluginHostServices>());
+        Should.Throw<InvalidOperationException>(() => scope.Resolve<PluginExtensionPointRegistry>());
+        Should.Throw<InvalidOperationException>(() => scope.Resolve<PluginServiceRegistrationBridge>());
+    }
+
+    // §2a: the storage and licensing capabilities exist only when the host supplies their
+    // per-plugin factory. Without it the type is not resolvable at all rather than resolving to a
+    // host-wide or null instance, so a deployment that never wires the factory cannot leak one.
+    [Fact]
+    public async Task Capability_without_host_factory_is_not_resolvable_at_all()
+    {
+        await using var lifetimes = new PluginLifetimeManager();
+        await using var bridge = new PluginServiceRegistrationBridge(
+            new PluginExtensionPointRegistry(),
+            lifetimes,
+            new PluginHostServices(
+                new InMemoryEventBus(),
+                new RecordingBackgroundOperationReporter(),
+                new RecordingBackgroundOperationCancellation()));
+        var registration = bridge.Register("com.dobby.sample", new EmptyModule());
+        registration.IsSuccess.ShouldBeTrue();
+
+        Should.Throw<InvalidOperationException>(() => registration.Value.Resolve<IPluginStorage>());
+        Should.Throw<InvalidOperationException>(() => registration.Value.Resolve<ICapabilityLicensing>());
+        registration.Value.Resolve<ICapabilityPolicy<OperationPermissionCapability>>()
+            .Evaluate(
+                new OperationPermissionCapability("users.create"),
+                new PolicyContext("user-1", "com.dobby.sample", CorrelationId.New()))
+            .Value.Allowed.ShouldBeFalse();
+    }
+
+    // §2: a plugin service that asks for an unlisted host type in its constructor is not created,
+    // and an extension point that does so keeps the whole registration from being published — the
+    // plugin does not get a partially activated surface with the privileged dependency omitted.
+    [Fact]
+    public async Task Plugin_service_requiring_an_unlisted_host_type_is_never_constructed()
+    {
+        var registry = new PluginExtensionPointRegistry();
+        await using var lifetimes = new PluginLifetimeManager();
+        await using var bridge = new PluginServiceRegistrationBridge(registry, lifetimes);
+
+        var privateRegistration = bridge.Register("com.dobby.first", new EscalatingPrivateServiceModule());
+        privateRegistration.IsSuccess.ShouldBeTrue();
+        Should.Throw<InvalidOperationException>(
+            () => privateRegistration.Value.Resolve<IEscalatingService>());
+
+        var extensionRegistration = bridge.Register("com.dobby.second", new EscalatingExtensionPointModule());
+
+        extensionRegistration.IsSuccess.ShouldBeFalse();
+        extensionRegistration.ErrorCode.ShouldBe(ErrorCode.PluginInternalError);
+        registry.GetRegistrationsSnapshot<IPluginPage>().ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Registration_bridge_public_surface_does_not_expose_service_provider()
     {
         var exposedTypes = typeof(PluginServiceRegistrationBridge)
@@ -328,6 +505,52 @@ public sealed class PluginActivationCoreTests
         handle.ShouldNotBe(nint.Zero);
     }
 
+    // ADR-0007 §2 pins shared dependencies to the host by *name*, including everything under the
+    // `System.` and `Microsoft.Extensions.` prefixes, and is fail-closed: a prefixed name the host
+    // does not have is not served from the plugin directory even when the plugin ships a
+    // resolvable copy. Reading `SharedAssemblyNames` would only restate the field, so the rule is
+    // proven through the load path with plugin-local decoys present on disk (NFR-027).
+    [Fact]
+    public void Plugin_load_context_pins_prefixed_names_to_host_and_never_falls_back_to_plugin_copy()
+    {
+        _ = System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault;
+
+        using var directory = new TempDirectory();
+        var entryPath = Path.Combine(directory.Path, "PrefixProbe.dll");
+        var decoySource = typeof(Result).Assembly.Location;
+        File.Copy(decoySource, entryPath);
+        File.Copy(decoySource, Path.Combine(directory.Path, "System.Text.Json.dll"));
+        File.Copy(decoySource, Path.Combine(directory.Path, "System.Dobby.FakeShared.dll"));
+        File.Copy(decoySource, Path.Combine(directory.Path, "Dobby.Plugin.PrivateProbe.dll"));
+        File.WriteAllText(
+            Path.Combine(directory.Path, "PrefixProbe.deps.json"),
+            PrefixProbeDepsJson());
+        var context = new PluginLoadContext("prefix-probe", entryPath);
+        var load = typeof(PluginLoadContext).GetMethod(
+            "Load",
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            [typeof(AssemblyName)]);
+
+        // Exact-name shared entry: the host instance wins over the plugin-local file, so the
+        // returned assembly is the host's System.Text.Json and not the decoy bytes.
+        var sharedByName = (Assembly?)load!.Invoke(context, [new AssemblyName("System.Text.Json")]);
+        sharedByName.ShouldBeSameAs(typeof(System.Text.Json.JsonSerializer).Assembly);
+
+        // Prefix rule, fail-closed: the host has no `System.Dobby.FakeShared`, and the plugin copy
+        // is not used as a fallback.
+        var failClosed = Should.Throw<TargetInvocationException>(
+            () => load.Invoke(context, [new AssemblyName("System.Dobby.FakeShared")]));
+        failClosed.InnerException.ShouldBeOfType<FileNotFoundException>();
+
+        // Control: a non-prefixed plugin-private name does resolve from the plugin directory, so
+        // the failure above comes from the prefix rule and not from an unusable deps file.
+        var pluginPrivate = (Assembly?)load.Invoke(
+            context,
+            [new AssemblyName("Dobby.Plugin.PrivateProbe")]);
+        pluginPrivate.ShouldNotBeNull();
+        pluginPrivate.ShouldNotBeSameAs(typeof(Result).Assembly);
+    }
+
     private static Type? MemberType(MemberInfo member)
     {
         return member switch
@@ -376,6 +599,38 @@ public sealed class PluginActivationCoreTests
                 },
                 "DobbyTestNative/1.0.0": {
                   "type": "package",
+                  "serviceable": false,
+                  "sha512": ""
+                }
+              }
+            }
+            """;
+    }
+
+    private static string PrefixProbeDepsJson()
+    {
+        return """
+            {
+              "runtimeTarget": {
+                "name": ".NETCoreApp,Version=v10.0/win-x64",
+                "signature": ""
+              },
+              "compilationOptions": {},
+              "targets": {
+                ".NETCoreApp,Version=v10.0/win-x64": {
+                  "PrefixProbe/1.0.0": {
+                    "runtime": {
+                      "PrefixProbe.dll": {},
+                      "System.Text.Json.dll": {},
+                      "System.Dobby.FakeShared.dll": {},
+                      "Dobby.Plugin.PrivateProbe.dll": {}
+                    }
+                  }
+                }
+              },
+              "libraries": {
+                "PrefixProbe/1.0.0": {
+                  "type": "project",
                   "serviceable": false,
                   "sha512": ""
                 }
@@ -448,6 +703,66 @@ public sealed class PluginActivationCoreTests
 
     private interface IPrivateService
     {
+    }
+
+    private interface IEscalatingService
+    {
+    }
+
+    private sealed class EscalatingService(IPluginWorkSessionCleanup cleanup) : IEscalatingService
+    {
+        public IPluginWorkSessionCleanup Cleanup { get; } = cleanup;
+    }
+
+    private sealed class EscalatingPrivateServiceModule : IPluginModule
+    {
+        public void RegisterServices(IPluginServiceCollection services)
+        {
+            services.AddInternal<IEscalatingService, EscalatingService>(PluginLifetime.Singleton);
+        }
+
+        public void OnActivated(IPluginActivationContext context)
+        {
+        }
+    }
+
+    private sealed class EscalatingExtensionPointModule : IPluginModule
+    {
+        public void RegisterServices(IPluginServiceCollection services)
+        {
+            services.AddExtensionPoint<IPluginPage, EscalatingPage>();
+        }
+
+        public void OnActivated(IPluginActivationContext context)
+        {
+        }
+    }
+
+    private sealed class EscalatingPage(IPluginWorkSessionCleanup cleanup) : IPluginPage
+    {
+        public IPluginWorkSessionCleanup Cleanup { get; } = cleanup;
+
+        public PluginPageDescriptor Descriptor { get; } = new("sample.escalating", "sample.escalating", "sample.escalating.label");
+
+        public ValueTask<Result<IPluginPageModel>> LoadAsync(PluginPageContext context, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(Result.Failure<IPluginPageModel>(ErrorCode.NotFound));
+        }
+
+        public ValueTask<Result> ActivateAsync(PluginPageContext context, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(Result.Success());
+        }
+
+        public ValueTask<Result> DeactivateAsync(PluginPageContext context, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(Result.Success());
+        }
+
+        public ValueTask<Result> UnloadAsync(PluginPageContext context, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(Result.Success());
+        }
     }
 
     private sealed class PrivateService : IPrivateService
@@ -630,6 +945,41 @@ public sealed class PluginActivationCoreTests
         public Result RecordError(Guid sessionId, string errorSummaryKey) => Result.Success();
 
         public Result Close(Guid sessionId) => Result.Success();
+    }
+
+    private sealed class TrackingPluginWorkSessionService : IPluginWorkSessionService
+    {
+        public List<string> Mutations { get; } = [];
+
+        public Result<PluginWorkSessionHandle> Open(string ownerId, string routeKey, string labelKey)
+        {
+            return Result.Success(
+                new PluginWorkSessionHandle(Guid.CreateVersion7(), ownerId, routeKey, labelKey));
+        }
+
+        public Result UpdateProgress(Guid sessionId, int percent)
+        {
+            Mutations.Add($"progress:{sessionId}:{percent}");
+            return Result.Success();
+        }
+
+        public Result RecordResult(Guid sessionId, string resultSummaryKey)
+        {
+            Mutations.Add($"result:{sessionId}:{resultSummaryKey}");
+            return Result.Success();
+        }
+
+        public Result RecordError(Guid sessionId, string errorSummaryKey)
+        {
+            Mutations.Add($"error:{sessionId}:{errorSummaryKey}");
+            return Result.Success();
+        }
+
+        public Result Close(Guid sessionId)
+        {
+            Mutations.Add($"close:{sessionId}");
+            return Result.Success();
+        }
     }
 
     private sealed record SampleEvent(string Payload) : PublicIntegrationEvent;

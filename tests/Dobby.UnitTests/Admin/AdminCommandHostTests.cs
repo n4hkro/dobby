@@ -34,6 +34,168 @@ public sealed class AdminCommandHostTests
     }
 
     [Fact]
+    public void Every_option_in_the_approved_cli_contract_is_accepted_and_undocumented_options_are_rejected()
+    {
+        using var fixture = TempFixture.Create();
+        var provider = new RecordingSigningMaterialProvider();
+        var documented = ApprovedCliContract();
+
+        documented.Count.ShouldBe(4, "the approved P1 CLI contract must document exactly the four scripted commands");
+
+        foreach (var (command, options) in documented)
+        {
+            options.ShouldNotBeEmpty();
+
+            var args = new List<string> { "--cli", command };
+            foreach (var option in options)
+            {
+                args.Add(option);
+                if (option != "--overwrite")
+                {
+                    args.Add(ContractOptionValue(option, fixture));
+                }
+            }
+
+            var accepted = AdminCommandHost.Run(args, provider, TimeProvider.System);
+
+            accepted.ExitCode.ShouldNotBe(
+                64,
+                $"'{command}' must accept every option documented for it in docs/specs/admin-tool.md; " +
+                "a documented option that exits 64 means the spec table and the CLI disagree");
+            accepted.StandardError.ShouldNotContain("option contract is not approved");
+
+            var withUndocumented = new List<string>(args) { "--not-in-the-approved-contract", "x" };
+            var rejected = AdminCommandHost.Run(withUndocumented, provider, TimeProvider.System);
+
+            rejected.ExitCode.ShouldBe(
+                64,
+                $"'{command}' must reject options absent from the approved contract table");
+        }
+    }
+
+    private static string ContractOptionValue(string option, TempFixture fixture)
+    {
+        return option switch
+        {
+            "--signing-profile" or "--trust-profile" => "dev-qa",
+            "--valid-from" => "2026-06-18T00:00:00Z",
+            "--valid-until" => "2026-07-18T00:00:00Z",
+            "--revision" => "1",
+            "--intent" => "granted",
+            "--host-version" => "1.0.0",
+            _ when option.EndsWith("-path", StringComparison.Ordinal) =>
+                fixture.Path("contract" + option.Replace("--", "-", StringComparison.Ordinal) + ".bin"),
+            _ => "contract-value"
+        };
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> ApprovedCliContract()
+    {
+        var specPath = System.IO.Path.Combine(RepoRoot().FullName, "docs", "specs", "admin-tool.md");
+        var lines = File.ReadAllLines(specPath);
+        var start = Array.FindIndex(lines, line => line.StartsWith("### Approved P1 CLI contract", StringComparison.Ordinal));
+        start.ShouldBeGreaterThanOrEqualTo(0, "docs/specs/admin-tool.md must keep the approved CLI contract section");
+
+        var contract = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        for (var index = start + 1; index < lines.Length && !lines[index].StartsWith("## ", StringComparison.Ordinal); index++)
+        {
+            var cells = lines[index].Split('|', StringSplitOptions.TrimEntries);
+            if (cells.Length < 5 || !cells[1].StartsWith('`') || cells[1].Contains(' ', StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var command = cells[1].Trim('`');
+            var options = OptionTokens(cells[2]).Concat(OptionTokens(cells[3])).ToArray();
+            if (options.Length > 0)
+            {
+                contract[command] = options;
+            }
+        }
+
+        return contract;
+    }
+
+    private static IEnumerable<string> OptionTokens(string cell)
+    {
+        return cell
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(token => token.Trim('`'))
+            .Where(token => token.StartsWith("--", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Usage_and_validation_failures_never_resolve_signing_material_or_write_targets()
+    {
+        using var fixture = TempFixture.Create();
+        var occupied = fixture.Path("occupied.dobbyplugin");
+        File.WriteAllText(occupied, "already exists");
+        var provider = new RecordingSigningMaterialProvider();
+
+        string[][] rejectedInvocations =
+        [
+            ["--cli", "sign-plugin-package", "--input-path", fixture.Root, "--signing-profile", "dev-qa", "--output-path", fixture.Path("unknown-option.dobbyplugin"), "--dry-run"],
+            ["--cli", "sign-plugin-package", "--input-path", fixture.Root, "--signing-profile", "dev-qa", "--trust-profile", "production", "--output-path", fixture.Path("mismatch.dobbyplugin")],
+            ["--cli", "sign-plugin-package", "--input-path", fixture.Root, "--signing-profile", "not-a-profile", "--output-path", fixture.Path("profile.dobbyplugin")],
+            ["--cli", "create-plugin-license", "--plugin-package-path", fixture.Path("package.dobbyplugin"), "--signing-profile", "dev-qa", "--customer-id", "customer", "--deployment-id", "deployment", "--device-binding-fixture-path", fixture.Path("device.json"), "--valid-from", "2026-06-18T00:00:00Z", "--valid-until", "2026-07-18T00:00:00Z", "--revision", "0", "--output-path", fixture.Path("revision.dobbylicense")],
+            ["--cli", "create-plugin-license", "--plugin-package-path", fixture.Path("package.dobbyplugin"), "--signing-profile", "dev-qa", "--customer-id", "customer", "--deployment-id", "deployment", "--device-binding-fixture-path", fixture.Path("device.json"), "--valid-from", "2026-06-18T00:00:00Z", "--valid-until", "2026-07-18T00:00:00Z", "--revision", "1", "--intent", "granted-by-hand", "--output-path", fixture.Path("intent.dobbylicense")],
+            ["--cli", "sign-plugin-package", "--input-path", fixture.Root, "--signing-profile", "dev-qa", "--output-path", occupied]
+        ];
+
+        foreach (var invocation in rejectedInvocations)
+        {
+            var result = AdminCommandHost.Run(invocation, provider, TimeProvider.System);
+
+            result.ExitCode.ShouldBeOneOf(64, 65);
+            provider.ResolveCount.ShouldBe(
+                0,
+                "signing material must be resolved only after every usage and validation gate has passed");
+        }
+
+        Directory.EnumerateFiles(fixture.Root)
+            .Select(System.IO.Path.GetFileName)
+            .ShouldBe(["occupied.dobbyplugin"]);
+        File.ReadAllText(occupied).ShouldBe("already exists");
+    }
+
+    [Fact]
+    public void Approved_intent_option_is_accepted_and_rejected_values_map_to_validation_failure()
+    {
+        using var fixture = TempFixture.Create();
+        var provider = new RecordingSigningMaterialProvider();
+
+        string[] LicenseArgs(string intent) =>
+        [
+            "--cli", "create-plugin-license",
+            "--plugin-package-path", fixture.Path("package.dobbyplugin"),
+            "--signing-profile", "dev-qa",
+            "--customer-id", "customer",
+            "--deployment-id", "deployment",
+            "--device-binding-fixture-path", fixture.Path("device.json"),
+            "--valid-from", "2026-06-18T00:00:00Z",
+            "--valid-until", "2026-07-18T00:00:00Z",
+            "--revision", "1",
+            "--intent", intent,
+            "--output-path", fixture.Path("license-" + intent + ".dobbylicense")
+        ];
+
+        foreach (var approved in new[] { "granted", "revoked" })
+        {
+            var accepted = AdminCommandHost.Run(LicenseArgs(approved), provider, TimeProvider.System);
+
+            accepted.ExitCode.ShouldNotBe(
+                64,
+                $"--intent {approved} is listed in the approved P1 CLI contract and must not be an unknown option");
+            accepted.StandardError.ShouldNotContain("option contract is not approved");
+        }
+
+        var rejected = AdminCommandHost.Run(LicenseArgs("suspended"), provider, TimeProvider.System);
+
+        rejected.ExitCode.ShouldBe(65);
+        rejected.StandardError.ShouldContain("invalid-intent");
+    }
+
+    [Fact]
     public void Run_maps_profile_mismatch_invalid_timestamps_revision_and_output_conflicts_to_validation_failure()
     {
         using var fixture = TempFixture.Create();
@@ -227,6 +389,40 @@ public sealed class AdminCommandHostTests
                 ArtifactSignaturePurposes.PluginLicense))
             .Verify(parsed.Artifact!.Signature, parsed.Artifact.CanonicalPayload)
             .IsSuccess.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData("""{"machineGuid":"11111111-2222-3333-4444-555555555555","stableDeviceIdHex":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"}""")]
+    [InlineData("""{"deviceFingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","machineGuid":"11111111-2222-3333-4444-555555555555"}""")]
+    [InlineData("""{"deviceFingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","stableDeviceIdHex":"00112233445566778899aabbccddeeff"}""")]
+    public void Create_plugin_license_rejects_raw_device_material_binding_input(string bindingJson)
+    {
+        using var fixture = TempFixture.Create();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var environment = SigningKeyEnvironmentScope.ForDevQa(fixture, key);
+        var packagePath = fixture.Path("package.dobbyplugin");
+        var bindingPath = fixture.Path("device.json");
+        var outputPath = fixture.Path("sample.dobbylicense");
+        File.WriteAllText(packagePath, "package-bytes");
+        File.WriteAllText(bindingPath, bindingJson);
+
+        var result = AdminCommandHost.Run([
+            "--cli", "create-plugin-license",
+            "--plugin-package-path", packagePath,
+            "--signing-profile", "dev-qa",
+            "--customer-id", "customer",
+            "--deployment-id", "deployment",
+            "--device-binding-fixture-path", bindingPath,
+            "--valid-from", "2026-06-20T00:00:00Z",
+            "--valid-until", "2026-07-20T00:00:00Z",
+            "--revision", "3",
+            "--output-path", outputPath
+        ]);
+
+        result.ExitCode.ShouldBe(65);
+        result.StandardError.ShouldBe("invalid-device-binding");
+        File.Exists(outputPath).ShouldBeFalse();
+        File.Exists(outputPath + ".report.json").ShouldBeFalse();
     }
 
     [Fact]
@@ -586,6 +782,17 @@ public sealed class AdminCommandHostTests
         }
 
         return current ?? throw new DirectoryNotFoundException("Could not locate Dobby.sln");
+    }
+
+    private sealed class RecordingSigningMaterialProvider : IAdminSigningMaterialProvider
+    {
+        public int ResolveCount { get; private set; }
+
+        public AdminSigningMaterialResult Resolve(string signingProfile, string purpose)
+        {
+            ResolveCount++;
+            return AdminSigningMaterialResult.Unavailable("signing-material-unavailable");
+        }
     }
 
     private sealed class InMemorySigningMaterialProvider(string profile, ECDsa key) : IAdminSigningMaterialProvider

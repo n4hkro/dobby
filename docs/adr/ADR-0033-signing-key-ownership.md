@@ -1,7 +1,20 @@
 # ADR-0033: Signing Key Ownership
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0062
 **Date:** 2026-04-24
+
+> Historical note: the single-vendor-master-key model below is **not** Phase 1
+> canonical. Current authority is `ADR-0062`: signing keys are purpose-separated
+> (`dobby.plugin-package`, `dobby.plugin-license`, `dobby.owner-recovery-response`,
+> `dobby.branch-setup-authorization`), each purpose has its own leaf key and
+> version-controlled public trust anchor file, the selector is a string `keyId`
+> (`<purpose-short>-<prod|test>-<YYYY-MM>`) rather than a numeric `keyVersion`, the
+> retired anchor names `vendor-master-public-key.pem` / `dev-qa-public-key.pem`
+> are not part of the trust ring, and cross-purpose verification ("try every key")
+> is fail-closed forbidden. Owner recovery no longer shares the plugin signing key
+> (`ADR-0058`, `ADR-0059`). Skeleton, tooling or documentation-fix work must not
+> copy key names, key-version rules or provisioning steps from this ADR body
+> without an explicit `ADR-0062` amendment.
 
 ## Context
 
@@ -99,6 +112,7 @@ process-i yenidən tərif etmir.
 
 ## Cross-references
 
+- `docs/adr/ADR-0062-signing-key-custody-and-trust-anchor-provisioning.md` — successor; owns key custody, purpose-separated anchors, `keyId` selector and rotation
 - `docs/02_ARCHITECTURE_MAP.md` — Row 38 `Plugin Trust Verification`, Row 86 `Owner Recovery Artefakt Generation`, Cədvəl 3 `Signing Key Ownership` risk sətri
 - `docs/adr/ADR-0032-plugin-signature-trust-model.md` — public side signature verification flow
 - `docs/adr/ADR-0039-owner-password-recovery.md` — recovery artefakt imzalama flow

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows.Media;
@@ -678,6 +679,58 @@ public sealed class ShellUiStaticScanTests
             ContrastRatio(theme["Dobby.Brush.Background"], theme["Dobby.Brush.Focus"])
                 .ShouldBeGreaterThanOrEqualTo(3.0, $"{themeName} focus/background contrast must keep visible focus indicators detectable.");
         }
+    }
+
+    [Fact]
+    public void Theme_dictionaries_export_identical_brush_token_key_sets()
+    {
+        var root = RepoRoot();
+        var themesRoot = Path.Combine(root.FullName, "src", "Dobby.UI", "Themes");
+        var light = ThemeBrushes(Path.Combine(themesRoot, "LightTheme.xaml")).Keys.Order(StringComparer.Ordinal).ToArray();
+        var dark = ThemeBrushes(Path.Combine(themesRoot, "DarkTheme.xaml")).Keys.Order(StringComparer.Ordinal).ToArray();
+
+        light.ShouldNotBeEmpty();
+        dark.ShouldBe(
+            light,
+            "LightTheme.xaml and DarkTheme.xaml must export the same brush token key set; " +
+            "an asymmetric token leaves an unresolved resource after a theme switch.");
+        light.ShouldAllBe(key => key.StartsWith("Dobby.Brush.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Shell_measurement_tokens_keep_caption_and_chrome_invariants()
+    {
+        var root = RepoRoot();
+        var designTokensPath = Path.Combine(root.FullName, "src", "Dobby.UI", "Themes", "DesignTokens.xaml");
+        var document = XDocument.Load(designTokensPath);
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var tokens = document
+            .Root!
+            .Elements()
+            .Where(element => element.Attribute(xaml + "Key") is not null)
+            .ToDictionary(
+                element => element.Attribute(xaml + "Key")!.Value,
+                element => element.Value.Trim(),
+                StringComparer.Ordinal);
+
+        var chromeHeight = double.Parse(tokens["Dobby.Shell.ChromeHeight"], CultureInfo.InvariantCulture);
+        var captionButtonWidth = double.Parse(tokens["Dobby.Shell.CaptionButtonWidth"], CultureInfo.InvariantCulture);
+        var captionReserve = double.Parse(tokens["Dobby.Shell.CaptionButtonReserveWidth"], CultureInfo.InvariantCulture);
+        var captionReserveGridLength = double.Parse(tokens["Dobby.Shell.CaptionButtonReserveGridLength"], CultureInfo.InvariantCulture);
+
+        captionReserve.ShouldBeGreaterThanOrEqualTo(
+            captionButtonWidth * 3,
+            "The caption reserve must cover minimize/maximize/close so the tab row cannot overlap native caption hit targets.");
+        captionReserveGridLength.ShouldBe(captionReserve);
+
+        var frameThickness = tokens["Dobby.Shell.NativeCaptionFrameThickness"]
+            .Split(',', StringSplitOptions.TrimEntries)
+            .Select(value => double.Parse(value, CultureInfo.InvariantCulture))
+            .ToArray();
+        frameThickness.Length.ShouldBe(4);
+        frameThickness[1].ShouldBe(
+            chromeHeight,
+            "The native caption frame inset must reserve exactly the shell chrome height.");
     }
 
     private static IReadOnlyDictionary<string, Color> ThemeBrushes(string path)

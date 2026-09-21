@@ -1,6 +1,6 @@
 # ADR-0038: Local-First Authentication
 
-**Status:** Accepted (credential-storage and throttle details amended by ADR-0058)
+**Status:** Accepted (credential-storage and throttle details amended by `ADR-0058` — see ## Revision History)
 **Date:** 2026-04-23
 
 ## Context
@@ -38,15 +38,21 @@ Bağlayıcı qaydalar:
   formunda username və masked password hazır doldurula bilər
 - Remember-me credential material plain text faylda saxlanmır; OS secure
   credential store / protected storage ilə qorunur
-- Stored password üçün reveal button göstərilmir; istifadəçi hazır password
-  field-inə edit etməyə başlayan kimi hazır password cari formdan tam
-  təmizlənir və bundan sonra yalnız əl ilə yazılan password reveal edilə bilər
-- Field-level clear yalnız cari form state-ini təmizləyir; persistent clear
-  yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə edilir. Logout və auto-lock
-  remember-me credential-i silmir
-- Phase 1-də remember-me modeli single saved credential slot daşıyır.
-- Hər uğurlu login həmin saved credential slot-unu replace edir: remember-me aktivdirsə
-  slot yeni user/credential ilə yazılır, deaktivdirsə slot boşaldılır
+- Password field proses restart-dan sonra boş açılır və reveal action yoxdur: retained
+  password mövcud olmadığı üçün reveal edilə bilən stored material da yoxdur. Masked
+  placeholder retained password yerinə keçmir (`ADR-0058` § `Remembered login`)
+- Field-level clear yalnız cari form state-ini təmizləyir. Persistent slot yalnız növbəti
+  uğurlu login zamanı remember-me OFF seçildikdə, həmçinin account silinəndə/deaktiv
+  ediləndə boşaldılır; logout və auto-lock slot-u silmir
+- Phase 1 remember-me modeli single slot daşıyır və bu slot secret DAŞIMIR: persist olunan
+  yeganə material normalize olunmuş username və non-secret slot identifier-dir. Password,
+  reversible credential, password-equivalent verifier, startup snapshot və ya bunların
+  masked surrogate-i saxlanmır, ona görə slot üzərində reveal action da yoxdur və password
+  field proses restart-dan sonra boş açılır. Hər uğurlu login slot-u yeni normalize olunmuş
+  username ilə replace edir. Legacy saved-password qeydləri və duplicate startup snapshot
+  idempotent migration ilə silinir (`ADR-0058` § `Remembered login`; observable qaydalar
+  `docs/specs/session-lifecycle.md` § `Remembered Login Qarşılıqlı Təsiri`, migration
+  `docs/specs/storage-and-data-protection.md` § `Remembered-login slot legacy migration`)
 - Password hashing üçün Phase 1 seçimi skeleton/toolchain decision gate-də explicit
   bağlanır və `ADR-0027` içindəki `Dobby:Auth:PasswordKdfMode` config key-i ilə
   ifadə olunur. `Argon2id` default niyyətdir; BCL `Rfc2898DeriveBytes` ilə
@@ -150,6 +156,9 @@ Owner bootstrap invariant-ının hissəsi deyil.
 - `docs/01_PRODUCT_SCOPE.md` — `## Əsas Məhsul Prinsipləri`
 - `docs/01_PRODUCT_SCOPE.md` — `## İstifadəçi Modeli`
 - `docs/adr/ADR-0055-protected-storage-scope-and-key-wrapping.md` — password hash, remember-me və session material üçün protected-storage scope
+- `docs/adr/ADR-0058-credential-and-recovery-hardening-v2.md` — bu ADR-in credential
+  storage və throttle detallarını amend edir və həmin bölmələr üçün current
+  authority-dir; qalan local-first authentication qərarı bu ADR-də qalır
 
 ## Revision History
 
@@ -165,6 +174,24 @@ Owner bootstrap invariant-ının hissəsi deyil.
   Owner all-grants permission state ayrıca `Permissions` row-u ilə yox,
   `Users.IsOwner=1` row-u ilə seed olunur; managed-user permission rows və
   operation registry sonrakı authorization scope-da qalır.
+
+## 2026-08-31 Remembered-Login Amendment
+
+**Tarix:** 2026-08-31 — **Authority:** `ADR-0058` § `Remembered login`
+
+Bu ADR-in local-first authentication qərarı dəyişmir. `**Status:**` sətri artıq
+credential-storage detallarının `ADR-0058` ilə amend olunduğunu bildirirdi, lakin
+§ `Decision` daxilindəki retired cümlələr normativ prose kimi qalmışdı: "Phase 1-də
+remember-me modeli single saved credential slot daşıyır", "slot yeni user/credential ilə
+yazılır" və stored password üçün reveal semantics. Bölmə oxuyan reader Status-a deyil,
+həmin cümlələrə əməl edir, ona görə mətn indi enforce olunan qaydaya uyğunlaşdırılıb:
+slot yalnız normalize olunmuş username və non-secret slot identifier saxlayır, reveal
+action yoxdur, legacy saved-password qeydləri idempotent migration ilə silinir.
+
+Dəyişmir: throttle modeli, password hashing seçimi və parametrləri, first-user Owner
+bootstrap invariantı, session semantics delegation-ı. Bu bölmə mövcud və enforce olunan
+davranışın dəqiq ifadəsidir (`docs/specs/session-lifecycle.md`
+§ `Remembered Login Qarşılıqlı Təsiri`), yeni qərar deyil.
 
 ## Branch Shared Mode Amendment
 

@@ -60,6 +60,7 @@ Assert-ExactProperties -Value $document -Allowed @(
     'sourceCommit',
     'generatedAtUtc',
     'status',
+    'attestedBy',
     'claims',
     'subjects'
 ) -Context 'External evidence'
@@ -75,6 +76,32 @@ if ([string]$document.sourceCommit -cne $ExpectedSourceCommit.ToLowerInvariant()
 }
 if ([string]$document.status -cne 'passed') {
     throw 'External evidence status must be passed.'
+}
+
+# status is pinned to 'passed', so this file is an approval and nothing else. An approval
+# with no identity is unattributable: no reviewer can ask who ran the external gate or what
+# was actually executed. The schema requires attestedBy; this is the enforcing gate.
+#
+# The character rules below must stay identical to the attestedBy pattern in
+# docs/schemas/release-external-evidence-v1.schema.json. That schema is the published shape
+# and this script is the enforcing gate; a value one accepts and the other rejects is a
+# defect, and the divergence would surface only at release time. The rules are therefore
+# written as explicit character classes rather than as Trim()/IsNullOrWhiteSpace calls: those
+# helpers do handle Unicode spaces (Trim() strips NBSP, IsNullOrWhiteSpace treats an
+# NBSP-only value as blank), but a JSON Schema pattern has no equivalent, so expressing the
+# rule the same way in both places is what makes the two layers checkable against each other.
+# Rejected: C0/C1 controls and DEL; zero-width characters and Unicode bidi embeds/overrides,
+# because a name that renders as somebody else is worse than a missing one; and any value
+# whose first or last character is a space separator of any kind.
+$attestedBy = [string]$document.attestedBy
+$attestedByInvisible = '[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]'
+$attestedByEdgeSpace = '^[\u0009\u0020\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]|[\u0009\u0020\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]$'
+if ([string]::IsNullOrWhiteSpace($attestedBy) -or
+    $attestedBy.Length -lt 2 -or
+    $attestedBy.Length -gt 128 -or
+    $attestedBy -match $attestedByInvisible -or
+    $attestedBy -match $attestedByEdgeSpace) {
+    throw 'External evidence attestedBy must name the human who ran the external gate.'
 }
 
 $generatedAt = [DateTimeOffset]::MinValue
@@ -136,6 +163,7 @@ foreach ($subject in $subjects) {
     status = 'validated'
     gate = $ExpectedGate
     sourceCommit = $ExpectedSourceCommit.ToLowerInvariant()
+    attestedBy = $attestedBy
     claimCount = $claims.Count
     subjectCount = $subjects.Count
 } | ConvertTo-Json -Compress

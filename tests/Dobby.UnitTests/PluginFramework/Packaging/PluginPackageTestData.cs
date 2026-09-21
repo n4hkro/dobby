@@ -130,7 +130,9 @@ internal static class PluginPackageTestData
 
         if (includeUnexpectedRootProperty)
         {
-            root["schemaVersion"] = 1;
+            // The v2 schema sets additionalProperties: false, so an unknown root member must be
+            // rejected. Overwriting an existing member instead would exercise a different rule.
+            root["unexpectedRootProperty"] = true;
         }
 
         return JsonSerializer.Serialize(root, new JsonSerializerOptions

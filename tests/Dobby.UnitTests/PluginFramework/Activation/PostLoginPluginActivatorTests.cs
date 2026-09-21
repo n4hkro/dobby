@@ -221,6 +221,51 @@ public sealed class PostLoginPluginActivatorTests
             .ShouldBe(PostLoginPluginActivator.LegacyV1UpgradeWarning);
     }
 
+    // ADR-0009 §6: a plugin never activates while a plugin it declares in `dependsOn` did not
+    // activate. The skip must therefore be transitive — `leaf` depends on `mid`, which is itself
+    // skipped because `core` faulted.
+    [Fact]
+    public void Activation_cascades_dependency_skip_transitively_through_the_dependency_chain()
+    {
+        var activator = NewActivator();
+        var result = activator.Activate(
+        [
+            new PluginActivationCandidate(
+                "core",
+                "1.0.0",
+                true,
+                [],
+                _ => Result.Success<IPluginModule>(new FaultingModule())),
+            new PluginActivationCandidate(
+                "mid",
+                "1.0.0",
+                true,
+                [new PluginDependency("core", "1.0.0")],
+                _ => Result.Success<IPluginModule>(new SuccessfulModule())),
+            new PluginActivationCandidate(
+                "leaf",
+                "1.0.0",
+                true,
+                [new PluginDependency("mid", "1.0.0")],
+                _ => Result.Success<IPluginModule>(new SuccessfulModule()))
+        ],
+        new HostVersion(1, 0, 0),
+        CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ActivatedPluginIds.ShouldBeEmpty();
+        result.Value.Outcomes.Single(outcome => outcome.PluginId == "core").Status
+            .ShouldBe(PluginActivationStatus.Faulted);
+        result.Value.Outcomes.Single(outcome => outcome.PluginId == "mid").Status
+            .ShouldBe(PluginActivationStatus.Skipped);
+        result.Value.Outcomes.Single(outcome => outcome.PluginId == "mid").Reason
+            .ShouldBe("dependency-activation-failed: core");
+        result.Value.Outcomes.Single(outcome => outcome.PluginId == "leaf").Status
+            .ShouldBe(PluginActivationStatus.Skipped);
+        result.Value.Outcomes.Single(outcome => outcome.PluginId == "leaf").Reason
+            .ShouldBe("dependency-activation-failed: mid");
+    }
+
     [Fact]
     public void Activation_context_exposes_host_event_progress_and_cancellation_contracts()
     {

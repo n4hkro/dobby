@@ -8,7 +8,7 @@ public static class LicenseV3Contract
     public const string SignatureFormat = "IeeeP1363FixedFieldConcatenation";
     public const int MaximumArtifactBytes = 256 * 1024;
     public const int MaximumIdentifierLength = 128;
-    public const int MaximumGracePeriodDays = 365;
+    public const int MaximumGracePeriodDays = 90;
 }
 
 public enum LicenseGrantIntentV3

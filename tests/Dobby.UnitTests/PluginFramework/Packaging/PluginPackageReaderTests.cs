@@ -271,6 +271,27 @@ public sealed class PluginPackageReaderTests
         result.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void Read_rejects_manifest_declaring_a_non_v2_schema_version(int schemaVersion)
+    {
+        using var temp = new TempDirectory();
+        Directory.CreateDirectory(Path.Combine(temp.Path, "content"));
+        File.WriteAllText(
+            Path.Combine(temp.Path, PluginPackageReader.ManifestFileName),
+            CreateManifestJsonWithRootOverride("schemaVersion", schemaVersion),
+            Encoding.UTF8);
+        File.WriteAllBytes(Path.Combine(temp.Path, "content", "hello.txt"), PluginPackageTestData.FileContent);
+
+        var result = PluginPackageReader.Read(temp.Path);
+
+        result.IsSuccess.ShouldBeFalse(
+            "docs/schemas/artifact-compatibility-matrix.md declares v2 the only accepted manifest " +
+            "version, so the reader must refuse a legacy or unknown version before typed projection");
+        result.ErrorCode.ShouldBe(ErrorCode.InvalidInput);
+    }
+
     [Fact]
     public void Read_rejects_manifest_that_fails_embedded_schema_before_typed_projection()
     {
@@ -322,6 +343,44 @@ public sealed class PluginPackageReaderTests
         var root = JsonNode.Parse(PluginPackageTestData.CreateManifestJson())!.AsObject();
         root[propertyName] = JsonValue.Create(value);
         return root.ToJsonString();
+    }
+
+    [Theory]
+    [InlineData("\"keyId\":\"plugin-prod-2026-01\",\"keyVersion\":1", "adds the retired numeric selector")]
+    [InlineData("\"keyVersion\":1", "substitutes the retired numeric selector for keyId")]
+    public void Read_rejects_a_signature_block_carrying_the_retired_key_version_selector(
+        string replacement, string reason)
+    {
+        using var temp = new TempDirectory();
+        var manifestJson = PluginPackageTestData.CreateManifestJson();
+
+        // Baseline: the untouched manifest reads successfully, so the reject below is
+        // attributable to the retired selector and not to any other manifest defect.
+        var baselinePath = CreateZip(
+            temp.Path,
+            (PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(manifestJson)),
+            (PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent),
+            (PluginPackageTestData.FilePath, PluginPackageTestData.FileContent));
+        PluginPackageReader.Read(baselinePath).IsSuccess.ShouldBeTrue();
+
+        var mutatedJson = manifestJson.Replace(
+            "\"keyId\":\"plugin-prod-2026-01\"",
+            replacement,
+            StringComparison.Ordinal);
+        mutatedJson.ShouldNotBe(manifestJson, "the fixture must actually contain the canonical keyId");
+
+        var mutatedPath = CreateZip(
+            temp.Path,
+            (PluginPackageReader.ManifestFileName, Encoding.UTF8.GetBytes(mutatedJson)),
+            (PluginPackageTestData.EntryAssembly, PluginPackageTestData.EntryAssemblyContent),
+            (PluginPackageTestData.FilePath, PluginPackageTestData.FileContent));
+
+        // ADR-0062 § 1 retires numeric keyVersion; ADR-0045 pins the signature block to
+        // exactly purpose/algorithm/format/keyId/value, so the selector can never reach
+        // key resolution regardless of how well-formed the rest of the package is.
+        PluginPackageReader.Read(mutatedPath).ErrorCode.ShouldBe(
+            ErrorCode.InvalidInput,
+            $"a manifest signature block that {reason} must be rejected (ADR-0062 § 1, ADR-0045)");
     }
 
     private static string CreateZip(string root, params (string Path, byte[] Content)[] entries)

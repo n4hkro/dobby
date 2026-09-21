@@ -13,6 +13,16 @@ artifacts/release-evidence/*/
 !artifacts/release-evidence/skeleton-local/
 !artifacts/release-evidence/sprint10-local-2026-06-20/
 !artifacts/release-evidence/sprint10-local-2026-06-20/*.md
+# Per-build-id release-candidate evidence is gate review input
+# (docs/09_BUILD_RUN_AND_RELEASE.md § release evidence). Without these negations a newly
+# generated evidence file inside an already-tracked local-rc-* root is silently ignored,
+# so `git add -A` leaves a clean status while a required gate artifact is missing from the
+# commit. Transient scratch roots (source-only-*, ep03-local-*) and *.log stay ignored.
+!artifacts/release-evidence/local-rc-*/
+!artifacts/release-evidence/local-rc-*/*.md
+!artifacts/release-evidence/local-rc-*/ui-snapshots/
+!artifacts/release-evidence/local-rc-*/ui-snapshots/*.md
+!artifacts/release-evidence/local-rc-*/ui-snapshots/*.png
 *.nupkg
 *.snupkg
 *.dobbyplugin
@@ -25,8 +35,14 @@ artifacts/release-evidence/*/
 *.snk
 *.pem
 *.key
-!src/Dobby.Host/Trust/vendor-master-public-key.pem
-!src/Dobby.Host/Trust/dev-qa-public-key.pem
+# Public trust anchors are approved, version-controlled build input (ADR-0062 § 3).
+# Private and TEST-ONLY key material stays ignored by the rules above.
+!src/Dobby.Host/Trust/vendor-plugin-package-public-key.pem
+!src/Dobby.Host/Trust/vendor-plugin-license-public-key.pem
+!src/Dobby.Host/Trust/vendor-recovery-public-key.pem
+!src/Dobby.Host/Trust/dev-qa-plugin-package-public-key.pem
+!src/Dobby.Host/Trust/dev-qa-plugin-license-public-key.pem
+!src/Dobby.Host/Trust/dev-qa-recovery-public-key.pem
 .worktrees/
 worktrees/
 scratch/

@@ -31,36 +31,57 @@ Plugin installation və plugin activation ayrı artefaktlardır.
 - plugin-ə raw JSON/detail kimi verilmir.
 
 License artifact outer `{ payload, signature }` wire formatı, payload semantics və
-lifecycle semantikası `ADR-0051`, customer/deployment binding isə `ADR-0052` ilə
+lifecycle semantikası `ADR-0060`, customer/deployment binding isə `ADR-0052` ilə
 bağlanır. Bu ADR `.dobbylicense` signature field placement-i üçün owner deyil.
 
 ### Canonical signature model
 
 P1-də plugin manifest-in içində `signature` block-u saxlanılır. Default package ayrıca `signature.bin` yaratmır.
-Bu ADR signed payload shape, manifest signature placement, deterministic `files`
-section və package fingerprint üçün yeganə canonical owner-dir; `ADR-0032` yalnız
-signature algorithm/trust verification semantics-ini saxlayır.
+Bu ADR signature block-unun **yerləşməsi** (manifest daxilində, detached fayl deyil),
+signed payload-ın hansı content üzərində qurulduğu, deterministic `files` section
+və package fingerprint üçün canonical owner-dir. Signature block-unun **field
+shape-i** `docs/schemas/dobby-plugin-manifest-v2.schema.json` tərəfindən,
+signature format/encoding və key purpose separation isə `ADR-0059`
+§ `Signatures, fingerprint, and keys` tərəfindən idarə olunur; `ADR-0032` yalnız
+ECDSA/trust verification semantics-ini saxlayır. Bu ADR həmin iki authority-ni
+override etmir.
 
-Manifest `signature` block-unun P1 inner shape-i:
+Manifest `signature` block-unun canonical inner shape-i (`schemaVersion = 2`):
 
 ```json
 {
+  "purpose": "dobby.plugin-package",
   "algorithm": "ECDSA-P256-SHA256",
-  "keyVersion": 1,
-  "value": "MEQCIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gAiAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4_QA"
+  "format": "IeeeP1363FixedFieldConcatenation",
+  "keyId": "plugin-prod-2026-01",
+  "value": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4_QA"
 }
 ```
 
+- Block `additionalProperties: false`-dır: yuxarıdakı beş field-in hamısı tələb
+  olunur və naməlum field manifest validation failure-dır. Numeric `keyVersion`
+  field-i **qəbul edilmir** — o, `ADR-0062` ilə retired edilmiş selector-dur və
+  v2 schema onu unknown property kimi fail-closed rədd edir.
+- `purpose` yalnız `dobby.plugin-package` dəyərini qəbul edir. Başqa purpose
+  dəyəri (məs. `dobby.plugin-license`) manifest signature block-unda key-purpose
+  confusion cəhdidir və rədd olunur (`ADR-0059`).
 - `algorithm` yalnız `ECDSA-P256-SHA256` dəyərini qəbul edir; başqa algorithm
   dəyəri Phase 1-də validation failure-dır.
-- `keyVersion` vendor trust materialının hansı public key version-u ilə verify
-  olunacağını göstərən JSON number-dır. Phase 1 dəyəri `1`-dir; gələcək rotation
-  dəyərləri `2`, `3`, ... kimi numeric artırılır və string `"v1"`/`"v2"` forması
-  P1 manifest signature shape-ində qəbul edilmir. Production və dev/QA trust
-  profile-ları bu field-i raw private key materialı sızdırmadan interpret edir.
-- `value` canonical signed payload üzərində hesablanmış DER-encoded ECDSA signature
-  bytes-ın base64url, no-padding formasıdır. Hex, standard padded base64 və file
-  path reference P1 manifest signature value kimi qəbul edilmir.
+- `format` yalnız `IeeeP1363FixedFieldConcatenation` dəyərini qəbul edir və
+  verification bu format-ı **explicit** ötürür; provider default-una güvənilmir.
+  DER/ASN.1 sequence encoding P1 manifest signature value kimi qəbul edilmir —
+  iki encoding-in eyni vaxtda qəbul edilməsi signature encoding ambiguity yaradır.
+- `keyId` verification üçün istifadə olunan purpose-separated leaf key-in canonical
+  string selector-udur (`<purpose-short>-<prod|test>-<YYYY-MM>`, məs.
+  `plugin-prod-2026-01`). Seçim exact match ilə aparılır; naməlum və ya retired
+  `keyId` fail-closed rədd olunur və "bütün açarları sına" davranışı qadağandır
+  (`ADR-0062` § 4). Production və dev/QA trust profile-ları bu field-i raw private
+  key materialı sızdırmadan interpret edir.
+- `value` canonical signed payload üzərində hesablanmış ECDSA signature-ın
+  `IeeeP1363FixedFieldConcatenation` (fixed-field `r ‖ s`, P-256 üçün 64 bayt)
+  formasının base64url, no-padding kodlaşdırılmasıdır — sabit 86 simvol. Hex,
+  standard padded base64, DER bytes və file path reference P1 manifest signature
+  value kimi qəbul edilmir.
 
 Signed payload:
 
@@ -157,8 +178,32 @@ Compression level, zip entry timestamp, container ordering metadata və containe
 - `docs/07_ACCEPTANCE_CRITERIA.md` — `AC-004`, `AC-018`, `AC-031`
 - `docs/adr/ADR-0030-host-persistence-and-plugin-storage-boundary.md`
 - `docs/adr/ADR-0032-plugin-signature-trust-model.md`
-- `docs/adr/ADR-0033-signing-key-ownership.md`
+- `docs/adr/ADR-0062-signing-key-custody-and-trust-anchor-provisioning.md`
 - `docs/adr/ADR-0036-plugin-manifest-schema.md`
-- `docs/adr/ADR-0051-license-lifecycle-v2.md`
+- `docs/adr/ADR-0060-license-lifecycle-and-import-v3.md`
 - `docs/adr/ADR-0052-tenant-customer-context-v2.md`
+- `docs/adr/ADR-0059-plugin-trust-package-and-ui-contract-v2.md` — signature format,
+  domain separation və key purpose separation authority-si
+- `docs/schemas/dobby-plugin-manifest-v2.schema.json` — signature block field shape
 - `docs/specs/plugins-manager.md`
+
+## Revision History
+
+- **2026-08-27:** Factual reconciliation of § `Canonical signature model` against
+  its owning authorities; qərar dəyişikliyi deyil. Bu Accepted ADR özünü signature
+  shape üçün "yeganə canonical owner" elan edir və nümunə blok kimi
+  `{ algorithm, keyVersion: 1, value }` göstərirdi, `value`-nu isə "DER-encoded
+  ECDSA signature bytes" kimi təsvir edirdi. Hər üç iddia HEAD-də enforce olunan
+  davranışla ziddiyyətdə idi: `docs/schemas/dobby-plugin-manifest-v2.schema.json`
+  `signature` block-unda `purpose`, `algorithm`, `format`, `keyId`, `value`
+  field-lərini tələb edir, `additionalProperties: false` ilə numeric `keyVersion`-u
+  unknown property kimi rədd edir; `ADR-0059` (2026-08-21) signature format-ını
+  `IeeeP1363FixedFieldConcatenation` kimi bağlayır və kod
+  (`src/Dobby.Security/Trust/ArtifactSignatureProfile.cs`,
+  `src/Dobby.PluginFramework/Manifest/PluginManifestContract.cs`) həmin format-ı explicit
+  ötürür. DER təsviri xüsusilə təhlükəli idi: iki fərqli signature encoding-in
+  legitimləşdirilməsi signature encoding ambiguity yaradır. Mətn schema/`ADR-0059`
+  reallığına uyğunlaşdırıldı, ownership claim-i placement/signed-payload/fingerprint
+  ilə məhdudlaşdırıldı və `keyId` exact-match seçimi `ADR-0062` § 4-ə bağlandı.
+  Package layout, license artifact boundary, path canonicalization və fingerprint
+  qərarları dəyişmir, ona görə successor ADR yaradılmır.

@@ -21,12 +21,25 @@ public sealed class LicensePayloadValidatorTests
     }
 
     [Theory]
+    [InlineData(0)]
+    [InlineData(LicenseV3Contract.MaximumGracePeriodDays)]
+    public void Validate_accepts_grace_period_at_documented_bounds(int gracePeriodDays)
+    {
+        var result = LicensePayloadValidator.Validate(
+            CreateArtifact(payload => payload["gracePeriodDays"] = gracePeriodDays));
+
+        result.IsSuccess.ShouldBeTrue(result.ReasonCode);
+        result.Payload!.GracePeriodDays.ShouldBe(gracePeriodDays);
+    }
+
+    [Theory]
     [InlineData("schemaVersion", 2)]
     [InlineData("purpose", "dobby.branch-setup-authorization")]
     [InlineData("deviceKeyHash", "ABCDEF")]
     [InlineData("packageFingerprint", "abc")]
     [InlineData("licenseRevision", 0)]
     [InlineData("gracePeriodDays", -1)]
+    [InlineData("gracePeriodDays", 91)]
     [InlineData("gracePeriodDays", 366)]
     [InlineData("intent", "active")]
     public void Validate_rejects_invalid_v3_authority_values(string propertyName, object value)
@@ -88,6 +101,25 @@ public sealed class LicensePayloadValidatorTests
             .GetProperty("required").EnumerateArray().Select(value => value.GetString()!).ToArray();
 
         LicenseArtifactFixtureBuilder.ValidPayload().Keys.ShouldBe(required);
+    }
+
+    [Fact]
+    public void Validate_rejects_a_v2_shaped_payload_because_no_compatibility_reader_exists()
+    {
+        var v2Payload = LicenseArtifactFixtureBuilder.ValidPayload();
+        v2Payload["schemaVersion"] = 2;
+        v2Payload.Remove("intent");
+        v2Payload["status"] = "active";
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(v2Payload));
+        var result = LicensePayloadValidator.Validate(CreateArtifact(document.RootElement.Clone()));
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ReasonCode.ShouldBe(
+            LicenseRejectReasons.InvalidLicenseFile,
+            "docs/specs/license-import.md declares the v2 compatibility reader unimplemented, so a " +
+            "v2-shaped payload must be rejected fail-closed and its 'status' value must never be " +
+            "normalized into a runtime mode");
     }
 
     private static LicenseArtifact CreateArtifact(Action<Dictionary<string, object?>>? mutate = null)

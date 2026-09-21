@@ -5,6 +5,9 @@
 **Phase:** Branch Shared Tier B / customer-release readiness
 **Scope:** PostgreSQL setup evidence, operational protection, backup/restore,
 schema/grant smoke checks and release gates for Branch Shared mode
+**Sources:** ADR-0054, ADR-0056, ADR-0057, NFR-001, NFR-007, NFR-025, NFR-027,
+AC-037, AC-042, docs/schemas/branchshared.schema.json,
+docs/specs/backup-restore-migration.md, docs/09_BUILD_RUN_AND_RELEASE.md
 
 This spec is the operational owner for Branch Shared PostgreSQL deployment after
 `ADR-0056`. It is not a Tier A skeleton implementation task.
@@ -132,6 +135,9 @@ Branch Shared customer-release evidence must include:
 
 ## Revision History
 
+- **2026-08-27:** `Sources` metadata sətri əlavə edildi ki, bu spec-in bağlı
+  olduğu ADR/NFR/AC və schema authority-si sibling spec-lərlə eyni formada
+  görünsün. Normativ məzmun dəyişməyib.
 - **2026-05-06:** Accepted after `HD-002` and `HD-005` were resolved by human
   decision. This is a documentation/spec acceptance only; customer-release
   operational evidence remains Tier B work.

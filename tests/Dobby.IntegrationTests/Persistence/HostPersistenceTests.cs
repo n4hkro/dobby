@@ -1,8 +1,17 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
+using Dobby.Audit;
+using Dobby.Contracts.BackgroundOperations;
+using Dobby.Core;
+using Dobby.Host.Login;
 using Dobby.Infrastructure.Persistence;
 using Dobby.Infrastructure.ProtectedStorage;
+using Dobby.Licensing;
+using Dobby.Security.Authorization;
 using Microsoft.Data.Sqlite;
+using NSubstitute;
 using Shouldly;
 using System.Security.Cryptography;
 
@@ -140,6 +149,108 @@ public sealed class HostPersistenceTests
         fixture.Executor.QueryScalar<int>(
             "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0007_prelogin_remembered_account';")
             .ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData("o***r", "owner", "masked surrogate value")]
+    [InlineData("owner", "someoneelse", "no reconciling user row")]
+    [InlineData("OWNER", "OWNER", "charset violation")]
+    [InlineData("ow", "ow", "below the minimum username length")]
+    public void Pre_login_migration_drops_a_legacy_slot_that_does_not_reconcile(
+        string legacyMaskedUsername,
+        string userUsername,
+        string reason)
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        fixture.Executor.Execute(
+            """
+            CREATE TABLE Users (
+                UserId TEXT PRIMARY KEY,
+                UsernameNormalized TEXT NOT NULL,
+                DisplayName TEXT,
+                IsOwner INTEGER NOT NULL CHECK (IsOwner IN (0,1)),
+                IsActive INTEGER NOT NULL CHECK (IsActive IN (0,1)),
+                CreatedAtUtc TEXT NOT NULL,
+                UpdatedAtUtc TEXT NOT NULL
+            );
+            CREATE TABLE RememberMeSlot (
+                SlotId TEXT PRIMARY KEY,
+                UserId TEXT,
+                MaskedUsername TEXT,
+                ProtectedRememberMeBlob BLOB,
+                ProtectionVersion TEXT,
+                CreatedAtUtc TEXT,
+                UpdatedAtUtc TEXT,
+                ExpiresAtUtc TEXT,
+                FOREIGN KEY (UserId) REFERENCES Users(UserId)
+            );
+            INSERT INTO Users(
+                UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc)
+            VALUES ('user-1', @UserUsername, 'Owner', 1, 1, @Now, @Now);
+            INSERT INTO RememberMeSlot(
+                SlotId, UserId, MaskedUsername, ProtectedRememberMeBlob, ProtectionVersion,
+                CreatedAtUtc, UpdatedAtUtc, ExpiresAtUtc)
+            VALUES ('single', 'user-1', @LegacyMaskedUsername, @LegacyBlob, 'dpapi-current-user-v2',
+                @Now, @Now, NULL);
+            """,
+            new
+            {
+                Now = now,
+                UserUsername = userUsername,
+                LegacyMaskedUsername = legacyMaskedUsername,
+                LegacyBlob = new byte[] { 1, 2, 3, 4 }
+            });
+
+        var migration = fixture.Migrator.ApplyPreLoginMigrations();
+
+        migration.IsSuccess.ShouldBeTrue(migration.IsSuccess ? null : migration.Error.Message);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RememberMeSlot;")
+            .ShouldBe(
+                0,
+                "docs/specs/storage-and-data-protection.md requires a legacy slot with " +
+                reason +
+                " to be dropped rather than carried forward: prefilling an unreconciled legacy " +
+                "value would legitimise a masked surrogate under the username-only schema (ADR-0058)");
+        fixture.Executor.Query<string>("SELECT name FROM pragma_table_info('RememberMeSlot') ORDER BY cid;")
+            .ShouldBe([
+                "SlotId",
+                "UserId",
+                "UsernameNormalized",
+                "Version",
+                "CreatedAtUtc",
+                "UpdatedAtUtc"
+            ]);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM StorageMetadata WHERE MigrationId = '0007_prelogin_remembered_account';")
+            .ShouldBe(1);
+    }
+
+    [Fact]
+    public void Migrated_slot_schema_refuses_to_store_a_masked_surrogate_shape()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        var migration = fixture.Migrator.ApplyPreLoginMigrations();
+        migration.IsSuccess.ShouldBeTrue(migration.IsSuccess ? null : migration.Error.Message);
+
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        fixture.Executor.Execute(
+            "INSERT INTO Users(UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc) VALUES ('user-1', 'owner', 'Owner', 1, 1, @Now, @Now);",
+            new { Now = now });
+
+        Should.Throw<SqliteException>(() => fixture.Executor.Execute(
+                "INSERT INTO RememberMeSlot(SlotId, UserId, UsernameNormalized, Version, CreatedAtUtc, UpdatedAtUtc) VALUES ('single', 'user-1', 'o***r', 'username-only-v1', @Now, @Now);",
+                new { Now = now }))
+            .Message.ShouldNotBeNullOrWhiteSpace(
+                "the rebuilt slot table constrains the stored username charset, so a masked " +
+                "surrogate cannot be written even by a caller that bypasses the slot writer");
+
+        Should.Throw<SqliteException>(() => fixture.Executor.Execute(
+                "INSERT INTO RememberMeSlot(SlotId, UserId, UsernameNormalized, Version, CreatedAtUtc, UpdatedAtUtc) VALUES ('single', 'user-1', 'owner', 'masked-v1', @Now, @Now);",
+                new { Now = now }))
+            .Message.ShouldNotBeNullOrWhiteSpace(
+                "the Version CHECK pins the slot to the username-only contract, so a row " +
+                "claiming an older masked shape is not storable");
     }
 
     [Fact]
@@ -691,6 +802,59 @@ public sealed class HostPersistenceTests
         fixture.Executor.QueryScalar<string>("PRAGMA integrity_check;").ShouldBe("ok");
     }
 
+    [Fact]
+    public async Task Coordinated_restore_keeps_its_own_audit_evidence_in_the_promoted_store()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        var auditTrail = new DurableAuditTrail(fixture.Executor);
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+        var snapshotPath = Path.Combine(fixture.Root, "backup", "host-backup-audited.db");
+        // The snapshot is taken before any maintenance audit row exists: if the promoted store simply
+        // replaced the audit log, the restore would erase the only evidence that it ever ran.
+        maintenance.CreateSupportSnapshot(
+            snapshotPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None).IsSuccess.ShouldBeTrue();
+        var grants = Substitute.For<IPermissionGrantReader>();
+        grants.LoadUserState("owner").Returns(Result.Success(
+            new UserPermissionState("owner", IsOwner: true, IsActive: true)));
+        var reporter = new CollectingBackgroundOperationReporter();
+        using var authenticated = new CancellationTokenSource();
+        var coordinator = new AuthenticatedPersistenceMaintenanceCoordinator(
+            maintenance,
+            new OperationAuthorizationPolicy(OperationTargetRegistry.CreateDefault(), grants),
+            reporter,
+            auditTrail,
+            TimeProvider.System,
+            authenticated.Token);
+
+        var restored = await coordinator.RestoreSnapshotAsync(
+            "owner",
+            snapshotPath,
+            confirmCurrentStoreQuarantine: true,
+            CorrelationId.New());
+
+        restored.IsSuccess.ShouldBeTrue(restored.IsSuccess ? null : restored.ErrorCode.ToString());
+        reporter.Statuses.ShouldBe(
+            [BackgroundOperationStatus.Running, BackgroundOperationStatus.Completed]);
+        var promoted = auditTrail.Snapshot()
+            .Where(item => item.EventName.StartsWith("persistence.restore", StringComparison.Ordinal))
+            .ToArray();
+        promoted.Select(item => item.EventName).ShouldBe(
+        [
+            AuditEventName.PersistenceRestoreRequested,
+            AuditEventName.PersistenceRestoreCompleted
+        ]);
+        promoted.ShouldAllBe(item => item.Result == AuditResult.Success);
+        promoted[0].Details!["candidateName"].ShouldBe("host-backup-audited.db");
+        promoted[1].Details!["quarantineName"].ShouldBe(
+            Path.GetFileName(restored.Value.QuarantinedPreviousStoreDirectory));
+        promoted.SelectMany(item => item.Details!.Values)
+            .ShouldAllBe(value => !value.Contains(fixture.Root, StringComparison.OrdinalIgnoreCase));
+        fixture.Executor.QueryScalar<string>("PRAGMA integrity_check;").ShouldBe("ok");
+    }
+
     [Theory]
     [InlineData(HostPersistenceRestoreFaultPoint.AfterCurrentStoreQuarantined)]
     [InlineData(HostPersistenceRestoreFaultPoint.AfterCandidatePromoted)]
@@ -816,6 +980,374 @@ public sealed class HostPersistenceTests
         File.Exists(oldest + ".metadata.json").ShouldBeFalse();
     }
 
+    [Fact]
+    public void Restore_cannot_re_arm_a_consumed_owner_recovery_nonce()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        var requestId = Guid.NewGuid().ToString("D");
+        var nonceHash = Convert.ToHexString(SHA256.HashData(RandomBytes(32))).ToLowerInvariant();
+        var issuedAt = DateTimeOffset.UtcNow;
+        fixture.Executor.Execute(
+            """
+            INSERT INTO RecoveryRequests(
+                RequestId, NonceHash, CustomerId, DeploymentId, DeviceId, RecoveryPublicKeyHash,
+                VendorKeyId, PayloadHash, IssuedAtUtc, ExpiresAtUtc, CreatedAtUtc)
+            VALUES (
+                @RequestId, @NonceHash, 'customer-1', 'deployment-1', 'device-1', @RecoveryPublicKeyHash,
+                'recovery-prod-2026-01', @PayloadHash, @IssuedAtUtc, @ExpiresAtUtc, @IssuedAtUtc);
+            """,
+            new
+            {
+                RequestId = requestId,
+                NonceHash = nonceHash,
+                RecoveryPublicKeyHash = Convert.ToHexString(SHA256.HashData(RandomBytes(32))).ToLowerInvariant(),
+                PayloadHash = Convert.ToHexString(SHA256.HashData(RandomBytes(32))).ToLowerInvariant(),
+                IssuedAtUtc = issuedAt.ToString("O"),
+                ExpiresAtUtc = issuedAt.AddHours(24).ToString("O")
+            });
+        var snapshotPath = Path.Combine(fixture.Root, "backup", "host-backup-recovery-nonce.db");
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+        maintenance.CreateSupportSnapshot(
+            snapshotPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None).IsSuccess.ShouldBeTrue();
+        var consumedAt = issuedAt.AddMinutes(5).ToString("O");
+        fixture.Executor.Execute(
+            "UPDATE RecoveryRequests SET ConsumedAtUtc = @ConsumedAtUtc, ResponseId = @ResponseId WHERE RequestId = @RequestId;",
+            new { ConsumedAtUtc = consumedAt, ResponseId = Guid.NewGuid().ToString("D"), RequestId = requestId });
+        fixture.Executor.Execute(
+            "INSERT INTO ConsumedRecoveryNonces(NonceHash, ConsumedAtUtc, RequestId) VALUES (@NonceHash, @ConsumedAtUtc, @RequestId);",
+            new { NonceHash = nonceHash, ConsumedAtUtc = consumedAt, RequestId = requestId });
+
+        var restored = maintenance.RestoreSupportSnapshot(snapshotPath, CancellationToken.None);
+
+        restored.IsSuccess.ShouldBeTrue(restored.IsSuccess ? null : restored.Error.Message);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM ConsumedRecoveryNonces WHERE NonceHash = @NonceHash;",
+            new { NonceHash = nonceHash })
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM RecoveryRequests WHERE RequestId = @RequestId AND ConsumedAtUtc IS NOT NULL AND ResponseId IS NOT NULL;",
+            new { RequestId = requestId })
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM RecoveryRequests WHERE ConsumedAtUtc IS NULL;")
+            .ShouldBe(0);
+    }
+
+    [Fact]
+    public void Restore_cannot_clear_or_shorten_an_active_login_throttle_penalty()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        var baseline = DateTimeOffset.UtcNow;
+        fixture.Executor.Execute(
+            """
+            INSERT INTO LoginThrottleBuckets(
+                BucketKey, BucketKind, FailedAttempts, WindowStartedAtUtc, ThrottledUntilUtc, UpdatedAtUtc, Version)
+            VALUES ('account:owner', 'account', 1, @WindowStartedAtUtc, NULL, @UpdatedAtUtc, 1);
+            """,
+            new { WindowStartedAtUtc = baseline.ToString("O"), UpdatedAtUtc = baseline.ToString("O") });
+        var snapshotPath = Path.Combine(fixture.Root, "backup", "host-backup-throttle.db");
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+        maintenance.CreateSupportSnapshot(
+            snapshotPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None).IsSuccess.ShouldBeTrue();
+        var penaltyUntil = baseline.AddMinutes(10).ToString("O");
+        fixture.Executor.Execute(
+            """
+            UPDATE LoginThrottleBuckets
+            SET FailedAttempts = 9, ThrottledUntilUtc = @ThrottledUntilUtc, UpdatedAtUtc = @UpdatedAtUtc, Version = 4
+            WHERE BucketKey = 'account:owner';
+            """,
+            new { ThrottledUntilUtc = penaltyUntil, UpdatedAtUtc = baseline.AddMinutes(1).ToString("O") });
+        fixture.Executor.Execute(
+            """
+            INSERT INTO LoginThrottleBuckets(
+                BucketKey, BucketKind, FailedAttempts, WindowStartedAtUtc, ThrottledUntilUtc, UpdatedAtUtc, Version)
+            VALUES ('device:global', 'device', 5, @WindowStartedAtUtc, @ThrottledUntilUtc, @UpdatedAtUtc, 2);
+            """,
+            new
+            {
+                WindowStartedAtUtc = baseline.AddMinutes(1).ToString("O"),
+                ThrottledUntilUtc = penaltyUntil,
+                UpdatedAtUtc = baseline.AddMinutes(1).ToString("O")
+            });
+
+        var restored = maintenance.RestoreSupportSnapshot(snapshotPath, CancellationToken.None);
+
+        restored.IsSuccess.ShouldBeTrue(restored.IsSuccess ? null : restored.Error.Message);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT FailedAttempts FROM LoginThrottleBuckets WHERE BucketKey = 'account:owner';")
+            .ShouldBe(9);
+        DateTimeOffset.Parse(
+                fixture.Executor.QueryScalar<string>(
+                    "SELECT ThrottledUntilUtc FROM LoginThrottleBuckets WHERE BucketKey = 'account:owner';"),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind)
+            .ShouldBe(DateTimeOffset.Parse(penaltyUntil, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind));
+        fixture.Executor.QueryScalar<int>(
+            "SELECT Version FROM LoginThrottleBuckets WHERE BucketKey = 'account:owner';")
+            .ShouldBeGreaterThanOrEqualTo(4);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM LoginThrottleBuckets WHERE BucketKey = 'device:global' AND ThrottledUntilUtc IS NOT NULL;")
+            .ShouldBe(1);
+    }
+
+    [Fact]
+    public void Restore_cannot_lower_an_accepted_license_revision_or_erase_import_attestations()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        fixture.Migrator.ApplyPostLoginMigrations(PostLoginPluginPersistenceMigrations.All)
+            .IsSuccess.ShouldBeTrue();
+        var importedAt = DateTimeOffset.UtcNow;
+        fixture.Executor.Execute(
+            """
+            INSERT INTO PluginLicenseState(
+                PluginId, CustomerId, DeploymentId, DeviceFingerprint, PackageFingerprint,
+                LicenseRevision, LifecycleState, ImportedAtUtc, RevisionSeriesId, KeyId, TrustedTimeHealth)
+            VALUES (
+                'sample.plugin', 'customer-1', 'deployment-1', 'device-fp', 'package-fp',
+                1, 'Active', @ImportedAtUtc, 'series-1', 'license-prod-2026-01', 'Healthy');
+            """,
+            new { ImportedAtUtc = importedAt.ToString("O") });
+        InsertLicenseAttestation(fixture, "attestation-snapshot", 1, importedAt);
+        var snapshotPath = Path.Combine(fixture.Root, "backup", "host-backup-license.db");
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+        maintenance.CreateSupportSnapshot(
+            snapshotPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None).IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            """
+            UPDATE PluginLicenseState
+            SET LicenseRevision = 2, ImportedAtUtc = @ImportedAtUtc
+            WHERE PluginId = 'sample.plugin' AND CustomerId = 'customer-1' AND DeploymentId = 'deployment-1';
+            """,
+            new { ImportedAtUtc = importedAt.AddMinutes(5).ToString("O") });
+        InsertLicenseAttestation(fixture, "attestation-current", 2, importedAt.AddMinutes(5));
+
+        var restored = maintenance.RestoreSupportSnapshot(snapshotPath, CancellationToken.None);
+
+        restored.IsSuccess.ShouldBeTrue(restored.IsSuccess ? null : restored.Error.Message);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT LicenseRevision FROM PluginLicenseState WHERE PluginId = 'sample.plugin' AND CustomerId = 'customer-1' AND DeploymentId = 'deployment-1';")
+            .ShouldBe(2);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM PluginLicenseImportAttestation WHERE AttestationId IN ('attestation-snapshot', 'attestation-current');")
+            .ShouldBe(2);
+    }
+
+    [Fact]
+    public void Restore_invalidates_every_session_the_promoted_candidate_believed_live()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        var now = DateTimeOffset.UtcNow;
+        fixture.Executor.Execute(
+            """
+            INSERT INTO Users(UserId, UsernameNormalized, DisplayName, IsOwner, IsActive, CreatedAtUtc, UpdatedAtUtc)
+            VALUES ('user-1', 'owner', 'Owner', 1, 1, @Now, @Now);
+            INSERT INTO Sessions(
+                SessionId, UserId, CreatedAtUtc, LastActivityAtUtc, ExpiresAtUtc,
+                InvalidatedAtUtc, InvalidationReason, SessionVersion)
+            VALUES ('session-1', 'user-1', @Now, @Now, @ExpiresAtUtc, NULL, NULL, 1);
+            """,
+            new { Now = now.ToString("O"), ExpiresAtUtc = now.AddHours(8).ToString("O") });
+        var snapshotPath = Path.Combine(fixture.Root, "backup", "host-backup-sessions.db");
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+        maintenance.CreateSupportSnapshot(
+            snapshotPath,
+            new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+            CancellationToken.None).IsSuccess.ShouldBeTrue();
+
+        var restored = maintenance.RestoreSupportSnapshot(snapshotPath, CancellationToken.None);
+
+        restored.IsSuccess.ShouldBeTrue(restored.IsSuccess ? null : restored.Error.Message);
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM Sessions WHERE InvalidatedAtUtc IS NULL;")
+            .ShouldBe(0);
+        fixture.Executor.QueryScalar<string>(
+            "SELECT InvalidationReason FROM Sessions WHERE SessionId = 'session-1';")
+            .ShouldBe("restore");
+    }
+
+    [Fact]
+    public void Restore_rejects_a_snapshot_bound_to_a_different_protected_device_identity()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "INSERT INTO HostConfiguration(ConfigKey, ConfigValue, ValueKind, ProtectionScope, Source, UpdatedAtUtc) VALUES ('restore.identity', 'snapshot', 'string', 'None', 'test', @UpdatedAtUtc);",
+            new { UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O") });
+        var snapshotPath = Path.Combine(fixture.Root, "backup", "host-backup-identity.db");
+        new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory)
+            .CreateSupportSnapshot(
+                snapshotPath,
+                new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+                CancellationToken.None).IsSuccess.ShouldBeTrue();
+        fixture.Executor.Execute(
+            "UPDATE HostConfiguration SET ConfigValue = 'current' WHERE ConfigKey = 'restore.identity';");
+        var foreignDevice = new StaticProtectedMaterialSource(
+            fixture.Material with { ProtectedStableDeviceIdBlob = RandomBytes(32) });
+        var maintenance = new HostPersistenceMaintenanceService(
+            fixture.Options,
+            foreignDevice,
+            fixture.Factory);
+
+        var restored = maintenance.RestoreSupportSnapshot(snapshotPath, CancellationToken.None);
+
+        restored.IsSuccess.ShouldBeFalse();
+        restored.Error.Code.ShouldBe(PersistenceError.IoFailed);
+        restored.Error.Message.ShouldNotContain(fixture.Root);
+        fixture.Executor.QueryScalar<string>(
+            "SELECT ConfigValue FROM HostConfiguration WHERE ConfigKey = 'restore.identity';")
+            .ShouldBe("current");
+        fixture.Executor.QueryScalar<string>("PRAGMA integrity_check;").ShouldBe("ok");
+        Directory.Exists(Path.Combine(fixture.Root, "backup", "restore-quarantine")).ShouldBeFalse();
+        Directory.EnumerateFiles(Path.Combine(fixture.Root, "data"), "*.partial").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Snapshot_destination_outside_the_approved_backup_boundary_is_rejected()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+        var policy = new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0);
+        var backupRoot = Path.Combine(fixture.Root, "backup");
+        string[] rejectedDestinations =
+        [
+            Path.Combine(fixture.Root, "escape.db"),
+            Path.Combine(backupRoot, "..", "escape-relative.db"),
+            Path.Combine(backupRoot, "snapshot.txt"),
+            fixture.DatabasePath,
+            Path.Combine(backupRoot, "restore-quarantine", "smuggled.db")
+        ];
+
+        foreach (var destination in rejectedDestinations)
+        {
+            var result = maintenance.CreateSupportSnapshot(destination, policy, CancellationToken.None);
+
+            result.IsSuccess.ShouldBeFalse(destination);
+            result.Error.Code.ShouldBe(PersistenceError.ConstraintViolation, destination);
+            result.Error.Message.ShouldNotContain(fixture.Root);
+        }
+
+        File.Exists(Path.Combine(fixture.Root, "escape.db")).ShouldBeFalse();
+        File.Exists(Path.Combine(fixture.Root, "escape-relative.db")).ShouldBeFalse();
+        Directory.Exists(Path.Combine(backupRoot, "restore-quarantine")).ShouldBeFalse();
+        fixture.Executor.QueryScalar<string>("PRAGMA integrity_check;").ShouldBe("ok");
+    }
+
+    [Fact]
+    public void Snapshot_destination_behind_a_reparse_point_directory_is_rejected()
+    {
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+        var backupRoot = Path.Combine(fixture.Root, "backup");
+        Directory.CreateDirectory(backupRoot);
+        var outsideTarget = Path.Combine(fixture.Root, "outside-target");
+        Directory.CreateDirectory(outsideTarget);
+        var junction = Path.Combine(backupRoot, "linked");
+        CreateDirectoryJunction(junction, outsideTarget);
+        (File.GetAttributes(junction) & FileAttributes.ReparsePoint).ShouldNotBe(default(FileAttributes));
+        var maintenance = new HostPersistenceMaintenanceService(fixture.Options, fixture.Probe, fixture.Factory);
+
+        PersistenceResult<HostPersistenceSnapshot> result;
+        try
+        {
+            result = maintenance.CreateSupportSnapshot(
+                Path.Combine(junction, "smuggled.db"),
+                new HostPersistenceBackupPolicy(MinimumFreeSpaceReserveBytes: 0),
+                CancellationToken.None);
+        }
+        finally
+        {
+            Directory.Delete(junction);
+        }
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.Code.ShouldBe(PersistenceError.IoFailed);
+        result.Error.Message.ShouldNotContain(fixture.Root);
+        Directory.EnumerateFiles(outsideTarget).ShouldBeEmpty();
+        fixture.Executor.QueryScalar<string>("PRAGMA integrity_check;").ShouldBe("ok");
+    }
+
+    private static void CreateDirectoryJunction(string linkPath, string targetPath)
+    {
+        using var process = Process.Start(new ProcessStartInfo("cmd.exe")
+        {
+            Arguments = $"/c mklink /J \"{linkPath}\" \"{targetPath}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        })!;
+        var error = process.StandardError.ReadToEnd();
+        process.StandardOutput.ReadToEnd();
+        process.WaitForExit(30_000).ShouldBeTrue();
+        process.ExitCode.ShouldBe(0, error);
+    }
+
+    private static void InsertLicenseAttestation(
+        HostPersistenceFixture fixture,
+        string attestationId,
+        int licenseRevision,
+        DateTimeOffset importedAt)
+    {
+        fixture.Executor.Execute(
+            """
+            INSERT INTO PluginLicenseImportAttestation(
+                AttestationId, SourceArtifactHash, LicenseRevision, ImportedAtUtc, Result, CorrelationId)
+            VALUES (@AttestationId, @SourceArtifactHash, @LicenseRevision, @ImportedAtUtc, 'succeeded', @CorrelationId);
+            """,
+            new
+            {
+                AttestationId = attestationId,
+                SourceArtifactHash = Convert.ToHexString(SHA256.HashData(RandomBytes(32))).ToLowerInvariant(),
+                LicenseRevision = licenseRevision,
+                ImportedAtUtc = importedAt.ToString("O"),
+                CorrelationId = Guid.NewGuid().ToString("D")
+            });
+    }
+
+    [Fact]
+    public void Persisted_device_discriminator_is_domain_separated_from_the_license_binding_digest()
+    {
+        // ADR-0063 § 3: `RedactedSupportPrefix` is an internal uniqueness discriminator
+        // derived with the `dobby-device-identity-discriminator-v1` domain over the
+        // protected stable device id. It is NOT the license binding digest and not a
+        // prefix of it -- license binding is a pure value comparison with no possession
+        // proof, so publishing any prefix of that digest would hand out an offline
+        // guessing shortcut against the comparison. This test pins the separation:
+        // knowing the stored discriminator must reveal nothing about the binding value
+        // derived from the very same stable device id.
+        using var fixture = HostPersistenceFixture.Create();
+        fixture.Migrator.ApplyPreLoginMigrations().IsSuccess.ShouldBeTrue();
+
+        var storedDiscriminator = fixture.Executor.QueryScalar<string>(
+            "SELECT RedactedSupportPrefix FROM DeviceIdentity WHERE IdentityId = 'DobbyStableDeviceId';");
+        storedDiscriminator.ShouldNotBeNull();
+        storedDiscriminator!.Length.ShouldBe(12);
+
+        // Derive the license binding digest over the same raw stable device id the
+        // migrator bound, exactly as production does.
+        var binding = LicenseDeviceFingerprintV1.Compute(
+            "machine-guid-under-test",
+            fixture.Material.StableDeviceId);
+        binding.IsSuccess.ShouldBeTrue();
+
+        // Domain separation: the discriminator is neither equal to, a prefix of, nor
+        // contained anywhere in the binding digest.
+        binding.Value.Value.ShouldNotStartWith(storedDiscriminator);
+        binding.Value.Value.ShouldNotContain(storedDiscriminator);
+        storedDiscriminator.ShouldNotBe(binding.Value.Value[..12]);
+    }
+
     private sealed class HostPersistenceFixture : IDisposable
     {
         private HostPersistenceFixture(string root)
@@ -859,6 +1391,36 @@ public sealed class HostPersistenceTests
             if (Directory.Exists(Root))
             {
                 Directory.Delete(Root, recursive: true);
+            }
+        }
+    }
+
+    private sealed class CollectingBackgroundOperationReporter : IBackgroundOperationReporter
+    {
+        private readonly List<BackgroundOperationStatus> statuses = [];
+
+        public IProgress<BackgroundOperationSnapshot> Progress => new CollectingProgress(statuses);
+
+        public IReadOnlyList<BackgroundOperationStatus> Statuses
+        {
+            get
+            {
+                lock (statuses)
+                {
+                    return statuses.ToArray();
+                }
+            }
+        }
+
+        private sealed class CollectingProgress(List<BackgroundOperationStatus> statuses)
+            : IProgress<BackgroundOperationSnapshot>
+        {
+            public void Report(BackgroundOperationSnapshot value)
+            {
+                lock (statuses)
+                {
+                    statuses.Add(value.Status);
+                }
             }
         }
     }

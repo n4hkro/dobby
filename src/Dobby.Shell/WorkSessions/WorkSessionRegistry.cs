@@ -2,6 +2,21 @@ namespace Dobby.Shell.WorkSessions;
 
 public sealed class WorkSessionRegistry
 {
+    /// <summary>Maximum concurrently open work sessions across all owners.</summary>
+    public const int MaximumSessions = 64;
+
+    /// <summary>Maximum concurrently open work sessions for a single owner (plugin or host area).</summary>
+    public const int MaximumSessionsPerOwner = 16;
+
+    /// <summary>Maximum length of any resource-key style argument (route, label, summary, state key).</summary>
+    public const int MaximumKeyLength = 256;
+
+    /// <summary>Maximum retained state entries per session, per bucket (input state, screen state).</summary>
+    public const int MaximumStateEntries = 64;
+
+    /// <summary>Maximum length of a retained state value.</summary>
+    public const int MaximumStateValueLength = 4096;
+
     private readonly Dictionary<Guid, WorkSession> _sessions = [];
 
     public WorkSession Open(string ownerId, string routeKey, string labelKey)
@@ -9,6 +24,30 @@ public sealed class WorkSessionRegistry
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
         ArgumentException.ThrowIfNullOrWhiteSpace(routeKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(labelKey);
+        RequireBoundedKey(ownerId, nameof(ownerId));
+        RequireBoundedKey(routeKey, nameof(routeKey));
+        RequireBoundedKey(labelKey, nameof(labelKey));
+
+        if (_sessions.Count >= MaximumSessions)
+        {
+            throw new InvalidOperationException(
+                $"Work session capacity of {MaximumSessions} sessions is exhausted.");
+        }
+
+        var ownerCount = 0;
+        foreach (var existing in _sessions.Values)
+        {
+            if (existing.OwnerId.Equals(ownerId, StringComparison.Ordinal))
+            {
+                ownerCount++;
+            }
+        }
+
+        if (ownerCount >= MaximumSessionsPerOwner)
+        {
+            throw new InvalidOperationException(
+                $"Owner work session capacity of {MaximumSessionsPerOwner} sessions is exhausted.");
+        }
 
         var session = new WorkSession(
             Guid.CreateVersion7(),
@@ -44,12 +83,14 @@ public sealed class WorkSessionRegistry
     public void RecordResult(Guid sessionId, string resultSummaryKey)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resultSummaryKey);
+        RequireBoundedKey(resultSummaryKey, nameof(resultSummaryKey));
         Update(sessionId, session => session with { ResultSummaryKey = resultSummaryKey });
     }
 
     public void RecordError(Guid sessionId, string errorSummaryKey)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(errorSummaryKey);
+        RequireBoundedKey(errorSummaryKey, nameof(errorSummaryKey));
         Update(sessionId, session => session with { ErrorSummaryKey = errorSummaryKey });
     }
 
@@ -57,6 +98,8 @@ public sealed class WorkSessionRegistry
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentNullException.ThrowIfNull(value);
+        RequireBoundedKey(key, nameof(key));
+        RequireBoundedStateValue(value);
 
         Update(sessionId, session => session with
         {
@@ -68,6 +111,8 @@ public sealed class WorkSessionRegistry
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentNullException.ThrowIfNull(value);
+        RequireBoundedKey(key, nameof(key));
+        RequireBoundedStateValue(value);
 
         Update(sessionId, session => session with
         {
@@ -103,11 +148,37 @@ public sealed class WorkSessionRegistry
         }
     }
 
+    private static void RequireBoundedKey(string value, string parameterName)
+    {
+        if (value.Length > MaximumKeyLength)
+        {
+            throw new ArgumentException(
+                $"Value exceeds the maximum key length of {MaximumKeyLength} characters.",
+                parameterName);
+        }
+    }
+
+    private static void RequireBoundedStateValue(string value)
+    {
+        if (value.Length > MaximumStateValueLength)
+        {
+            throw new ArgumentException(
+                $"State value exceeds the maximum length of {MaximumStateValueLength} characters.",
+                nameof(value));
+        }
+    }
+
     private static IReadOnlyDictionary<string, string> WithValue(
         IReadOnlyDictionary<string, string> source,
         string key,
         string value)
     {
+        if (!source.ContainsKey(key) && source.Count >= MaximumStateEntries)
+        {
+            throw new InvalidOperationException(
+                $"Work session state capacity of {MaximumStateEntries} entries is exhausted.");
+        }
+
         var copy = new Dictionary<string, string>(source, StringComparer.Ordinal)
         {
             [key] = value

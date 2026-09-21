@@ -50,6 +50,7 @@ public sealed class RecoveryResponseImportCoordinator(
                 AuditResult.Failed,
                 verified.Outcome,
                 envelope.Payload.RequestId,
+                envelope.Payload.Nonce,
                 CorrelationId.New());
             return verified.Result;
         }
@@ -66,6 +67,7 @@ public sealed class RecoveryResponseImportCoordinator(
                 AuditResult.Failed,
                 match.Outcome,
                 verified.Result.Value.Payload.RequestId,
+                verified.Result.Value.Payload.Nonce,
                 CorrelationId.New());
             return Result.Failure<RecoveryVerifiedChallenge>(ErrorCode.Forbidden);
         }
@@ -78,6 +80,7 @@ public sealed class RecoveryResponseImportCoordinator(
                 AuditResult.Failed,
                 "owner-missing",
                 verified.Result.Value.Payload.RequestId,
+                verified.Result.Value.Payload.Nonce,
                 CorrelationId.New());
             return Result.Failure<RecoveryVerifiedChallenge>(ErrorCode.Forbidden);
         }
@@ -101,6 +104,7 @@ public sealed class RecoveryResponseImportCoordinator(
                 AuditResult.Failed,
                 "expired",
                 challenge.Payload.RequestId,
+                challenge.Payload.Nonce,
                 correlationId);
             return Result.Failure(ErrorCode.Forbidden);
         }
@@ -187,6 +191,7 @@ public sealed class RecoveryResponseImportCoordinator(
                     AuditResult.Success,
                     "success",
                     challenge.Payload.RequestId,
+                    challenge.Payload.Nonce,
                     correlationId));
                 context.AppendAudit(new AuditEvent(
                     AuditEventName.SessionInvalidated,
@@ -226,6 +231,7 @@ public sealed class RecoveryResponseImportCoordinator(
             AuditResult.Failed,
             "cancelled",
             challenge.Payload.RequestId,
+            challenge.Payload.Nonce,
             correlationId);
         return Result.Failure(ErrorCode.Cancelled);
     }
@@ -318,11 +324,12 @@ public sealed class RecoveryResponseImportCoordinator(
         AuditResult result,
         string outcome,
         string requestId,
+        string nonce,
         CorrelationId correlationId)
     {
         auditTrail.AppendInScope(
             commands,
-            CreateRecoveryImportAudit(target, result, outcome, requestId, correlationId));
+            CreateRecoveryImportAudit(target, result, outcome, requestId, nonce, correlationId));
     }
 
     private AuditEvent CreateRecoveryImportAudit(
@@ -330,6 +337,7 @@ public sealed class RecoveryResponseImportCoordinator(
         AuditResult result,
         string outcome,
         string requestId,
+        string nonce,
         CorrelationId correlationId)
     {
         return new AuditEvent(
@@ -342,7 +350,8 @@ public sealed class RecoveryResponseImportCoordinator(
             new Dictionary<string, string>
             {
                 ["outcome"] = outcome,
-                ["requestId"] = requestId
+                ["requestId"] = requestId,
+                ["nonceHash"] = HashNonce(nonce)
             });
     }
 

@@ -22,6 +22,33 @@ Bu qovluqda status terminləri standard ADR keyword-ləri ilə yazılır:
 Yeni ADR yazılanda status mətni lokallaşdırılmır; sənədin qalan hissəsi isə
 Azərbaycanca yazılır.
 
+### Supersession header formatı
+
+Supersession iki istiqamətdə də **header block-da** qeyd olunur, yalnız body
+mətnində deyil:
+
+- Superseded ADR-in `Status` sətri successor-u adlandırır (`Superseded by ADR-NNNN`).
+  Ayrıca `**Superseded by:**` sətri əlavə izah (zəncir, qismən scope) üçün saxlanıla
+  bilər, amma `Status` sətrini əvəz etmir.
+- Successor ADR `**Supersedes:**` header sətrində əvəz etdiyi ADR-i adlandırır.
+- `**Supersedes:**` **yalnız tam supersession** üçündür: orada adlanan ADR-in
+  `Status`-u `Superseded` olmalıdır. Hələ `Accepted` qalan sənədi orada adlandırmaq
+  onu retired kimi elan edir və header oxuyan reader-i yanıldır.
+- Qismən amend üçün ayrıca `**Amends:**` sətri istifadə olunur: amend edilən ADR
+  `Accepted` qalır və toxunulmamış bölmələri üçün authority olaraq qalır. Hər iki
+  istiqamət yazılır — amend edilən ADR-in `Status` sətri də amend edəni adlandırır
+  (`Accepted (… amended by ADR-NNNN)`).
+- `**Clarifies:**` sətri qərar dəyişmədən mövcud ADR-in bir bölməsinin dəqiq
+  mənasını sahiblənən sənədi göstərir (məsələn derivation detalı). Bu da iki
+  istiqamətlidir: clarify edilən ADR `**Clarified by:**` sətri daşıyır, əks halda
+  normativ detal onu tələb edən sənəddən əlçatmaz qalır.
+
+Səbəb: audit və tooling ADR-in vəziyyətini ilk növbədə `Status` sətrindən oxuyur.
+Bare `Superseded` status (successor yalnız aşağıdakı sətirdə) status-scan edən
+oxucuya "successor yoxdur" kimi görünür — yəni supersession zəncirinin qırıldığı
+kimi. Bu format `docs/adr/README.md § Supersession Index` cədvəli ilə birlikdə
+enforce olunur, və `tests/Dobby.IntegrationTests/Architecture/AdrSupersessionConsistencyTests.cs` bu shape-i pozan header-i fail edir (`NFR-027` çərçivəsində: shape guard-dır, davranış sübutu deyil).
+
 ### Canonical sənədlərdə status terminoloji xəritəsi
 
 Dobby canonical sənədlərində fərqli status sözləri eyni dövrə mərhələsini göstərə bilər. Aşağıdakı xəritə qarışıqlığın qarşısını alır:
@@ -33,7 +60,7 @@ Dobby canonical sənədlərində fərqli status sözləri eyni dövrə mərhəl�
 | `Superseded` | köhnəlmiş bölmə explicit işarə edilir | köhnə row `Superseded` ADR-ə istinad etmir | — |
 | `Deprecated` | out-of-scope sətrinə köçür | row mövcud qalır, amma `planned` deyil | `later` və ya silinmiş |
 
-`phase` sütunu (`P1-core / P1-if-time / P2 / later`) status-dan ayrı ölçüdür və `docs/02_ARCHITECTURE_MAP.md § Legend / Taxonomy / Phase` bölməsində tərif olunur.
+`phase` sütunu (`P1-core / P1-if-time / P2 / P3 / later`) status-dan ayrı ölçüdür; qapalı vocabulary və keçid meyarları `docs/02_ARCHITECTURE_MAP.md § Legend / Taxonomy / Phase` bölməsində tərif olunur. Branch Shared rollout tier-ləri (`documentation tier`, `Tier A`, `Tier B`) bu ox deyil (`ADR-0056`).
 
 `ADR-0000-template.md` template-only sənəddir. Onun `Proposed` status nümunəsi
 məhsul qərarı kimi oxunmur və current implementation direction yaratmır.
@@ -139,6 +166,76 @@ preserving unaffected parts of the earlier ADRs.
 | `ADR-0059-plugin-trust-package-and-ui-contract-v2.md` | Accepted | Trusted in-process plugin posture, bounded package validation, signature/key profiles, host API compatibility and declarative plugin UI |
 | `ADR-0060-license-lifecycle-and-import-v3.md` | Accepted | Signed grant/revocation intent, derived runtime lifecycle, atomic import/LKG rules and dedicated BranchSetup authorization |
 | `ADR-0061-login-first-runtime-and-atomic-mutation-boundary.md` | Accepted | Strict pre-auth runtime boundary, atomic state/audit mutation contract, asynchronous UI work and behavior-first verification |
+| `ADR-0062-signing-key-custody-and-trust-anchor-provisioning.md` | Accepted | Purpose-separated vendor key hierarchy, private key custody, version-controlled public trust anchors, `keyId` selector, bounded rotation rings and per-purpose compromise response (supersedes `ADR-0033`) |
+| `ADR-0063-device-license-binding-derivation.md` | Accepted | Canonical versioned license device binding digest, derivation versioning tied to artifact schema version, digest-only vendor input and non-disclosing mismatch semantics (clarifies `ADR-0060`, `ADR-0058`) |
+
+## Supersession Index
+
+Bu cədvəl hər superseded və ya qismən amend edilmiş ADR üçün **current authority**-ni
+göstərir. Məqsəd: superseded ADR-in mətnini oxuyan işçi (və ya audit) hansı sənədin
+indi qərar sahibi olduğunu axtarmadan bilsin. Superseded ADR yeni iş üçün authority
+kimi istinad edilmir; onun body-si yalnız historical context-dir.
+
+| Superseded / amended ADR | Status sətri | Current authority |
+|---|---|---|
+| `ADR-0026-license-lifecycle.md` | Superseded by ADR-0051 (chain: ADR-0051 superseded by ADR-0060) | `ADR-0060` (via `ADR-0051`); plugin-facing runtime mode `ADR-0053` |
+| `ADR-0033-signing-key-ownership.md` | Superseded by ADR-0062 | `ADR-0062` — purpose-separated keys, `keyId` selector, anchor provisioning |
+| `ADR-0035-tenant-customer-context-scope.md` | Superseded by ADR-0052 | `ADR-0052` |
+| `ADR-0039-owner-password-recovery.md` | Superseded by ADR-0058 | `ADR-0058` (recovery binding, nonce/request consumption), `ADR-0062` (recovery response signing key), `ADR-0063` (device binding derivation) |
+| `ADR-0051-license-lifecycle-v2.md` | Superseded by ADR-0060 | `ADR-0060` + `docs/schemas/license-v3-lifecycle-truth-table.md`; key identity `ADR-0062` |
+| `ADR-0006`, `ADR-0021`, `ADR-0049` | Accepted (partial) | page/lifecycle minimum portions → `ADR-0059` |
+| `ADR-0007`, `ADR-0011`, `ADR-0012` | Accepted (partial) | trust/security-boundary claims → `ADR-0059` |
+| `ADR-0008` | Accepted (partial) | pre-auth construction/I-O → `ADR-0061`; lifecycle hooks → `ADR-0059`; license → `ADR-0060` |
+| `ADR-0019`, `ADR-0041` | Accepted (partial) | atomicity / runtime boundary → `ADR-0061` |
+| `ADR-0023` | Accepted | recovery artefakt binding və purpose key → `ADR-0058`, `ADR-0062` (generation ownership dəyişmir) |
+| `ADR-0031` | Accepted | Owner recovery session/nonce invalidation → `ADR-0058` |
+| `ADR-0032` | Accepted (partial) | trust anchor identity, key purpose separation, rotation → `ADR-0062`; signature-format profile və plugin trust UI/status ownership → `ADR-0059` § `Signatures, fingerprint, and keys` |
+| `ADR-0036`, `ADR-0037` | Accepted (partial) | package limits, `hostApiVersion`, lifecycle → `ADR-0059` |
+| `ADR-0038` | Accepted (partial) | credential storage və throttle → `ADR-0058` |
+| `ADR-0040` | Accepted (partial) | recovery proof material → `ADR-0058`; license device binding → `ADR-0063` (artifact authority `ADR-0060`) |
+| `ADR-0055` | Accepted (partial) | remembered-login, device recovery key pair, throttle ledger scope → `ADR-0058`; trust anchor material → `ADR-0062` |
+| `ADR-0057` | Accepted (partial) | credential və BranchSetup proof → `ADR-0058`, `ADR-0060` |
+
+Qayda: superseded ADR-in **qərar body-si** rewrite edilmir və oraya yeni normativ
+sətir əlavə edilmir; qərar dəyişirsə successor ADR yazılır. Header-ə bitişik,
+sərhədləri bəlli routing note-u (oxucunu cari authority-yə yönəldən) istisnadır və
+body qərarını dəyişmir.
+
+Qismən amend olunan Accepted ADR üçün iki şərt **birlikdə** məcburidir:
+
+1. düzəliş dated bölmə ilə açıq göstərilir — `## Revision History` (üstünlük verilən,
+   repo-da hakim forma) və ya dated `## … Amendment`; ikisi eyni öhdəliyi daşıyır və
+   hansının seçilməsi sərbəstdir;
+2. `Status` sətri bunu qeyd edir (`Accepted (… — see ## Revision History)`), çünki
+   audit və tooling ilk növbədə `Status`-u oxuyur. Bare `Accepted` status oxucuya
+   "mətn son review-dan bəri dəyişməyib" siqnalı verir.
+
+Nə düzəlişdir, nə successor tələb edir: mövcud və enforce olunan davranışı dəqiq
+ifadə etmək düzəlişdir; yeni öhdəlik əlavə etmək və ya mövcud öhdəliyi ləğv etmək
+successor ADR tələb edir. Şübhə halında successor yazılır.
+
+## Audit Classification Vocabulary
+
+Traceability və audit nəticələri **yalnız** bu state-lərlə işarələnir. Vocabulary
+əvvəllər `docs/00_DOCUMENT_AUTHORITY_AND_AUDIT_BASELINE.md`-də yaşayırdı; o fayl
+`a8a5914` ilə retire edildikdə tərif repo-da heç yerdə qalmadı, ona görə burada
+bərpa olunur (governance mətninin canonical yeri `README.md` § `Authority Order`
+tərəfindən bu fayla yönəldilir).
+
+| State | Mənası |
+|---|---|
+| `Implemented` | Runtime davranış mövcuddur və mənalı verification var. |
+| `Implemented-Weak` | Əsas davranış var, lakin material design, resilience, security, usability və ya proof zəifliyi daşıyır. |
+| `Partial` | Tələb olunan end-to-end davranışın yalnız bir hissəsi mövcuddur. |
+| `Incorrect` | İmplementasiya controlling requirement-ə zidddir və ya correctness/security defekti var. |
+| `Unimplemented` | Production implementasiyası yoxdur. |
+| `Deferred-by-design` | Qəsdən cari release scope-undan kənardır. |
+| `Evidence-only` | Sənəd, static scan, fixture və ya artifact mətni var, kifayət qədər runtime sübut yoxdur. |
+
+`Evidence-only` `NFR-027` / `ADR-0061` sərhədinin adıdır: source-text, regex,
+file-existence və dependency-graph assertion-ı yalnız yoxladığı mətni sübut edir,
+runtime davranış, təhlükəsizlik və ya release readiness sübutu deyil. Bir tələbin
+yeganə dayağı belə bir test isə onun state-i `Implemented` deyil, `Evidence-only`-dir.
 
 ## Resolved Human Decision Index
 

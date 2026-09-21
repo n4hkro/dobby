@@ -352,6 +352,65 @@ public sealed class PackageGovernanceTests
         row.Status.ShouldBe("APPROVED");
     }
 
+    [Fact]
+    public void Every_pinned_package_appears_in_the_documented_phase_1_dependency_list()
+    {
+        // docs/03 calls its table the *complete* ("Tam") Phase 1 dependency list, so a pin that
+        // never reaches it makes that document actively misleading about the supply chain --
+        // exactly the surface a reviewer consults to decide what ships. This drifted twice:
+        // `SQLitePCLRaw.provider.dynamic_cdecl` (which bootstraps the production native SQLite
+        // provider) and `System.Management` were pinned and referenced while absent from the
+        // list.
+        //
+        // NFR-027 / ADR-0061 boundary: this is a documentation-shape assertion over two
+        // manifests. It proves no runtime behavior and closes no release gate; package approval
+        // evidence still lives in toolchain-pin-gate.md.
+        var root = RepoRoot();
+        var documented = File.ReadAllText(Path.Combine(
+            root.FullName,
+            "docs",
+            "03_TECH_STACK_AND_VERSIONS.md"));
+
+        var undocumented = PackageVersions(root)
+            .Where(packageId => !documented.Contains($"`{packageId}`", StringComparison.Ordinal))
+            .OrderBy(packageId => packageId, StringComparer.Ordinal)
+            .ToArray();
+
+        undocumented.ShouldBeEmpty(
+            "every `Directory.Packages.props` pin must appear in docs/03; the dependency list " +
+            "is documented as complete, so an unlisted pin is a supply-chain documentation gap");
+    }
+
+    [Fact]
+    public void Documented_pin_gate_states_actual_approval_status_not_a_prospective_stop_condition()
+    {
+        // docs/03's pin gate was written before any pin was approved and still read as
+        // "no pin list has been supplied yet". By 2026-08 four approval waves had landed
+        // (`toolchain-pin-gate.md` § `Resolved Stop Conditions`), so the prospective wording
+        // invited the inverse-and-more-dangerous misreading: that the mere existence of
+        // `Directory.Packages.props` is approval evidence. The gate's own rule says those
+        // entries are "current repository state, not approval evidence by themselves", and 22
+        // of 39 pins still carry no approval row at all.
+        //
+        // NFR-027 / ADR-0061 boundary: documentation-shape only. This proves no package is
+        // actually approved -- approval lives in toolchain-pin-gate.md -- it only pins that
+        // docs/03 keeps disclosing which pins lack an approval row.
+        var documented = File.ReadAllText(Path.Combine(
+            RepoRoot().FullName,
+            "docs",
+            "03_TECH_STACK_AND_VERSIONS.md"));
+
+        documented.Contains("APPROVAL ROW YOXDUR", StringComparison.Ordinal)
+            .ShouldBeTrue(
+                "docs/03 must keep naming the pins that carry no approval row; dropping the " +
+                "disclosure would let an unapproved supply chain read as approved");
+
+        documented.Contains("Human-approved pin list gələnə qədər", StringComparison.Ordinal)
+            .ShouldBeFalse(
+                "the pin gate must not revert to the prospective 'until a pin list arrives' " +
+                "framing: approvals have landed, and that wording hides which ones have not");
+    }
+
     private static bool IsRejected(string packageId, HashSet<string> rejectedPackages)
     {
         var rejectedPackagePrefixes = new[]

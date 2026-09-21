@@ -115,7 +115,7 @@ UI-local dispatch, notification taxonomy və focus/render behavior
 
 - Plugin package install zamanı `Dobby.PluginFramework / Plugin Packaging` namespace-i plugin assembly-nin Dobby runtime implementation project-lərinə və başqa plugin assembly-lərinə direct reference saxlamadığını yoxlayır.
 - Plugin activation zamanı `Dobby.Security / Plugin Capability Boundary` (`ADR-0012`) plugin-in görə biləcəyi host API surface-ni məhdudlaşdırır.
-- Plugin-to-plugin direct invocation runtime-da qarşısı `Dobby.Security / Plugin Isolation / Sandbox` enforcement-i ilə alınır (`ADR-0011`).
+- Plugin-to-plugin direct invocation `Dobby.Security / Plugin Trust / Policy Enforcement` (`ADR-0011`, `ADR-0059`) design və authorization sərhədi ilə qadağandır: package/dependency validation direct reference-i install zamanı reject edir və capability boundary runtime-da host API surface-ni məhdudlaşdırır. Bu sərhəd fully trusted in-process kod üçün containment zəmanəti kimi təqdim edilmir; hostile-code isolation iddiası yoxdur.
 
 ### 5. Nümunə axın
 
@@ -141,8 +141,9 @@ UI-local dispatch, notification taxonomy və focus/render behavior
 
 - `docs/02_ARCHITECTURE_MAP.md` — Engineering Conventions `Plugin-to-Plugin Əlaqə`, `Event Visibility`, `Messaging UI Bridge`, Cədvəl 3 communication/event risk sətrləri
 - `docs/adr/ADR-0001-contracts-dependency-boundary.md` — Contracts surface stability
-- ADR-0007 — load context isolation
-- `docs/adr/ADR-0011-plugin-sandbox-enforcement-principle.md` — runtime enforcement boundary
+- `docs/adr/ADR-0007-plugin-load-context-strategy.md` — load context isolation
+- `docs/adr/ADR-0011-plugin-trust-and-policy-enforcement-principle.md` — trust and policy enforcement boundary (not hostile-code containment)
 - `docs/adr/ADR-0012-plugin-capability-boundary.md` — capability-based host API surface
 - `docs/adr/ADR-0036-plugin-manifest-schema.md` — `capabilities` və `extensionPoints` schema
+- `docs/adr/ADR-0059-plugin-trust-package-and-ui-contract-v2.md` — current trust posture and declarative host-rendered plugin UI contract
 - `docs/specs/shell-ui.md` — UI-local notification, dispatcher/render və shell feedback behavior

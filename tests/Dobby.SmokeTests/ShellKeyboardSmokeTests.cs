@@ -34,7 +34,7 @@ public sealed class ShellKeyboardSmokeTests
         shell.ToggleSidebarCollapsed();
         shell.Layout.Preference.SidebarCollapsed.ShouldBeTrue();
 
-        shell.SetActivePluginPage(new PluginTextPageModel("plugin.page.ready"));
+        shell.SetActivePluginPage(DeclarativePluginPage());
         shell.ActivePluginPageModel.ShouldNotBeNull();
 
         shell.ProfileMenuItems.Select(item => item.Key).ShouldContain("logout");
@@ -100,7 +100,7 @@ public sealed class ShellKeyboardSmokeTests
         RunOnSta(() =>
         {
             var shell = new ShellViewModel(HostStringCatalog.CreateResourceBacked(), SnapshotContributions());
-            shell.SetActivePluginPage(new PluginTextPageModel("plugin.page.ready"));
+            shell.SetActivePluginPage(DeclarativePluginPage());
             shell.SetSettingsAndAbout(
                 [],
                 [new Dobby.Shell.Layout.ShellAboutField("device-code", "Cihaz kodu", "ABCD-EFGH")]);
@@ -239,6 +239,35 @@ public sealed class ShellKeyboardSmokeTests
                 reset.Close();
             }
         });
+    }
+
+    private static PluginComponentPageModel DeclarativePluginPage()
+    {
+        var entries = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["plugin.page.title"] = "Declarative plugin page",
+            ["plugin.page.failure"] = "Declarative plugin command failed",
+            ["plugin.page.cancelled"] = "Declarative plugin command cancelled",
+            ["plugin.page.body"] = "Declarative plugin page body"
+        };
+
+        return new PluginComponentPageModel(
+            new PluginPageCommandContext(
+                "com.dobby.sample",
+                "plugin.sample.analytics.daily",
+                null,
+                Guid.Empty.ToString()),
+            new PluginLocalizedText("plugin.page.title"),
+            new PluginLocalizedText("plugin.page.failure"),
+            new PluginLocalizedText("plugin.page.cancelled"),
+            new PluginLocalizationCatalog(
+                "az-Latn-AZ",
+                [
+                    new PluginLocalizationBundle("az-Latn-AZ", entries),
+                    new PluginLocalizationBundle("en-US", entries)
+                ]),
+            [new PluginTextComponent("body", new PluginLocalizedText("plugin.page.body"))],
+            []);
     }
 
     private static IReadOnlyList<NavigationContribution> SnapshotContributions()

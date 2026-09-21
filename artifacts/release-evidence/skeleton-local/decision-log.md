@@ -399,14 +399,14 @@ Out of scope:
 - Does not create or approve a CI workflow.
 
 Required before Sprint 11 release-ready closure:
-- OPEN: HD-S11-001 evidence must prove approved GA-candidate public PEM/hash/custodian, source/embedded/custody hash equality, Sprint 8 bootstrap hash negative control, Production trust profile, redacted Admin report/transcript hash chain, and published Host import result. Private material must remain outside repo and evidence.
+- OPEN: HD-S11-001 evidence must prove approved GA-candidate public PEM/hash/custodian for each purpose-separated anchor, source/embedded hash equality, an independently supplied custody hash equal to the committed anchor (see D-40), Sprint 8 bootstrap hash negative control, Production trust profile, redacted Admin report/transcript hash chain, and published Host import result. Private material must remain outside repo and evidence.
 - OPEN: HD-S11-002 closure remains blocked until an ADR-0042-compliant baseline machine/profile is named and N=100 cold, warm, and login-to-shell evidence is collected.
 - OPEN: HD-S11-003 release-ready closure remains blocked until MSIX identity/signing/versioning/tooling evidence and install/uninstall/upgrade/data-preservation evidence are produced. Self-signed certificate evidence is RC mechanics evidence only unless release authority separately accepts it for GA/customer signing.
 - OPEN: HD-S11-004 closure requires release evidence under `artifacts/release-evidence/local-rc-<UTC>-<shortsha>/` or another release-owner-approved build id.
 - OPEN: HD-S11-005 closure requires scripted local build/test/static-scan/smoke/hash evidence and manifest wording `repository CI ownership is absent; equivalent local release gate human-approved`; it must not say `CI passed`.
 
 Decision ledger:
-- D-35 / `HD-S11-001`: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES - Production vendor key and recovery handover may proceed through approved GA-candidate public PEM/hash/custodian evidence. The required evidence is source `vendor-master-public-key.pem` hash, published `Dobby.Security.dll` embedded-resource hash, custody/handover public-key hash, equality across all three hashes, Sprint 8 bootstrap hash mismatch as a negative control, `DobbyPluginTrustProfile=Production`, absence of DevQa/bootstrap/TEST-ONLY recovery material, redacted Admin report/transcript hashes, and published Host import result. Production private key material, signing channel identifiers/configuration values, secret phrases, private-key filesystem locations, raw private material, raw or canonical recovery payloads, exception call-stack details, raw Admin transcripts, and full local secret-bearing paths remain forbidden in repo/source/tests/evidence.
+- D-35 / `HD-S11-001`: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES; EVIDENCE DEFINITION SUPERSEDED IN PART BY D-40 (2026-08-26) - Production vendor key and recovery handover may proceed through approved GA-candidate public PEM/hash/custodian evidence. The required evidence is source `vendor-master-public-key.pem` hash, published `Dobby.Security.dll` embedded-resource hash, custody/handover public-key hash, equality across all three hashes, Sprint 8 bootstrap hash mismatch as a negative control, `DobbyPluginTrustProfile=Production`, absence of DevQa/bootstrap/TEST-ONLY recovery material, redacted Admin report/transcript hashes, and published Host import result. Production private key material, signing channel identifiers/configuration values, secret phrases, private-key filesystem locations, raw private material, raw or canonical recovery payloads, exception call-stack details, raw Admin transcripts, and full local secret-bearing paths remain forbidden in repo/source/tests/evidence.
 - D-36 / `HD-S11-002`: POLICY PATH ACCEPTED ONLY; CLOSURE BLOCKED - Current local machine is disqualified for release baseline. AC-014/AC-051 closure remains blocked until an ADR-0042-compliant baseline machine/profile is named and N=100 evidence is collected. Current local machine evidence is baseline disqualification evidence only: `i5-1135G7 @ 2.40GHz`, `4C/8T`, approximately `8.3GB RAM`; it fails the 16GB RAM minimum and, under strict reading, the 2.5GHz base-clock threshold. Informational measurements on this machine do not close AC-014/AC-051.
 - D-37 / `HD-S11-003`: MSIX-PRIMARY RC MECHANICS ACCEPTED ONLY - MSIX remains the primary Sprint 11 installer path for RC mechanics evidence. Self-signed certificate evidence may support RC installer mechanics only; it does not imply GA/customer production signing readiness unless release authority separately accepts that. MSI fallback remains ADR-0047 fallback only and is not produced/tested unless MSIX is blocked and fallback is explicitly approved.
 - D-38 / `HD-S11-004`: APPROVED - If no CI build identifier exists, use `local-rc-<UTC>-<shortsha>` as the release evidence build id under `artifacts/release-evidence/<build-id>/`. `skeleton-local` is not release-candidate evidence.
@@ -452,3 +452,49 @@ Task 5 authority stance for `D-37` / `HD-S11-003`:
 - Versioning stance requires `vN+1` to monotonically increase under the approved MSIX package version policy and share the same RC identity/family as `vN`.
 - Deterministic install/upgrade evidence requires a snapshot-based clean VM/profile.
 - MSI fallback remains dormant unless MSIX is blocked and fallback is separately approved.
+
+### Sprint 11 HD-S11-001 Evidence Definition Addendum 2026-08-26
+
+Designated approver: release/security authority for this decision, recorded in this
+thread.
+
+Patch note: AI-assisted release-authority patch; recorded during the repository-wide
+documentation audit that found the 2026-07-07 local RC evidence presenting a
+self-produced custody hash as a closed custody gate.
+
+- D-40 / `HD-S11-001`: EVIDENCE DEFINITION CORRECTED; GATE STAYS OPEN - D-35 keeps
+  its approved path, but two clauses of its evidence definition are replaced because
+  they were unsatisfiable-as-written and simultaneously closable by a vacuous check.
+
+Replaced clause 1 - anchor identity. D-35 named a single source
+`vendor-master-public-key.pem` hash. That anchor model is retired by `ADR-0062`
+(supersedes `ADR-0033`), and no such file may exist. The required source hashes are
+the three purpose-separated production anchors: `vendor-plugin-package-public-key.pem`,
+`vendor-plugin-license-public-key.pem` and `vendor-recovery-public-key.pem`. Each
+must be evidenced separately, and no two purposes may share a hash.
+
+Replaced clause 2 - custody independence. D-35 required "equality across all three
+hashes" without requiring the custody hash to originate outside this repository. A
+custody value produced by the same local run that produced the source and embedded
+anchors matches by construction and proves nothing, so the equality was reported as
+PASS while no custodian existed. Custody equality now closes only when all of the
+following hold:
+
+- the custody public SHA-256 is supplied by the release-authority custodian through a
+  channel independent of this repository and of the local RC run;
+- the evidence names the authorized custodian rather than a local agent placeholder;
+- the evidence records signing-key provenance explicitly and distinguishes
+  locally generated GA-candidate material from authorized production custody material;
+- until all of the above hold, the evidence must state
+  `Independent custody equality: NOT PROVEN` and must not state
+  `Source/embedded/custody equality: PASS`.
+
+Standing consequence. The three committed `vendor-*` production anchors are
+locally generated GA-candidate placeholders, disclosed as such in
+`src/Dobby.Host/Trust/README.md`, and must be replaced with the approved production
+public PEMs before GA. Source/embedded anchor equality against the current build,
+the retired-bootstrap negative control and a published-Host recovery import are
+RC-mechanics evidence only; none of them closes `HD-S11-001`.
+
+Out of scope: does not approve any production private key material, custodian identity,
+or certificate issuance, and does not weaken any `D-35` redaction prohibition.

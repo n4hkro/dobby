@@ -13,14 +13,14 @@ public sealed class LicenseCanonicalJsonWriterTests
             """
             {
               "pluginId": "sample",
-              "keyVersion": 1,
+              "licenseRevision": 1,
               "customerId": "default"
             }
             """);
 
         var json = Encoding.UTF8.GetString(LicenseCanonicalJsonWriter.Write(document.RootElement));
 
-        json.ShouldBe("{\"customerId\":\"default\",\"keyVersion\":1,\"pluginId\":\"sample\"}");
+        json.ShouldBe("{\"customerId\":\"default\",\"licenseRevision\":1,\"pluginId\":\"sample\"}");
     }
 
     [Fact]
@@ -74,13 +74,13 @@ public sealed class LicenseCanonicalJsonWriterTests
     [Fact]
     public void Write_returns_utf8_without_bom()
     {
-        using var document = JsonDocument.Parse("""{"keyVersion":1}""");
+        using var document = JsonDocument.Parse("""{"licenseRevision":1}""");
 
         var bytes = LicenseCanonicalJsonWriter.Write(document.RootElement);
 
         bytes.AsSpan(0, Encoding.UTF8.GetPreamble().Length)
             .SequenceEqual(Encoding.UTF8.GetPreamble())
             .ShouldBeFalse();
-        Encoding.UTF8.GetString(bytes).ShouldBe("{\"keyVersion\":1}");
+        Encoding.UTF8.GetString(bytes).ShouldBe("{\"licenseRevision\":1}");
     }
 }

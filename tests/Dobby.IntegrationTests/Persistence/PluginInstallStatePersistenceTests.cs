@@ -535,7 +535,12 @@ public sealed class PluginInstallStatePersistenceTests
             [new PluginOperationTarget("com.dobby.sample.greet", ["execute"], "sample.greet.label")],
             [new PluginExtensionPoint("sample.home", "plugin-page-region", "sample.home", "sample.home.label", null, "default", 100)],
             [new PluginPackageFile("content/hello.txt", fileHash)],
-            new PluginPackageSignature("ECDSA-P256-SHA256", 1, "AQ"));
+            new PluginPackageSignature(
+                "dobby.plugin-package",
+                "ECDSA-P256-SHA256",
+                "IeeeP1363FixedFieldConcatenation",
+                "plugin-prod-2026-01",
+                "AQ"));
         var fingerprint = PluginPackageFingerprint.Compute(manifest);
         var manifestJson =
             "{\"schemaVersion\":2,\"purpose\":\"dobby.plugin-package\",\"pluginId\":\"com.dobby.sample\",\"version\":\"" + version + "\",\"vendorId\":\"dobby.vendor\",\"hostApiVersion\":\"2.0\",\"minHostVersion\":\"1.0.0\",\"entryAssembly\":\"bin/plugins/com.dobby.sample.dll\",\"displayName\":\"Sample Plugin\",\"description\":\"Sample plugin description\",\"dependsOn\":[],\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}],\"operationTargets\":[{\"id\":\"com.dobby.sample.greet\",\"verbs\":[\"execute\"],\"labelKey\":\"sample.greet.label\"}],\"extensionPoints\":[{\"id\":\"sample.home\",\"target\":\"plugin-page-region\",\"routeKey\":\"sample.home\",\"labelKey\":\"sample.home.label\",\"group\":\"default\",\"weight\":100}],\"files\":[{\"path\":\"content/hello.txt\",\"sha256\":\"" +

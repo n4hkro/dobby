@@ -1,6 +1,6 @@
 # ADR-0031: Session Lifecycle and Refresh
 
-**Status:** Accepted
+**Status:** Accepted (decision unchanged; remembered-login material amended by `ADR-0058`, and the § Logout remember-me sentence corrected 2026-08-31 — see ## Revision History)
 **Date:** 2026-04-22
 
 ## Context
@@ -53,8 +53,14 @@ ekranına qaytarır. Cleanup minimumu:
 - active work session varsa user-ə warning göstərilir və təsdiqdən sonra həmin
   session-lar controlled close/cancel edilir.
 
-Logout və auto-lock remember-me persistent slot-unu silmir. Saved credential yalnız
-növbəti uğurlu login zamanı remember-me OFF seçildikdə persistent olaraq boşaldılır (`ADR-0038`).
+Logout və auto-lock remembered-login slot-unu silmir, çünki slot yalnız normalize olunmuş
+username və non-secret slot identifier saxlayır: onun qalması credential saxlamaq deyil.
+Password, reversible credential, password-equivalent verifier və ya bunların masked
+surrogate-i heç vaxt persist edilmir, ona görə logout-un silə biləcəyi saved credential
+mövcud deyil (`ADR-0058` § `Remembered login`; observable qaydalar
+`docs/specs/session-lifecycle.md` § `Remembered Login Qarşılıqlı Təsiri`). Slot növbəti
+uğurlu login zamanı remember-me OFF seçildikdə, həmçinin account silinəndə/deaktiv
+ediləndə təmizlənir.
 
 Manual lock və auto-lock eyni lock screen-i istifadə edir. Lock screen current
 session context-i saxlayır, amma interaction-u password unlock və ya logout ilə
@@ -91,7 +97,7 @@ controlling hardening qaydaları tətbiq olunur:
 User Management daxilində başqa managed user üçün password reset recovery flow deyil.
 Həmin user-in mövcud active session-ı varsa invalid edilir. `Owner` password
 recovery isə Owner session materialını və recovery nonce state-ini ayrıca
-invalid/rebind edir (`ADR-0039`).
+invalid/rebind edir (`ADR-0058`).
 
 ## Consequences
 
@@ -99,8 +105,8 @@ invalid/rebind edir (`ADR-0039`).
 - Auth/session implementation Phase 1-də daha kiçik və sabit qalır
 - Logout və lock ayrı concern-lərdir: logout session cleanup edir, lock isə current
   session-u qoruyub unlock/logout seçimləri göstərir
-- Remember-me authenticated session deyil və logout/auto-lock tərəfindən persistent
-  clear edilmir
+- Remember-me authenticated session deyil, secret saxlamır və logout/auto-lock tərəfindən
+  silinmir; persistent clear yalnız remember-me OFF ilə login və ya account removal ilə olur
 - Refresh və long-lived session davranışı lazım olarsa ayrıca sonrakı qərar kimi
   açılır, bu sənəd implicit genişlənmir
 
@@ -111,5 +117,20 @@ invalid/rebind edir (`ADR-0039`).
 - `docs/02_ARCHITECTURE_MAP.md` — `Session Lifecycle Minimumu` convention
 - `docs/adr/ADR-0030-host-persistence-and-plugin-storage-boundary.md` — session scope-un Phase 1-dən kənarda qalması
 - `docs/adr/ADR-0038-local-first-authentication.md` — remember-me və login throttle auth rahatlığı
+- `docs/adr/ADR-0058-credential-and-recovery-hardening-v2.md` — § `Remembered login`: remembered-login slot-un secret saxlamaması (bu ADR-in remember-me mətnini amend edir)
 - `docs/adr/ADR-0050-in-memory-work-sessions.md` — logout zamanı active work session warning/cleanup boundary
 - `docs/specs/session-lifecycle.md` — logout, lock, auto-lock və password change observable flow-ları
+
+## Revision History
+
+- **2026-08-31:** Remembered-login mətni `ADR-0058` § `Remembered login` ilə uyğunlaşdırıldı;
+  session lifecycle qərarı dəyişmir. § Logout əvvəl "Saved credential yalnız növbəti uğurlu
+  login zamanı remember-me OFF seçildikdə persistent olaraq boşaldılır" deyirdi -- `ADR-0058`
+  isə heç bir saved credential-in persist edilmədiyini qərara alıb, ona görə həmin cümlə
+  mövcud olmayan material üçün silinmə qaydası təsvir edirdi. Sənəd özü ilə də ziddiyyətdə
+  idi: § `Password change semantics` artıq "remembered-login slot password saxlamır" düzgün
+  qaydasını daşıyırdı, yəni amendment bir bölməyə tətbiq olunub, logout bölməsində
+  buraxılmışdı. Yeni öhdəlik əlavə edilmir və ləğv edilmir: enforce olunan davranış
+  (`docs/specs/session-lifecycle.md` § `Remembered Login Qarşılıqlı Təsiri`) dəqiq ifadə
+  olunur, buna görə bu düzəlişdir, successor ADR deyil (`docs/adr/README.md`
+  § `Amendment vs successor`). Reverse edge `ADR-0058` `**Amends:**` header-ində qeyd olunub.

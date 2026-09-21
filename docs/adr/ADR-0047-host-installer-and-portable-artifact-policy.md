@@ -36,6 +36,7 @@ Branch Shared customer-release packaging is Tier B. `HD-005` is resolved by
 Tier B customer-release work explicitly chooses and evidences a bundled
 PostgreSQL packaging model.
 
-The current Mərhələ 1 document pass does not create BranchSetup installer
+The current Branch Shared documentation tier (pre-Tier A, `ADR-0056`) pass does
+not create BranchSetup installer
 artifacts, PostgreSQL binaries, firewall scripts, service setup scripts or live
 database smoke tests.

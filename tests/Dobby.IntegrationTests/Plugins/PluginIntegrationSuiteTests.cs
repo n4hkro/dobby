@@ -226,6 +226,17 @@ public sealed class PluginIntegrationSuiteTests
         workSessions.Events.ShouldContain("progress:50");
         workSessions.Events.ShouldContain("result:sample.work-session.completed");
         workSessions.Events.ShouldContain("close");
+
+        workSessions.UpdateProgressFailure = ErrorCode.ResourceBusy;
+        var deniedWorkSession = await commandDispatcher.DispatchAsync(
+            CommandRequest(pageModel, "sample.work-session"),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+        workSessions.UpdateProgressFailure = null;
+        deniedWorkSession.IsSuccess.ShouldBeFalse();
+        deniedWorkSession.ErrorCode.ShouldBe(ErrorCode.ResourceBusy);
+        workSessions.Events.ShouldContain($"progress-denied:{ErrorCode.ResourceBusy}");
+        workSessions.Events.Count(@event => @event == "close").ShouldBe(2);
         reporter.Snapshots.ShouldContain(snapshot =>
             snapshot.OwnerKind == BackgroundOperationOwnerKind.Plugin &&
             snapshot.OwnerId == SamplePluginPackageFixture.PluginId &&
@@ -345,6 +356,8 @@ public sealed class PluginIntegrationSuiteTests
 
         public List<string> Events { get; } = [];
 
+        public ErrorCode? UpdateProgressFailure { get; set; }
+
         public Result<PluginWorkSessionHandle> Open(string ownerId, string routeKey, string labelKey)
         {
             currentSessionId = Guid.NewGuid();
@@ -355,6 +368,12 @@ public sealed class PluginIntegrationSuiteTests
         public Result UpdateProgress(Guid sessionId, int percent)
         {
             sessionId.ShouldBe(currentSessionId);
+            if (UpdateProgressFailure is { } failure)
+            {
+                Events.Add($"progress-denied:{failure}");
+                return Result.Failure(failure);
+            }
+
             Events.Add($"progress:{percent}");
             return Result.Success();
         }

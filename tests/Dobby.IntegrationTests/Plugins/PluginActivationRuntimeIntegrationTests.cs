@@ -157,6 +157,41 @@ public sealed class PluginActivationRuntimeIntegrationTests
         metadata["standalone"].StatusSummary.ShouldBe("Rejected - License denied");
     }
 
+    // ADR-0009 §3 and §6: a below-minimum dependency version must reach the manager UI as an
+    // actionable non-disclosing summary, and the activation skip must cascade transitively so no
+    // plugin runs with an unsatisfied `dependsOn` chain.
+    [Fact]
+    public async Task Host_activation_reports_version_skip_summary_and_cascades_skips_transitively()
+    {
+        using var packages = new RuntimePackageWorkspace();
+        packages.Add("core", ModulePayload.InvalidAssembly);
+        packages.Add("mid", ModulePayload.SampleAssembly, [new PluginDependencySpec("core")]);
+        packages.Add("leaf", ModulePayload.SampleAssembly, [new PluginDependencySpec("mid")]);
+        packages.Add("version-consumer", ModulePayload.SampleAssembly, [new PluginDependencySpec("core", "9.0.0")]);
+        var stateStore = new InMemoryInstalledPluginStateStore(packages.States);
+        var metadataCache = new InMemoryInstalledPluginMetadataCache(packages.States);
+        await using var coordinator = CreateCoordinator(
+            stateStore.Snapshot().Value,
+            stateStore: stateStore,
+            metadataCache: metadataCache,
+            activationStatusPersistence: new InMemoryActivationStatusPersistence(stateStore, metadataCache));
+
+        var activation = await coordinator.BeginPostLoginActivation(new HostVersion(1, 0, 0), "owner");
+
+        activation.IsSuccess.ShouldBeTrue(activation.IsSuccess ? null : activation.ErrorCode.ToString());
+        var outcomes = activation.Value.Run.Outcomes.ToDictionary(outcome => outcome.PluginId, StringComparer.Ordinal);
+        outcomes["core"].Status.ShouldBe(PluginActivationStatus.Faulted);
+        outcomes["mid"].Reason.ShouldBe("dependency-activation-failed: core");
+        outcomes["leaf"].Status.ShouldBe(PluginActivationStatus.Skipped);
+        outcomes["leaf"].Reason.ShouldBe("dependency-activation-failed: mid");
+        outcomes["version-consumer"].Reason.ShouldBe("dependency-version-below-min: core:1.0.0:9.0.0");
+        activation.Value.Run.ActivatedPluginIds.ShouldBeEmpty();
+
+        var persistedStates = stateStore.Snapshot().Value.ToDictionary(item => item.PluginId, StringComparer.Ordinal);
+        persistedStates["leaf"].StatusSummary.ShouldBe("Skipped - Dependency activation failed");
+        persistedStates["version-consumer"].StatusSummary.ShouldBe("Skipped - Dependency version too low");
+    }
+
     private static HostPluginRuntimeCoordinator CreateCoordinator(
         IReadOnlyList<InstalledPluginState> states,
         OperationTargetRegistry? operationTargetRegistry = null,

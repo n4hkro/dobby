@@ -801,9 +801,17 @@ public static class AdminCommandHost
 
     private static string? ReadDeviceFingerprint(string path)
     {
+        // Digest-only input by design: the vendor side never accepts raw MachineGuid or raw
+        // stable device id material, because raw protected device material must not leave the
+        // customer device (ADR-0058 support identity, ADR-0063 section 3).
         using var document = JsonDocument.Parse(File.ReadAllText(path));
         var root = document.RootElement;
         if (root.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (root.TryGetProperty("machineGuid", out _) || root.TryGetProperty("stableDeviceIdHex", out _))
         {
             return null;
         }
@@ -815,25 +823,7 @@ public static class AdminCommandHost
             return direct.GetString();
         }
 
-        if (!root.TryGetProperty("machineGuid", out var machineGuidElement) ||
-            machineGuidElement.ValueKind != JsonValueKind.String ||
-            !root.TryGetProperty("stableDeviceIdHex", out var stableDeviceIdElement) ||
-            stableDeviceIdElement.ValueKind != JsonValueKind.String)
-        {
-            return null;
-        }
-
-        var stableDeviceIdHex = stableDeviceIdElement.GetString() ?? string.Empty;
-        if (stableDeviceIdHex.Length == 0 || stableDeviceIdHex.Length % 2 != 0 || stableDeviceIdHex.Any(character => !Uri.IsHexDigit(character)))
-        {
-            return null;
-        }
-
-        var computed = LicenseDeviceFingerprintV1.Compute(
-            machineGuidElement.GetString() ?? string.Empty,
-            Convert.FromHexString(stableDeviceIdHex));
-
-        return computed.IsSuccess ? computed.Value.Value : null;
+        return null;
     }
 
     private static string? ReadPluginId(string packagePath)

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Dobby.Core;
 using Dobby.Licensing;
 using Dobby.Security.CurrentContext;
 using Dobby.Security.Trust;
@@ -104,7 +105,7 @@ public sealed class LicenseImportIntegrationTests
         var runtimeProvider = new LicenseRuntimeModeProvider(
             stateStore,
             contextService,
-            () => new string('a', 64),
+            () => Result.Success(new string('a', 64)),
             new FakeTimeProvider(DateTimeOffset.Parse("2026-06-18T00:00:00Z")));
         var mode = runtimeProvider.GetCurrentMode("plugin.sample", new string('b', 64));
 
@@ -150,7 +151,7 @@ public sealed class LicenseImportIntegrationTests
         return new LicenseImportRequest(
             "license.dobbylicense",
             artifact,
-            () => new string('a', 64),
+            () => Result.Success(new string('a', 64)),
             _ => new string('b', 64),
             PermissionGranted: true,
             "corr-integration",

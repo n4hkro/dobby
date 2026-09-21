@@ -3,6 +3,7 @@
   "$id": "https://dobby.local/schemas/branchshared.schema.json",
   "$comment": "branchshared.json is non-secret topology/identity material only. Future schema evolution must not add password, token, private key, connection string or credential-bearing fields without an ADR/spec amendment.",
   "title": "Dobby Branch Shared connection profile",
+  "description": "Shape of branchshared.json, the non-secret Branch Shared topology/identity profile. Branch Shared runtime is deferred, so a valid file here enables design review only and never authorizes a Standalone runtime connection. Validity is a shape guarantee, not authorization.",
   "type": "object",
   "additionalProperties": false,
   "required": ["mode", "connectionProfile"],
@@ -27,7 +28,8 @@
       "properties": {
         "profileVersion": {
           "type": "integer",
-          "minimum": 1
+          "const": 1,
+          "$comment": "Pinned rather than open-ended. The previous \"minimum\": 1 accepted any future integer, so a profileVersion this shape does not describe validated as conforming and a reviewer could not tell which version the schema documents. Every other Dobby schema states its own version with a const; this was the sole exception. branchshared.json is unsigned local configuration and has no row in docs/schemas/artifact-compatibility-matrix.md, which governs signed versioned artifact families -- that matrix is not authority here, only the same no-silent-fallback principle. Rejection semantics and the widening obligation are stated by the owning spec, docs/specs/storage-and-data-protection.md. Branch Shared runtime is deferred, so no reader and no committed instance exists and this pin invalidates nothing; admitting a version 2 is an ADR/spec amendment that must also state how a version-1 profile migrates."
         },
         "host": {
           "type": "string",
@@ -65,7 +67,9 @@
         },
         "branchDeploymentId": {
           "type": "string",
-          "format": "uuid"
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "$comment": "format is annotation-only in JSON Schema 2020-12, so the lowercase canonical UUID pattern carries the fail-closed assertion."
         },
         "serverIdentityPinMaterial": {
           "type": "string",
@@ -75,16 +79,19 @@
         "deviceProfileRef": {
           "type": "string",
           "minLength": 1,
+          "maxLength": 256,
           "description": "Non-secret live reference to the Branch Shared device profile or registration record. This is distinct from audit localDeviceRef snapshot semantics."
         },
         "runtimeCredentialRef": {
           "type": "string",
           "minLength": 1,
+          "maxLength": 256,
           "description": "Protected-storage reference to the runtime dobby_app credential. The credential value is not stored in this JSON file."
         },
         "setupCredentialRef": {
           "type": "string",
           "minLength": 1,
+          "maxLength": 256,
           "description": "Optional protected-storage reference visible only to setup-authorized BranchSetup context, never normal Dobby.Host runtime."
         },
         "displayName": {

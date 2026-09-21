@@ -80,8 +80,14 @@ public sealed class LicenseImportService
             return Cancelled();
         }
 
+        // A non-derivable current digest and a mismatching one are one typed reject with
+        // one reason code: `ADR-0063` § 4 requires the mismatch outcome to be
+        // non-disclosing, so this surface must not let a caller distinguish "wrong device"
+        // from "this device's hardware signal is unreadable". Both leave last-known-good
+        // state untouched, because this returns before any state write below.
         var currentDeviceFingerprint = request.CurrentDeviceFingerprintProvider();
-        if (!LicenseDeviceFingerprintV1.Matches(currentDeviceFingerprint, payload.DeviceKeyHash))
+        if (!currentDeviceFingerprint.IsSuccess ||
+            !LicenseDeviceFingerprintV1.Matches(currentDeviceFingerprint.Value, payload.DeviceKeyHash))
         {
             return LicenseImportResult.Failure(LicenseRejectReasons.BindingMismatch, "device-binding-mismatch");
         }

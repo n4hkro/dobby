@@ -220,7 +220,12 @@ public sealed class RemainingProductWorkAuthorityTests
             [],
             [],
             [new PluginPackageFile("content/readme.txt", fileHash)],
-            new PluginPackageSignature("ECDSA-P256-SHA256", 1, "AQ"));
+            new PluginPackageSignature(
+                "dobby.plugin-package",
+                "ECDSA-P256-SHA256",
+                "IeeeP1363FixedFieldConcatenation",
+                "plugin-prod-2026-01",
+                "AQ"));
         var fingerprint = PluginPackageFingerprint.Compute(manifest);
         var manifestJson =
             "{\"schemaVersion\":2,\"purpose\":\"dobby.plugin-package\",\"pluginId\":\"com.dobby.authority\",\"version\":\"1.0.0\",\"vendorId\":\"dobby.vendor\",\"hostApiVersion\":\"2.0\",\"minHostVersion\":\"1.0.0\",\"entryAssembly\":\"bin/plugins/com.dobby.authority.dll\",\"displayName\":\"Authority Guardrail\",\"description\":\"Authority guardrail package\",\"dependsOn\":[],\"capabilities\":[{\"name\":\"plugin-page\",\"scope\":\"plugin-page\"}],\"operationTargets\":[],\"extensionPoints\":[],\"files\":[{\"path\":\"content/readme.txt\",\"sha256\":\"" +

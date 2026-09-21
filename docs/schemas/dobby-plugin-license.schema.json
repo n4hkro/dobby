@@ -86,7 +86,7 @@
         "keyVersion": {
           "type": "integer",
           "const": 1,
-          "description": "Phase 1 key version is numeric 1. Future signing-key rotation requires an ADR-0033 amendment before this const can change."
+          "description": "Legacy numeric keyVersion selector, frozen at 1 for compatibility reading only. This const is never widened for rotation: the canonical selector is the keyId string governed by ADR-0062 section 4, and new artifacts, schemas and code do not emit keyVersion."
         }
       }
     },
@@ -106,7 +106,7 @@
         "keyVersion": {
           "type": "integer",
           "const": 1,
-          "description": "Phase 1 key version is numeric 1. Future signing-key rotation requires an ADR-0033 amendment before this const can change."
+          "description": "Legacy numeric keyVersion selector, frozen at 1 for compatibility reading only. This const is never widened for rotation: the canonical selector is the keyId string governed by ADR-0062 section 4, and new artifacts, schemas and code do not emit keyVersion."
         },
         "value": {
           "type": "string",

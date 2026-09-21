@@ -4,7 +4,7 @@
 **Status:** P1 canonical spec
 **Scope:** Shell visual layout, navigation surfaces, profile menu, bottom status/progress, notification taxonomy, theme/localization baseline və accessibility minimumu
 
-Bu spec `FR-005`, `FR-010`, `FR-013`, `FR-019`, `AC-003`, `AC-016`, `AC-017`, `AC-023`, `AC-027`, `NFR-010`, `NFR-013`, `NFR-019`, `ADR-0005`, `ADR-0010`, `ADR-0013`, `ADR-0028` və `ADR-0049` üçün icra dilini saxlayır.
+Bu spec `FR-005`, `FR-010`, `FR-013`, `FR-019`, `AC-003`, `AC-016`, `AC-017`, `AC-023`, `AC-027`, `NFR-010`, `NFR-013`, `NFR-019`, `ADR-0005`, `ADR-0010`, `ADR-0013`, `ADR-0028`, `ADR-0049` və `ADR-0059` üçün icra dilini saxlayır. Plugin UI/page rendering contract-ı üçün controlling decision `ADR-0059`-dur; `ADR-0049` navigation contribution ierarxiyası üçün qalır və onun minimum page/lifecycle hissələri `ADR-0059` ilə əvəz olunub.
 
 ## 1. Visual Reference
 
@@ -22,7 +22,7 @@ state, plugin visibility, navigation behavior, permission behavior,
 measurements, token values və release requirements üçün ADR/spec mətnləri
 üstündür.
 
-Theme variantları həmin eyni dizaynı istifadə edir və yalnız color/brush token-lərini dəyişir. Light theme approved shell direction-ın rəng ailəsini saxlayır; dark theme `docs/specs/design-system-assets.md` içindəki Solarized Dark token mapping-i istifadə edir. Gələcək theme-lər də eyni token adlarını doldurmalı və layout/control variant yaratmamalıdır.
+Theme variantları həmin eyni dizaynı istifadə edir və yalnız color/brush token-lərini dəyişir. Light theme approved shell direction-ın rəng ailəsini saxlayır; dark theme `docs/specs/design-system-assets.md` § 9.1 canonical `Dobby.Brush.*` token inventory-sinin dark dəyərlərini (Solarized Dark base/accent tonlarından törədilmiş) istifadə edir. Gələcək theme-lər də eyni token key set-ini tam doldurmalı və layout/control variant yaratmamalıdır. Accessibility state-ləri (reduced motion, high contrast) theme deyil: onlar həmin shared token-ların üzərinə host tərəfindən tətbiq olunur (`docs/specs/design-system-assets.md` § 7, § 7a).
 
 ## 2. Shell Layout
 
@@ -98,14 +98,36 @@ Persisted və ya contributed navigation route resolve edilə, authorization-dan 
 
 Plugin navigation icon-ları üçün render surface host-controlled qalır. Broken/missing plugin icon default fallback icon-a düşür; canonical icon asset qaydası `docs/specs/plugins-manager.md` içindədir.
 
-Plugin page rendering contract `ADR-0049` tərəfindən idarə olunur:
-`IPluginPage` / `IPluginPageModel` host-owned rendering surface-dir. Shell
-plugin WPF controls, host implementation types or arbitrary plugin UI objects
-render etmir; plugin page region yalnız official page/extension contract
-vasitəsilə compose olunur. Plugin manifest yalnız navigation/route metadata
-daşıyır; shell host-owned page render registry-si ilə approved
-`IPluginPageModel` contract type-larını host views-lara map edir və manifest
-schema-ya `viewKey` əlavə edilmir.
+Plugin page rendering contract-ının controlling decision-u `ADR-0059`-dur;
+`ADR-0049` navigation contribution ierarxiyasını saxlayır, lakin onun minimum
+page/lifecycle hissələri `ADR-0059` ilə əvəz olunub və shell burada `ADR-0049`
+mətnini current page-contract authority kimi oxumur.
+
+Plugin öz UI-nı versioned declarative component tree ilə (localized text, form
+field, validation, command, table, list, status/progress, layout primitive)
+təsvir edir. Shell:
+
+- plugin WPF control-larını, host implementation type-larını və ya arbitrary
+  plugin UI obyektlərini render etmir;
+- plugin-dən qaytarılan WPF tipini və ya view model-ə embed edilmiş delegate-i
+  qəbul etmir;
+- action-ları id ilə render edir və dispatch-i async host command boundary-sinə
+  (cancellation, authorization, license mode, timeout, correlation, result
+  mapping) ötürür;
+- unsupported component tipini və ya unsupported declarative schema version-unu
+  page activation-dan **əvvəl** reject edir və safe localized fallback göstərir;
+- localized text-i plugin resource provider (plugin id/culture/key) ilə həll edir
+  və resource key-i user-facing text kimi render etmir;
+- declarative component tree və localization catalog daşımayan page model-i
+  renderable saymır: host onu unsupported kimi rejects edir və plugin page
+  region-unda host-owned localized fallback mesajı göstərir. Raw resource key,
+  model `ToString()` nəticəsi və ya plugin-supplied diagnostic text bu fallback-də
+  görünmür.
+
+Plugin manifest yalnız navigation/route metadata daşıyır; manifest schema-ya
+`viewKey` və ya host view type adı əlavə edilmir. Declarative component/schema
+version inventory-si və reject davranışı `docs/specs/plugins-manager.md`
+§ `Runtime və Main Content Hosting` ilə eyni normativ mənbədən gəlir.
 
 ## Responsive navigation details
 
@@ -191,7 +213,7 @@ Per-user saxlanılan shell state:
 - window size/position
 - last active module
 
-Last active module startup restore üçün istifadə olunmur. App açıldıqdan və login success-dən sonra shell Home-dan başlayır.
+Last active module startup restore üçün istifadə olunmur. App açıldıqdan və login success-dən sonra shell Home-dan başlayır. Persisted dəyər startup navigation-a heç bir səthdən (deep link, resume, crash recovery, favorites default) input kimi verilmir: startup route-u həmişə Home-dur, çünki stale və ya artıq authorized olmayan route authorization state qurulmadan açıla bilməz (`Favorites and route preference repair`).
 
 Favorites ayrıca navigation/personalization modelidir; adi layout state kimi qarışdırılmır.
 
@@ -228,10 +250,16 @@ Full WCAG və screen reader polish P3 scope-una saxlanılır.
 
 P1 shell shortcut-ları:
 
-- `Ctrl+1`, `Ctrl+2`, `Ctrl+3` əsas TopToolbar target-ləri arasında keçid edir;
+- `Ctrl+1` Home-a, `Ctrl+2` Plugins-ə, `Ctrl+3` Settings-ə keçir; bu üç core navigation target-i responsive overflow-da gizlədilmədiyi üçün shortcut-lar həmişə mövcuddur və dynamic plugin entry-lərinə numeric shortcut verilmir;
 - `Esc` modal, flyout və transient UI state-ləri bağlayır, protected operation-u silent cancel etmir;
 - `Enter` focused primary action-u icra edir;
 - `Tab` və `Shift+Tab` visible focus order boyunca hərəkət edir.
+
+Modal və flyout focus davranışı P1 accessibility minimumunun bir hissəsidir:
+
+- modal açıldıqda focus modal-ın içinə keçir və `Tab`/`Shift+Tab` modal bağlanana qədər modal daxilində dövr edir; çıxış yolu həmişə `Esc` və ya explicit cancel/confirm action-ıdır;
+- modal və ya flyout bağlandıqda focus onu açan control-a qaytarılır;
+- modal açıq olduğu müddətdə arxa fondakı səth keyboard focus almır.
 
 Lock screen UI outcome-ları `docs/specs/session-lifecycle.md` içində bağlanır; shell həmin outcome-ları typed error, failed-attempt countdown və logout-vs-unlock action ayrımı ilə render edir.
 
@@ -244,8 +272,13 @@ Minimum verification:
 - static scan hardcoded visible UI string-ləri tutmalıdır;
 - static scan shell-level hardcoded color/spacing/font dəyərlərini tutmalıdır;
 - keyboard-only smoke test Home, Plugins, Settings, Sidebar collapse, theme switch və profile menu workflow-larını yoxlayır.
+- keyboard-only test modal açılanda focus-un modal daxilinə keçdiyini, modal bağlananda triggering control-a qayıtdığını və `Ctrl+1`/`Ctrl+2`/`Ctrl+3`-ün Home/Plugins/Settings target-lərinə uyğun gəldiyini yoxlayır;
+- runtime test startup navigation-ın persisted `last active module` dəyərindən asılı olmadığını və login-dən sonra həmişə Home-dan başladığını göstərir;
+- plugin page contract testi unsupported declarative component/schema version-unun page activation-dan əvvəl reject olunduğunu və WPF tipi/delegate qaytaran plugin cəhdinin qəbul edilmədiyini runtime davranışı ilə göstərir (static scan bunu qapatmır — `NFR-027`);
+- runtime test declarative tree/localization catalog daşımayan page model-in host-owned localized fallback ilə əvəz olunduğunu və raw resource key-in rendered surface-də görünmədiyini göstərir;
 - shell snapshot minimum `1024×680` və baseline `1920×1080` resolution-larında 100% DPI altında yoxlanılır;
-- 125% və 150% DPI manual smoke test baseline `1920×1080` resolution-da shell layout-un overlap/kəsilmə yaratmadığını yoxlayır.
+- 125% və 150% DPI manual smoke test baseline `1920×1080` resolution-da shell layout-un overlap/kəsilmə yaratmadığını yoxlayır;
+- theme/accessibility verification `docs/specs/design-system-assets.md` § 11 obligation-larına tabedir: token key symmetry, hesablanmış contrast baseline, reduced-motion və high-contrast substitution behavioral çağırışla yoxlanılır; token faylında string mövcudluğunu yoxlayan source-text scan bu tələbi qapatmır (`NFR-027`).
 
 ## Cross-references
 
@@ -256,11 +289,13 @@ Minimum verification:
 - `docs/adr/ADR-0010-plugin-communication-policy.md`
 - `docs/adr/ADR-0028-shell-composition-ordering-render.md`
 - `docs/adr/ADR-0049-hierarchical-navigation-contribution-model.md`
+- `docs/adr/ADR-0059-plugin-trust-package-and-ui-contract-v2.md` — plugin declarative UI/page contract authority
 - `docs/adr/ADR-0050-in-memory-work-sessions.md`
 - `docs/specs/work-sessions.md`
 - `docs/adr/ADR-0043-initial-ui-culture-and-fallback-chain.md`
 - `docs/adr/ADR-0044-localization-resource-organization.md`
 - `docs/adr/ADR-0046-ui-and-code-terminology-mapping.md`
+- `docs/specs/design-system-assets.md` — typography/spacing/radius/motion/color token və shell measurement authority
 
 ## Branch Shared Shell Status Addendum
 
@@ -272,3 +307,26 @@ The shell may render local diagnostics/setup evidence status, but it must not
 claim unsent DeviceLocal evidence is authoritative Branch Shared audit. Any
 Branch Shared setup/admin surface belongs to future BranchSetup flow, not normal
 authenticated shell navigation by default.
+
+## Revision History
+
+- **2026-08-27:** Theme/accessibility propagation. Dark theme istinadı
+  `design-system-assets.md` § 9.1 canonical `Dobby.Brush.*` token inventory-sinə
+  bağlandı (əvvəlki `Solarized Dark token mapping` ifadəsi repository-də consume
+  olunmayan `Color.*` cədvəlinə işarə edirdi), reduced motion/high contrast-ın theme
+  deyil, shared token üzərində host-applied accessibility state olduğu explicit
+  yazıldı, § 9-a token/accessibility verification obligation sətri əlavə olundu və
+  cross-references-ə `docs/specs/design-system-assets.md` daxil edildi.
+- **2026-08-27:** Plugin page contract authority `ADR-0049`-dan `ADR-0059`-a
+  keçirildi. Əvvəlki mətn `IPluginPage`/`IPluginPageModel` host view mapping-ini
+  current model kimi təsvir edirdi; `ADR-0059` versioned declarative component
+  tree, id ilə action dispatch, unsupported component/schema version-un
+  activation-dan əvvəl reject olunması və resource key-in render olunmaması
+  qaydalarını tələb edir. Sources sətrinə və cross-references-ə `ADR-0059`
+  əlavə olundu. `Ctrl+1..3` shortcut-ları konkret target-lərə bağlandı, modal/flyout
+  focus davranışı accessibility minimumuna yazıldı, persisted `last active module`
+  dəyərinin startup navigation-a input olmaması explicit edildi və uyğun runtime
+  verification maddələri əlavə edildi. Declarative tree/localization catalog
+  daşımayan page model-in host-owned localized fallback ilə əvəzlənməsi normativ
+  yazıldı; əvvəllər v1 text page contract raw resource key-i user-facing text kimi
+  render edirdi və bu davranış kodda da ləğv olundu.

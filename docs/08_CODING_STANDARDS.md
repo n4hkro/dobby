@@ -32,6 +32,13 @@ Bu sənəd Dobby host, Admin Tool, plugin framework və host-distributed plugin-
 - `[ObservableProperty]` field-ləri `_camelCase` formatında qalır; generated property adı public `PascalCase` olur.
 - `[RelayCommand]` method-ları command intent-i ilə adlandırılır və generated command adları review zamanı görünən public command surface kimi qəbul edilir.
 
+## Test evidence conventions
+
+- Test-lər observable davranışı assert edir: typed nəticə, persisted state, restart/crash recovery və negative trust case-ləri. Xüsusilə security, licensing, packaging və atomicity üçün "happy path keçdi" tək başına evidence deyil.
+- Restart-durable davranış (throttle state, consumed nonce, quarantine, LKG license state) yalnız yeni host/composition instance-ı üzərində yenidən oxunaraq sübut olunur; eyni in-memory instance daxilində assert etmək restart proof deyil.
+- Source inspection (regex, `Contains`, file-exists) test-ləri yalnız structural invariant-lar üçün icazəlidir: namespace/dependency direction, forbidden reference, layout və naming. Runtime, security və ya release readiness sübutu kimi istifadə oluna bilməz (`docs/02_ARCHITECTURE_MAP.md` § `Architecture Evidence Rule`).
+- Time-dependent davranış deterministic `TimeProvider` seam ilə test edilir; `Thread.Sleep`/`Task.Delay` ilə real vaxt gözləmək evidence sayılmır.
+
 ## Documentation naming and capitalization additions
 
 - `Dobby.Host` project/type identity-si üçün istifadə olunur.
@@ -86,7 +93,7 @@ it does not create additional architecture-map rows:
 | Sprint 6 decision `D-21` Settings/About source orchestration authority | `Dobby.Host.Settings` only for authenticated Settings/About source orchestration, bindable UI-facing source models, Host wiring, and Host-mediated Security/Audit coordination; durable Settings preference ownership remains `Dobby.Configuration`, and concrete `HostConfiguration` access remains Host-wired outside `Dobby.Configuration`. |
 | Architecture map row 88 `Hardware Identity / Device Binding` | `Dobby.Infrastructure.HardwareIdentity` |
 | Architecture map row 27 `Plugin Packaging`; Sprint 8 `HD-S8-003` installed-state/cache authority | `Dobby.PluginFramework.Packaging` only for `.dobbyplugin` package reading/validation/fingerprints and domain ports/typed outcomes for installed state/cache; concrete durable adapters, migrations, and `Dobby.Infrastructure` references stay outside `Dobby.PluginFramework`. |
-| Architecture map row 38 `Plugin Trust Verification`; ADR-0032/ADR-0033 trust-resource model; Sprint 8 `HD-S8-002` | `Dobby.Security.Trust` only for plugin signature/trust verification and selected embedded public-key resource access; runtime filesystem/configuration trust loading remains forbidden. |
+| Architecture map row 38 `Plugin Trust Verification`; ADR-0032/ADR-0062 trust-resource model; Sprint 8 `HD-S8-002` | `Dobby.Security.Trust` only for plugin signature/trust verification and selected embedded public-key resource access; runtime filesystem/configuration trust loading remains forbidden. |
 | Architecture map row 79 `Shell Composition / Hosting`; ADR-0049 plugin page hosting; Sprint 8 `HD-S8-004` | `Dobby.Shell.PluginPages` only for host-owned plugin page render registry and approved model-to-host-view presentation mapping; plugin-provided WPF objects, XAML paths, view keys, and assembly-qualified view identities remain forbidden. |
 | Architecture map row 1 `Dobby.Host`; ADR-0041 login-first startup policy; Sprint 8 `HD-S8-004` | `Dobby.Host.Plugins` only for post-login host composition and coordination of plugin runtime activation, audit/diagnostics mapping, session cancellation, and Security registry seeding; plugin framework logic, trust verification, and authorization policy/enforcement remain in their owner projects. |
 
@@ -100,11 +107,15 @@ require a table row or an explicit docs amendment before creation.
 - Prefer explicit types where the right side does not make the type obvious; `var` is allowed for object creation, LINQ projections and long generic types when readability improves.
 - Do not block async code with `.Result`, `.Wait()` or `.GetAwaiter().GetResult()` on UI, plugin, service or persistence paths.
 - Expected business failures follow `docs/04_RESULT_VS_EXCEPTION_POLICY.md`; exceptions are for unexpected infrastructure or programmer failures.
+- Expected `Result` failure-ları runtime fault kimi qeyd olunmur. Yalnız exception və ya explicit plugin-defect outcome fault/quarantine policy-sinə təsir edir (`docs/04_RESULT_VS_EXCEPTION_POLICY.md` qayda #9, `ADR-0059`).
+- Async UI event handler-ləri həqiqətən asynchronous application əməliyyatı çağırır, `CancellationToken` ötürür və arbitrary synchronous I/O-nu lifetime, progress və error ownership-ini itirəcək şəkildə `async void`/fire-and-forget arxasında bükmür.
 - Do not catch and swallow exceptions. Catches either translate to a typed result, add diagnostic context and rethrow, or fail closed at a public boundary.
 
 ## 7. Dependency Injection
 
 - Constructor injection is the default for services, view models, adapters and application components.
+- Composition root-lar iki explicit scope təqdim edir: `PreAuthRuntime` və authentication uğurundan sonra yaradılan session-scoped `AuthenticatedRuntime` (`docs/02_ARCHITECTURE_MAP.md` § `Runtime Composition Scopes`, `ADR-0061`). Registration pre-auth allow-list-dən kənar service-i login render path-ında resolve etmir.
+- Constructor, factory və property initializer gizli background iş başlatmır: file/DB/network I/O, timer, thread, scan və plugin activation yalnız explicit çağırılan async əməliyyat daxilində baş verir. Belə iş görən service-i pre-auth path-da construct etmək özü qadağan olunmuş işdir.
 - DI registration happens in composition-root modules owned by the host or feature; random runtime service locator usage is prohibited.
 - Owner projects do not self-register infrastructure primitive adapters by default. `Dobby.Host` composition root owns the default wiring between owner behavior and `Dobby.Infrastructure` primitives unless an ADR/architecture-map row explicitly assigns a different wiring point.
 - Singleton services must be stateless or explicitly thread-safe. User/session-specific state is scoped to the current session boundary, not stored in static mutable fields.
@@ -126,6 +137,7 @@ require a table row or an explicit docs amendment before creation.
 - File pick/save workflows use host-owned request/response DTOs such as purpose, allowed extension list, default file name, initial logical location and selected result.
 - The adapter that talks to WPF/Windows dialog APIs lives in the UI/infrastructure boundary, not in application services or plugin-visible contracts.
 - Plugin-facing workflows receive host-approved file descriptors or streams; plugins do not receive arbitrary host paths unless the feature explicitly allows that path exposure.
+- Plugin SDK/contract boundary immutable declarative model-lər və host-mediated command-lardan ibarətdir. WPF tipləri, `IServiceProvider`, filesystem/network handle-ları, `Stream` sahibliyi və raw delegate contract boundary-ni keçmir (`ADR-0021`, `ADR-0049`, `ADR-0059`).
 - Dialog result handling is typed (`accepted`, `cancelled`, `failed`) and cancellation is not logged as an error.
 - OS integration must be testable with fake adapters in unit/integration tests.
 
@@ -136,6 +148,7 @@ require a table row or an explicit docs amendment before creation.
 - Dapper parameter objects use named properties that match SQL parameter names.
 - Persistence methods return entities only inside persistence/infrastructure boundaries; application services map to DTO/read models before returning.
 - Connection, transaction and cancellation ownership must be explicit in method signatures or local scopes.
+- Domain/security state dəyişikliyi ilə onun audit/outbox record-u provider-owned transaction/unit-of-work daxilində yazılır. Application workflow bir-birindən asılı olmayan repository çağırışlarını sıralayaraq atomicity iddia edə bilməz; commit-dən əvvəl heç bir success nəticəsi qaytarılmır (`docs/04_RESULT_VS_EXCEPTION_POLICY.md` qayda #11, `ADR-0061`).
 
 ## 11. Migration Style
 
@@ -151,6 +164,15 @@ require a table row or an explicit docs amendment before creation.
 - `description` qısa, snake_case və domain-specific olmalıdır.
 - Pre-login bootstrap compatibility davranışı `docs/specs/storage-and-data-protection.md` sahibidir; coding standards yalnız migration naming/style qaydasını saxlayır və həmin spec-ə cross-reference verir.
 
+## Untrusted input və cryptography conventions
+
+- Untrusted byte stream-ləri (plugin package, license artifact, recovery response, import faylı) materialize etməzdən əvvəl incremental şəkildə, explicit limit-lərlə validate olunur: declared vs actual size, entry count, per-entry və total uncompressed size, compression ratio və nested archive qadağası. Limit yoxlaması allocation-dan sonra deyil, əvvəl gəlir (`ADR-0059`).
+- Archive extraction hər entry üçün final absolute destination-ı hesablayır (`Path.GetFullPath`), verified root altında olduğunu təsdiqləyir, mövcud faylı overwrite etmir və symlink/reparse point izləmir. Traversal, absolute path, Windows reserved name və duplicate/case-collision entry-lər fail-closed rədd olunur.
+- Cryptographic encoding kod və test-lərdə explicit yazılır: ECDSA signature format overload default-una güvənilmir (`DSASignatureFormat.IeeeP1363FixedFieldConcatenation`), base64url unpadded variant explicit seçilir və length/format yoxlanılır.
+- Canonical signed payload-lar version, purpose və key ID/domain separation daşıyır. Bir purpose üçün buraxılmış key başqa purpose-un artifact-ını verify etmək üçün istifadə oluna bilməz (`docs/02_ARCHITECTURE_MAP.md` § `Key Purpose Separation`).
+- Range/overflow: untrusted ölçü, offset və count dəyərləri checked arithmetic və ya explicit range yoxlaması ilə işlənir; negative/overflowing dəyər typed fail-closed nəticədir.
+- Fail-closed nəticə mövcud last-known-good persisted state-i pozmur: invalid candidate artifact heç bir halda valid state-i silmir və ya üzərinə yazmır (`ADR-0060`).
+
 ## Machine-readable value formats
 
 Host-owned structured file və machine-readable value surface-ləri aşağıdakı formatları izləməlidir:
@@ -162,6 +184,14 @@ Host-owned structured file və machine-readable value surface-ləri aşağıdak�
 | User-facing localized date/time | UI culture formatting, P1-də `az-AZ` |
 | Decimal values in stored machine-readable formats | invariant `.` separator |
 | Logs and diagnostics export snippets | structured timestamp və correlation id; raw secret/redaction qaydası `docs/specs/audit-and-diagnostics.md` sahibidir |
+
+Security-relevant log yazıları typed structured field-lərdən istifadə edir və
+allow-list redaction tətbiq olunur (deny-list deyil). Raw exception yalnız
+sanitize olunduqdan və correlation ID ilə əlaqələndirildikdən sonra
+diagnostics-only kimi saxlanılır; user-facing mesaj, audit record və export
+olunan support material raw exception message, stack trace, DB path, SQL,
+connection string və ya secret daşımır (`docs/04_RESULT_VS_EXCEPTION_POLICY.md`
+qayda #10, `ADR-0019`).
 
 ## 12. Common Prohibitions
 
@@ -175,6 +205,10 @@ Host-owned structured file və machine-readable value surface-ləri aşağıdak�
 - No static mutable state for current user/session/customer/deployment context.
 - No ad-hoc SQL string concatenation for values.
 - No catch-all service that bypasses operation-specific authorization or validation.
+- No WPF type, `IServiceProvider`, filesystem/network handle or raw delegate on the plugin contract boundary.
+- No allocation of untrusted archive/stream content before its declared limits are validated.
+- No default-format cryptographic call whose signature/encoding format is implied rather than specified.
+- No source-text or file-existence assertion presented as runtime, security or release evidence.
 
 ## Review checklist additions
 
@@ -212,28 +246,13 @@ Storage code and future skeleton shape must keep provider semantics explicit:
 These guardrails are documentation-stage rules now and skeleton-stage rules only
 after a separate implementation phase is approved.
 
-## 2026-08 Engineering Amendment (Controlling)
+## Revision History
 
-- Composition roots expose explicit pre-authenticated and authenticated scopes;
-  constructors and factories do not start hidden background work.
-- Use provider-owned transactions/unit-of-work for state plus audit/outbox.
-  Multi-write application workflows may not advertise atomicity by ordering
-  unrelated repository calls.
-- Untrusted byte streams are validated incrementally with explicit limits before
-  materialization. Archive extraction resolves the final absolute destination
-  under a verified root and never overwrites an existing file.
-- Specify cryptographic encoding in code and tests; never depend on an overload's
-  default ECDSA signature format. Canonical payloads include version, purpose and
-  key ID/domain separation.
-- Async UI event handlers call genuinely asynchronous application operations,
-  pass cancellation tokens and never wrap arbitrary synchronous I/O in a way
-  that loses lifetime, progress or error ownership.
-- Plugin SDK boundaries use immutable declarative models and host-mediated
-  commands. WPF types, `IServiceProvider`, filesystem/network handles and raw
-  delegates do not cross the contract boundary.
-- Expected `Result` failures are not recorded as runtime faults. Only exceptions
-  or explicit plugin-defect outcomes affect fault/quarantine policy.
-- Security logs use typed structured fields and allow-list redaction. Raw
-  exceptions are diagnostic-only after sanitization and correlation.
-- Tests assert observable behavior, restart/crash recovery and negative trust
-  cases. Source inspection tests are permitted only for structural invariants.
+- **2026-08-26:** `ADR-0058`…`ADR-0061` reconciliation. `2026-08 Engineering
+  Amendment` bölməsi ləğv edildi; qərarları normativ body section-lara
+  köçürüldü — composition scope və hidden-work qadağası (§7), expected-`Result`
+  vs runtime fault və async UI handler qaydaları (§6), provider-owned
+  unit-of-work (§10), yeni `Untrusted input və cryptography conventions`
+  bölməsi, plugin contract boundary qadağası (§9 və §12), security logging
+  redaction qaydası (`Machine-readable value formats`) və yeni
+  `Test evidence conventions` bölməsi.

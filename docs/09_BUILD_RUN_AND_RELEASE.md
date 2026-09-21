@@ -84,17 +84,21 @@ Shared runtime implementation in the current phase.
 Skeleton commit 1 repo root-da aşağıdakı faylları yaratmalıdır. Tooling və version qərarlarının canonical owner-i `docs/03_TECH_STACK_AND_VERSIONS.md` olaraq qalır; bu section yalnız physical path ownership-i bağlayır.
 
 `global.json`, `Directory.Packages.props` və package-bearing `.csproj` faylları
-human-approved toolchain/package pin list olmadan yaradılmamalıdır. Pin list
-verilməyibsə skeleton həmin addımda stop condition yazır; agent SDK patch-i və ya
-NuGet version-ları özü seçmir. Package-bearing file creation
-`docs/03_TECH_STACK_AND_VERSIONS.md` `P1 Toolchain / Package Pin Gate` tier
-policy-sinə və hər row üçün approved `ReferenceStance` / `ApprovedVersion`
-qaydalarına tabedir.
+mövcuddur və package-bearing file creation stop condition-u Phase A/B approval-ları
+ilə bağlanmışdır (`artifacts/release-evidence/skeleton-local/toolchain-pin-gate.md`
+§ `Resolved Stop Conditions`). Agent hələ də SDK patch-i və ya NuGet version-ı özü
+seçmir: **yeni** package, version dəyişikliyi və ya package-source dəyişikliyi
+ayrıca human approval tələb edir və approval gəlməyənə qədər stop condition-dur.
+Package-bearing dəyişikliklər `docs/03_TECH_STACK_AND_VERSIONS.md`
+`P1 Toolchain / Package Pin Gate` tier policy-sinə və `toolchain-pin-gate.md`
+approval row-larına tabedir; həmin gate hansı pin-lərin approved olduğunu və hansı
+foundation pin-lərinin hələ approval row-suz qaldığını (açıq external blocker)
+göstərir.
 
 | Path | Owner / purpose |
 |---|---|
 | `Dobby.sln` | Tək solution; bütün P1 source, test, sample və admin/tool project-lərini daşıyır. |
-| `global.json` | .NET SDK feature-band pinning; exact patch human-approved toolchain/package pin list-dən götürülür. |
+| `global.json` | .NET SDK feature-band pinning; cari pin `10.0.202` + `rollForward: latestPatch`. Exact patch üçün ayrıca human approval row-u yoxdur (`toolchain-pin-gate.md` external blocker); patch dəyişikliyi human approval tələb edir. |
 | `Directory.Build.props` | Shared build properties: nullable, implicit usings, warnings-as-errors; TFM per-project `.csproj`-larda qalır. |
 | `Directory.Packages.props` | Central Package Management; NuGet version-larının yeganə repo-level source-u. Skeleton commit 1 bu faylı yalnız `docs/03_TECH_STACK_AND_VERSIONS.md` human-approved pin list və package-reference stance-lərinə əsasən yarada bilər. |
 | `.editorconfig` | Formatting, analyzer və naming convention-lar üçün IDE/CI source. |
@@ -225,15 +229,70 @@ evidence.
 Canonical generated evidence root is `artifacts/release-evidence/<build-id>/`. Release candidate evidence files are generated artifacts, not hand-written canonical docs. Minimum named evidence files:
 
 - `artifacts/release-evidence/<build-id>/auth-kdf-selection.md` for `AC-051`;
-- `artifacts/release-evidence/<build-id>/storage-provider-proof.md` for `AC-042`, `AC-037` and `AC-038`;
+- `artifacts/release-evidence/<build-id>/storage-provider-proof.md` for `AC-042`, `AC-037` and `AC-038`; it must record the startup provider-enabled probe result against the installed/publish artifact, the byte-level sentinel scan over the DB file plus WAL/journal/rollback/checkpoint and temp artifacts, and the provider-disabled / provider-bypass / plain-DB / out-of-boundary WAL negative fixture outcomes. Recording only that a native provider package or binary is present does not satisfy this band (`NFR-027`);
 - `artifacts/release-evidence/<build-id>/packaging-static-scan.md` for sample/dev/QA trust exclusion;
 - `artifacts/release-evidence/<build-id>/startup-performance.md` for `AC-014`.
 
 Skeleton-time local evidence may use `artifacts/release-evidence/skeleton-local/`, but release candidate acceptance must use the current CI/release build id.
 
+Release candidate evidence is gate review input, so every file under `artifacts/release-evidence/<build-id>/` must be version-controlled and visible to `git status` in the candidate commit. Repository ignore rules must not exclude a build-id evidence root or its `.md` and `ui-snapshots/` files: an evidence file that exists on disk but is silently ignored does not count as recorded evidence, because the reviewer sees a clean working tree while a required gate artifact is absent from the commit. Transient local scratch roots that no gate cites may stay ignored, and generated log files inside an evidence root are not evidence — a claim only counts when it is written into one of the named evidence files above.
+
+
+**Evidence change-trail qaydası.** Keçmiş build-id evidence root-u keçmiş release
+candidate-in müşahidə olunmuş nəticəsini qeyd edir və **retroaktiv edit olunmur**.
+Sonrakı bir pass həmin bandı yenidən sübut edirsə, nəticə cari build-id root-unda
+yeni fayl kimi yazılır; köhnə fayl yerində qalır. Səbəb: gate review input-u
+müqayisə üçün istifadə olunur, ona görə keçmiş evidence-in dəyişməsi review
+tarixçəsini yoxa çıxarır və bəzi keçmiş fayllar `Sprint11ReleaseEvidenceTests` kimi
+testlər tərəfindən verbatim assert olunur. Yalnız istisna: sızmış sensitive dəyər
+(secret, private key material, full filesystem path) — bu halda redaction edilir və
+redaction həm həmin faylda, həm də cari build-id root-unda qeyd olunur.
+
 - Skipped test varsa səbəbi release evidence-də explicit qeyd edilir.
 - App icon multi-size `.ico`, application logo və required host asset-lər publish/installer artifact-da mövcuddur.
 - `.dobbyplugin` package validation, signature verification və optional `.dobbylicense` import smoke ayrı nəticələr kimi saxlanılır.
+
+### Candidate release evidence set
+
+Hər candidate release aşağıdakı bandlar üçün machine-readable evidence saxlamalıdır.
+Bu siyahı release gate-in minimumudur; hər band üçün evidence current candidate
+artifact-ına və exact candidate commit-ə bind olunur:
+
+1. clean restore, və ya offline/no-restore halında sənədləşdirilmiş asset provenance;
+2. format, build, unit, integration və smoke-test nəticələri;
+3. negative və fault-injection nəticələri: password/throttle restart test-ləri,
+   atomicity fault injection, malicious archive corpus və license/recovery
+   negative case-ləri;
+4. portable launch/smoke verification candidate bit-lərinə qarşı;
+5. MSIX build, clean install, **installed** launch, upgrade, uninstall policy və
+   user-data preservation — real package identity və real installed storage
+   root-ları ilə;
+6. production-appropriate certificate chain/timestamp/profile, artifact hash-ları,
+   SBOM/dependency inventory və vulnerability/license review;
+7. installable, düzgün imzalanmış sample plugin plus deterministic
+   `verify-plugin-package` tool/command nəticəsi və negative fixture-lar;
+8. customer artifact-lardan placeholder contact string, placeholder qrafika, dummy
+   hash/signature, developer-only path və test key-lərin çıxarıldığının sübutu.
+
+Self-signed RC yalnız packaging mechanics-i sübut edir; GA installed davranış,
+upgrade/data preservation və signing/distribution evidence-i toplananadək bloklanır.
+Evidence-only, file-existence və ya source-text test-ləri incomplete feature-i
+implemented statusuna qaldırmır (`docs/02_ARCHITECTURE_MAP.md` §
+`Architecture Evidence Rule`).
+
+External installed-MSIX, production-signing və dependency-license evidence
+`docs/schemas/release-external-evidence-v1.schema.json`-a uyğun olmalıdır: exact
+candidate commit və gate-ə bind olunur, gate-specific required claim-ləri
+enumerate edir, `attestedBy` ilə gate-i icra edən insanı adlandırır və hər
+subject-i SHA-256 ilə identifikasiya edir. Faylın sadəcə mövcud olması heç bir
+gate-i keçirmir.
+
+`status` `passed`-ə pinned-dir, yəni conforming fayl yalnız bir approval qeyd
+edir. Ona görə `attestedBy` məcburidir: identity daşımayan approval attribution
+oluna bilmir və heç bir reviewer sonradan gate-i kimin icra etdiyini, nəyin real
+işlədildiyini soruşa bilmir. Ad provenance-dır, verification deyil, və gate-in
+tələb etdiyi behavioral sübutu əvəz etmir (`NFR-027`). Enforcement point-i
+`tools/verify-release-candidate/validate-external-evidence.ps1`-dir.
 
 ## 8. Publish və Installer
 
@@ -268,17 +327,25 @@ istifadə edir:
 
 ```powershell
 .\tools\sign-plugin-package\sign-plugin-package.ps1 `
-  -InputPath .\artifacts\sample-plugin\unsigned `
-  -SigningProfile dev-qa `
-  -OutputPath .\artifacts\sample-plugin\signed\sample.dobbyplugin
+  --input-path .\artifacts\sample-plugin\unsigned `
+  --signing-profile dev-qa `
+  --output-path .\artifacts\sample-plugin\signed\sample.dobbyplugin
 
 .\tools\create-plugin-license\create-plugin-license.ps1 `
-  -PluginPackage .\artifacts\sample-plugin\signed\sample.dobbyplugin `
-  -SigningProfile dev-qa `
-  -CustomerId default `
-  -DeploymentId default `
-  -DeviceBindingFixture smoke `
-  -OutputPath .\artifacts\sample-plugin\license\sample.dobbylicense
+  --plugin-package-path .\artifacts\sample-plugin\signed\sample.dobbyplugin `
+  --signing-profile dev-qa `
+  --customer-id default `
+  --deployment-id default `
+  --device-binding-fixture-path .\artifacts\sample-plugin\smoke-device-binding.json `
+  --valid-from 2026-06-18T00:00:00Z `
+  --valid-until 2026-07-18T00:00:00Z `
+  --revision 1 `
+  --output-path .\artifacts\sample-plugin\license\sample.dobbylicense
+
+.\tools\verify-plugin-package\verify-plugin-package.ps1 `
+  --input-path .\artifacts\sample-plugin\signed\sample.dobbyplugin `
+  --trust-profile dev-qa `
+  --host-version 1.0.0
 ```
 
 Script adları və folder-lər implementation phase-də bu sənədlə eyni patch-də
@@ -286,11 +353,17 @@ yaradılmalıdır. Flow yalnız dev/QA smoke materialı üçündür; customer pr
 MSIX/portable artifact sample plugin-i və ya sample license-i default şəkildə
 daşımamalıdır.
 
-Yuxarıdakı PowerShell option adları illustrative smoke flow-dur, canonical public
-option contract deyil. Folder/script adları, `Dobby.Admin.exe --cli <command>`
-invocation modeli, exit code, stdout və stderr davranışı stable-dir; exact option
-names və option sets yalnız `docs/specs/admin-tool.md`-də future
-human/tooling-approved option table bağlandıqda freeze olunur.
+Wrapper-lər arqumentləri dəyişmədən ötürür (`ValueFromRemainingArguments`), buna
+görə yuxarıdakı option adları PowerShell parametr adları deyil, birbaşa CLI
+option-larıdır və canonical yazılış `docs/specs/admin-tool.md` § 3 `Approved P1
+CLI contract` cədvəlindəki formadır. PowerShell-style `-PluginPackage` kimi ad
+wrapper tərəfindən CLI-a olduğu kimi ötürülür və unknown option olaraq `64` verir.
+Həmin cədvəl `HD-S10-001` ilə approve olunmuş **canonical** public option
+contract-dır: option adları, required/optional bölgüsü, default-lar və exit
+code-lar oradan oxunur, bu sənəddə dublikat edilmir. Folder/script adları,
+`Dobby.Admin.exe --cli <command>` invocation modeli, exit code, stdout və stderr
+davranışı da stable-dir. Bu blokdaki dəyərlər (tarixlər, revision, fixture yolu)
+nümunədir; option adları isə deyil.
 
 Skeleton-time auth KDF selection evidence must be written to `artifacts/release-evidence/skeleton-local/auth-kdf-selection.md` and later to `artifacts/release-evidence/<build-id>/auth-kdf-selection.md` for release candidates. It records the selected algorithm (`Argon2id` or PBKDF2 fallback), package-health/license check result, configured floor values and measured login latency on the `ADR-0042` baseline. Open-ended tentative wording is not release evidence.
 
@@ -328,7 +401,12 @@ Upgrade verification must show that host data, audit log, license cache, users/p
 
 ## Branch Shared Release Readiness Addendum
 
-Branch Shared Mərhələ 1 is documentation-only. It creates/updates ADRs, specs
+Cari release track Standalone-dur. Branch Shared future work olaraq qalır və
+explicit human-approved scope reopen etmədən Standalone hardening/release
+gate-lərini bloklaya bilməz.
+
+The Branch Shared documentation tier (pre-Tier A, `ADR-0056`) is documentation-only.
+It creates/updates ADRs, specs
 and schemas but does not create `src/Dobby.Infrastructure.Postgres`,
 `src/Dobby.BranchSetup`, an Npgsql adapter, a BranchSetup executable or live
 PostgreSQL tests.
@@ -350,33 +428,40 @@ evidence.
 setup artifact/runbook" unless Tier B customer-release work explicitly chooses
 and evidences a bundled PostgreSQL packaging model.
 
-## 2026-08 Release Evidence Amendment (Controlling)
+## Revision History
 
-The current release track is Standalone. Branch Shared remains future work and
-cannot block Standalone hardening unless an explicit approval reopens it.
-
-Every candidate release must retain machine-readable evidence for:
-
-1. clean restore or documented offline/no-restore asset provenance;
-2. format, build, unit, integration and smoke-test results;
-3. password/throttle restart tests, atomicity fault injection, malicious archive
-   corpus and license/recovery negative cases;
-4. portable launch/smoke verification against the candidate bits;
-5. MSIX build, clean install, installed launch, upgrade, uninstall policy and
-   user-data preservation using the real package identity/storage roots;
-6. production-appropriate certificate chain/timestamp/profile, artifact hashes,
-   SBOM/dependency and vulnerability/license review;
-7. an installable, correctly signed sample plugin plus a deterministic
-   `verify-plugin-package` tool/command and negative fixtures;
-8. removal of placeholder contact strings, graphics, dummy hashes/signatures,
-   developer-only paths and test keys from customer artifacts.
-
-A self-signed RC proves packaging mechanics only. GA is blocked until installed
-behavior, upgrade/data preservation and signing/distribution evidence are
-captured. Evidence-only or source-text tests do not promote an incomplete
-feature to implemented status.
-
-External installed-MSIX, production-signing and dependency-license evidence must
-conform to `docs/schemas/release-external-evidence-v1.schema.json`, bind to the
-exact candidate commit and gate, enumerate the gate-specific required claims and
-identify every subject by SHA-256. File existence by itself never passes a gate.
+- **2026-08-27 (scripted operator path executability):** `Minimal scripted
+  operator artifact handoff` bloku icra olunmayan command-lər göstərirdi.
+  Wrapper-lər `ValueFromRemainingArguments` ilə arqumentləri dəyişmədən
+  `Dobby.Admin.exe --cli <command>`-ə ötürür, buna görə blokda yazılmış
+  `-InputPath`, `-PluginPackage`, `-DeviceBindingFixture` kimi PowerShell-style
+  adlar CLI-a olduğu kimi çatır və unknown option olaraq `64` verirdi. Blok
+  canonical `--option` adlarına keçirildi, `create-plugin-license` üçün əskik
+  required option-lar (`--valid-from`, `--valid-until`, `--revision`) əlavə edildi,
+  `verify-plugin-package` addımı göstərildi. "Exact option names … future
+  human/tooling-approved option table bağlandıqda freeze olunur" iddiası ləğv
+  edildi, çünki `docs/specs/admin-tool.md` § 3 `Approved P1 CLI contract` cədvəli
+  `HD-S10-001` ilə artıq approve olunmuş canonical contract-dır; option adları
+  burada dublikat edilmir, oradan oxunur.
+- **2026-08-26 (storage evidence hardening):** `storage-provider-proof.md`
+  bandının minimum məzmunu explicit edildi — startup provider-enabled probe
+  nəticəsi, byte-level sentinel scan və provider-disabled / provider-bypass /
+  plain-DB / out-of-boundary WAL negative fixture nəticələri tələb olunur;
+  native provider package/binary mövcudluğunun qeydi bu bandı qapatmır
+  (`AC-037`, `AC-042`, `NFR-027`).
+- **2026-08-26:** `ADR-0058`…`ADR-0061` reconciliation. `2026-08 Release Evidence
+  Amendment` bölməsi ləğv edildi; Standalone release-track ifadəsi
+  `Branch Shared Release Readiness Addendum`-a, candidate evidence bandları,
+  self-signed RC limiti, evidence-only test qadağası və
+  `release-external-evidence-v1.schema.json` bind qaydası isə
+  `Release evidence additions` § `Candidate release evidence set` bölməsinə
+  köçürüldü.
+- **2026-08-29 (pin gate approval reality):** Skeleton commit 1 package-bearing file
+  creation paraqrafı və `global.json` table sətri hələ də "pin list verilməyibsə
+  stop condition" prospektiv formasında idi, halbuki həmin fayllar mövcuddur, build
+  onlarla verify olunur və stop condition Phase A/B approval-ları ilə bağlanmışdır.
+  Prose faktiki vəziyyətə uyğunlaşdırıldı: canonical approval source
+  `toolchain-pin-gate.md`-dir, `global.json` `10.0.202` + `latestPatch` ilə
+  pinned-dir, exact SDK patch üçün ayrıca approval row-u yoxdur (external blocker),
+  və **yeni** package/version/source dəyişikliyi hələ də human approval tələb edir.
+  Version/approval authority `docs/03_TECH_STACK_AND_VERSIONS.md`-də qalır.

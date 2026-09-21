@@ -3,6 +3,16 @@
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
+    <!-- The hardware-identity adapter's absent-value and ACL-restricted registry branches
+         cannot be provoked on a developer or CI machine, so `ADR-0063` § 5's fail-closed
+         obligation would otherwise be closed by source reading alone, which `NFR-027` does
+         not accept as proof. The seam is `internal` so no production composition can
+         substitute the binding input. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Dobby.UnitTests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.Data.Sqlite.Core" />
     <PackageReference Include="SQLitePCLRaw.core" />

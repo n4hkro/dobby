@@ -41,11 +41,13 @@ Release readiness: BLOCKED UNTIL EVIDENCE PASSES
 - DobbyPluginTrustProfile=Production
 - sourceVendorPublicKeyHash: `74ca9ee78d453e122d86047c90fd174e78fa1828647404e03122b6d7ab39201f`
 - embeddedVendorPublicKeyHash: `74ca9ee78d453e122d86047c90fd174e78fa1828647404e03122b6d7ab39201f`
-- custodyVendorPublicKeyHash: `74ca9ee78d453e122d86047c90fd174e78fa1828647404e03122b6d7ab39201f`
+- custodyVendorPublicKeyHash: `74ca9ee78d453e122d86047c90fd174e78fa1828647404e03122b6d7ab39201f` (same locally generated GA-candidate key as source/embedded; not an independent custodian value)
+- independentCustodyEqualityResult: NOT PROVEN
 - oldBootstrapProductionHash=00bedd1f30da9726b50e6aa6929d3df5e7d5e2dbaf05f6435503c01210f5ad1f
 - oldBootstrapNegativeControlResult: PASS
 - publishedRecoveryImportResult: PASS
 - redactionGate: PASS
+- HD-S11-001: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES. This addendum proves source/embedded anchor equality, bootstrap negative control and a local published-Host import against a locally generated GA-candidate key. It does not prove authorized-custodian handover, so HD-S11-001 stays open and the production trust anchors remain pre-GA placeholders.
 
 ## Task 4 Startup Performance Authority Addendum
 

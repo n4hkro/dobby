@@ -1,6 +1,6 @@
 # ADR-0011: Plugin Trust and Policy Enforcement Principle
 
-**Status:** Accepted (trust-boundary wording amended by ADR-0059)
+**Status:** Accepted (trust-boundary wording and § 3 isolation framing amended by `ADR-0059`; § 4 evidence strength amended by `ADR-0061` — see ## Revision History)
 **Date:** 2026-04-30
 
 ## Context
@@ -54,13 +54,22 @@ CPU, native-call, thread, environment və process containment zəmanəti vermir.
 Vendor signing trust boundary-nin hissəsidir. Corrupted-state fatal exception-lar
 (`OutOfMemoryException`, `StackOverflowException`) host tərəfindən tutulmur.
 
-Out-of-process plugin worker, brokered process permissions, per-plugin OS isolation
-və hardened native isolation P2 trigger-ləridir və yalnız `ADR-0007` future
-criteria-ları açılarsa yenidən qiymətləndirilir.
-
+Fully trusted olmayan paket host prosesində icra edilmir. Untrusted və ya semi-trusted
+vendor dəstəyi ayrıca approve olunmuş out-of-process worker tələb edir: OS-enforced
+identity, IPC, resource və file/network boundary-ləri ilə. Bu, P1 üçün yenidən
+qiymətləndirilən trigger deyil, həmin vendor sinfini dəstəkləməyin ilkin şərtidir
+(`ADR-0059` § `Trust posture`). Brokered process permissions, per-plugin OS isolation və
+hardened native isolation fully trusted vendor-signed model üçün P2 mövzusu olaraq qalır
+və `ADR-0007` future criteria-ları ilə birlikdə qiymətləndirilir; onların yoxluğu
+yuxarıdaki ilkin şərti yumşaltmır.
 ### 4. Test evidence
 
-Skeleton və release evidence minimum aşağıdakıları yoxlamalıdır:
+Skeleton və release evidence minimum aşağıdakıları yoxlamalıdır. Bu siyahı zəruri
+minimumdur, kifayət edən sübut dəsti deyil: static/dependency scan və forbidden-content
+reject documentation/architecture shape-i enforce edir, lakin runtime containment sübutu
+sayılmır və arbitrary .NET API-lərin məhdudlaşdırıldığını göstərmir. Runtime davranış,
+təhlükəsizlik və release readiness üçün behavior-first evidence tələb olunur
+(`ADR-0059` § `Trust posture`, `ADR-0061`, `NFR-027`):
 
 - plugin project static/dependency scan yalnız `Dobby.Contracts` / `Dobby.SDK`
   reference-lərinə icazə verir;
@@ -87,5 +96,28 @@ Skeleton və release evidence minimum aşağıdakıları yoxlamalıdır:
 - `docs/adr/ADR-0045-plugin-package-and-license-artifact-boundary.md`
 - `docs/adr/ADR-0048-operation-based-authorization.md`
 - `docs/adr/ADR-0053-capability-surface-runtime-mode.md`
+- `docs/adr/ADR-0059-plugin-trust-package-and-ui-contract-v2.md` — current trust posture, bounded package validation and signature/key profile authority
+- `docs/adr/ADR-0060-license-lifecycle-and-import-v3.md` — current license runtime mode authority
+- `docs/adr/ADR-0061-login-first-runtime-and-atomic-mutation-boundary.md` — behavior-first verification authority for the `## 4` evidence list; source-text and dependency scans enforce shape but do not prove runtime behavior, security or release readiness
 - `docs/specs/plugins-manager.md`
 - `docs/specs/sample-plugin.md`
+
+## Revision History
+
+- **2026-08-31:** Amendment record yazıldı. `**Status:**` sətri artıq trust-boundary
+  wording-in `ADR-0059` ilə amend olunduğunu bildirirdi, lakin sənəddə nə dated bölmə,
+  nə də amend olunmuş cümlələrin düzəlişi var idi -- yəni `docs/adr/README.md`-in birgə
+  tələb etdiyi iki şərtdən yalnız biri ödənilirdi və § 3 hələ də retired qaydayı
+  daşıyırdı. § 3 əvvəl out-of-process worker, brokered process permissions və per-plugin
+  OS isolation-ı bir yerdə "P2 trigger-ləridir və yalnız `ADR-0007` future criteria-ları
+  açılarsa yenidən qiymətləndirilir" kimi təsvir edirdi. `ADR-0059` § `Trust posture` isə
+  fully trusted olmayan paketin host prosesində icrasını qadağan edir və out-of-process
+  worker-i həmin vendor sinfi üçün ilkin şərt edir; bölməni oxuyan reader isolation
+  qaydasını § 3-dən götürdüyü üçün retired mətn səhv qaydaya yönləndirirdi. İki hal indi
+  ayrılıb: fully trusted olmayan vendor üçün ilkin şərt, fully trusted model üçün qalan
+  P2 mövzuları. § 4 evidence siyahısı isə "zəruri minimum, kifayət edən dəst deyil" kimi
+  qeyd olunub -- `## Cross-references` bunu artıq `ADR-0061`-ə həvalə edirdi, lakin siyahı
+  özü static scan bullet-lərini acceptance evidence kimi göstərirdi (`NFR-027`).
+  Yeni öhdəlik əlavə edilmir və ləğv edilmir: hər iki düzəliş `ADR-0059` və `ADR-0061`-in
+  mövcud qərarlarını təkrar ifadə edir, ona görə bu amendment record-dur, successor ADR
+  deyil. Reverse edge `ADR-0059` `**Amends:**` header-ində qeyd olunub.

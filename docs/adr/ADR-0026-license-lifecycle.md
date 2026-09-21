@@ -1,13 +1,20 @@
 # ADR-0026: License Lifecycle
 
-**Status:** Superseded
+**Status:** Superseded by ADR-0051 (chain: ADR-0051 superseded by ADR-0060)
 **Date:** 2026-04-24
-**Superseded by:** ADR-0051
+**Superseded by:** ADR-0051, in turn superseded by ADR-0060
 
 > Historical note: Code snippets and vocabulary below are not Phase 1 canonical.
-> Current license lifecycle is `ADR-0051`; plugin-facing runtime mode surface is
-> `ADR-0053`. Skeleton or documentation-fix work must not copy code/interface
-> shapes from this ADR body without an explicit ADR-0051/ADR-0053 amendment.
+> Current license lifecycle authority is `ADR-0060` (with the derived-state truth
+> table in `docs/schemas/license-v3-lifecycle-truth-table.md`); plugin-facing
+> runtime mode surface is `ADR-0053`; license device binding derivation is
+> `ADR-0063`; signing key identity, purpose separation and trust anchors are
+> `ADR-0062` (not the `ADR-0033` master-key model cited below); and the
+> `ADR-0039` 5-hash composite device fingerprint referenced below is superseded
+> history (`ADR-0058` — no fuzzy/quorum hardware matching, and license binding no
+> longer shares a recovery fingerprint surface). Skeleton or documentation-fix work
+> must not copy code/interface shapes from this ADR body without an explicit
+> ADR-0060/ADR-0053 amendment.
 
 ## Context
 

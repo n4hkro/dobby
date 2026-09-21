@@ -29,11 +29,6 @@ public sealed class PluginPageRenderRegistry
         Func<CultureInfo>? cultureProvider = null)
     {
         var registry = new PluginPageRenderRegistry(commandDispatcher, cultureProvider);
-        registry.Register<PluginTextPageModel>(model => new TextBlock
-        {
-            Text = model.MessageKey,
-            TextWrapping = TextWrapping.Wrap
-        });
         registry.Register<PluginComponentPageModel>(registry.RenderComponentPage);
         return registry;
     }

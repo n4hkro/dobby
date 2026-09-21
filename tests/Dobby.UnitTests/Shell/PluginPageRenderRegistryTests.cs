@@ -37,17 +37,21 @@ public sealed class PluginPageRenderRegistryTests
     }
 
     [Fact]
-    public void Default_registry_renders_approved_contract_text_model_and_rejects_unknown_models()
+    public void Default_registry_renders_v2_component_model_and_rejects_models_without_declarative_tree()
     {
         RunOnSta(() =>
         {
-            var registry = PluginPageRenderRegistry.CreateDefault();
+            var registry = PluginPageRenderRegistry.CreateDefault(
+                new RecordingDispatcher(),
+                () => CultureInfo.GetCultureInfo("en-US"));
 
-            var render = registry.Render(new PluginTextPageModel("sample.home.ready"));
+            var render = registry.Render(CreateModel());
 
             render.IsSuccess.ShouldBeTrue();
-            ((TextBlock)render.Value).Text.ShouldBe("sample.home.ready");
+            render.Value.ShouldBeOfType<ScrollViewer>();
             registry.Render(new UnknownModel()).ErrorCode.ShouldBe(ErrorCode.NotFound);
+            registry.Render(new LegacyKeyOnlyModel("sample.home.ready"))
+                .ErrorCode.ShouldBe(ErrorCode.NotFound);
         });
     }
 
@@ -311,6 +315,8 @@ public sealed class PluginPageRenderRegistryTests
     }
 
     private sealed class UnknownModel : IPluginPageModel;
+
+    private sealed record LegacyKeyOnlyModel(string MessageKey) : IPluginPageModel;
 
     private static void RunOnSta(Action action)
     {

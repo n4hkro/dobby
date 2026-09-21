@@ -309,7 +309,7 @@ public static class HostLoginRuntimeFactory
             transactionScope,
             mutationUnitOfWork);
         compositionProbe?.Record(LoginRuntimeCompositionEvents.LicensingConstructed);
-        var currentLicenseDeviceFingerprint = new Lazy<string>(() => CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId));
+        var currentLicenseDeviceFingerprint = new Lazy<Result<string>>(() => CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId));
         var licenseRuntimeModeProvider = new LicenseRuntimeModeProvider(
             licenseStateStore,
             currentContextService,
@@ -489,7 +489,21 @@ public static class HostLoginRuntimeFactory
                     outcomeKind,
                     correlationId: null);
                 var decision = pluginRuntimeFaultPolicy.Observe(pluginId, outcomeKind);
-                if (!decision.QuarantineStarted || pluginRuntimeLifecycleControl is null)
+                if (!decision.QuarantineStarted)
+                {
+                    return;
+                }
+
+                // Audit before cleanup: the plugin is already quarantined at this point.
+                PluginQuarantineAuditEmitter.EmitIfQuarantineStarted(
+                    pluginRuntimeAuditCoordinator,
+                    decision,
+                    pluginId,
+                    outcomeKind,
+                    actorId: null,
+                    correlationId: null);
+
+                if (pluginRuntimeLifecycleControl is null)
                 {
                     return;
                 }
@@ -610,6 +624,8 @@ public static class HostLoginRuntimeFactory
             persistenceMaintenanceService,
             operationAuthorizationPolicy,
             operationReporter,
+            auditTrail,
+            timeProvider,
             authenticatedLifetime.Token);
         compositionProbe?.Record(LoginRuntimeCompositionEvents.PersistenceMaintenanceConstructed);
         var licenseActivationRefreshHandler = new LicenseActivationRefreshOutboxHandler();
@@ -675,16 +691,37 @@ public static class HostLoginRuntimeFactory
         return runtime;
     }
 
-    private static string CreateCurrentLicenseDeviceFingerprint(byte[] stableDeviceId)
+    /// <summary>
+    /// Computes the current device's license binding digest, or fails closed.
+    /// </summary>
+    /// <remarks>
+    /// This is the licensing boundary `ADR-0063` § 4 designates: every distinguishable
+    /// adapter-level failure (`MachineGuid` absent, key ACL-restricted, hive I/O failure)
+    /// collapses here into the single non-disclosing `LicenseBindingMismatch`, so no
+    /// user-visible message, audit payload or diagnostics export can tell them apart or name
+    /// the registry path.
+    ///
+    /// It returns a <see cref="Result{T}"/> rather than throwing. The previous
+    /// `InvalidOperationException` was raised inside the <c>Lazy&lt;string&gt;</c> that
+    /// <see cref="LicenseRuntimeModeProvider"/> pulls on at license use time, on the WPF
+    /// dispatcher, with no handler anywhere on the path -- so an unreadable registry key
+    /// terminated the process instead of denying the plugin, and `Lazy` cached the exception
+    /// so every later evaluation rethrew it. Fail-closed denial is the documented outcome
+    /// (`ADR-0063` § 4: "runtime mode fail-closed şəkildə denied olur").
+    /// </remarks>
+    private static Result<string> CreateCurrentLicenseDeviceFingerprint(byte[] stableDeviceId)
     {
         var hardware = new WindowsHardwareIdentityProvider().Read();
-        var fingerprint = LicenseDeviceFingerprintV1.Compute(hardware.MachineGuid, stableDeviceId);
-        if (!fingerprint.IsSuccess)
+        if (!hardware.IsSuccess)
         {
-            throw new InvalidOperationException("License device fingerprint could not be computed.");
+            return Result.Failure<string>(ErrorCode.LicenseBindingMismatch);
         }
 
-        return fingerprint.Value.Value;
+        var fingerprint = LicenseDeviceFingerprintV1.Compute(hardware.Value.MachineGuid, stableDeviceId);
+
+        return fingerprint.IsSuccess
+            ? Result.Success(fingerprint.Value.Value)
+            : Result.Failure<string>(ErrorCode.LicenseBindingMismatch);
     }
 
     private static Result<PluginRuntimeMode> ResolvePluginRuntimeMode(

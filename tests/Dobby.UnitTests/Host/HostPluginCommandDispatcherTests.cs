@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Dobby.Audit;
 using Dobby.Contracts.BackgroundOperations;
 using Dobby.Contracts.Licensing;
 using Dobby.Contracts.PluginPages;
@@ -232,13 +233,88 @@ public sealed class HostPluginCommandDispatcherTests
         policy.Snapshot("com.dobby.sample").DefectCount.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task Quarantine_transition_is_written_to_the_audit_trail_exactly_once()
+    {
+        // Behavior proof for the closed-registry event `plugin.runtime.quarantined`
+        // (docs/specs/plugins-manager.md § audit, docs/specs/audit-and-diagnostics.md).
+        // Drives a real plugin across the fault threshold through the real dispatcher.
+        var page = new RecordingPage((_, _) =>
+            throw new InvalidOperationException("raw plugin failure"));
+        var policy = new PluginRuntimeFaultPolicy(quarantineThreshold: 3);
+        var trail = new InMemoryAuditTrail();
+        var dispatcher = CreateDispatcher(
+            page,
+            OwnerGrants(),
+            _ => Result.Success(PluginRuntimeMode.FullAccess),
+            out _,
+            policy,
+            new RecordingLifecycleControl(),
+            new PluginRuntimeAuditCoordinator(trail, TimeProvider.System));
+
+        for (var index = 0; index < 4; index++)
+        {
+            await dispatcher.DispatchAsync(Request(), TimeSpan.FromSeconds(2), CancellationToken.None);
+        }
+
+        var quarantineEvents = trail.Snapshot()
+            .Where(entry => entry.EventName == AuditEventName.PluginRuntimeQuarantined)
+            .ToList();
+
+        // Emitted at the QuarantineStarted edge only: the fourth dispatch is rejected up front
+        // and must not append a second record.
+        quarantineEvents.Count.ShouldBe(1);
+
+        var quarantine = quarantineEvents[0];
+        quarantine.Result.ShouldBe(AuditResult.Failed);
+        quarantine.Details.ShouldNotBeNull();
+        quarantine.Details!["pluginId"].ShouldBe("com.dobby.sample");
+        quarantine.Details["status"].ShouldBe("Quarantined");
+        quarantine.Details["reasonCode"].ShouldBe("runtime-exception-threshold");
+        quarantine.Details["defectCount"].ShouldBe("3");
+
+        // No raw plugin exception text may leak into the audit trail (NFR-026).
+        quarantine.Details.Values.ShouldAllBe(value => !value.Contains("raw plugin failure"));
+    }
+
+    [Fact]
+    public async Task Quarantine_is_audited_even_when_lifecycle_cleanup_is_not_wired()
+    {
+        // The plugin is quarantined regardless of whether lifecycle control exists, so the
+        // evidence must not depend on cleanup being wired. Guards the ordering inside
+        // ObserveFaultPolicyAsync, where the cleanup path returns early when unwired.
+        var page = new RecordingPage((_, _) =>
+            throw new InvalidOperationException("raw plugin failure"));
+        var policy = new PluginRuntimeFaultPolicy(quarantineThreshold: 3);
+        var trail = new InMemoryAuditTrail();
+        var dispatcher = CreateDispatcher(
+            page,
+            OwnerGrants(),
+            _ => Result.Success(PluginRuntimeMode.FullAccess),
+            out _,
+            policy,
+            lifecycleControl: null,
+            new PluginRuntimeAuditCoordinator(trail, TimeProvider.System));
+
+        for (var index = 0; index < 3; index++)
+        {
+            await dispatcher.DispatchAsync(Request(), TimeSpan.FromSeconds(2), CancellationToken.None);
+        }
+
+        policy.Snapshot("com.dobby.sample").IsQuarantined.ShouldBeTrue();
+        trail.Snapshot()
+            .Count(entry => entry.EventName == AuditEventName.PluginRuntimeQuarantined)
+            .ShouldBe(1);
+    }
+
     private static HostPluginCommandDispatcher CreateDispatcher(
         RecordingPage page,
         RecordingGrantReader grants,
         Func<string, Result<PluginRuntimeMode>> runtimeMode,
         out RecordingBackgroundReporter reporter,
         PluginRuntimeFaultPolicy? faultPolicy = null,
-        IPluginRuntimeLifecycleControl? lifecycleControl = null)
+        IPluginRuntimeLifecycleControl? lifecycleControl = null,
+        PluginRuntimeAuditCoordinator? auditCoordinator = null)
     {
         var extensions = new PluginExtensionPointRegistry();
         extensions.Publish(
@@ -258,7 +334,8 @@ public sealed class HostPluginCommandDispatcherTests
             new CancellationTokenSource().Token,
             diagnostics: null,
             faultPolicy: faultPolicy,
-            lifecycleControl: lifecycleControl);
+            lifecycleControl: lifecycleControl,
+            auditCoordinator: auditCoordinator);
     }
 
     private static RecordingGrantReader OwnerGrants() =>
@@ -293,7 +370,33 @@ public sealed class HostPluginCommandDispatcherTests
         public ValueTask<Result<IPluginPageModel>> LoadAsync(
             PluginPageContext context,
             CancellationToken cancellationToken) =>
-            ValueTask.FromResult(Result.Success<IPluginPageModel>(new PluginTextPageModel("sample")));
+            ValueTask.FromResult(Result.Success<IPluginPageModel>(SamplePageModel()));
+
+        private static PluginComponentPageModel SamplePageModel()
+        {
+            var entries = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["title"] = "Sample page",
+                ["failure"] = "Sample command failed",
+                ["cancelled"] = "Sample command cancelled",
+                ["body"] = "Sample page body"
+            };
+
+            return new PluginComponentPageModel(
+                new PluginPageCommandContext(
+                    "com.dobby.sample",
+                    "plugin/com.dobby.sample/greet",
+                    "managed",
+                    Guid.Empty.ToString()),
+                new PluginLocalizedText("title"),
+                new PluginLocalizedText("failure"),
+                new PluginLocalizedText("cancelled"),
+                new PluginLocalizationCatalog(
+                    "en-US",
+                    [new PluginLocalizationBundle("en-US", entries)]),
+                [new PluginTextComponent("body", new PluginLocalizedText("body"))],
+                []);
+        }
 
         public ValueTask<Result> ActivateAsync(PluginPageContext context, CancellationToken cancellationToken) =>
             ValueTask.FromResult(Result.Success());

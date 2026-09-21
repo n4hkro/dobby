@@ -54,6 +54,40 @@ public sealed class LicenseArtifactParserTests
         result.ReasonCode.ShouldBe(reason);
     }
 
+    [Fact]
+    public void Parse_rejects_a_signature_block_carrying_the_retired_key_version_selector()
+    {
+        using var key = LicenseArtifactFixtureBuilder.CreateKeyPair(out _);
+        var fixture = LicenseArtifactFixtureBuilder.CreateSignedArtifact(key);
+        var artifactJson = Encoding.UTF8.GetString(fixture.Bytes);
+
+        // Baseline: the untouched artifact is shape-valid, so the two rejects below are
+        // attributable to the retired selector alone and not to a broken signature.
+        LicenseArtifactParser.Parse("sample.dobbylicense", Encoding.UTF8.GetBytes(artifactJson))
+            .IsSuccess.ShouldBeTrue();
+
+        var withAddedSelector = artifactJson.Replace(
+            "\"keyId\":\"license-prod-2026-01\"",
+            "\"keyId\":\"license-prod-2026-01\",\"keyVersion\":1",
+            StringComparison.Ordinal);
+        var withSubstitutedSelector = artifactJson.Replace(
+            "\"keyId\":\"license-prod-2026-01\"",
+            "\"keyVersion\":1",
+            StringComparison.Ordinal);
+
+        // ADR-0062 § 1 retires the numeric keyVersion selector and ADR-0060 forbids any
+        // reader for it, so it must never reach key selection: the exact five-property
+        // signature shape rejects it before signature verification runs.
+        LicenseArtifactParser.Parse("sample.dobbylicense", Encoding.UTF8.GetBytes(withAddedSelector))
+            .ReasonCode.ShouldBe(
+                LicenseRejectReasons.InvalidSignature,
+                "a signature block that adds numeric keyVersion is a shape violation (ADR-0062 § 1)");
+        LicenseArtifactParser.Parse("sample.dobbylicense", Encoding.UTF8.GetBytes(withSubstitutedSelector))
+            .ReasonCode.ShouldBe(
+                LicenseRejectReasons.InvalidSignature,
+                "numeric keyVersion must not stand in for the canonical keyId selector (ADR-0062 § 1)");
+    }
+
     public static IEnumerable<object[]> MalformedArtifacts()
     {
         yield return [new byte[] { 0xff }, LicenseRejectReasons.InvalidLicenseFile];

@@ -13,6 +13,7 @@ public sealed class PluginHostServices
     private readonly object pluginSubscriptionGate = new();
     private readonly Dictionary<string, PluginSubscriptionLease> pluginSubscriptionLeases = new(StringComparer.Ordinal);
     private readonly HashSet<string> pluginWorkSessionOwners = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, HashSet<Guid>> pluginWorkSessionGrants = new(StringComparer.Ordinal);
     private readonly IReadOnlyDictionary<Type, object> services;
     private readonly Func<string, ICapabilityLicensing>? licensingFactory;
     private readonly Func<string, IPluginStorage?>? pluginStorageFactory;
@@ -83,7 +84,7 @@ public sealed class PluginHostServices
                 pluginWorkSessionOwners.Add(pluginId);
             }
 
-            service = new PluginScopedWorkSessionService(pluginId, PluginWorkSessions);
+            service = new PluginScopedWorkSessionService(pluginId, PluginWorkSessions, this);
             return true;
         }
 
@@ -135,6 +136,7 @@ public sealed class PluginHostServices
         lock (pluginSubscriptionGate)
         {
             pluginWorkSessionOwners.Remove(pluginId);
+            pluginWorkSessionGrants.Remove(pluginId);
             if (pluginSubscriptionLeases.Remove(pluginId, out var lease))
             {
                 lease.IsClosed = true;
@@ -162,6 +164,7 @@ public sealed class PluginHostServices
         {
             workSessionOwners = pluginWorkSessionOwners.ToArray();
             pluginWorkSessionOwners.Clear();
+            pluginWorkSessionGrants.Clear();
             subscriptions = pluginSubscriptionLeases.Values
                 .SelectMany(lease =>
                 {
@@ -185,6 +188,52 @@ public sealed class PluginHostServices
             {
                 cleanup.CloseOwnedBy(ownerId);
             }
+        }
+    }
+
+    internal void GrantWorkSession(string pluginId, Guid sessionId)
+    {
+        if (sessionId == Guid.Empty)
+        {
+            return;
+        }
+
+        lock (pluginSubscriptionGate)
+        {
+            if (!pluginWorkSessionGrants.TryGetValue(pluginId, out var granted))
+            {
+                granted = [];
+                pluginWorkSessionGrants[pluginId] = granted;
+            }
+
+            granted.Add(sessionId);
+        }
+    }
+
+    internal void RevokeWorkSession(string pluginId, Guid sessionId)
+    {
+        lock (pluginSubscriptionGate)
+        {
+            if (pluginWorkSessionGrants.TryGetValue(pluginId, out var granted) &&
+                granted.Remove(sessionId) &&
+                granted.Count == 0)
+            {
+                pluginWorkSessionGrants.Remove(pluginId);
+            }
+        }
+    }
+
+    internal bool OwnsWorkSession(string pluginId, Guid sessionId)
+    {
+        if (sessionId == Guid.Empty)
+        {
+            return false;
+        }
+
+        lock (pluginSubscriptionGate)
+        {
+            return pluginWorkSessionGrants.TryGetValue(pluginId, out var granted) &&
+                granted.Contains(sessionId);
         }
     }
 
@@ -414,33 +463,65 @@ public sealed class PluginHostServices
 
     private sealed class PluginScopedWorkSessionService(
         string pluginId,
-        IPluginWorkSessionService inner) : IPluginWorkSessionService
+        IPluginWorkSessionService inner,
+        PluginHostServices host) : IPluginWorkSessionService
     {
         public Result<PluginWorkSessionHandle> Open(string ownerId, string routeKey, string labelKey)
         {
-            return string.Equals(ownerId, pluginId, StringComparison.Ordinal)
-                ? inner.Open(ownerId, routeKey, labelKey)
-                : Result.Failure<PluginWorkSessionHandle>(ErrorCode.Forbidden);
+            if (!string.Equals(ownerId, pluginId, StringComparison.Ordinal))
+            {
+                return Result.Failure<PluginWorkSessionHandle>(ErrorCode.Forbidden);
+            }
+
+            var opened = inner.Open(ownerId, routeKey, labelKey);
+            if (opened.IsSuccess)
+            {
+                host.GrantWorkSession(pluginId, opened.Value.SessionId);
+            }
+
+            return opened;
         }
 
         public Result UpdateProgress(Guid sessionId, int percent)
         {
-            return inner.UpdateProgress(sessionId, percent);
+            return Owns(sessionId)
+                ? inner.UpdateProgress(sessionId, percent)
+                : Result.Failure(ErrorCode.Forbidden);
         }
 
         public Result RecordResult(Guid sessionId, string resultSummaryKey)
         {
-            return inner.RecordResult(sessionId, resultSummaryKey);
+            return Owns(sessionId)
+                ? inner.RecordResult(sessionId, resultSummaryKey)
+                : Result.Failure(ErrorCode.Forbidden);
         }
 
         public Result RecordError(Guid sessionId, string errorSummaryKey)
         {
-            return inner.RecordError(sessionId, errorSummaryKey);
+            return Owns(sessionId)
+                ? inner.RecordError(sessionId, errorSummaryKey)
+                : Result.Failure(ErrorCode.Forbidden);
         }
 
         public Result Close(Guid sessionId)
         {
-            return inner.Close(sessionId);
+            if (!Owns(sessionId))
+            {
+                return Result.Failure(ErrorCode.Forbidden);
+            }
+
+            var closed = inner.Close(sessionId);
+            if (closed.IsSuccess)
+            {
+                host.RevokeWorkSession(pluginId, sessionId);
+            }
+
+            return closed;
+        }
+
+        private bool Owns(Guid sessionId)
+        {
+            return host.OwnsWorkSession(pluginId, sessionId);
         }
     }
 
@@ -448,7 +529,7 @@ public sealed class PluginHostServices
     {
         public Result<PluginWorkSessionHandle> Open(string ownerId, string routeKey, string labelKey)
         {
-            return Result.Success(new PluginWorkSessionHandle(Guid.Empty, ownerId, routeKey, labelKey));
+            return Result.Success(new PluginWorkSessionHandle(Guid.CreateVersion7(), ownerId, routeKey, labelKey));
         }
 
         public Result UpdateProgress(Guid sessionId, int percent)

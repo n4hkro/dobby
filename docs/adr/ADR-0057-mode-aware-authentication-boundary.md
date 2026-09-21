@@ -1,6 +1,7 @@
 # ADR-0057: Mode-Aware Authentication Boundary
 
-**Status:** Accepted (credential and BranchSetup proof details amended by ADR-0058 and ADR-0060)
+**Status:** Accepted (credential and throttling details amended by `ADR-0058`; the
+BranchSetup setup-proof sections amended by `ADR-0060` — see ## Revision History)
 **Date:** 2026-05-06
 
 ## Context
@@ -36,9 +37,14 @@ BranchSetup is a separate customer-side setup context:
 
 - `Dobby.BranchSetup.exe` is distinct from vendor-side `Dobby.Admin` and normal
   `Dobby.Host` runtime.
-- `HD-001` is closed: setup authorization uses Windows local admin execution,
-  protected `dobby_setup` credential, and existing `.dobbylicense` supplied as a
-  read-only file argument for setup proof.
+- `HD-001` is closed: setup authorization requires Windows local administrator
+  execution, the protected `dobby_setup` credential, and a dedicated purpose-signed
+  setup authorization artifact defined in
+  `docs/schemas/dobby-branch-setup-authorization-v1.schema.json` (`ADR-0060`). All
+  three are required; none of them substitutes for another. A plugin license
+  (`.dobbylicense`) is **not** accepted as setup proof in any form, including as a
+  read-only file argument — the earlier license-as-setup-proof position is retired
+  (see ## Revision History, 2026-08-26: the `DM-071` reopen condition fired).
 - BranchSetup does not import license state, mutate license state, create
   entitlement, activate plugins or perform plugin/package authorization.
 - `Dobby.Host` never loads `dobby_setup`, never executes setup DDL and never
@@ -70,7 +76,7 @@ Audit origin representation is resolved as follows:
 
 | ID | Resolution |
 |---|---|
-| `HD-001` | RESOLVED_BY_HUMAN_DECISION (`DM-071`): BranchSetup uses Windows local admin execution, protected `dobby_setup`, and existing `.dobbylicense` file-argument proof. `.dobbylicense` is read-only setup proof, not license import, activation, entitlement, plugin authorization, or package authorization. |
+| `HD-001` | RESOLVED_BY_HUMAN_DECISION (`DM-071`): BranchSetup uses Windows local admin execution, protected `dobby_setup`, and existing `.dobbylicense` file-argument proof. `.dobbylicense` is read-only setup proof, not license import, activation, entitlement, plugin authorization, or package authorization. **Reopened and re-resolved by `ADR-0060`:** the license-as-setup-proof part is withdrawn; setup authorization is a dedicated purpose-signed artifact (`docs/schemas/dobby-branch-setup-authorization-v1.schema.json`) and the admin/`dobby_setup` gates remain. |
 | `HD-002` | RESOLVED_BY_HUMAN_DECISION (`DM-089`): Branch Shared P1 audit is write-only from the app perspective; viewer/export read grants remain deferred until explicitly scoped. |
 | `HD-003` | RESOLVED_BY_HUMAN_DECISION (`DM-090`): seller devices persist only `dobby_app`; `dobby_setup` remains BranchSetup-only. |
 | `HD-004` | RESOLVED_BY_HUMAN_DECISION (`DM-091`): audit origin uses closed `source` plus server-issued `originDeviceId`, with pre-registration `localDeviceRef` snapshot fallback. |
@@ -103,6 +109,12 @@ These resolved decisions must not be reopened for preference-only reasons.
 ## Cross-references
 
 - `docs/adr/ADR-0056-deployment-modes-and-storage-providers.md`
+- `docs/adr/ADR-0058-credential-and-recovery-hardening-v2.md` — amends the
+  credential and throttling details of this ADR
+- `docs/adr/ADR-0060-license-lifecycle-and-import-v3.md` — amends the BranchSetup
+  setup-proof sections of this ADR; current setup authorization artifact authority
+- `docs/schemas/dobby-branch-setup-authorization-v1.schema.json` — setup
+  authorization artifact schema
 - `docs/adr/ADR-0038-local-first-authentication.md`
 - `docs/adr/ADR-0041-login-first-startup-policy.md`
 - `docs/adr/ADR-0055-protected-storage-scope-and-key-wrapping.md`
@@ -118,3 +130,21 @@ These resolved decisions must not be reopened for preference-only reasons.
   `HD-006` were resolved by human decision. This status promotion is
   documentation lifecycle only and does not open BranchSetup or Npgsql
   implementation.
+- **2026-08-26:** `HD-001` license-as-setup-proof portion amended by `ADR-0060`;
+  the `DM-071` reopen condition ("a setup-specific signed artifact is required") is
+  recorded as fired. Retired position: a plugin license (`.dobbylicense`) supplied
+  as a read-only file argument was accepted as setup proof. Current position: a
+  dedicated purpose-signed setup authorization artifact is required. This ADR
+  remains `Accepted` and remains the authority for the mode-aware authentication
+  boundary itself; credential/throttling details remain amended by `ADR-0058`. No
+  other decision in this ADR changes.
+- **2026-08-31:** Vocabulary and reverse-reference repair. (a) The `HD-001` bullet
+  kept the retired license-as-setup-proof sentence and appended a
+  "**Superseded by `ADR-0060`:**" note on top of it; a reader who stopped at the
+  first sentence would implement the retired gate. The bullet now states only the
+  current requirement and points to this section for history. (b) "Superseded by"
+  was the wrong relation vocabulary: `ADR-0060` declares `**Amends:**` for this ADR
+  and this ADR stays `Accepted`, so the body now says "amended" (`docs/adr/README.md`
+  § `Supersession header formatı` defines only full supersession and partial
+  amendment). (c) `ADR-0058` and `ADR-0060` were missing from ## Cross-references
+  even though both amend this ADR — the reverse pointers are now present.

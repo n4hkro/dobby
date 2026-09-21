@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://dobby.local/schemas/dobby-plugin-license-v3.schema.json",
   "title": "Dobby Plugin License Artifact v3",
+  "description": "Wire shape of a signed v3 plugin license artifact (ADR-0060, docs/specs/license-import.md). Schema validity proves shape only: the grant decision additionally requires signature verification against a trusted license key, keyId agreement between payload and signature, device-key and package-fingerprint binding, revision monotonicity and the lifecycle truth table in license-v3-lifecycle-truth-table.md. The frozen v2 schema has no compatibility reader; see artifact-compatibility-matrix.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["payload", "signature"],
@@ -20,12 +21,12 @@
         "pluginId": { "$ref": "#/$defs/pluginId" },
         "customerId": { "$ref": "#/$defs/id" },
         "deploymentId": { "$ref": "#/$defs/id" },
-        "deviceKeyHash": { "$ref": "#/$defs/sha256" },
+        "deviceKeyHash": { "$ref": "#/$defs/sha256", "$comment": "ADR-0063 derivation: lowercase-hex SHA-256 over canonical JSON { algorithmVersion: \"dobby-license-device-fingerprint-v1\", machineGuid, stableDeviceId }. It is not a hash of any device public key. schemaVersion 3 implies the -v1 derivation; a derivation change requires a new schemaVersion, so no derivation selector is carried here and no host tries multiple derivations." },
         "packageFingerprint": { "$ref": "#/$defs/sha256" },
         "issuedAt": { "$ref": "#/$defs/utc" },
         "notBefore": { "$ref": "#/$defs/utc" },
         "expiresAt": { "$ref": "#/$defs/utc" },
-        "gracePeriodDays": { "type": "integer", "minimum": 0, "maximum": 365 },
+        "gracePeriodDays": { "type": "integer", "minimum": 0, "maximum": 90, "$comment": "ADR-0060 requires a small explicit grace ceiling. Grace grants FullAccess after expiry, so the signed value is capped at 90 days and the host re-applies this ceiling independently of the artifact." },
         "intent": { "type": "string", "enum": ["granted", "revoked"] }
       }
     },
@@ -34,9 +35,9 @@
   "$defs": {
     "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
     "pluginId": { "type": "string", "minLength": 3, "maxLength": 128, "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$" },
-    "keyId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "keyId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^license-(prod|test)-[0-9]{4}-(0[1-9]|1[0-2])$", "$comment": "ADR-0062 § 1 canonical vendor selector <purpose-short>-<prod|test>-<YYYY-MM>. purpose-short is bijective with the signing purpose, so a license artifact may only name a key from the license ring; a plugin-package or recovery selector here is a shape violation rejected before signature verification (key-purpose confusion, ADR-0059). Format conformance is not trust: the host still requires an exact match in its license ring." },
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "utc": { "type": "string", "maxLength": 35, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,7})?Z$" },
+    "utc": { "type": "string", "maxLength": 35, "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,7})?Z$", "$comment": "Field ranges are bounded, not merely digit-counted: a two-digit-per-component pattern accepts 2026-99-99T99:99:99Z, which reaches the typed parser as an out-of-range instant and turns a shape error into a parse/arithmetic failure path (range overflow). Residual calendar validity the pattern cannot express -- 2026-02-30, non-leap 02-29 -- stays with the typed parser; leap-second :60 is deliberately outside the accepted set." },
     "signature": {
       "type": "object",
       "additionalProperties": false,
@@ -45,7 +46,7 @@
         "purpose": { "type": "string", "const": "dobby.plugin-license" },
         "algorithm": { "type": "string", "const": "ECDSA-P256-SHA256" },
         "format": { "type": "string", "const": "IeeeP1363FixedFieldConcatenation" },
-        "keyId": { "$ref": "#/$defs/keyId" },
+        "keyId": { "$ref": "#/$defs/keyId", "$comment": "Cross-field obligation JSON Schema cannot express: this keyId MUST equal payload.keyId, and a verifier MUST reject a mismatch before trusting the payload. Selecting the verification key from one member while taking authority from the other would accept a substituted key identity (ADR-0062 keyId selector)." },
         "value": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" }
       }
     }

@@ -841,14 +841,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public void SetActivePluginPage(IPluginPageModel? model)
     {
         activePluginPageModel = model;
-        if (model is null)
-        {
-            UpdateActiveWorkspaceRoute(ActiveRouteKey);
-        }
-        else
-        {
-            UpdateActiveWorkspaceRoute(ActiveRouteKey);
-        }
+        UpdateActiveWorkspaceRoute(ActiveRouteKey);
 
         OnPropertyChanged(nameof(ActivePluginPageModel));
         OnPropertyChanged(nameof(HasActivePluginPage));

@@ -62,7 +62,8 @@ və profile rename-i onu dəyişmir.
 
 Tier sərhədi:
 
-- Branch Shared Mərhələ 1 sənəd pass-i yalnız ADR/spec/docs/schema update-ləridir.
+- Branch Shared **documentation tier** (pre-Tier A sənəd pass-i) yalnız ADR/spec/docs/schema
+  update-ləridir.
 - Future Tier A skeleton yalnız provider-neutral interface/config/result
   shape-dir və ayrıca human approval tələb edir.
 - Npgsql runtime adapter, live PostgreSQL tests, functional BranchSetup,
@@ -71,6 +72,12 @@ Tier sərhədi:
 - Phase 2/future işlər `OrganizationShared`, multi-branch, app-server mediated
   runtime, manual existing PostgreSQL validator və plugin-owned relational
   schemas kimi ayrıca qərar tələb edən mövzulardır.
+
+Terminology guardrail: Branch Shared tier vocabulary-si (`documentation tier`,
+`Tier A`, `Tier B`) məhsul phase taxonomy-si (`P1-core`, `P1-if-time`, `P2`,
+`P3`, `later`) ilə eyni ox deyil və onunla əvəzlənmir. Branch Shared rollout
+addımlarına "Mərhələ 1" / "Phase 1" adı verilmir, çünki bu ad məhsulun Phase 1
+scope-u ilə qarışdırılır.
 
 Provider semantic guardrails:
 

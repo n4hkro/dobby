@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Shouldly;
@@ -8,9 +7,12 @@ namespace Dobby.IntegrationTests.Architecture;
 
 public sealed class ProductionReleasePackagingStaticScanTests
 {
-    private const string ApprovedProductionPemSha256 = "74ca9ee78d453e122d86047c90fd174e78fa1828647404e03122b6d7ab39201f";
+    // 2026-07 GA-candidate single master key hash. That key model is retired by
+    // ADR-0062 (supersedes ADR-0033); the value is kept only as a negative control
+    // so no current purpose-separated anchor can silently equal it.
+    private const string RetiredMasterKeyPemSha256 = "74ca9ee78d453e122d86047c90fd174e78fa1828647404e03122b6d7ab39201f";
     private const string Sprint8BootstrapPemSha256 = "00bedd1f30da9726b50e6aa6929d3df5e7d5e2dbaf05f6435503c01210f5ad1f";
-    private const string ProductionTrustResourceName = "Dobby.Security.Trust.vendor-master-public-key.pem";
+    private const string RetiredMasterTrustResourceName = "Dobby.Security.Trust.vendor-master-public-key.pem";
 
     private const string PrivateKeyLabelPattern =
         @"(?<privateKeyLabel>(?:[A-Z0-9]+ )*" +
@@ -159,28 +161,47 @@ public sealed class ProductionReleasePackagingStaticScanTests
     }
 
     [Fact]
-    public void Published_production_security_artifact_embeds_the_approved_public_key_and_matches_evidence_hashes()
+    public void Historical_release_candidate_evidence_stays_consistent_and_its_master_key_stays_retired()
     {
+        // The 2026-07 local release candidate was produced under the retired single
+        // master key model (ADR-0033). It remains historical evidence: this test
+        // checks that the record is still internally consistent and that the retired
+        // key can never re-enter the current build (ADR-0062, NFR-027). The live
+        // anchor/embedded-bytes equality proof is owned by
+        // PluginTrustResourcePackagingTests, which runs against the current build
+        // instead of a machine-local publish output.
         var evidenceRoot = CurrentTask1EvidenceRoot();
         var packagingScan = ReadEvidence(evidenceRoot, "packaging-static-scan.md");
         var productionRecovery = ReadEvidence(evidenceRoot, "production-recovery-handover.md");
 
         packagingScan.ShouldContain("DobbyPluginTrustProfile=Production");
+        ExtractRepoRelativePath(packagingScan, "Published security assembly path")
+            .ShouldEndWith("Dobby.Security.dll");
 
-        var publishedSecurityPath = Path.Combine(
-            RepositoryRoot(),
-            ExtractRepoRelativePath(packagingScan, "Published security assembly path"));
-        File.Exists(publishedSecurityPath)
-            .ShouldBeTrue($"Published security assembly is missing: {publishedSecurityPath}");
+        ExtractHash(productionRecovery, "Source public-key SHA-256").ShouldBe(RetiredMasterKeyPemSha256);
+        ExtractHash(productionRecovery, "Embedded public-key SHA-256").ShouldBe(RetiredMasterKeyPemSha256);
+        ExtractHash(productionRecovery, "Custody public-key SHA-256").ShouldBe(RetiredMasterKeyPemSha256);
+        productionRecovery.ShouldContain("Source/embedded equality: PASS");
 
-        var embeddedHash = ReadEmbeddedPemSha256(publishedSecurityPath);
-        embeddedHash.ShouldBe(ApprovedProductionPemSha256);
+        // HD-S11-001 is still open: the recorded custody hash is the same locally generated
+        // GA-candidate key as the source/embedded anchors, so it matches by construction and is
+        // not authorized-custodian evidence. The record must say so and must not present the
+        // three-way match as a closed custody gate.
+        productionRecovery.ShouldContain("Independent custody equality: NOT PROVEN");
+        productionRecovery.ShouldNotContain("Source/embedded/custody equality: PASS");
+        productionRecovery.ShouldContain("HD-S11-001: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES");
 
-        ExtractHash(productionRecovery, "Source public-key SHA-256").ShouldBe(ApprovedProductionPemSha256);
-        ExtractHash(productionRecovery, "Embedded public-key SHA-256").ShouldBe(embeddedHash);
-        ExtractHash(productionRecovery, "Custody public-key SHA-256").ShouldBe(ApprovedProductionPemSha256);
-        ExtractHash(packagingScan, "Published security assembly embedded public-key SHA-256").ShouldBe(embeddedHash);
-        productionRecovery.ShouldContain("Source/embedded/custody equality: PASS");
+        var assembly = typeof(Dobby.Security.Trust.PluginTrustPublicKeyProvider).Assembly;
+        assembly.GetManifestResourceNames().ShouldNotContain(RetiredMasterTrustResourceName);
+
+        var currentAnchorHashes = Directory
+            .EnumerateFiles(Path.Combine(RepositoryRoot(), "src", "Dobby.Host", "Trust"), "*.pem")
+            .Select(path => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant())
+            .ToArray();
+
+        currentAnchorHashes.ShouldNotBeEmpty();
+        currentAnchorHashes.ShouldNotContain(RetiredMasterKeyPemSha256);
+        currentAnchorHashes.ShouldNotContain(Sprint8BootstrapPemSha256);
     }
 
     [Fact]
@@ -192,6 +213,9 @@ public sealed class ProductionReleasePackagingStaticScanTests
         productionRecovery.ShouldContain("Recovery response command: `create-recovery-response`");
         productionRecovery.ShouldContain("Signing profile: `production`");
         productionRecovery.ShouldContain("Command result: exit code 0 (PASS)");
+        // The signing key behind this RC record is locally generated, so the record must state its
+        // provenance instead of implying vendor production custody material was used.
+        productionRecovery.ShouldContain("Signing key provenance: locally generated GA-candidate key material");
         ExtractHash(productionRecovery, ".dobbyrecovery artifact SHA-256").Length.ShouldBe(64);
         ExtractHash(productionRecovery, "Redacted Admin report SHA-256").Length.ShouldBe(64);
         ExtractHash(productionRecovery, "Redacted transcript hash-chain digest").Length.ShouldBe(64);
@@ -219,9 +243,11 @@ public sealed class ProductionReleasePackagingStaticScanTests
         packagingScan.ShouldContain("no production private keys");
 
         manifest.ShouldContain("DobbyPluginTrustProfile=Production");
-        manifest.ShouldContain($"sourceVendorPublicKeyHash: `{ApprovedProductionPemSha256}`");
-        manifest.ShouldContain($"embeddedVendorPublicKeyHash: `{ApprovedProductionPemSha256}`");
-        manifest.ShouldContain($"custodyVendorPublicKeyHash: `{ApprovedProductionPemSha256}`");
+        manifest.ShouldContain($"sourceVendorPublicKeyHash: `{RetiredMasterKeyPemSha256}`");
+        manifest.ShouldContain($"embeddedVendorPublicKeyHash: `{RetiredMasterKeyPemSha256}`");
+        manifest.ShouldContain($"custodyVendorPublicKeyHash: `{RetiredMasterKeyPemSha256}`");
+        manifest.ShouldContain("independentCustodyEqualityResult: NOT PROVEN");
+        manifest.ShouldContain("HD-S11-001: PATH APPROVED; CLOSURE BLOCKED UNTIL EVIDENCE PASSES");
         manifest.ShouldContain($"oldBootstrapProductionHash={Sprint8BootstrapPemSha256}");
         manifest.ShouldContain("oldBootstrapNegativeControlResult: PASS");
         manifest.ShouldContain("publishedRecoveryImportResult: PASS");
@@ -306,25 +332,6 @@ public sealed class ProductionReleasePackagingStaticScanTests
         var match = Regex.Match(text, pattern, RegexOptions.CultureInvariant);
         match.Success.ShouldBeTrue($"Expected `{label}` hash entry in evidence.");
         return match.Groups["value"].Value;
-    }
-
-    private static string ReadEmbeddedPemSha256(string assemblyPath)
-    {
-        var loadContext = new AssemblyLoadContext("published-security-scan", isCollectible: true);
-        try
-        {
-            var assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
-            using var stream = assembly.GetManifestResourceStream(ProductionTrustResourceName);
-            stream.ShouldNotBeNull($"Published assembly is missing `{ProductionTrustResourceName}`.");
-
-            using var memory = new MemoryStream();
-            stream.CopyTo(memory);
-            return Convert.ToHexString(SHA256.HashData(memory.ToArray())).ToLowerInvariant();
-        }
-        finally
-        {
-            loadContext.Unload();
-        }
     }
 
     private static void AssertForbiddenEvidenceAbsent(string text)

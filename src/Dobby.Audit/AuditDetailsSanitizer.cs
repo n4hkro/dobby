@@ -30,9 +30,10 @@ internal static partial class AuditDetailsSanitizer
             [AuditEventName.PluginActivationSkipped] = Fields("pluginId", "status", "reasonCode", "diagnosticMarker"),
             [AuditEventName.PluginActivationRejected] = Fields("pluginId", "status", "reasonCode", "diagnosticMarker"),
             [AuditEventName.PluginRuntimeFaulted] = Fields("pluginId", "status", "reasonCode", "diagnosticMarker"),
+            [AuditEventName.PluginRuntimeQuarantined] = Fields("pluginId", "status", "reasonCode", "defectCount", "diagnosticMarker"),
             [AuditEventName.PluginLifecycleV1AdapterUsed] = Fields("pluginId", "status", "reasonCode", "diagnosticMarker"),
-            [AuditEventName.RecoveryExport] = Fields("requestId"),
-            [AuditEventName.RecoveryImport] = Fields("outcome", "requestId"),
+            [AuditEventName.RecoveryExport] = Fields("requestId", "nonceHash"),
+            [AuditEventName.RecoveryImport] = Fields("outcome", "requestId", "nonceHash"),
             [AuditEventName.LicenseImportAttempted] = Fields("reasonCode", "diagnosticMarker"),
             [AuditEventName.LicenseImportSucceeded] = Fields("reasonCode", "diagnosticMarker", "lifecycleState"),
             [AuditEventName.LicenseImportRejected] = Fields("reasonCode", "diagnosticMarker"),
@@ -40,7 +41,10 @@ internal static partial class AuditDetailsSanitizer
             [AuditEventName.LicenseEnforcementWarning] = Fields("reasonCode", "lifecycleState"),
             [AuditEventName.CustomerDeploymentContextProvision] = Fields("customerIdHash", "deploymentIdHash", "supportCode"),
             [AuditEventName.DiagnosticsExportCreated] = Fields("outputName", "included", "excluded", "uploaded"),
-            [AuditEventName.SecurityVerificationFailed] = Fields("reason", "outcome", "requestId")
+            [AuditEventName.SecurityVerificationFailed] = Fields("reason", "outcome", "requestId"),
+            [AuditEventName.PersistenceSnapshotCreated] = Fields("outputName", "sha256", "reasonCode"),
+            [AuditEventName.PersistenceRestoreRequested] = Fields("candidateName", "reasonCode"),
+            [AuditEventName.PersistenceRestoreCompleted] = Fields("candidateName", "quarantineName", "reasonCode")
         };
 
     private static readonly string[] ForbiddenKeyFragments =

@@ -32,6 +32,12 @@ Qərar kriteriyası: **failure-in mahiyyəti** nə tip ifadə istifadə olunaca�
 | 6 | Cancellation: internal flow-da throw/bubble OK; public/plugin boundary-də `ErrorCode.Cancelled` ilə `Result<T>` | Boundary |
 | 7 | Fatal / corrupted-state exception (`OutOfMemoryException`, `StackOverflowException`) tutulmur | Hard rule |
 | 8 | Host UI/page boundary non-fatal exception-ları process crash-a çevirmir; user safe display message görür, raw stack trace UI-a sızmır və detail diagnostics/audit boundary-də qalır | Boundary |
+| 9 | Expected validation, authorization, compatibility, lifecycle, cancellation və user-correctable package failure-ları typed `Result` failure-dır; onlar plugin runtime-fault counter-ini artırmır və quarantine tetikləmir — quarantine yalnız real plugin defect/fault üçündür (`ADR-0059`) | Semantic |
+| 10 | Persistence/infrastructure exception-ı öz boundary-sində stable typed code plus correlation ID-yə çevrilir; UI, audit və export olunan support material raw DB path, SQL/connection string, secret, stack trace və exception message daşımır (`ADR-0019`, `NFR-026`) | Boundary |
+| 11 | Security/domain state dəyişikliyi ilə tələb olunan audit/outbox record-u tək unit of work-dur: commit uğursuz olarsa nəticə failure-dır və heç bir tərəf məntiqi olaraq tətbiq olunmuş qalmır; post-commit external delivery retryable və idempotent-dir (`ADR-0061`, `FR-033`, `NFR-025`) | Contract |
+| 12 | Cancellation cancellation olaraq qalır — error və ya runtime fault-a çevrilmir. Cleanup failure-ı ayrı correlation ID altında loglana bilər, amma original outcome-u maskalamır (`ADR-0061`, `ADR-0059`) | Boundary |
+| 13 | Trust boundary-də cryptographic, archive-limit, containment, malformed-persisted-state və overflow failure-ları typed fail-closed nəticədir. Malformed və ya oxunmayan persisted artifact istifadə üçün fail-closed olur, amma əvəz etməli olduğu last-known-good state-i məhv etmir (`ADR-0059`, `ADR-0060`) | Hard rule |
+| 14 | Authentication, throttling, recovery və license-binding failure-ları user- və plugin-facing səthdə non-disclosing-dir: typed nəticə hansı binding field-inin, key-in, path-in və ya account şərtinin uğursuz olduğunu açmır; host-side səbəb diagnostics-də qalır (`ADR-0058`, `ADR-0060`) | Contract |
 
 ---
 
@@ -91,6 +97,10 @@ exception detail-i yalnız diagnostics/audit boundary daxilində saxlayır.
 
 IO/DB/HTTP/serialization edən **ilk Dobby metodu** `try/catch` ilə sərhəd qurur və exception-ı `Result<T>`-ə çevirir. Downstream Dobby metodları artıq wrapped Result consume edir, təkrar `try/catch` yazmır.
 
+Bura **OS/platform primitive oxunuşları da daxildir** — registry, DPAPI, file ACL, process/environment sorğusu. Onlar qayda #3-ün "IO, HTTP, DB, serialization" sadalamasında adı ilə görünmür, lakin eyni sinifdəndir: nəticə xarici state-dən asılıdır və çağıran onu qabaqcadan yoxlaya bilməz.
+
+`?.` zənciri bu sərhədi **qurmur**. Null-conditional operator yalnız `null` dəyəri ötürür; `SecurityException` (ACL ilə məhdudlaşdırılmış key), `UnauthorizedAccessException` və `IOException` onun içindən keçib çıxır. Ona görə `a?.b?.c ?? fallback` formu defensive görünür, amma nə exception tutur, nə də "yoxdur" ilə "oxunmur" hallarını fərqləndirir — hər ikisini bir sentinel dəyərə çevirir. Sentinel isə downstream guard-a ümid edir: davranış fail-closed olsa da, **contract-a görə deyil, təsadüfən** belədir.
+
 ```csharp
 public async Task<Result<User>> GetUserAsync(Guid id, CancellationToken ct)
 {
@@ -114,6 +124,52 @@ public async Task<Result<User>> GetUserAsync(Guid id, CancellationToken ct)
 ```
 
 Diqqət: `OperationCanceledException` bu daxili metod səviyyəsində bubble olunur (caller-a çatır). Public/plugin boundary-yə çatanda wrapper onu `ErrorCode.Cancelled`-a çevirir.
+
+### OS primitive oxunuşu: adapter typed, security boundary non-disclosing
+
+Adapter fərqləndirilə bilən typed failure qaytarır; onu consume edən security
+boundary hamısını **bir** non-disclosing code-a yığır. İki səviyyə qəsdəndir:
+adapter səviyyəsi diagnostics üçün lazımdır ("key yoxdur" ilə "key oxunmur" fərqli
+operator hərəkəti tələb edir), user-facing və audit səthi isə fərqi görməməlidir,
+çünki fərq özü information disclosure-dur (`ADR-0063` § 4).
+
+```csharp
+// Adapter (Dobby.Infrastructure): distinguishable, typed, heç vaxt throw etmir.
+public Result<HardwareIdentitySnapshot> Read()
+{
+    string? raw;
+    try
+    {
+        raw = ReadMachineGuidFromRegistry();
+    }
+    catch (SecurityException)        { return Result.Failure<HardwareIdentitySnapshot>(ErrorCode.Unauthorized); }
+    catch (UnauthorizedAccessException) { return Result.Failure<HardwareIdentitySnapshot>(ErrorCode.Unauthorized); }
+    catch (IOException)             { return Result.Failure<HardwareIdentitySnapshot>(ErrorCode.IoFailed); }
+
+    // "Yoxdur" placeholder-ə normalize edilmir: boş dəyər digest-ə daxil edilsə,
+    // həmin state-dəki bütün cihazlar eyni binding dəyərini paylaşardı.
+    return string.IsNullOrWhiteSpace(raw)
+        ? Result.Failure<HardwareIdentitySnapshot>(ErrorCode.NotFound)
+        : Result.Success(new HardwareIdentitySnapshot(raw));
+}
+
+// Security boundary (Dobby.Host): hamısı bir non-disclosing code-a yığılır.
+private static Result<string> CreateCurrentLicenseDeviceFingerprint(byte[] stableDeviceId)
+{
+    var hardware = new WindowsHardwareIdentityProvider().Read();
+    if (!hardware.IsSuccess)
+    {
+        return Result.Failure<string>(ErrorCode.LicenseBindingMismatch);
+    }
+    ...
+}
+```
+
+Anti-pattern: adapter-in **özündə** `LicenseBindingMismatch` qaytarmaq. Adapter-in
+licensing-dən başqa consumer-i ola bilər, və hər failure-ı bir code-a yığmaq həmin
+consumer-lərdən diagnostics-i alır. Əks anti-pattern: adapter-in throw etməsi —
+exception `Lazy<T>` içində cache olunur, dispatcher-ə çıxır və mesajı registry yolunu
+daşıyır.
 
 ---
 
@@ -248,6 +304,16 @@ amma bu public names və semantic shape-i dəyişdirə bilməz.
   - Engineering Conventions: `Error Handling Contract`, `Plugin Boundary Exception Seal`, `Cancellation and Corrupted-State`, `Core Public Surface Stability`
 - **ADRs:**
   - ADR-0016 Logging strategy (exception flow + correlation id)
+  - ADR-0061 Login-first runtime and atomic mutation boundary (unit-of-work /
+    outbox result semantics, "no success before commit")
+  - ADR-0059 Plugin trust, package and UI contract v2 (typed package/verification
+    reject reasons, outcome origin, quarantine vs expected rejection)
+  - ADR-0060 License lifecycle and import v3 (non-disclosing license failure
+    results and last-known-good preservation)
+  - ADR-0058 Credential and recovery hardening v2 (non-disclosing authentication,
+    throttling and recovery failure results)
+  - ADR-0012 Plugin capability boundary (plugin boundary exception seal)
+  - ADR-0019 Audit vs diagnostics boundary (raw detail stays in diagnostics)
 - **Stack selection:**
   - Section 7 Dobby-owned primitives: `Result<T>` in `Dobby.Core/ResultStandardization`
 - **Acceptance / requirement sənədləri:**
@@ -280,21 +346,11 @@ açılanda public-contract freeze ilə birlikdə əlavə olunur. Bu deferral
 `docs/09_BUILD_RUN_AND_RELEASE.md` `Initial P1 Skeleton Exclusions` siyahısı ilə
 birlikdə oxunmalıdır.
 
-## 2026-08 Error and Atomicity Amendment (Controlling)
+## Revision History
 
-- Expected validation, authorization, compatibility, lifecycle, cancellation
-  and user-correctable package failures return typed `Result` failures. They do
-  not increment plugin runtime-fault counters or trigger quarantine unless the
-  failure is an actual plugin defect/fault.
-- Persistence and infrastructure exceptions are translated at the owning
-  boundary into stable typed codes plus a correlation ID. UI, audit and exported
-  support material do not expose raw database paths, SQL, secrets, stack traces
-  or exception messages.
-- Security/domain state and the required audit/outbox record commit in one unit
-  of work. A failed commit returns failure and leaves neither side logically
-  applied. Post-commit external delivery is retryable and idempotent.
-- Cancellation remains cancellation; it is not converted to an error or runtime
-  fault. Cleanup failures may be logged under a separate correlation ID without
-  masking the original outcome.
-- Cryptographic, archive-limit, containment, malformed-persisted-state and
-  overflow failures are typed fail-closed results at trust boundaries.
+- **2026-08-26:** `ADR-0058`…`ADR-0061` reconciliation. `2026-08 Error and
+  Atomicity Amendment` bölməsi ləğv edildi; qərarları `Qaydalar` cədvəlinə
+  9–14 nömrəli normativ sətirlər kimi köçürüldü (expected-failure vs quarantine,
+  infrastructure translation/leakage, atomic unit of work, cancellation
+  saflığı, trust-boundary fail-closed + LKG qorunması, non-disclosing security
+  failure-ları).

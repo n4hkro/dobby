@@ -1,11 +1,15 @@
 # ADR-0040: Internal Host Adapters Boundary (Dobby.Infrastructure)
 
-**Status:** Accepted
+**Status:** Accepted (device identity / recovery responsibility amended 2026-08-26 by `ADR-0058`; clarified by `ADR-0063` — see `## 2026-08 Recovery And Device Identity Amendment`)
 **Date:** 2026-04-24
+
+**Clarified by:** `ADR-0063` — § 2 Row 88 hardware identity responsibility: the
+adapter returns raw `MachineGuid`; normalization and the binding derivation are
+owned by that ADR.
 
 ## Context
 
-Audit `H-04` tapıntısı göstərdi ki, `ADR-0039 Owner Password Recovery` accepted qərarı `Dobby.Infrastructure` namespace/project-inə istinad edir (ADR-0039 § 132, § 161-162, § 200-202):
+Audit `H-04` tapıntısı göstərdi ki, o zamanın accepted recovery qərarı (`ADR-0039 Owner Password Recovery`, indi `ADR-0058` ilə superseded) `Dobby.Infrastructure` namespace/project-inə istinad edir (ADR-0039 § 132, § 161-162, § 200-202):
 
 - `Dobby.Infrastructure` Win32 API inteqrasiyasını (Registry, WMI, NetworkInterface) hardware identity query səthi kimi açır
 - Consumed recovery nonce persistence `Dobby.Infrastructure` (ADR-0030 boundary ilə) altında saxlanır
@@ -31,11 +35,11 @@ Phase 1 internal host adapters boundary modeli:
 
 `Dobby.Infrastructure` aşağıdakı responsibility-ləri saxlayır:
 
-- **Hardware Identity query** (Row 88): `Dobby.Infrastructure / Hardware Identity` namespace-i Registry, WMI və NetworkInterface üzərindən device fingerprint hash-lərini hesablayır; `ADR-0039` 5-hash composite recovery flow-unun internal surface-idir.
+- **Hardware Identity query** (Row 88): `Dobby.Infrastructure / Hardware Identity` namespace-i Registry read adapter-ini saxlayır. Bu surface protected stable device identity materialını və **xam** (normalize edilməmiş) `MachineGuid` oxunuşunu təmin edir; normalizasiya adapter-in deyil, derivation-ın öhdəliyidir və `ADR-0063` § `Canonical derivation`-a aiddir (`src/Dobby.Licensing/LicenseDeviceFingerprintV1.cs`). Adapter-in normalize etdiyini güman edən ikinci consumer eyni maşından fərqli digest çıxarar. Toplanan yeganə hardware property `MachineGuid`-dir (§ `2026-08-29 Collected-property narrowing`): WMI və NetworkInterface əsaslı hardware oxunuşları silinib, ona görə "toplanan digər hardware property" mövcud deyil. Support-safe risk signal icazəsi qüvvədə qalır, lakin hazırda ondan istifadə edən collected property yoxdur; yeni hardware property əlavə etmək successor ADR tələb edir. Heç bir recovery, authentication və ya license qərarı fuzzy/quorum hardware match ilə verilmir: Owner recovery device identity-ni device-generated non-exportable protected recovery key pair ilə sübut edir (`ADR-0058`), license device binding derivation-ı isə `ADR-0063`-ə (artifact authority `ADR-0060`) tabedir. `ADR-0039` 5-hash composite modeli superseded history-dir (`docs/02_ARCHITECTURE_MAP.md` Row 88, aşağıdakı `2026-08 Recovery And Device Identity Amendment`).
 - **Host Persistence / Consumed Nonces** (Row 89): `ADR-0030` host persistence boundary-si daxilində consumed recovery nonce append-only store-u saxlanır. Bu SQLite-based store-dur və yalnız host internal code-dan accessible-dir.
 - **Local persistence protection**: host və plugin local persistence backing file-larının data-at-rest qorunması üçün storage protection adapter-lərini saxlayır. Bu adapter-lər şifrələmə/protection açarını istifadəçidən əl ilə istəmir və təkcə `deviceId`-dən törətmir; Dobby-created local secret-lər və OS/device protected mechanism-lərindən istifadə edir.
 - **Secret field protection**: password, token, key, remember-me secret, recovery secret və session material kimi həssas sahələr üçün DB qorumasından əlavə protected-storage/field-level wrapper-ləri təqdim edir.
-- **Win32 API wrapper-ləri**: platform-specific API-ların encapsulated adapter-ləri (Registry read, WMI query, NetworkInterface enumeration) Windows-only adapter slice-da saxlanılır. `Dobby.Security` və `Dobby.Audit` platform-neutral contract/abstraction surface görür; concrete Windows adapter-lər `Dobby.Host` composition root tərəfindən DI-da wire edilir.
+- **Win32 API wrapper-ləri**: platform-specific API-ların encapsulated adapter-ləri Windows-only adapter slice-da saxlanılır. Phase 1-də faktiki olaraq istifadə edilən yeganə wrapper Registry read-dir; WMI query və NetworkInterface enumeration wrapper-ləri § `2026-08-29 Collected-property narrowing` ilə silinib və yenidən əlavə edilməsi successor ADR tələb edir. `Dobby.Security` və `Dobby.Audit` platform-neutral contract/abstraction surface görür; concrete Windows adapter-lər `Dobby.Host` composition root tərəfindən DI-da wire edilir.
 
 ### 3. Dependency direction
 
@@ -69,7 +73,7 @@ per-row ownership table istifadə edir.
 | License cache | `Dobby.Licensing` | `Dobby.Licensing` cache behavior using a Host-wired persistence primitive where needed | `Dobby.Host` | Add `Dobby.Licensing -> Dobby.Infrastructure` only if implementation needs direct primitive access and the architecture map is amended. |
 | User/app/plugin settings | `Dobby.Configuration` | `Dobby.Configuration` settings behavior using a Host-wired persistence primitive where needed | `Dobby.Host` | Add `Dobby.Configuration -> Dobby.Infrastructure` only if implementation needs direct primitive access and the architecture map is amended. |
 | Recovery nonce store | `Dobby.Security` | `Dobby.Security` recovery nonce behavior using `Dobby.Infrastructure / Host Persistence` primitive where needed | `Dobby.Host` | `Dobby.Security -> Dobby.Infrastructure` is allowed only because the architecture map shows it. |
-| Device fingerprint / hardware identity | `Dobby.Security` | `Dobby.Security` device identity behavior using `Dobby.Infrastructure` Registry/WMI/NetworkInterface primitives | `Dobby.Host` | `Dobby.Security -> Dobby.Infrastructure` must remain explicit in the architecture map. |
+| Device binding / hardware identity | `Dobby.Licensing` (license binding derivation), `Dobby.Host` (composition) | `Dobby.Infrastructure / Hardware Identity` supplies the raw `MachineGuid` Registry read and the DPAPI-protected stable device id; the binding value is derived in `Dobby.Licensing` per `ADR-0063` § `Canonical derivation` | `Dobby.Host` | Narrowed by § `2026-08-29 Collected-property narrowing`: the WMI and NetworkInterface primitives this row previously named are deleted, and no `MachineGuid` consumer sits in `Dobby.Security`. The `Dobby.Security -> Dobby.Infrastructure` edge remains required by the rows above (recovery nonce store, DPAPI wrappers), not by this one. |
 | DPAPI/session material and protected secret wrappers | `Dobby.Security` | `Dobby.Security` protection behavior using `Dobby.Infrastructure` DPAPI/protected-storage primitives | `Dobby.Host` | `Dobby.Security -> Dobby.Infrastructure` must remain explicit in the architecture map. |
 
 Variant 1, where `Dobby.Infrastructure` implements owner-project contracts by
@@ -128,7 +132,7 @@ field-level şifrələnmir; secrets yuxarıdakı protected wrapper-lərdən keç
 
 ## Consequences
 
-- `ADR-0039` ownership gap bağlanır; recovery flow-da adı çəkilən `Dobby.Infrastructure` artıq architecture map-də formal project-dir.
+- Recovery flow-un ownership gap-i bağlanır; recovery-də adı çəkilən `Dobby.Infrastructure` artıq architecture map-də formal project-dir. Recovery qərar authority-si `ADR-0058`-dir; bu ADR yalnız adapter/persistence boundary-ni sahiblənir.
 - `MF-06` storage ownership gap bağlanır; hər data sahibi storage backing-in where/how bağlanması aydındır.
 - Plugin boundary dəyişməz qalır; `IPluginStorage` contract-ı və capability-based surface plugin-lər üçün yeganə access path-dir.
 - DB/data protection adapter ownership `Dobby.Infrastructure` daxilində qalır; plugin bu qorumanın key materialını, backing file path-ini və provider detalını görmür.
@@ -153,16 +157,76 @@ These resolved decisions must not be reopened for preference-only reasons.
 
 - `docs/02_ARCHITECTURE_MAP.md` — Row 87 `Dobby.Infrastructure`, Row 88 `Hardware Identity`, Row 89 `Host Persistence / Consumed Nonces`, Cədvəl 3 `Dobby.Infrastructure Boundary` risk sətri
 - `docs/adr/ADR-0030-host-persistence-and-plugin-storage-boundary.md` — host persistence internal saxlanması qaydası
-- `docs/adr/ADR-0039-owner-password-recovery.md` — `Dobby.Infrastructure` hardware identity + consumed nonce usage
+- `docs/adr/ADR-0058-credential-and-recovery-hardening-v2.md` — current recovery authority (device-generated non-exportable recovery key pair, nonce consumption)
+- `docs/adr/ADR-0063-device-license-binding-derivation.md` — device license binding derivation authority
+- `docs/adr/ADR-0039-owner-password-recovery.md` — superseded history (`ADR-0058`); yalnız `H-04` context-i üçün istinad edilir
 - `docs/adr/ADR-0019-audit-vs-diagnostics-boundary.md` — audit storage boundary
 - `docs/adr/ADR-0038-local-first-authentication.md` — DPAPI session material storage
 - `docs/06_NON_FUNCTIONAL_REQUIREMENTS.md` — `NFR-007`
 - `docs/specs/storage-and-data-protection.md` — DB/data protection və key management spec
 
+## 2026-08 Recovery And Device Identity Amendment
+
+**Tarix:** 2026-08-26 · **Authority:** `ADR-0058` (supersedes `ADR-0039`), `ADR-0060`, `ADR-0063`, `docs/02_ARCHITECTURE_MAP.md` Row 88
+
+Bu ADR-in boundary qərarı (`Dobby.Infrastructure` internal-only adapter layer-i, plugin visibility `no`, dependency istiqaməti, TFM split, storage/secret-field ownership) dəyişmir. Amendment yalnız Row 88-in **məqsəd** təsvirini düzəldir:
+
+- Əvvəlki mətn hardware identity surface-ini "`ADR-0039` 5-hash composite recovery flow-unun internal surface-i" kimi göstərirdi. `ADR-0058` recovery-ni device-generated non-exportable protected recovery key pair üzərinə keçirdi; fuzzy/quorum hardware match heç bir security qərarı üçün istifadə edilmir.
+- License device binding-in derivation authority-si `ADR-0063`, artifact authority-si `ADR-0060`-dır; bu ADR həmin derivation-ı sahiblənmir.
+- Hardware property toplanması support-safe risk signal olaraq qalır və bu, adapter boundary-si üçün yeganə legitimate məqsəddir.
+
+Consumed recovery nonce append-only store-unun `ADR-0030` boundary-si daxilində `Dobby.Infrastructure`-da qalması qaydası dəyişmir; onun monotonic davranışı restore zamanı `docs/specs/backup-restore-migration.md` § 2.2 ilə qorunur.
+
+
+### 2026-08-29 Collected-property narrowing
+
+Bu bölmə yuxarıdakı amendment-in icrasıdır, yeni qərar deyil. Amendment
+"hardware property toplanması support-safe risk signal olaraq qalır" deyirdi;
+kod tərəfində isə `WindowsHardwareIdentityProvider` hələ də `ADR-0039`-un beş
+mənbəyini oxuyurdu — `MachineGuid`, `Win32_Processor.ProcessorId`,
+`Win32_BaseBoard.SerialNumber`, `Win32_DiskDrive.SerialNumber` və ilk aktiv
+adapter-in MAC adresi. Yeganə consumer (`HostLoginRuntimeFactory`
+§ `CreateCurrentLicenseDeviceFingerprint`) bunlardan **yalnız** `MachineGuid`-i
+istifadə edirdi; qalan dördü hər login qiymətləndirməsində oxunub istifadəsiz
+atılırdı və repository-də heç bir risk-signal consumer-i yox idi.
+
+Ona görə collected set `MachineGuid`-ə daraldıldı:
+
+- Toplanmayan property risk signal da ola bilməz, yəni bu, izin verilmiş
+  məqsədin daralması deyil — istifadə olunmayan collection səthinin silinməsidir.
+  `ADR-0058` § `Owner recovery v2` hardware property-lərin authentication factor,
+  quorum hash, encryption key və ya recovery binding authority olmasını qadağan
+  edir; oxunub atılan dörd dəyər isə məhz superseded `ADR-0039` 5-source
+  composite-inin qalığı idi və adı ilə həmin modeli canlı göstərirdi.
+- `ADR-0063` § `Canonical derivation` binding input-larını dəqiq olaraq
+  `machineGuid` + protected stable device id kimi bağlayır. Snapshot-da əlavə
+  hardware component saxlamaq gələcək derivation genişlənməsi üçün hazır səth
+  buraxırdı; indi tip səviyyəsində belə səth yoxdur.
+- Üç sinxron WMI query hər login yolunda icra olunurdu; `AC-014` login latency-ni
+  ölçdüyü üçün istifadəsiz WMI oxunuşu ölçülən büdcəni səbəbsiz yeyirdi.
+- `System.Management` package pin-i (`10.0.8`) bu WMI oxunuşları üçün
+  human-approved idi və approval basis-i açıq şəkildə "ADR-0039's five-source
+  fingerprint requirement for CPU ID, motherboard serial, and disk serial WMI
+  reads"-dir (`artifacts/release-evidence/skeleton-local/decision-log.md` D-14,
+  `toolchain-pin-gate.md` § Sprint 5). `ADR-0058` (2026-08-21) həmin basis-i
+  supersede etdi, lakin pin heç vaxt yenidən qiymətləndirilmədi və hazırkı
+  SBOM-da qalır. Kod artıq `System.Management`-i istifadə etmir; **pin-in özü
+  silinmir**, çünki human-approved supply-chain evidence-inin ləğvi arxitektura/
+  security approver-in qərarıdır. Bu, aşağıdakı `Verification Obligations`-da
+  açıq external blocker kimi qeyd olunur.
+
+Boundary qərarı, dependency istiqaməti, TFM split və plugin visibility dəyişmir.
+
+| Yoxlama | Minimum sübut |
+|---|---|
+| Collected-property narrowing | `HardwareIdentitySnapshot` yalnız `MachineGuid` daşıyır; snapshot-a əlavə hardware component gətirən dəyişiklik test ilə fail olur |
+| No WMI on the login path | Hardware identity adapter-i `System.Management`/`ManagementObjectSearcher`/`Win32_*` query icra etmir |
+| External blocker | `System.Management` pin-i approval basis-i superseded olduğu halda `Directory.Packages.props`-da qalır; onun saxlanması və ya silinməsi human approver qərarıdır (audit-də external blocker kimi açıqdır) |
 ## Branch Shared Provider Amendment
 
 `Dobby.Infrastructure` may later host provider-specific adapters for Branch
-Shared PostgreSQL, but the current Mərhələ 1 pass is documentation-only.
+Shared PostgreSQL, but the current Branch Shared documentation tier (pre-Tier A,
+`ADR-0056`) pass is documentation-only.
 Provider-neutral repository/session factory shape may be planned later and is
 not authorized by this amendment without a human/architecture-approved table;
 Npgsql runtime adapter and live PostgreSQL tests are not authorized by this

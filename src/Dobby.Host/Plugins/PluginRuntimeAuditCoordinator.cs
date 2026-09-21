@@ -3,6 +3,7 @@ using Dobby.Core;
 using Dobby.Diagnostics;
 using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Packaging;
+using System.Globalization;
 using System.IO;
 
 namespace Dobby.Host.Plugins;
@@ -140,6 +141,35 @@ public sealed class PluginRuntimeAuditCoordinator(
                 ["dataChoice"] = dataChoice,
                 ["restartRequired"] = restartRequired ? "true" : "false",
                 ["diagnosticMarker"] = $"{AuditEventName.PluginUninstall}:{(restartRequired ? "pending" : "removed")}"
+            });
+    }
+
+    /// <summary>
+    /// Records the process-local quarantine transition for a plugin that crossed the runtime
+    /// fault threshold (ADR-0059, docs/specs/plugins-manager.md). Emitted once, at the
+    /// QuarantineStarted edge, so the audit trail explains why the plugin stopped serving.
+    /// </summary>
+    public void AppendPluginQuarantined(
+        string actorId,
+        string pluginId,
+        string reasonCode,
+        int defectCount,
+        CorrelationId correlationId)
+    {
+        Append(
+            AuditEventName.PluginRuntimeQuarantined,
+            actorId,
+            PluginTarget(pluginId),
+            AuditResult.Failed,
+            correlationId,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["pluginId"] = pluginId,
+                ["status"] = "Quarantined",
+                ["reasonCode"] = NormalizeReason(reasonCode),
+                ["defectCount"] = defectCount.ToString(CultureInfo.InvariantCulture),
+                ["diagnosticMarker"] =
+                    $"{AuditEventName.PluginRuntimeQuarantined}:{NormalizeReason(reasonCode)}"
             });
     }
 

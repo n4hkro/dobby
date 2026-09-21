@@ -23,6 +23,10 @@ public sealed class ShellPluginWorkSessionService(WorkSessionRegistry registry) 
         {
             return Result.Failure<PluginWorkSessionHandle>(ErrorCode.InvalidInput);
         }
+        catch (InvalidOperationException)
+        {
+            return Result.Failure<PluginWorkSessionHandle>(ErrorCode.ResourceBusy);
+        }
     }
 
     public Result UpdateProgress(Guid sessionId, int percent)

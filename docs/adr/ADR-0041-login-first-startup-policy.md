@@ -1,6 +1,7 @@
 # ADR-0041: Login-First Startup Policy
 
-**Status:** Accepted (runtime boundary and atomicity amended by ADR-0061)
+**Status:** Accepted (runtime boundary and atomicity amended by `ADR-0061`; pre-login
+remember-me snapshot removed by `ADR-0058` — see ## Revision History)
 **Date:** 2026-04-24
 
 ## Context
@@ -23,11 +24,20 @@ Login ekranı render olunana qədər yalnız aşağıdakı işlər icazəlidir:
 
 - host composition root: DI container qurulması və `IHost` build
 - startup theme snapshot load: son theme üçün kiçik `startup-theme.json` oxunuşu
-- startup remember-me snapshot load: `DPAPI CurrentUser` ilə qorunan kiçik `startup-remember-me.json` oxunuşu
+- startup remembered-login metadata load: yalnız normalize olunmuş username və non-secret
+  slot identifier oxunur. Ayrı `startup-remember-me.json` DPAPI snapshot-u mövcud deyil --
+  duplicate startup snapshot və saved-password qeydləri `ADR-0058` § `Remembered login`
+  ilə idempotent migration vasitəsilə silinib; bu closed set onların yenidən yaradılmasına
+  icazə vermir
 - minimal theme/localization load: login ekranını render etmək üçün lazım olan theme token-ləri və `Dobby.Localization` default culture string-ləri
 - shell window construction: login page-in minimum WPF window və theme render
 
-Bu siyahı qapalıdır (closed set). Yeni pre-login workload yalnız bu ADR-in amendment-i ilə əlavə oluna bilər.
+Bu siyahı qapalıdır (closed set). Yeni pre-login workload yalnız bu ADR-in amendment-i ilə
+əlavə oluna bilər. `ADR-0061` § 1 həmin amendment-dir və siyahını genişləndirir:
+single-instance coordinator, credential/throttle store-unu açmaq üçün lazım olan protected
+material, credential/throttle sorğuları, login UI və Owner recovery request/response
+surface-i pre-auth icazəlidir. Row-level authority `docs/specs/storage-and-data-protection.md`
+§ pre-login closed table set-indədir.
 
 ### 2. Pre-login forbidden workload (closed set)
 
@@ -40,9 +50,9 @@ Login ekranı render olunana qədər aşağıdakı işlər qadağandır:
 - online check (hər cür network request, DNS lookup, HTTP ping)
 - update check (host və ya plugin update polling)
 - configuration graph load
-- credential store, session store və audit storage open
-- protected material probe/load
-- SQLite connection open
+- audit storage open, `ADR-0061`-in closed pre-auth audit set-indən kənarda
+- credential/throttle store-dan kənar hər cür store open (business data, cache, attestation)
+- credential/throttle store-unu açmaq üçün lazım olmayan protected material probe/load
 - database migration (schema upgrade, data transformation)
 - import/export pipeline start
 - license verification (plugin entitlement resolution)
@@ -76,11 +86,14 @@ acquired before login UI first paint, a second instance does not open a second
 writable host persistence session, and the existing instance receives focus or
 activation handoff.
 
-The login-window first-paint path does not open host persistence. Remember-me
-prefill uses only the `startup-remember-me.json` snapshot, which is refreshed
-from the canonical DB slot after the login window has rendered and the full
-login runtime is prepared. Full migrations remain outside the login-first
-first-paint path.
+The login-window first-paint path opens no business-data persistence. Remember-me
+prefill reads the canonical pre-login remembered-account slot directly -- a username-only,
+non-secret row inside the `ADR-0061` § 1 pre-auth allow-list and the
+`docs/specs/storage-and-data-protection.md` pre-login closed table set. No
+`startup-remember-me.json` or `startup-remembered-account.json` snapshot file
+participates: both are legacy artifacts deleted best-effort at startup under
+`ADR-0058` § `Remembered login`, and the canonical preference lives in the encrypted
+database. Full migrations remain outside the login-first first-paint path.
 
 ### 7. Bootstrap Sequence and DI Rationale
 
@@ -124,6 +137,12 @@ Reopen only if a new accepted ADR changes login-first startup policy.
 - `docs/adr/ADR-0008-deferred-plugin-activation.md` — plugin activation login success-dən sonra
 - `docs/adr/ADR-0031-session-lifecycle-and-refresh.md` — session semantics, expiry trigger
 - `docs/adr/ADR-0038-local-first-authentication.md` — device-bound local auth
+- `docs/adr/ADR-0058-credential-and-recovery-hardening-v2.md` — § 1 pre-login allowed
+  set-i amend edir: duplicate `startup-remember-me.json` DPAPI snapshot-ı silinib,
+  sadəcə istifadəsiz qalmayıb
+- `docs/adr/ADR-0061-login-first-runtime-and-atomic-mutation-boundary.md` — pre-auth
+  allowed/forbidden qapalı set-lərini, post-auth boundary point-i və mutation
+  atomicity-ni amend edir; həmin bölmələr üçün current authority
 
 ## Branch Shared Pre-Auth Amendment
 
@@ -142,3 +161,31 @@ This does not permit plugin activation, full migration, import/export, online
 checks or arbitrary PostgreSQL reads before login. If PostgreSQL is unreachable
 before the audit insert can occur, the event is DeviceLocal diagnostics/setup
 evidence only.
+
+## Revision History
+
+- **2026-08-31:** `ADR-0061` amendment-i dated record kimi yazıldı və ziddiyyətli closed
+  set-lər düzəldildi. `**Status:**` sətri amendment-i bildirirdi, lakin sənəddəki yeganə
+  `## ... Amendment` bölməsi Branch Shared pre-auth (`ADR-0056`/`ADR-0057`) haqqındadır və
+  tarixsizdir. İki düzəliş: (1) § 2 forbidden closed set hələ də "credential store, session
+  store və audit storage open", "protected material probe/load" və "SQLite connection open"
+  qadağalarını daşıyırdı -- `ADR-0061` § 1 isə məhz bunları pre-auth icazə verir, yəni
+  qadağa siyahısı cari authority ilə birbaşa ziddiyyətdə idi; § 1-in özü yeni pre-login
+  workload-un yalnız bu ADR-in amendment-i ilə əlavə olunmasını tələb edir, ona görə
+  ziddiyyət düz həmin bölmədə həll olunub. (2) § 1 allowed set "startup remember-me
+  snapshot load: `DPAPI CurrentUser` ilə qorunan `startup-remember-me.json`" sətrini
+  daşıyırdı -- bu, `ADR-0058` § `Remembered login`-in idempotent migration ilə silinməsini
+  qərara aldığı duplicate startup snapshot-dur; retired secret-bearing faylı closed
+  allow-list-də saxlamaq onun yenidən yaradılması üçün göstərişdir. (3) § 6 hələ də
+  "Remember-me prefill uses only the `startup-remember-me.json` snapshot, which is refreshed
+  from the canonical DB slot" deyirdi -- bu, data axınının istiqamətini tərsinə çevirirdi:
+  silinmiş snapshot-u prefill MƏNBƏYİ, canonical DB slot-unu isə onun refresh hədəfi kimi
+  göstərirdi. HEAD-də əksi doğrudur: `HostLoginRuntimeFactory`
+  `rememberMeSlotService.LoadRememberedAccount()` ilə slot-u birbaşa oxuyur (cədvəl
+  `PreLoginRememberedAccountMigrationV7` ilə yaradılır) və `StartupRememberMeLegacyCleaner`
+  həm `startup-remember-me.json`, həm də obsolete `startup-remembered-account.json` faylını
+  best-effort silir. Bu, § 1 allow-list düzəlişi ilə eyni retired snapshot-a aiddir, lakin
+  ayrı bölmədə qalmışdı; slot-un pre-auth oxunuşu `ADR-0061` § 1 icazəsi daxilindədir.
+  Login-first startup
+  qərarı, `IHostedService` baseline-ı və bootstrap rationale dəyişmir; yeni öhdəlik əlavə
+  edilmir, `ADR-0058` və `ADR-0061`-in mövcud qərarları dəqiq ifadə olunur.

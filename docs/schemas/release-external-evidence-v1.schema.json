@@ -2,17 +2,25 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://dobby.local/schemas/release-external-evidence-v1.schema.json",
   "title": "Dobby External Release Evidence v1",
+  "description": "Shape of an external release-gate evidence record (docs/09_BUILD_RUN_AND_RELEASE.md). status is pinned to \"passed\" because this format records approvals only; a failed or pending external gate is recorded by the absence of a record, never by a record with another status. A conforming file therefore proves that the human named in attestedBy asserted the external work passed - it is provenance, not verification, and never substitutes for the behavioral proof its gate requires. attestedBy is required because an unattributable approval is not provenance at all: with no identity in the record, a file asserting status passed for a human-only gate names nobody who can be asked what was actually run.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "gate", "sourceCommit", "generatedAtUtc", "status", "claims", "subjects"],
+  "required": ["schemaVersion", "gate", "sourceCommit", "generatedAtUtc", "status", "attestedBy", "claims", "subjects"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "gate": {
       "enum": ["installed-msix-upgrade", "production-signing", "license-review"]
     },
     "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-    "generatedAtUtc": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "generatedAtUtc": { "type": "string", "maxLength": 35, "format": "date-time", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,7})?Z$", "$comment": "format is an annotation in JSON Schema 2020-12 unless a validator opts into format assertion, and the previous unanchored \"Z$\" pattern accepted any string ending in Z, so the shape rule carried no real bound. The enforcing gate is tools/verify-release-candidate/validate-external-evidence.ps1, which parses the value and requires a zero offset; this pattern makes the published shape match that gate instead of understating it." },
     "status": { "const": "passed" },
+    "attestedBy": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 128,
+      "pattern": "^[^\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\u0009\u0020\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000](?:[^\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]*[^\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\u0009\u0020\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000])?$",
+      "$comment": "Identity of the human who ran the external gate and asserts it passed. status is pinned to \"passed\", so the record carries an approval and nothing else; without an attributed identity the approval is unattributable and no reviewer can ask what was actually executed. The repository already records approvals this way (artifacts/release-evidence/**/decision-log.md names a designated approver), so this field makes the machine-checked shape match the governance docs/09 section 7 already assumes. The character rules are deliberate: C0/C1 controls, DEL, zero-width characters and Unicode bidi embeds/overrides are excluded because a name that renders as somebody else is worse than a missing one, and the first and last character must be visible non-space, so an untrimmed or all-whitespace value (NBSP and other Unicode spaces included) is not a name. These rules match tools/verify-release-candidate/validate-external-evidence.ps1 exactly; a value this schema accepts and that gate rejects, or the reverse, is a defect in one of the two. Shape only: a syntactically valid name is not proof of authority, and the enforcing gate is that script."
+    },
     "claims": {
       "type": "array",
       "minItems": 1,

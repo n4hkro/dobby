@@ -82,7 +82,11 @@ public sealed class PostLoginPluginActivator(
 
         var outcomes = resolution.Outcomes.ToDictionary(outcome => outcome.PluginId, StringComparer.Ordinal);
         var activated = new List<string>();
-        var failedPlugins = new HashSet<string>(StringComparer.Ordinal);
+
+        // ADR-0009 §6: a plugin must not activate while any plugin it declares in `dependsOn` did
+        // not activate. The set therefore carries every plugin that failed *and* every plugin that
+        // was skipped during this run, so the cascade is transitive along the dependency chain.
+        var unavailablePlugins = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var candidate in resolution.ActivationOrder)
         {
@@ -93,15 +97,16 @@ public sealed class PostLoginPluginActivator(
                     BuildRun(outcomes, activated)));
             }
 
-            var failedDependency = candidate.Dependencies
+            var unavailableDependency = candidate.Dependencies
                 .Select(dependency => dependency.PluginId)
-                .FirstOrDefault(failedPlugins.Contains);
-            if (failedDependency is not null)
+                .FirstOrDefault(unavailablePlugins.Contains);
+            if (unavailableDependency is not null)
             {
                 outcomes[candidate.PluginId] = new PluginActivationOutcome(
                     candidate.PluginId,
                     PluginActivationStatus.Skipped,
-                    $"dependency-activation-failed: {failedDependency}");
+                    $"dependency-activation-failed: {unavailableDependency}");
+                unavailablePlugins.Add(candidate.PluginId);
                 continue;
             }
 
@@ -111,7 +116,7 @@ public sealed class PostLoginPluginActivator(
                     candidate.PluginId,
                     PluginActivationStatus.Faulted,
                     ErrorCode.NotFound.ToString());
-                failedPlugins.Add(candidate.PluginId);
+                unavailablePlugins.Add(candidate.PluginId);
                 continue;
             }
 
@@ -150,7 +155,7 @@ public sealed class PostLoginPluginActivator(
                     ActivationFailureStatus(moduleKind),
                     moduleResult.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString(),
                     InvocationKind: moduleKind);
-                failedPlugins.Add(current.PluginId);
+                unavailablePlugins.Add(current.PluginId);
                 continue;
             }
 
@@ -172,7 +177,7 @@ public sealed class PostLoginPluginActivator(
                     ActivationFailureStatus(prepareKind),
                     prepareResult.ErrorCode?.ToString() ?? ErrorCode.PluginInternalError.ToString(),
                     InvocationKind: prepareKind);
-                failedPlugins.Add(current.PluginId);
+                unavailablePlugins.Add(current.PluginId);
                 continue;
             }
 
@@ -210,7 +215,7 @@ public sealed class PostLoginPluginActivator(
                         ActivationFailureStatus(initializeOutcome.Kind),
                         LifecycleFailureReason("initialize", initialize.ErrorCode),
                         InvocationKind: initializeOutcome.Kind);
-                    failedPlugins.Add(current.PluginId);
+                    unavailablePlugins.Add(current.PluginId);
                     continue;
                 }
 
@@ -260,7 +265,7 @@ public sealed class PostLoginPluginActivator(
                     ActivationFailureStatus(activationKind),
                     LifecycleFailureReason("activate", activate.ErrorCode),
                     InvocationKind: activationKind);
-                failedPlugins.Add(current.PluginId);
+                unavailablePlugins.Add(current.PluginId);
                 continue;
             }
 

@@ -7,7 +7,7 @@
 
 `02_ARCHITECTURE_MAP.md` Row 84 (`Dobby.Admin`), Row 85 (`Admin Application Composition`), Row 86 (`Owner Recovery Artefakt Generation`) və Cədvəl 3 `Dobby.Admin` risk sətri admin application-in host ilə boundary-sini Phase 1 blocker kimi göstərir. Engineering Convention `Admin DRY Qaydası` business logic duplication-i qadağan edir və `Admin-in Təbiəti` convention-ı `Dobby.Admin ayrıca UI-dir, ayrıca domain deyil` qaydasını qoyur.
 
-Audit `C-02` tapıntısı göstərdi ki, `ADR-0039 Owner Password Recovery` recovery artefakt generation-ını `Dobby.Admin`-ə bağlayır və recovery Phase 1 məhsul minimumu olduğu üçün minimal admin component P1-core-dur. Full admin UI P1-if-time qalır.
+Audit `C-02` tapıntısı göstərdi ki, o zamanın recovery qərarı (`ADR-0039 Owner Password Recovery`, indi `ADR-0058` ilə superseded) recovery artefakt generation-ını `Dobby.Admin`-ə bağlayır və recovery Phase 1 məhsul minimumu olduğu üçün minimal admin component P1-core-dur. Full admin UI P1-if-time qalır. Vendor-side generation ownership `ADR-0058` altında dəyişmir; dəyişən yalnız imzalanan artefaktın binding modeli və istifadə olunan purpose-specific key-dir.
 
 Bu ADR admin-host boundary-ni və Phase 1 scope split-ni rəsmiləşdirir.
 
@@ -26,9 +26,9 @@ Phase 1 admin-host boundary modeli:
 Admin-in **unique** responsibility-ləri (host-da yoxdur):
 
 - Customer CRUD (add, edit, delete customer records — vendor internal)
-- Plugin package signing flow (plugin binary-ni vendor master key ilə imzalamaq — `ADR-0032`)
-- License artifact generation flow (plugin-specific license artifact-ların yaradılması — `ADR-0051`)
-- Owner Recovery Artefakt Generation (`.dobbyrecoveryrequest` inputundan user seçmədən signed `.dobbyrecovery` response artifact-ın imzalanması — `ADR-0039`)
+- Plugin package signing flow (plugin binary-ni `dobby.plugin-package` purpose leaf key-i ilə imzalamaq — `ADR-0032`, `ADR-0062`)
+- License artifact generation flow (plugin-specific license artifact-ların yaradılması — `ADR-0060`)
+- Owner Recovery Artefakt Generation (`.dobbyrecoveryrequest` inputundan user seçmədən signed `.dobbyrecovery` response artifact-ın `dobby.owner-recovery-response` purpose key-i ilə imzalanması — `ADR-0058`, `ADR-0062`)
 
 Admin-in **shared** responsibility-ləri (host ilə eyni kod):
 
@@ -50,13 +50,13 @@ Shared behavior duplication deyil, reuse ilə təmin olunur: Admin və Host eyni
 
 - Admin `Dobby.Admin` daxilində business rule yazmır; `Dobby.Application` use case-lərini reuse edir.
 - Admin-in UI layer-i (`Dobby.Admin.Composition`) yalnız user interaction + flow orchestration-ı saxlayır; domain logic `Dobby.Application`-dadır.
-- Plugin signing və license generation kimi cryptographic işlər `Dobby.Security / Plugin Trust Verification` namespace-indəki shared flow-ları istifadə edir (yeni private key access capability ilə ADR-0033 uyğun).
+- Plugin signing və license generation kimi cryptographic işlər `Dobby.Security / Plugin Trust Verification` namespace-indəki shared flow-ları istifadə edir (yeni private key access capability ilə ADR-0062 uyğun).
 
 ### 5. Private key access
 
 - Admin build vendor private signing key-ə runtime-da access edə bilən yeganə Dobby application-dır.
 - Private key path (`appsettings.json` və ya CLI arg) admin-in özündə konfiqurasiyadadır; hardcoded deyil.
-- Host build isə yalnız vendor public key-ə access edir (`ADR-0033`).
+- Host build isə yalnız purpose-separated vendor public trust anchor-larına access edir (`ADR-0062`).
 
 ### 6. Rejected alternatives
 
@@ -77,9 +77,10 @@ Shared behavior duplication deyil, reuse ilə təmin olunur: Admin və Host eyni
 
 - `docs/02_ARCHITECTURE_MAP.md` — Row 84 `Dobby.Admin`, Row 85 `Admin Application Composition`, Row 86 `Owner Recovery Artefakt Generation`, Cədvəl 3 `Dobby.Admin` risk sətri, Engineering Conventions `Admin DRY Qaydası`, `Admin-in Təbiəti`
 - `docs/adr/ADR-0032-plugin-signature-trust-model.md` — plugin signing cryptographic flow
-- `docs/adr/ADR-0033-signing-key-ownership.md` — vendor private key mülkiyyəti
-- `docs/adr/ADR-0051-license-lifecycle-v2.md` — license artifact generation
-- `docs/adr/ADR-0039-owner-password-recovery.md` — recovery artefakt generation ownership
+- `docs/adr/ADR-0062-signing-key-custody-and-trust-anchor-provisioning.md` — vendor private key custody
+- `docs/adr/ADR-0060-license-lifecycle-and-import-v3.md` — license artifact generation and current lifecycle authority
+- `docs/adr/ADR-0058-credential-and-recovery-hardening-v2.md` — current Owner recovery authority (request/response binding, nonce consumption, purpose-specific signing key)
+- `docs/adr/ADR-0039-owner-password-recovery.md` — superseded history (`ADR-0058`); recovery artefakt generation ownership-in ilk mənbəyi
 
 ## BranchSetup Boundary Amendment
 
@@ -92,5 +93,6 @@ BranchSetup may apply vendor/admin-signed restore or setup packages, but it does
 not own vendor private signing keys.
 
 Any statement that `Dobby.Host.exe` and `Dobby.BranchSetup.exe` ship together is
-Tier B/customer-release packaging scope. The current Mərhələ 1 document pass
+Tier B/customer-release packaging scope. The current Branch Shared documentation
+tier (pre-Tier A, `ADR-0056`) pass
 does not create BranchSetup implementation or installer artifacts.

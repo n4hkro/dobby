@@ -3,6 +3,25 @@
 **Status:** Superseded by ADR-0058
 **Date:** 2026-04-23
 
+> Historical note: the recovery protocol below is **not** Phase 1 canonical.
+> Current authority is `ADR-0058` (Owner recovery v2), with the observable flow in
+> `docs/specs/session-lifecycle.md`. The following elements of this ADR body are
+> superseded history and must not be implemented or cited as current:
+> the 5-source fuzzy/quorum hardware fingerprint as recovery binding authority
+> (v2 binds to a device-generated **non-exportable** recovery key pair and treats
+> hardware properties only as support-safe risk signals); the shared vendor master
+> signing key (v2 responses are signed with the purpose-specific
+> `dobby.owner-recovery-response` leaf key under `ADR-0062`, and the numeric
+> `keyVersion` selector is replaced by a string `keyId`); and the v1 request/response
+> wire format (v2 requires a version bump — existing v1 fixtures are test provenance,
+> not production authority). Still in force through `ADR-0058`/spec re-adoption
+> rather than through this document: offline-only verification, one-time nonce
+> consumption and the 24-hour validity window (now owned by
+> `docs/specs/session-lifecycle.md § Validity window və single use`). Vendor-side
+> generation ownership is unchanged (`ADR-0023`). Skeleton or documentation-fix work
+> must not copy artifact shapes, hash lists or acceptance wording from this ADR body
+> without an explicit `ADR-0058` amendment.
+
 ## Context
 
 `docs/01_PRODUCT_SCOPE.md` Owner Recovery bölməsi (L56-68) məhsul səviyyəsində

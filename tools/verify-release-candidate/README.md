@@ -20,7 +20,15 @@ inputs as blockers; it never labels that result GA/release-ready.
 
 Each external input must be UTF-8 JSON conforming to
 `docs/schemas/release-external-evidence-v1.schema.json`. The runner additionally
-checks the exact gate, candidate commit, lowercase subject SHA-256 values and
-the gate-specific claim set before copying the evidence into the run directory.
-Required claims are defined by `validate-external-evidence.ps1`; an arbitrary or
-empty file cannot satisfy a release gate.
+checks the exact gate, candidate commit, lowercase subject SHA-256 values, the
+`attestedBy` identity and the gate-specific claim set before copying the evidence
+into the run directory. Required claims are defined by
+`validate-external-evidence.ps1`; an arbitrary or empty file cannot satisfy a
+release gate.
+
+`status` is pinned to `passed`, so a conforming file records an approval and
+nothing else. `attestedBy` is therefore required: it names the human who ran the
+external gate. An approval with no identity in the record is unattributable, and
+no reviewer can afterwards ask who executed the gate or what was actually run. A
+syntactically valid name is provenance, never verification, and never substitutes
+for the behavioral proof the gate itself requires (`NFR-027`).

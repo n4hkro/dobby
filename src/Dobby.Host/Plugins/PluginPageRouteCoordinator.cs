@@ -14,7 +14,8 @@ public sealed class PluginPageRouteCoordinator(
     PluginLifecycleExecutionOptions? lifecycleOptions = null,
     PluginRuntimeDiagnosticsCoordinator? diagnosticsCoordinator = null,
     PluginRuntimeFaultPolicy? faultPolicy = null,
-    IPluginRuntimeLifecycleControl? lifecycleControl = null)
+    IPluginRuntimeLifecycleControl? lifecycleControl = null,
+    PluginRuntimeAuditCoordinator? auditCoordinator = null)
 {
     private readonly PluginLifecycleExecutionOptions lifecycleOptions =
         ValidateOptions(lifecycleOptions ?? PluginLifecycleExecutionOptions.Default);
@@ -391,7 +392,22 @@ public sealed class PluginPageRouteCoordinator(
         }
 
         var decision = faultPolicy.Observe(pluginId, outcomeKind);
-        if (!decision.QuarantineStarted || lifecycleControl is null)
+        if (!decision.QuarantineStarted)
+        {
+            return;
+        }
+
+        // Audit before cleanup: quarantine has already taken effect, so the evidence must not
+        // depend on lifecycle control being wired or the teardown succeeding.
+        PluginQuarantineAuditEmitter.EmitIfQuarantineStarted(
+            auditCoordinator,
+            decision,
+            pluginId,
+            outcomeKind,
+            currentUserIdProvider?.Invoke(),
+            correlationId: null);
+
+        if (lifecycleControl is null)
         {
             return;
         }

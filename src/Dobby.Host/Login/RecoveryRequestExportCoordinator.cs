@@ -79,7 +79,14 @@ public sealed class RecoveryRequestExportCoordinator(
                     AuditResult.Success,
                     correlationId,
                     timeProvider.GetUtcNow(),
-                    new Dictionary<string, string> { ["requestId"] = payload.RequestId }));
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["requestId"] = payload.RequestId,
+                        // Non-reversible replay-correlation field required by
+                        // docs/specs/session-lifecycle.md § Recovery audit; the raw nonce
+                        // is never written to the audit trail.
+                        ["nonceHash"] = HashText(payload.Nonce)
+                    }));
                 context.EnqueueOutbox(new HostOutboxMessage(
                     $"recovery-request:{payload.RequestId}",
                     "security.recovery",

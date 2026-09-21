@@ -66,11 +66,11 @@ WPF-UI Windows 11 Fluent Design stili verir: NavigationView, TitleBar, Snackbar,
 | Storage | SQLite-backed local persistence + `Dapper` | Local persistence: plugin storage, settings, licensing cache, audit. Backing DB faylları data-at-rest qorunmalıdır; exact protection provider `ADR-0054` ilə bağlanır və şifrəsiz DB release üçün qəbul edilmir. |
 | Localization | `Microsoft.Extensions.Localization` | `.resx` + `IStringLocalizer<T>`; Phase 1 default culture `az-AZ`; resource skeleton `az-AZ`, `en-US`, `tr-TR`; runtime language switch P2 |
 | Options pattern | `Microsoft.Extensions.Options` + `.ConfigurationExtensions` + `.DataAnnotations` | Desktop runtime default `IOptionsMonitor<T>`; one-shot `IOptions<T>`; `IOptionsSnapshot<T>` istifadə olunmur (web request-scope pattern-idir) |
-| Plugin packaging | `.zip` (`.dobbyplugin`) + `manifest.json` | BCL: `System.IO.Compression.ZipFile` + `ZipArchive`; `.nupkg` seçilmədi — NuGet semantics lazımsız baggage gətirir |
-| Plugin loading | `AssemblyLoadContext` (BCL) | Phase 1 per-plugin assembly/dependency isolation; əlavə NuGet lazım deyil. Out-of-process plugin worker P1 scope deyil və yalnız `ADR-0007` P2/later trigger-ləri ilə yenidən qiymətləndirilir. |
+| Plugin packaging | `.zip` (`.dobbyplugin`) + `manifest.json` | BCL: `System.IO.Compression.ZipFile` + `ZipArchive`; `.nupkg` seçilmədi — NuGet semantics lazımsız baggage gətirir. Verification streaming parse ilə gedir və manifest ölçüsü, entry count, per-entry uncompressed bytes, aggregate uncompressed bytes və compression ratio limitləri allocation-dan **əvvəl** yoxlanılır; extraction normalized relative path, Windows reserved-name validation, collision detection, final `Path.GetFullPath` containment və refuse-overwrite/no-follow semantics tələb edir (`ADR-0059`) |
+| Plugin loading | `AssemblyLoadContext` (BCL) | Phase 1 per-plugin assembly/dependency isolation; əlavə NuGet lazım deyil. ALC yalnız load/unload mexanizmidir — trust boundary və ya hostile-code sandbox deyil; in-process plugin yükləmə yalnız trusted signed product code üçündür və untrusted execution ayrıca versiyalanmış authenticated IPC contract-ı plus OS process boundary tələb edir (`ADR-0059`). Out-of-process plugin worker P1 scope deyil və yalnız `ADR-0007` P2/later trigger-ləri ilə yenidən qiymətləndirilir. |
 | Plugin versioning | `NuGet.Versioning` | SemVer range parsing; plugin `dependsOn.minVersion` constraint-ləri üçün |
 | Plugin signature | `System.Security.Cryptography` (BCL) | Plugin package checksum/signature doğrulaması; əlavə NuGet lazım deyil |
-| Secure storage | `System.Security.Cryptography.ProtectedData` + Dobby local storage protection layer | Windows DPAPI token, secret, remember-me, recovery/session material və protected config üçün; DB-at-rest qoruma açarı təkcə `deviceId`-dən törəmir və istifadəçidən əl ilə istənilmir. Protected-storage scope mapping `ADR-0055` ilə bağlanır. |
+| Secure storage | `System.Security.Cryptography.ProtectedData` + Dobby local storage protection layer | Windows DPAPI token, secret, recovery key material, session material və protected config üçün; remembered login secret saxlamır (`ADR-0058`) — yalnız normalized username və non-secret slot id. DB-at-rest qoruma açarı təkcə `deviceId`-dən törəmir və istifadəçidən əl ilə istənilmir. Protected-storage scope mapping `ADR-0055` ilə bağlanır. |
 | Authentication | Device-bound local password-based auth + DPAPI | Offline-first məhsul prinsipi (ADR-0038); MSAL/Entra Phase 1 scope-una daxil deyil |
 | Manifest validation | `JsonSchema.Net` (MIT) | Plugin manifest JSON Schema 2020-12 validation |
 | HTTP client | `IHttpClientFactory` + typed clients | Yalnız opsional internet əsaslı inteqrasiyalar üçün; core məhsul funksionallığı buna bağlı deyil |
@@ -209,10 +209,28 @@ Plugin-visible contract layer-i Windows TFM-ə bağlı olmamalıdır; platform l
 
 ### P1 Toolchain / Package Pin Gate
 
-Bu docs-fix pass exact SDK patch və NuGet version-ları uydurmur. Skeleton commit 1
-`global.json`, `Directory.Packages.props` və `.csproj PackageReference`-ləri yalnız
-human-approved toolchain/package pin list olduqda yarada bilər. Əgər həmin pin list
-verilməyibsə, skeleton toolchain/package creation stop condition-da dayanmalıdır.
+Bu section exact SDK patch və NuGet version-ları uydurmur; canonical version source
+`Directory.Packages.props`-dur, canonical approval source isə
+`artifacts/release-evidence/skeleton-local/toolchain-pin-gate.md`-dir.
+
+**Cari approval vəziyyəti (2026-08-29 audit).** Aşağıdaki mətn artıq "pin list hələ
+verilməyib" prospektiv stop condition-u kimi oxunmamalıdır: pin list mövcuddur və
+qismən human-approved-dır. Skeleton package-bearing file creation stop condition-u
+Phase A/B approval-larla bağlanmışdır (`toolchain-pin-gate.md` § `Resolved Stop
+Conditions`). Qalan boşluq prospektiv deyil, faktikidir və aşağıda açıq şəkildə
+qeyd olunur.
+
+| Toolchain/package surface | Approval vəziyyəti | Evidence |
+|---|---|---|
+| `.NET SDK` `10.0.202` (`global.json`, `rollForward: latestPatch`) | Observed və repository state kimi qeydə alınmışdır, lakin **exact SDK patch üçün ayrıca human approval row-u yoxdur** | `toolchain-pin-gate.md` § `Package Pin Approval Status` |
+| Sprint 4 storage set (`Microsoft.Data.Sqlite.Core`, `SQLitePCLRaw.core`, native `SQLite3MultipleCiphers` asset, `Dapper`) | **APPROVED** 2026-05-14, `n4hkro` | `toolchain-pin-gate.md` § Sprint 4 |
+| `System.Management` | **APPROVED** 2026-05-15, `n4hkro` — approval basis-i `ADR-0058` supersede etdi (bax § Full dependency list) | `toolchain-pin-gate.md` § Sprint 5, `decision-log.md` D-14 |
+| Sprint 7 UI/MVVM/localization + test-only set (`WPF-UI`, `WPF-UI.DependencyInjection`, `CommunityToolkit.Mvvm`, `Microsoft.Extensions.Localization`, `Verify.Xunit`, `xunit`, `Shouldly`, `NSubstitute`, `Microsoft.NET.Test.Sdk`) | **APPROVED** 2026-05-26, `n4hkro` | `toolchain-pin-gate.md` § Sprint 7 |
+| `JsonSchema.Net` (yalnız manifest schema validation) | **APPROVED** 2026-06-16, `n4hkro` | `toolchain-pin-gate.md` § Sprint 8, `decision-log.md` D-22 |
+| Foundation/logging/validation/auth-policy pin-ləri (`Microsoft.Extensions.*` `10.0.7` seti, `Serilog.*`, `FluentValidation` `12.1.1` + `.DependencyInjectionExtensions`, `Microsoft.AspNetCore.Authorization` `10.0.7`, `NuGet.Versioning` `7.3.1`, `System.Security.Cryptography.ProtectedData` `10.0.7`, `SQLitePCLRaw.provider.dynamic_cdecl` `3.0.3`, `coverlet.collector` `10.0.0`, `xunit.runner.visualstudio` `2.8.2`) | **APPROVAL ROW YOXDUR.** Bu paketlər pinned, referenced və production/test yollarında işləyir, lakin `toolchain-pin-gate.md`-də heç bir approval row-u yoxdur — nə hash, nə signature, nə license, nə vulnerability scan, nə approver. Gate-in öz qaydası bunları "current repository state, not approval evidence by themselves" adlandırır. Bu **açıq external blocker**-dir: onların retroaktiv approval-ı arxitektura/security approver qərarıdır, normal engineering qərarı deyil. | `toolchain-pin-gate.md` § `Package Pin Approval Status`, § `Known Blockers` (`TOOLCHAIN-PIN-APPROVAL-MISSING`) |
+
+Yeni package, version dəyişikliyi, package-source dəyişikliyi və ya approved scope-dan
+kənar istifadə hər halda ayrıca human approval tələb edir.
 
 Pin list minimum bu sütunları daşımalıdır:
 
@@ -224,13 +242,14 @@ Pin list minimum bu sütunları daşımalıdır:
 | `Owner` | Owning ADR/spec |
 | `Scope` | production, test-only, dev-tooling, future/materialization |
 
-Human-approved pin list gələnə qədər aşağıdakı tier stance-lər canonical sayılır.
-Bu table exact version seçmir; `ApprovedVersion` yalnız ayrıca human-approved
-pin list-də bağlanır.
+Aşağıdaki tier stance table-ı reference-stance policy-sidir: hansı surface-in ümumiyyətlə
+package reference ala biləcəyini bağlayır. O, exact version seçmir və approval-ı əvəz
+etmir; `ApprovedVersion` yalnız `toolchain-pin-gate.md` approval row-larında bağlanır.
+Yuxarıdaki approval-vəziyyəti table-ı hansı row-ların həqiqətən approved olduğunu göstərir.
 
 | Package / primitive | Tier stance | Reason | Source |
 |---|---|---|---|
-| `.NET SDK` | stop condition | `global.json` exact SDK patch human approval tələb edir. | Pin gate |
+| `.NET SDK` | pinned, approval row yoxdur | `global.json` `10.0.202`-yə `latestPatch` roll-forward ilə pinned-dir və build bu SDK ilə verify olunur; exact patch üçün ayrıca human approval row-u yaradılmayıb (external blocker). | Pin gate, `toolchain-pin-gate.md` |
 | `System.Text.Json` | Tier 0 | BCL/runtime-only; explicit package reference yaratma. | Full dependency list, BCL rule |
 | `System.IO.Compression`, `System.IO.Compression.ZipFile` | Tier 0 | BCL/runtime-only; explicit package reference yaratma. | Full dependency list, BCL rule |
 | `System.Threading.Channels` | Tier 0 | Initial skeleton üçün BCL/runtime-only stance; future target/runtime evidence explicit package tələb edərsə pin list-də ayrıca bağlanır. | Background tasks row |
@@ -312,12 +331,12 @@ internal istifadə oluna bilər, amma plugin-visible surface-ə leak etmir.
 
 | Qat | Seçim | Qeyd |
 |---|---|---|
-| Primary packaging | MSIX | Modern Windows packaging; IT Group Policy dəstəyi, sandbox-friendly |
+| Primary packaging | MSIX | Modern Windows packaging; IT Group Policy dəstəyi, install/uninstall/upgrade determinizmi və OS-managed package identity. MSIX-in filesystem/registry virtualization-ı deployment/packaging xüsusiyyətidir; in-process plugin trust boundary və ya plugin sandbox iddiası deyil (`ADR-0059`) |
 | Fallback | MSI (WiX Toolset) | MSIX-i blok edən enterprise mühitlər üçün klassik installer |
 | Publish mode | Self-contained (single-file opsional) | .NET runtime dependency yoxdur; MSIX-də single-file məcburi deyil, MSI/portable-da opsionaldır |
 | Portable/support artifact | Self-contained zip və ya single-file build | Yalnız support/dev/offline test artifact; primary customer deployment formatı deyil və Phase 1 release blocker sayılmır |
 | Installer code signing | Əvvəlcə self-signed (dev); production-da commercial cert | Authenticode/MSIX/MSI artifact signing üçündür; plugin package/vendor master signing key ilə eyni key custody deyil |
-| Vendor plugin/license signing | ECDSA P-256 vendor master key (`ADR-0032`, `ADR-0033`) | `.dobbyplugin`, `.dobbylicense` və recovery artifact trust üçündür; private key vendor/admin boundary-də qalır və installer certificate ilə qarışdırılmır |
+| Vendor plugin/license signing | ECDSA P-256 / SHA-256 vendor key ring (`ADR-0059`, `ADR-0032`, `ADR-0062`) | `.dobbyplugin`, `.dobbylicense`, recovery və setup authorization artifact trust üçündür. Leaf key-lər purpose-separated və versiyalıdır (`keyId`); bir purpose-un key-i başqa purpose-da qəbul edilmir. Signature format `IeeeP1363FixedFieldConcatenation`, encoding unpadded base64url. Private key vendor/admin boundary-də qalır və installer certificate ilə qarışdırılmır |
 | Auto-update | Local/manual replacement default; AppInstaller optional enhancement | Phase 1-də yalnız manual local replacement path dəstəklənir; ayrıca `Dobby.Update` project-i və internet əsaslı auto-update P2-də dərinləşir |
 
 ### Niyə MSIX primary
@@ -330,6 +349,14 @@ internal istifadə oluna bilər, amma plugin-visible surface-ə leak etmir.
 Commercial dependency qadağası runtime/build NuGet və UI component-lərə aiddir; code-signing certificate dependency/library deyil, release compliance xərcidir.
 
 MSI yalnız MSIX-ə keçməmiş enterprise mühitlər və ya custom install path tələb edən ssenarilər üçün saxlanır. Phase 1-də MSI skeleton saxlanır, amma aktiv istifadə yalnız müştəri tələbi ilə.
+
+Packaging seçimi yalnız build mexanikası ilə sübut olunmur: production MSIX
+validation-ı real package identity və storage root-ları üzərində installed
+launch, upgrade və user-data preservation testlərini icra etməlidir. Self-signed
+package build development evidence-idir, GA evidence deyil; source-text, regex və
+fayl mövcudluğu yoxlaması heç bir signing/release gate-i qapatmır. Canonical
+release evidence tələbləri [docs/09_BUILD_RUN_AND_RELEASE.md](./09_BUILD_RUN_AND_RELEASE.md)
+tərəfindən sahiblənir (`ADR-0061`, `NFR-027`, `NFR-024`).
 
 ---
 
@@ -369,14 +396,16 @@ MSI yalnız MSIX-ə keçməmiş enterprise mühitlər və ya custom install path
 | `Microsoft.Data.Sqlite.Core` + `SQLitePCLRaw.core` | SQLite local persistence provider candidate; DB-at-rest protection provider `ADR-0054` guardrail-lərinə görə `P1 Persistence Materialization Pass` bu explicit native bootstrap yolunu qiymətləndirir. Initial skeleton provider-neutral qalır və production DB-at-rest provider package-i pin etmir. Native encrypted provider proof keçmədən heç bir production DB-at-rest provider package default provider kimi qəbul edilmir. Full bundled `Microsoft.Data.Sqlite` və `SQLitePCLRaw.bundle_*` provider proof-u kimi qəbul edilmir. |
 | `Dapper` | Lightweight ORM — plugin storage, settings, audit |
 | `NuGet.Versioning` | SemVer range parsing — plugin dependency constraints |
-| `System.Security.Cryptography.ProtectedData` | Windows DPAPI — password hash, remember-me secret, recovery/session material və protected config storage (`ADR-0038`, `ADR-0030`, `ADR-0055`) |
-| `Konscious.Security.Cryptography.Argon2` | Password hashing üçün default seçim (`Argon2id`, ADR-0038); yalnız package health, license compatibility və ya `ADR-0042` baseline-da ölçülmüş login latency `AC-014` gate-ini pozarsa PBKDF2 fallback seçilir |
+| `System.Security.Cryptography.ProtectedData` | Windows DPAPI — password verifier material, recovery key material, session material və protected config storage (`ADR-0058`, `ADR-0038`, `ADR-0030`, `ADR-0055`); remembered login secret bu siyahıya daxil deyil |
+| `Konscious.Security.Cryptography.Argon2` | **Deferred, pinned deyil, seçilə bilməz.** `ADR-0038` `Argon2id`-i default *niyyət* kimi saxlayır, lakin package heç vaxt human-approved pin almadı (`toolchain-pin-gate.md` § Sprint 4/5 `DEFERRED_TO_SPRINT_5`), `Directory.Packages.props`-da yoxdur və `DobbyOptionsValidator` `Auth.PasswordKdfMode=Argon2id` konfiqurasiyasını fail-closed rədd edir. Cari faktiki KDF BCL `Rfc2898DeriveBytes` (`PBKDF2-HMAC-SHA256`, min `600_000` iteration, 128-bit salt); seçim əsaslandırması `artifacts/release-evidence/skeleton-local/auth-kdf-selection.md`-dədir. `Argon2id`-in aktivləşməsi human-approved Tier 2 pin + package-health/license check + `ADR-0042` latency evidence tələb edir (`AC-051`) |
 | BCL `Rfc2898DeriveBytes` | Password hashing fallback (`PBKDF2-HMAC-SHA256`, explicit `HashAlgorithmName.SHA256`, minimum `600_000` iteration); əlavə package tələb etmir |
-| `JsonSchema.Net` | Plugin manifest JSON Schema validation using `docs/schemas/dobby-plugin-manifest.schema.json` |
+| `JsonSchema.Net` | Plugin manifest JSON Schema validation. Controlling schema `docs/schemas/dobby-plugin-manifest-v2.schema.json` (`ADR-0059`); frozen v1 `dobby-plugin-manifest.schema.json` da assembly-yə embed olunur, lakin heç bir kod yolu onu yükləmir — o yalnız frozen negative reference-dir (`docs/schemas/artifact-compatibility-matrix.md`) |
 | `Microsoft.AspNetCore.Authorization` | Policy engine — `IAuthorizationService`, `AuthorizationHandler<T>`, requirements (web middleware olmadan istifadə edilir) |
 | `Microsoft.Extensions.TimeProvider.Testing` | `FakeTimeProvider` — time-dependent kodun deterministik testləri |
 | `Microsoft.NET.Test.Sdk` | Test SDK |
 | `coverlet.collector` | Code coverage |
+| `SQLitePCLRaw.provider.dynamic_cdecl` | Explicit native SQLite provider bootstrap (`SqliteProviderInitializer`, `raw.SetProvider`) — `ADR-0054` Option A-nın bundle-siz yolu. `SQLitePCLRaw.bundle_*` paketləri bu sətri əvəz etmir və rejected qalır. |
+| `System.Management` | **Legacy pin — artıq istifadə olunmur.** Sprint 5-də `ADR-0039`-un 5-source hardware fingerprint-i (CPU ID, motherboard/disk serial WMI oxunuşları) üçün human-approved edilib (`artifacts/release-evidence/skeleton-local/toolchain-pin-gate.md` § Sprint 5, `decision-log.md` D-14). `ADR-0058` (2026-08-21) həmin approval basis-ini supersede etdi və `ADR-0040` § `2026-08-29 Collected-property narrowing` ilə WMI oxunuşları koddan silindi; heç bir production kod yolu bu paketi istifadə etmir. Pin `Directory.Packages.props`-da və SBOM-da qalır — human-approved supply-chain evidence-in ləğvi arxitektura/security approver qərarıdır, ona görə bu sətir açıq external blocker kimi saxlanılır. |
 
 **Test-only qayda:** `xunit`, `xunit.runner.visualstudio`, `Shouldly`, `NSubstitute`, `Verify.Xunit`, `Microsoft.Extensions.TimeProvider.Testing`, `Microsoft.NET.Test.Sdk`, `coverlet.collector` yalnız `*.Tests` project-lərində reference olunur və production runtime project-lərinə sızmamalıdır.
 
@@ -396,14 +425,15 @@ accepted.
 
 ## 6. Authentication Strategy
 
-**Status:** Əsas qərar ADR-0038 ilə bağlanıb. Dobby-nin core auth yolu device-bound local password-based auth-dır; offline-first məhsul prinsipi ilə uzlaşdırılıb. MSAL.NET, WAM və Entra ID / OIDC Phase 1 scope-una daxil deyil və default auth yolunun hissəsi kimi saxlanmır.
+**Status:** Əsas qərar ADR-0038 ilə bağlanıb; credential, throttling və recovery hardening-i `ADR-0058` ilə, pre-authentication runtime sərhədi isə `ADR-0061` ilə tənzimlənir. Dobby-nin core auth yolu device-bound local password-based auth-dır; offline-first məhsul prinsipi ilə uzlaşdırılıb. MSAL.NET, WAM və Entra ID / OIDC Phase 1 scope-una daxil deyil və default auth yolunun hissəsi kimi saxlanmır.
 
 | Qat | Seçim | Qeyd |
 |---|---|---|
 | Default (və yeganə Phase 1 yolu) | Device-bound local password-based auth | Offline-first məhsul prinsipi (ADR-0038); identity cihazdadır və cihazla bağlıdır |
-| Password hashing | `Argon2id` default niyyəti (`Konscious.Security.Cryptography.Argon2`) və ya BCL `Rfc2898DeriveBytes` fallback (`PBKDF2-HMAC-SHA256`) | Skeleton/toolchain gate-də human-approved package pin list tələb olunur: `Argon2id` seçilir, yalnız package health, license compatibility və ya `ADR-0042` baseline-da ölçülmüş login latency `AC-014` gate-ini pozarsa PBKDF2 fallback seçilir. Pin list yoxdursa skeleton package creation dayanır; agent version uydurmur. `Argon2id` üçün starter floor `m=19 MiB`, `t=2`, `p=1`; PBKDF2 üçün explicit `HashAlgorithmName.SHA256` və minimum `600_000` iteration; hər credential üçün minimum 128-bit random salt; tuning bu floor-lardan aşağı düşə bilməz |
-| Credential / session storage | `System.Security.Cryptography.ProtectedData` (DPAPI) | Password hash, remember-me secret və session material cihazda DPAPI/protected storage ilə saxlanır; exact scope mapping `ADR-0055` ilə bağlanır |
-| Session semantics | ADR-0031 və ADR-0038 ilə tənzimlənir | Phase 1-də session refresh yoxdur və yalnız bir active user session olur. Logout authenticated context və in-memory user state-i təmizləyib login flow-a qaytarır; lock/manual lock/auto-lock current session-u saxlayıb unlock və ya logout seçimi verir. Remember-me auto-login/session refresh deyil, ADR-0038-də pre-auth masked-fill rahatlığı kimi tənzimlənir |
+| Password hashing | Cari seçilmiş yol: BCL `Rfc2898DeriveBytes` (`PBKDF2-HMAC-SHA256`). `Argon2id` (`Konscious.Security.Cryptography.Argon2`) `ADR-0038` default *niyyəti* olaraq qalır, lakin pinned deyil və config-də fail-closed rədd olunur | Skeleton/toolchain gate-də human-approved package pin list tələb olunur. `Argon2id` yalnız human-approved Tier 2 pin + package-health/license check + `ADR-0042` baseline latency evidence-i mövcud olduqda seçilə bilər; bu şərtlər ödənmədiyi üçün `PBKDF2-HMAC-SHA256` seçildi və səbəb `artifacts/release-evidence/skeleton-local/auth-kdf-selection.md`-də qeyd olundu (`AC-051`). Pin list yoxdursa skeleton package creation dayanır; agent version uydurmur. `Argon2id` üçün starter floor `m=19 MiB`, `t=2`, `p=1`; PBKDF2 üçün explicit `HashAlgorithmName.SHA256` və minimum `600_000` iteration; hər credential üçün minimum 128-bit random salt; tuning bu floor-lardan aşağı düşə bilməz |
+| Password policy controls | Length floor + offline breached/common-value screening (mövcud olduqda) + paste/password-manager dəstəyi + durable throttling | Arbitrary composition/complexity rule (`ən azı 1 böyük hərf, 1 rəqəm, 1 simvol`) və məcburi rotation əlavə edilmir; kontrol dəsti bu sətirdəki maddələr plus `ADR-0058` durable throttle ledger-idir. Offline maintained screening list yoxdursa screening skip olunur, digər kontrollar zəiflədilmir (`ADR-0058`) |
+| Credential / session storage | `System.Security.Cryptography.ProtectedData` (DPAPI) | Password verifier material, recovery key material və session material cihazda DPAPI/protected storage ilə saxlanır; remembered login secret saxlanmır (`ADR-0058`); exact scope mapping `ADR-0055` ilə bağlanır |
+| Session semantics | `ADR-0058`, `ADR-0061`, `ADR-0031` və `ADR-0038` ilə tənzimlənir | Phase 1-də session refresh yoxdur və yalnız bir active user session olur. Logout authenticated context, in-memory user state-i və post-login scope-u təmizləyib login flow-a qaytarır; lock/manual lock/auto-lock current session-u saxlayıb unlock və ya logout seçimi verir. Remembered login auto-login/session refresh deyil və password prefill deyil: yalnız normalized username və non-secret slot id saxlanır, process restart-dan sonra password field boş açılır və masked placeholder retained password yerinə keçmir (`ADR-0058`) |
 | Cloud identity (Entra / OIDC və digər) | Phase 1 scope-una daxil deyil | Gələcəkdə yalnız opsional plugin/modul kimi qoşula bilər; core host məcburi internet-dən asılı olmur |
 
 ---
@@ -413,9 +443,12 @@ accepted.
 Kod və qəbul olunmuş ADR-larla müəyyən edilən security floor-ları runtime config
 tərəfindən aşağı salına bilməz. `§ 6 Authentication Strategy`-də verilmiş
 `Argon2id` / `PBKDF2` minimumları, `ADR-0054` DB-at-rest provider, signature
-verification və `ADR-0055` protected-storage minimumları config ilə zəiflədilməyə
-cəhd olunarsa, startup fail-closed davranır. `appsettings.json` bu floor-ları
-aşağı sala bilməz; istisna yalnız ayrıca ADR amendment ilə verilir.
+verification, `ADR-0055` protected-storage minimumları, `ADR-0058` durable login
+throttling və remembered-login no-secret qaydası, `ADR-0059` package verification
+limitləri və key-purpose separation-ı, `ADR-0060` license validation/LKG qaydaları
+və `ADR-0061` pre-authentication allow-list-i ilə atomic commit tələbi config ilə
+zəiflədilməyə cəhd olunarsa, startup fail-closed davranır. `appsettings.json` bu
+floor-ları aşağı sala bilməz; istisna yalnız ayrıca ADR amendment ilə verilir.
 
 ---
 
@@ -440,7 +473,7 @@ Bu primitive-lər Dobby-nin özü implement edir; 3rd-party library istifadə ol
 | DataGrid | WPF built-in DataGrid + WPF-UI theming | Phase 1 üçün built-in DataGrid kifayətdir; daha güclü open-source grid ehtiyacı yaranarsa ayrıca qiymətləndirilir |
 | WPF localization binding | `.resx` + `IStringLocalizer<T>` + Dobby-owned binding/resource adapter | Runtime culture switch və fallback `Dobby.Localization` altında idarə olunur; əlavə package yoxdur — `WPFLocalizeExtension` yalnız P2 candidate |
 | Online integrations | `IHttpClientFactory` + typed clients + `Microsoft.Extensions.Http.Resilience` | Yalnız opsional internet əsaslı capability-lər üçün; core məhsul funksionallığının hissəsi deyil. `Refit` stable API-lər üçün P2 optional candidate |
-| Background tasks | `IHostedService` + `System.Threading.Channels` + `IProgress<T>` + `CancellationToken` | `IHostedService`, `IProgress<T>`, `CancellationToken` BCL; `System.Threading.Channels` initial skeleton üçün BCL/runtime-only stance daşıyır və explicit PackageReference yaradılmır. Future target/runtime evidence explicit package tələb edərsə human-approved pin list-də ayrıca bağlanır. Shell progress/work-session reporting ilə `IProgress<T>` inteqrasiyası (ADR-0015, ADR-0050); `IHostedService` post-login gating ADR-0041-də |
+| Background tasks | `IHostedService` + `System.Threading.Channels` + `IProgress<T>` + `CancellationToken` | `IHostedService`, `IProgress<T>`, `CancellationToken` BCL; `System.Threading.Channels` initial skeleton üçün BCL/runtime-only stance daşıyır və explicit PackageReference yaradılmır. Future target/runtime evidence explicit package tələb edərsə human-approved pin list-də ayrıca bağlanır. Shell progress/work-session reporting ilə `IProgress<T>` inteqrasiyası (ADR-0015, ADR-0050); `IHostedService` post-login gating ADR-0041 və `ADR-0061`-də |
 | Audit storage | Dapper + append-only repository wrapper over protected local persistence | Public API update/delete vermir; compliance invariant kod səviyyəsində qorunur və backing DB data-at-rest protected olmalıdır (ADR-0019, ADR-0030) |
 | Command/Action pipeline | Dobby-owned abstraction | Optional implementation candidate: `Mediator` (martinothamar, MIT, source-generated) — ADR ilə seçilərsə; MediatR commercial line istifadə olunmur |
 | Search | BCL debounce + `string.Normalize` (accent tolerance) + SQLite `LIKE`; scale lazım olarsa SQLite FTS5 | P1-də əlavə package yoxdur; `Lucene.NET` yalnız P2 candidate (ADR-0025 placeholder / P2 deferred; bax `docs/adr/README.md` numbering gaps) |
@@ -528,7 +561,8 @@ Bu spec-in scope-undan kənar, gələcək iterasiyalarda bağlanacaq:
 ## Branch Shared Storage Stack Reservation
 
 `ADR-0056` Branch Shared mode üçün PostgreSQL 16.x-i Tier B/customer-release
-storage target kimi rezerv edir. Mərhələ 1 sənəd pass-i və gələcək Tier A
+storage target kimi rezerv edir. Branch Shared documentation tier (pre-Tier A)
+və gələcək Tier A
 skeleton interface shape-i Npgsql runtime dependency-si əlavə etmir və live
 PostgreSQL test tələb etmir.
 
@@ -542,28 +576,56 @@ qalır.
 JSON Schema owner-dir. `serverIdentityPinMaterial` lowercase 64-character
 SHA-256 hex formatında saxlanır.
 
-## 2026-08 Security Profile Amendment (Controlling)
+## Revision History
 
-- Password storage keeps the accepted Argon2id/PBKDF2 floors, unique salts and
-  versioned parameters, but no arbitrary composition rule is added. Password
-  length, breached/common-value screening where an offline maintained list is
-  available, paste/password-manager support and durable throttling are the
-  controlling controls.
-- Every ECDSA wire format explicitly names curve, hash and
-  `IeeeP1363FixedFieldConcatenation`; signatures use unpadded base64url and a
-  versioned, domain-separated canonical payload. Default library encodings are
-  never relied on.
-- Key material is selected from purpose-separated, versioned key rings. The
-  package, license, recovery-response and BranchSetup-authorization purposes do
-  not reuse one leaf key.
-- ZIP verification enforces limits before allocation and while streaming:
-  manifest size, entry count, per-entry uncompressed bytes, aggregate
-  uncompressed bytes and compression ratio. Extraction uses normalized relative
-  paths, Windows-name validation, collision detection, final full-path
-  containment and no-overwrite semantics.
-- In-process plugin loading is restricted to trusted signed product code.
-  Untrusted execution requires a separately versioned IPC contract and an OS
-  process boundary; `AssemblyLoadContext` remains a load/unload mechanism only.
-- Production MSIX validation must execute installed launch, upgrade and data
-  preservation tests with the actual package identity and storage paths. A
-  self-signed package build alone is development evidence, not GA evidence.
+- **2026-08-29 (dependency parity + KDF reality):** İki drift bağlandı, qərar
+  dəyişikliyi yoxdur.
+
+  (a) `Tam Phase 1 dependency siyahısı` `Directory.Packages.props`-dakı iki pin-i
+  sadalamırdı: `SQLitePCLRaw.provider.dynamic_cdecl` (`SqliteProviderInitializer`
+  vasitəsilə production-da native provider bootstrap edir — `ADR-0054` Option A-nın
+  bundle-siz yolu) və `System.Management`. Siyahı "tam" adlandığı üçün bu, oxucuya
+  səhv supply-chain mənzərəsi verirdi; hər ikisi indi öz statusu ilə yazılıb.
+  `System.Management` sətri legacy kimi işarələndi: onun yeganə approval basis-i
+  `ADR-0039`-un 5-source WMI fingerprint-i idi (`decision-log.md` D-14), `ADR-0058`
+  onu supersede etdi və `ADR-0040` § `2026-08-29 Collected-property narrowing` ilə
+  WMI oxunuşları koddan silindi. Pin-in özü saxlanılır, çünki human-approved
+  supply-chain evidence-in ləğvi approver qərarıdır — audit-də external blocker.
+
+  (b) Password hashing sətirləri `Argon2id`-i **aktual default** kimi təqdim edirdi
+  ("default seçim", "`Argon2id` seçilir"), halbuki: package heç vaxt pin almadı
+  (`toolchain-pin-gate.md` `DEFERRED_TO_SPRINT_5`), `Directory.Packages.props`-da
+  yoxdur, `DobbyOptionsValidator` `Auth.PasswordKdfMode=Argon2id`-i fail-closed
+  rədd edir və faktiki KDF `PBKDF2-HMAC-SHA256`-dır. Seçim əsassız deyil —
+  `auth-kdf-selection.md` səbəbi qeyd edir — problem yalnız docs/03-un stale
+  prose-u idi: oxucu Argon2id-in işlək default olduğunu düşünüb `AC-051`-in
+  Argon2 floor-larını (`m=19 MiB`, `t=2`, `p=1`) yoxlanılası hesab edə bilərdi,
+  halbuki qapanası şərt PBKDF2 floor-larıdır. Mətn indi cari seçilmiş yolu,
+  `ADR-0038` niyyətinin qüvvədə qaldığını və aktivləşmə şərtini ayrı-ayrı deyir.
+
+- **2026-08-26:** `ADR-0058`…`ADR-0061` reconciliation. `2026-08 Security Profile
+  Amendment` bölməsi ləğv edildi; qərarları normativ mətnə köçürüldü — §5 plugin
+  packaging/loading sətirlərinə ZIP verification limitləri və ALC-nin trust
+  boundary olmadığı, §5-ə packaging validation evidence paraqrafı, §6-ya
+  `Password policy controls` sətri. Signature encoding, key-purpose separation,
+  remembered-login no-secret və atomic-commit floor-ları müvafiq mövcud sətirlərdə
+  və `Security Floors` bölməsində saxlanılır.
+- **2026-08-29 (pin gate approval reality):** `P1 Toolchain / Package Pin Gate`
+  bölməsi prospektiv stop condition kimi oxunurdu ("pin list gələnə qədər…",
+  `.NET SDK` = `stop condition`, `ApprovedVersion` boş), halbuki pin list mövcuddur
+  və Phase A/B-də qismən human-approved-dır (`toolchain-pin-gate.md` § `Resolved
+  Stop Conditions`). Bu iki tərəfli misreading riski yaradırdı: oxucu ya bütün
+  package işini bloklanmış sayırdı, ya da — daha təhlükəlisi — `Directory.
+  Packages.props`-un mövcudluğunu approval sübutu sayırdı, halbuki gate-in öz
+  qaydası pin-ləri "current repository state, not approval evidence by themselves"
+  adlandırır. Əvəzinə surface-per-surface approval-vəziyyəti table-ı əlavə olundu.
+  Audit həmçinin gözlənilməzi tapdı: 39 pin-dən 22-si üçün gate-də heç bir approval
+  row-u yoxdur (`Microsoft.Extensions.*` `10.0.7` seti, `Serilog.*`,
+  `FluentValidation`, `Microsoft.AspNetCore.Authorization`, `NuGet.Versioning`,
+  `System.Security.Cryptography.ProtectedData`,
+  `SQLitePCLRaw.provider.dynamic_cdecl`, `coverlet.collector`,
+  `xunit.runner.visualstudio`) — nə hash, nə signature, nə license, nə vulnerability
+  scan, nə approver. Bu retroaktiv approval arxitektura/security approver qərarıdır,
+  ona görə burada açıq external blocker kimi sənədləşdirildi, öz-özünə bağlanmadı.
+  Tier stance table-ının rolu da dəqiqləşdirildi: o reference-stance policy-sidir,
+  approval deyil.

@@ -4,6 +4,29 @@
 
 **Date:** 2026-08-21
 
+**Clarifies:** `ADR-0007` (load-context trust-boundary wording: an `AssemblyLoadContext`
+is dependency isolation, never a containment or security boundary). That ADR already
+states this rule in its own §§ 4-5, so the meaning is stated precisely here rather than
+changed, which is why this is `**Clarifies:**` and not `**Amends:**`.
+
+**Amends:** `ADR-0011` (trust posture, package validation, in-process isolation limits),
+`ADR-0006` (§ 1 module lifecycle hook shape and the page/registration minimum: async,
+cancellable, timeout-bounded host boundary), `ADR-0012` (security-boundary and
+hostile-code containment framing, the plugin UI hosting minimum, and plugin-facing
+cancellation/timeout/fault classification), `ADR-0021` (§ 3a base-class lifecycle hook
+shape and § 4 plugin-facing compatibility gate), `ADR-0036` (manifest v2 root shape,
+bounded collection limits, required `hostApiVersion` and explicit `signature.format`),
+`ADR-0037` (`hostApiVersion` contract-version rules and the § Lifecycle contract
+failure-classification and bounded-timeout surface), `ADR-0049` (§ `Plugin
+page/main-content runtime contract` minimum page/lifecycle surface, now the declarative
+host-rendered component tree) and `ADR-0008` (§ 2 activation-loop hook shapes, the
+compatibility gate, § 2.1 cancellation of an already-started hook, and § 4 failure
+classification).
+Every ADR named above remains `Accepted` and remains the authority for its untouched
+sections; only the named areas are amended here. This is deliberately not `**Supersedes:**`, which a
+header-scanning reader and `AdrSupersessionConsistencyTests` both read as a claim that the
+named document is retired.
+
 ## Context
 
 The host loads signed vendor assemblies in-process through
@@ -57,7 +80,7 @@ major version.
   without padding. Verification specifies the same format; provider defaults are
   not relied upon.
 - The signed bytes are domain-separated and versioned. The package fingerprint is
-  `SHA-256(domain || canonical-manifest-without-signature)`; the manifest's
+  `SHA-256(domain ‖ canonical-manifest-without-signature)`; the manifest's
   canonical `files` map is included exactly once.
 - Plugin-package, license, and recovery signing are separate purposes and use
   distinct versioned leaf keys/key ids. A vendor offline root may authorize leaf
@@ -108,9 +131,12 @@ major version.
 - The sample plugin must prove the v2 component, localization, cancellation,
   progress, failure, and work-session paths from a real signed package.
 - The host cannot claim hostile-code containment while using in-process plugins.
-- This ADR supersedes the security-boundary claims in ADR-0011/ADR-0012, clarifies
-  ADR-0007, and supersedes the minimum page/lifecycle portions of ADR-0006,
-  ADR-0021, ADR-0036, ADR-0037, and ADR-0049 where they conflict.
+- This ADR amends the security-boundary claims in ADR-0011 and ADR-0012, clarifies
+  ADR-0007, and amends the minimum page/lifecycle portions of ADR-0006, ADR-0021,
+  ADR-0036, ADR-0037, ADR-0049 and ADR-0008 where they conflict. Every ADR named
+  here remains `Accepted` and remains the authority for its untouched sections:
+  the relation is the one declared in the `**Amends:**` / `**Clarifies:**` headers
+  above, not supersession (`docs/adr/README.md` § `Supersession header formatı`).
 
 ## Cross-references
 

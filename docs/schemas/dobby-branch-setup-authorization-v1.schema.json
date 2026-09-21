@@ -28,9 +28,9 @@
   },
   "$defs": {
     "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
-    "keyId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "keyId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^branch-(prod|test)-[0-9]{4}-(0[1-9]|1[0-2])$", "$comment": "ADR-0062 § 1 canonical vendor selector <purpose-short>-<prod|test>-<YYYY-MM>. purpose-short is bijective with the signing purpose, so a branch setup authorization may only name a key from the branch ring; a plugin-package, license or recovery selector here is a shape violation. The branch leaf key and anchor are deferred by design (ADR-0056), so no Standalone host accepts this artifact at all: the format is bound now so the deferred purpose cannot later borrow another ring's selector namespace." },
     "nonce": { "type": "string", "minLength": 22, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" },
-    "utc": { "type": "string", "maxLength": 35, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,7})?Z$" },
+    "utc": { "type": "string", "maxLength": 35, "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,7})?Z$", "$comment": "Field ranges are bounded, not merely digit-counted: a two-digit-per-component pattern accepts 2026-99-99T99:99:99Z, which reaches the typed parser as an out-of-range instant and turns a shape error into a parse/arithmetic failure path (range overflow). Residual calendar validity the pattern cannot express -- 2026-02-30, non-leap 02-29 -- stays with the typed parser; leap-second :60 is deliberately outside the accepted set." },
     "signature": {
       "type": "object",
       "additionalProperties": false,
@@ -39,7 +39,7 @@
         "purpose": { "type": "string", "const": "dobby.branch-setup-authorization" },
         "algorithm": { "type": "string", "const": "ECDSA-P256-SHA256" },
         "format": { "type": "string", "const": "IeeeP1363FixedFieldConcatenation" },
-        "keyId": { "$ref": "#/$defs/keyId" },
+        "keyId": { "$ref": "#/$defs/keyId", "$comment": "Cross-field obligation JSON Schema cannot express: this keyId MUST equal payload.keyId, and a verifier MUST reject a mismatch before trusting the payload. Selecting the verification key from one member while taking authority from the other would accept a substituted key identity (ADR-0062 keyId selector)." },
         "value": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" }
       }
     }

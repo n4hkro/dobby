@@ -16,7 +16,8 @@ public sealed class HostPluginCommandDispatcher(
     CancellationToken authenticatedLifetime,
     PluginRuntimeDiagnosticsCoordinator? diagnostics = null,
     PluginRuntimeFaultPolicy? faultPolicy = null,
-    IPluginRuntimeLifecycleControl? lifecycleControl = null) : IPluginCommandDispatcher
+    IPluginRuntimeLifecycleControl? lifecycleControl = null,
+    PluginRuntimeAuditCoordinator? auditCoordinator = null) : IPluginCommandDispatcher
 {
     private static readonly TimeSpan MaximumCommandTimeout = TimeSpan.FromSeconds(30);
 
@@ -100,7 +101,9 @@ public sealed class HostPluginCommandDispatcher(
                     boundedRequest.CorrelationId);
                 await ObserveFaultPolicyAsync(
                     boundedRequest.PluginId,
-                    PluginInvocationOutcomeKind.PluginException).ConfigureAwait(false);
+                    PluginInvocationOutcomeKind.PluginException,
+                    boundedRequest.UserId,
+                    ParseCorrelation(boundedRequest.CorrelationId)).ConfigureAwait(false);
             }
             return Result.Failure<PluginCommandResult>(handler.ErrorCode ?? ErrorCode.NotFound);
         }
@@ -153,14 +156,23 @@ public sealed class HostPluginCommandDispatcher(
                 outcome.Kind,
                 boundedRequest.CorrelationId);
         }
-        await ObserveFaultPolicyAsync(boundedRequest.PluginId, outcome.Kind).ConfigureAwait(false);
+        await ObserveFaultPolicyAsync(
+            boundedRequest.PluginId,
+            outcome.Kind,
+            boundedRequest.UserId,
+            ParseCorrelation(boundedRequest.CorrelationId)).ConfigureAwait(false);
 
         return result;
     }
 
+    private static CorrelationId? ParseCorrelation(string? value) =>
+        Guid.TryParse(value, out var parsed) ? new CorrelationId(parsed) : null;
+
     private async ValueTask ObserveFaultPolicyAsync(
         string pluginId,
-        PluginInvocationOutcomeKind outcomeKind)
+        PluginInvocationOutcomeKind outcomeKind,
+        string? actorId,
+        CorrelationId? correlationId)
     {
         if (faultPolicy is null)
         {
@@ -168,7 +180,23 @@ public sealed class HostPluginCommandDispatcher(
         }
 
         var decision = faultPolicy.Observe(pluginId, outcomeKind);
-        if (!decision.QuarantineStarted || lifecycleControl is null)
+        if (!decision.QuarantineStarted)
+        {
+            return;
+        }
+
+        // Audit the quarantine transition itself before any cleanup: the plugin is already
+        // quarantined at this point, so the evidence must not depend on cleanup being wired
+        // or succeeding (docs/specs/plugins-manager.md § audit).
+        PluginQuarantineAuditEmitter.EmitIfQuarantineStarted(
+            auditCoordinator,
+            decision,
+            pluginId,
+            outcomeKind,
+            actorId,
+            correlationId);
+
+        if (lifecycleControl is null)
         {
             return;
         }

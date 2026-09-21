@@ -4,6 +4,27 @@
 **Date:** 2026-04-25
 **Supersedes:** ADR-0026
 
+> Historical note: the v2 wire format, `keyVersion` vocabulary, fixture matrix and
+> vendor-trust wording below are **not** Phase 1 canonical. Current authority:
+> license artifact/lifecycle is `ADR-0060` (with the derived-state truth table in
+> `docs/schemas/license-v3-lifecycle-truth-table.md` and the frozen schema
+> `docs/schemas/dobby-plugin-license.schema.json`); signing-key identity, purpose
+> separation and trust-anchor provisioning are `ADR-0062` (which supersedes
+> `ADR-0033` and retires the numeric `keyVersion` rule in favour of purpose-scoped
+> `keyId` values such as `license-prod-2026-01`); Owner recovery binding is
+> `ADR-0058` (which supersedes `ADR-0039` and removes fuzzy/quorum hardware
+> matching entirely); device-binding derivation is `ADR-0063`. Specifically, the
+> following statements in this body are superseded history and must not be
+> implemented or cited as current: numeric `keyVersion` increments under
+> `ADR-0033` (§ 1, § 1b), the comparison against an "`ADR-0039` 5-hash fuzzy
+> recovery artifact" and "Owner recovery uses ADR-0039 quorum/fuzzy matching"
+> (§ 1), and "single embedded master vendor identity … License artifact vendor
+> master signing key ilə yoxlanılır" (§ 2 — `ADR-0062` § 3 requires a separate
+> `dobby.plugin-license` purpose anchor and forbids cross-purpose verification).
+> Skeleton or documentation-fix work must not copy field shapes, key-version rules
+> or fixture requirements from this ADR body without an explicit
+> `ADR-0060`/`ADR-0062` amendment.
+
 ## Context
 
 Owner D-2 və D-3 qərarları Phase 1 licensing modelini dəyişdi:

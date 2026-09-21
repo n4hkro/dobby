@@ -2,7 +2,7 @@
 
 **Status:** P1 canonical spec
 **Phase:** P1-core
-**Sources:** `FR-003`, `FR-010`, `FR-024`, `FR-028`, `AC-016`, `AC-029`, `AC-030`, `AC-034`, `ADR-0028`, `ADR-0031`, `ADR-0038`, `ADR-0048`, `docs/specs/shell-ui.md`, `docs/specs/session-lifecycle.md`, `docs/specs/user-management.md`, `docs/specs/license-import.md`
+**Sources:** `FR-003`, `FR-010`, `FR-024`, `FR-027`, `FR-028`, `AC-016`, `AC-029`, `AC-030`, `AC-033`, `AC-034`, `AC-035`, `ADR-0028`, `ADR-0031`, `ADR-0038`, `ADR-0048`, `ADR-0058`, `ADR-0060`, `docs/specs/shell-ui.md`, `docs/specs/session-lifecycle.md`, `docs/specs/user-management.md`, `docs/specs/license-import.md`, `docs/specs/audit-and-diagnostics.md`, `docs/specs/device-lifecycle.md`
 
 ## Məqsəd
 
@@ -77,9 +77,33 @@ About minimum fields:
 
 About Dobby host üçün license status göstərmir və license import yeri deyil. Plugin license statusu `Plugins > License` və Plugin Details səthlərində qalır.
 
+### Support contact və legal line
+
+`Vendor/support contact` və copyright/legal line customer build-də konfiqurasiya
+olunmuş **real** vendor məlumatını göstərir. Placeholder contact string,
+placeholder domain, developer-only email/URL və full local path customer
+artifact-larında qadağandır; bunların çıxarıldığının sübutu candidate release
+evidence set-inin bir hissəsidir (`docs/09_BUILD_RUN_AND_RELEASE.md`
+§ `Candidate release evidence set`, band 8). Konfiqurasiya olunmuş dəyər yoxdursa
+About non-disclosing neutral resource key göstərir və sintetik/nümunə contact
+dəyəri fabricate etmir.
+
 ## Support code copy
 
+About surface yalnız **support-safe** device code göstərir: bu, protected stable
+device id-nin domain-separated keyed digest-inin truncated və explicit
+**versiyalı** formasıdır (`ADR-0058` § `Support identity`,
+`docs/specs/device-lifecycle.md`). Raw `MachineGuid` və ya onun prefiksi, raw
+`DobbyStableDeviceId`, raw recovery public key, tam license fingerprint və full
+local path About-da göstərilmir, clipboard-a yazılmır, log-lanmır və export
+edilmir.
+
 About surface redacted support/device code göstərə və copy action təqdim edə bilər. Copy action raw hardware fingerprint, protected key material, token, session material, raw license payload və plugin secret məlumatı clipboard-a yazmamalıdır.
+
+Lock ekranı aktiv olduğu müddətdə About-un support code, owner identity və plugin
+version sahələri də daxil olmaqla authenticated Settings/About məzmunu render
+olunmur (`docs/specs/session-lifecycle.md` § `Lock və Auto-Lock`, `FR-023`,
+`AC-029`); support-safe olmaq lock zamanı görünmək üçün əsas deyil.
 
 ## About Version Source
 
@@ -87,11 +111,28 @@ About-da göstərilən host version build/project metadata-sından gəlir. `apps
 
 Settings və About ekranları loading, empty, success, error və confirmation feedback state-lərini shell-wide UI state qaydası ilə göstərir; raw internal error detail user-facing səthə çıxmır.
 
+## Support diagnostics export entry point
+
+Host-owned support diagnostics export-un canonical user-facing entry point-i
+`Settings > About` support sahəsindədir və yalnız explicit user/Owner action ilə
+başlayır; avtomatik vendor upload təklif olunmur (`FR-027`, `AC-033`).
+
+Entry point plugin license lifecycle state-lərinin hamısında (`Active`, `Grace`,
+`ReadOnlyExpired`, `Pending`, `Denied`) əlçatan qalır; license/capability
+gate-ləri yalnız plugin/domain data export-larına tətbiq olunur
+(`docs/01_PRODUCT_SCOPE.md`, `FR-017`, `ADR-0060`). Package content, redaction
+boundary və audit davranışı `docs/specs/audit-and-diagnostics.md`
+§ `Diagnostics Export` tərəfindən idarə olunur; Settings/About həmin content-i
+yenidən tərif etmir.
+
 ## Acceptance Hooks
 
 - `AC-016` Settings theme/layout preference baseline-ını yoxlayır.
 - `AC-029` Account/session actions ilə bağlı behavior-u yoxlayır.
 - `AC-030` User Management entry və permission guard-ları yoxlayır.
+- `AC-033` explicit diagnostics export action-ının hər license state-də əlçatan
+  qaldığını və redaction boundary-sini yoxlayır.
+- `AC-034` About-un license import yeri olmadığını yoxlayır.
 - `AC-035` minimum category tree və About privacy field-lərini yoxlayır.
 
 ## Branch Shared Settings / About Addendum
@@ -104,10 +145,15 @@ It must not show PostgreSQL passwords, protected credential values, raw license
 payloads, raw hardware identifiers, full local paths or raw TLS pin secret
 material. License import/status remains under `Plugins > License`, not About.
 
-## 2026-08 Support-Safety Amendment (Controlling)
+## Revision History
 
-About/Support shows a configured real support contact and a versioned,
-support-safe device code derived without revealing raw hardware identifiers.
-Placeholder domains, raw MachineGuid prefixes and full local paths are forbidden
-in customer builds. Host diagnostics export remains reachable even when plugin
-licenses are pending, expired, read-only or denied.
+- **2026-08-27:** `Support code copy` bölməsinə lock concealment qaydası əlavə
+  olundu: lock aktiv olarkən About support code/owner identity/plugin version
+  sahələri render olunmur (`FR-023`, `AC-029`,
+  `docs/specs/session-lifecycle.md` § `Lock və Auto-Lock`).
+- **2026-08-26:** `ADR-0058`/`ADR-0060` reconciliation. `2026-08 Support-Safety
+  Amendment` bölməsi ləğv edildi; real support contact və placeholder qadağası
+  yeni `Support contact və legal line` bölməsinə, versiyalı support-safe device
+  code törəməsi `Support code copy` bölməsinə, license state-dən asılı olmayan
+  host diagnostics export isə yeni `Support diagnostics export entry point`
+  bölməsinə köçürüldü.

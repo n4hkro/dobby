@@ -1,6 +1,6 @@
 # Sprint 11 Packaging Static Scan
 
-Status: PASS. Production publish output matches the Task 3 trust and recovery evidence requirements. Authority decisions approve the path; P1/release-ready is not closed until evidence passes.
+Status: PASS for the publish-output packaging scan only. Production publish output matches the Task 3 trust and recovery evidence requirements. Authority decisions approve the path; P1/release-ready is not closed until evidence passes. This record does not close `HD-S11-001`: see the embedded anchor provenance note below.
 
 ## Production Publish
 
@@ -11,6 +11,7 @@ Status: PASS. Production publish output matches the Task 3 trust and recovery ev
 - Host assembly SHA-256: `95fdf51854a888bea228cb4c339246fec05ef320ca40fa1e22607049ff973dc7`
 - Security assembly SHA-256: `231bcb4555b6135b47b087efe2e4b09434a46af9bc35ab2d9fc4f074e58f33db`
 Published security assembly embedded public-key SHA-256: `74ca9ee78d453e122d86047c90fd174e78fa1828647404e03122b6d7ab39201f`
+Embedded anchor provenance: the value above is the locally generated 2026-07 GA-candidate master anchor, produced under the single shared master anchor model that `ADR-0062` retires. It is historical RC evidence only. It is neither an authorized production custody value nor one of the six purpose-separated anchors the current build embeds, so `HD-S11-001` stays open. The live anchor/embedded equality proof for the current build is owned by `PluginTrustResourcePackagingTests`, not by this machine-local publish record.
 
 ## Scan Results
 

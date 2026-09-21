@@ -33,8 +33,10 @@ public sealed class PluginPackageFingerprintTests
     [Fact]
     public void Compute_ignores_signature_value()
     {
-        var manifestA = PluginPackageTestData.CreateManifest(signature: new PluginPackageSignature("ECDSA-P256-SHA256", 1, "AQ"));
-        var manifestB = PluginPackageTestData.CreateManifest(signature: new PluginPackageSignature("ECDSA-P256-SHA256", 1, "Ag"));
+        var manifestA = PluginPackageTestData.CreateManifest(signature: new PluginPackageSignature(
+            "dobby.plugin-package", "ECDSA-P256-SHA256", "IeeeP1363FixedFieldConcatenation", "plugin-prod-2026-01", "AQ"));
+        var manifestB = PluginPackageTestData.CreateManifest(signature: new PluginPackageSignature(
+            "dobby.plugin-package", "ECDSA-P256-SHA256", "IeeeP1363FixedFieldConcatenation", "plugin-prod-2026-01", "Ag"));
 
         var first = PluginPackageFingerprint.Compute(manifestA);
         var second = PluginPackageFingerprint.Compute(manifestB);

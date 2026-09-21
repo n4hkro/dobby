@@ -1,6 +1,6 @@
 # ADR-0019: Audit vs Diagnostics Boundary
 
-**Status:** Accepted
+**Status:** Accepted (atomicity and diagnostics-availability details amended by `ADR-0061` — see ## Revision History)
 **Date:** 2026-04-22
 
 ## Context
@@ -68,8 +68,12 @@ Dobby default olaraq vendor-a usage analytics, crash report, telemetry və ya
 diagnostics upload etmir. Diagnostics local technical troubleshooting datasıdır.
 
 Vendor/support-a göndərilə bilən diagnostics yalnız explicit user/Owner action ilə
-local export package kimi yaradılır. Export package minimum redaction qaydalarına
-tabedir:
+local export package kimi yaradılır.
+
+Host support diagnostics export recovery/support funksiyasıdır və heç bir plugin license
+state-i (expired, mismatched, missing, grace) tərəfindən bloklanmır (`ADR-0061`). License
+gate feature surface-lərə aiddir; diagnostics kanalını həmin gate-in arxasına qoymaq onu
+ən çox lazım olduğu anda bağlayardı. Export package minimum redaction qaydalarına tabedir:
 
 - raw password, token, private key, session material və remember-me secret çıxarılmır;
 - raw license artifact/detail çıxarılmır; yalnız non-sensitive status/fingerprint
@@ -83,8 +87,12 @@ Localization missing-key hadisələri diagnostics event/log-dur, audit hadisəsi
 ## Consequences
 
 - `Dobby.Audit` və `Dobby.Diagnostics` fərqli ownership və test məqsədi saxlayır
-- Command pipeline, licensing və security axınları audit yarada bilər, amma bu,
-  structured log-ı əvəz etmir
+- Command pipeline, licensing və security axınları audit yaradır və bu, structured log-ı
+  əvəz etmir. Audit yazısı mutation-ın optional yan effekti deyil: business state, asılı
+  cache/index qeydləri, session invalidation/version və audit bir transaction daxilində,
+  ya da durable outbox/repair protokolu ilə commit olunur; partial success qadağandır
+  (`ADR-0061`). Ayrı connection üzərində yazılan və business transaction rollback olduqda
+  itən audit bu qaydayı ödəmir
 - Sonrakı implementation mərhələsində append-only audit storage və diagnostics
   sink-ləri bir-birinə qarışdırılmamalıdır
 - Privacy default-local qalır; avtomatik telemetry/upload davranışı ayrıca explicit
@@ -100,6 +108,9 @@ Localization missing-key hadisələri diagnostics event/log-dur, audit hadisəsi
 - `docs/06_NON_FUNCTIONAL_REQUIREMENTS.md` — `NFR-011`, `NFR-020`
 - `docs/07_ACCEPTANCE_CRITERIA.md` — `AC-010`, `AC-033`
 - `docs/specs/audit-and-diagnostics.md`
+- `docs/adr/ADR-0061-login-first-runtime-and-atomic-mutation-boundary.md` — audit
+  mutation atomicity və diagnostics export availability detallarını amend edir;
+  həmin bölmələr üçün current authority
 
 ## Branch Shared Audit Amendment
 
@@ -135,3 +146,20 @@ Branch Shared audit origin is resolved by `DM-091`:
 Branch Shared P1 app audit remains write-only from the application perspective
 per `DM-089`. Audit viewer/export read grants are deferred until explicitly
 scoped.
+
+## Revision History
+
+- **2026-08-31:** `ADR-0061` amendment-i dated record kimi yazıldı və amend olunmuş
+  cümlələr düzəldildi. `**Status:**` sətri artıq atomicity və diagnostics-availability
+  detallarının amend olunduğunu bildirirdi, lakin sənəddəki yeganə `## ... Amendment`
+  bölməsi Branch Shared audit origin-i (`DM-089`/`DM-091`) haqqındadır və tarixsizdir,
+  yəni `ADR-0061` amendment-inin heç bir dated qeydi yox idi (`docs/adr/README.md` iki
+  şərti birgə tələb edir). İki düzəliş: (1) `## Consequences` əvvəl "audit yarada bilər"
+  deyirdi -- audit-i mutation-ın optional yan effekti kimi göstərən bu ifadə audit-i ayrı
+  connection-da yazan və business transaction rollback olduqda itirən implementasiya
+  tərəfindən ödənilirdi; indi single-transaction/outbox qaydası açıq yazılıb. (2)
+  § `Diagnostics export və privacy` availability qaydası daşımırdı, ona görə bu bölmədən
+  export implementasiya edən reader-in onu license gate arxasına qoymamaq üçün səbəbi yox
+  idi; `ADR-0061`-in "never blocked by a plugin license state" qərarı əlavə olundu.
+  Audit/diagnostics boundary qərarı, payload vocabulary-si və redaction siyahısı dəyişmir;
+  yeni öhdəlik əlavə edilmir, `ADR-0061`-in mövcud qərarı dəqiq ifadə olunur.

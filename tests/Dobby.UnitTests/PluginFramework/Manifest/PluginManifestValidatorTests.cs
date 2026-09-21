@@ -1,4 +1,5 @@
 using Dobby.Core.Versioning;
+using Dobby.PluginFramework.Activation;
 using Dobby.PluginFramework.Manifest;
 using Dobby.UnitTests.PluginFramework.Packaging;
 using Shouldly;
@@ -174,5 +175,46 @@ public sealed class PluginManifestValidatorTests
 
         result.IsSuccess.ShouldBeFalse();
         result.Reasons.Any(reason => reason.Code == "parent-cycle").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Legacy_v1_manifest_is_rejected_at_install_validation_and_at_activation_reverification()
+    {
+        var legacy = PluginPackageTestData.CreateManifest() with
+        {
+            SchemaVersion = PluginManifestContract.LegacySchemaVersion
+        };
+
+        var installValidation = PluginManifestValidator.ValidateDetailed(legacy, new HostVersion(1, 0, 0));
+
+        installValidation.IsSuccess.ShouldBeFalse();
+        installValidation.Reasons.Any(reason =>
+                reason.Code == "unsupported-manifest-version" && reason.Path == "schemaVersion")
+            .ShouldBeTrue(
+                "docs/schemas/artifact-compatibility-matrix.md declares no v1 manifest read path: " +
+                "install validation must reject schemaVersion 1 fail-closed");
+
+        var activationReverification = PluginCompatibilityEvaluator.Evaluate(legacy, new HostVersion(1, 0, 0));
+
+        activationReverification.IsCompatible.ShouldBeFalse();
+        activationReverification.Status.ShouldBe(PluginActivationStatus.Rejected);
+        activationReverification.Reason.ShouldBe(
+            "unsupported-manifest-version",
+            "AC-049 re-verifies the manifest at activation, so a v1 manifest that somehow reached " +
+            "installed state must still never be activated");
+    }
+
+    [Fact]
+    public void Only_the_current_manifest_schema_version_maps_to_a_supported_package_format()
+    {
+        PluginCompatibilityMatrix.PackageFormatVersionForSchema(PluginManifestContract.CurrentSchemaVersion)
+            .ShouldBe(PluginCompatibilityMatrix.CurrentPackageFormatVersion);
+
+        foreach (var unsupported in new[] { PluginManifestContract.LegacySchemaVersion, 0, -1, 3, int.MaxValue })
+        {
+            PluginCompatibilityMatrix.PackageFormatVersionForSchema(unsupported).ShouldBe(
+                0,
+                "an unmapped schema version must not resolve to a usable package format version");
+        }
     }
 }

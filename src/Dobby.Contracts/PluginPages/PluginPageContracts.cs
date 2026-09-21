@@ -18,8 +18,6 @@ public interface IPluginPageModel
 {
 }
 
-public sealed record PluginTextPageModel(string MessageKey) : IPluginPageModel;
-
 public sealed record PluginPageCommandContext(
     string PluginId,
     string RouteKey,

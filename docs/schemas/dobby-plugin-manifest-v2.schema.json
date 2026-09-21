@@ -106,9 +106,21 @@
           "routeKey": { "$ref": "#/$defs/routeKey" },
           "labelKey": { "$ref": "#/$defs/resourceKey" },
           "parentId": { "$ref": "#/$defs/identifier" },
-          "group": { "$ref": "#/$defs/identifier" },
+          "group": { "type": "string", "const": "default", "$comment": "ADR-0005 total ordering key. P1 supports exactly one ordering group, so an explicit group may only restate the default; the typed validator returns invalid-manifest for any other value. Widening this to a free identifier would let a manifest declare a group that sorts ahead of every default contribution while no host code implements group ordering policy." },
           "weight": { "type": "integer", "minimum": -1000000, "maximum": 1000000 }
-        }
+        },
+        "allOf": [
+          {
+            "$comment": "ADR-0036 labelKey rule. The root displayName may stand in for a missing labelKey only for a top-level top-toolbar contribution (target == top-toolbar and no parentId); every other contribution must carry its own labelKey. Without this conditional the schema accepts a sidebar/third-bar/plugin-page-region or child contribution with no label source at all, and the first gate that rejects it is the typed validator after the package has already been read.",
+            "if": {
+              "anyOf": [
+                { "required": ["parentId"] },
+                { "required": ["target"], "properties": { "target": { "not": { "const": "top-toolbar" } } } }
+              ]
+            },
+            "then": { "required": ["labelKey"] }
+          }
+        ]
       }
     },
     "files": {
@@ -139,7 +151,7 @@
     "routeKey": { "type": "string", "minLength": 1, "maxLength": 192, "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$" },
     "packageRelativePath": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*[:\\u0000-\\u001F])(?!.*[ .](?:/|$))[A-Za-z0-9_. -]+(?:/[A-Za-z0-9_. -]+)*$" },
     "lowercaseSha256Hex": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "keyId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "keyId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^plugin-(prod|test)-[0-9]{4}-(0[1-9]|1[0-2])$", "$comment": "ADR-0062 § 1 canonical vendor selector <purpose-short>-<prod|test>-<YYYY-MM>. purpose-short is bijective with the signing purpose, so a plugin-package manifest may only name a key from the plugin ring; a license or recovery selector here is a shape violation rejected before signature verification (key-purpose confusion, ADR-0059). Format conformance is not trust: the host still requires an exact match in its plugin-package ring." },
     "base64urlP1363": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" },
     "pluginSignature": {
       "type": "object",

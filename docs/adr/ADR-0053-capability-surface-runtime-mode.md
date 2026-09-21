@@ -47,9 +47,11 @@ surface-i deyil və yeni skeleton surface-i kimi yaradılmır.
   data-extraction əməliyyatları host tərəfindən deny edilir.
 - `Denied`: plugin runtime access almır.
 
-`NoLicense` runtime mode deyil; `ADR-0051`-də `no-license` lifecycle state-i
+`NoLicense` runtime mode deyil; artefakt yoxdursa yaranan `no-license` vəziyyəti
 plugin-facing surface-də `Denied` kimi görünür və UI/license status səthində
-`NoLicense` / localized `No license` kimi göstərilə bilər.
+`NoLicense` / localized `No license` kimi göstərilə bilər. Derived state →
+runtime mode → UI status mapping-in canonical sahibi
+`docs/schemas/license-v3-lifecycle-truth-table.md`-dır (`ADR-0060`).
 
 Plugin bu mode-lardan license id, expiry, customer/deployment/device/package binding,
 grace, no-license səbəbi və revision detail çıxara bilməməlidir.
@@ -123,8 +125,8 @@ authorization üçün `OperationPermissionCapability` modeli `ADR-0048` ilə ayr
 
 ### 5. Superseded examples
 
-- `ADR-0026`-dakı `IsFeatureAllowed(string)` licensing surface-i `ADR-0051` və bu ADR ilə
-  əvəz olunur.
+- `ADR-0026`-dakı `IsFeatureAllowed(string)` licensing surface-i bu ADR və cari
+  lifecycle authority (`ADR-0060`, əvvəl `ADR-0051`) ilə əvəz olunur.
 - `ADR-0012`-dəki binary allowed/denied licensing nümunəsi bu ADR üçün superseded
   nümunədir; non-disclosing capability boundary prinsipi qüvvədə qalır.
 - `ADR-0004`-dəki "ICapabilityLicensing ilk real implementasiya" nümunəsi bu runtime
@@ -157,4 +159,5 @@ authorization üçün `OperationPermissionCapability` modeli `ADR-0048` ilə ayr
 - `docs/specs/license-import.md`
 - `docs/adr/ADR-0004-capability-enforcement-model.md` — typed policy pattern
 - `docs/adr/ADR-0012-plugin-capability-boundary.md` — non-disclosing capability boundary
-- `docs/adr/ADR-0051-license-lifecycle-v2.md` — lifecycle state machine
+- `docs/adr/ADR-0060-license-lifecycle-and-import-v3.md` — current lifecycle authority
+- `docs/schemas/license-v3-lifecycle-truth-table.md` — derived state and runtime-mode mapping

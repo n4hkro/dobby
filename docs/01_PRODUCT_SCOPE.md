@@ -25,6 +25,8 @@ Bu sənədin məqsədi məhsul scope-u üçün tək, aydın və ziddiyyətsiz is
 - Dobby plugin platformasıdır; host özü təkbaşına vergi, SQL query, satış və digər sahə problemlərini həll edən business məhsul kimi təqdim olunmur
 - Məhsulun ən başlıca startup məqsədi login ekranını mümkün olan ən qısa vaxtda istifadəçiyə göstərməkdir
 - Login ekranı görünənə qədər vacib olmayan yoxlama, import, scan, plugin activation və oxşar ağır işlər icra olunmamalıdır
+- Login-first məhsul qərarıdır: pre-authentication proses qəsdən kiçikdir. Tam shell, plugin runtime, licensing, retention və business runtime-ları yalnız authenticated session mövcud olandan sonra başlayır (`ADR-0061`)
+- Security-relevant state dəyişikliyi ilə onun audit/evidence record-u tək durable unit-dir; qismən commit olunmuş mutation üçün istifadəçiyə success bildirilmir (`ADR-0061`)
 - Məhsulun bütün əsas funksionallığı internetsiz işləməlidir
 - İnternet heç bir halda məcburi deyil; gələcəkdə yalnız istifadəçi üçün əlavə dəyər yaradan opsional capability-lər bu prinsipi pozmadan əlavə oluna bilər
 - Bütün istifadəçi məlumatları, hesablar, settings və tətbiq datası lokal cihazda saxlanılır
@@ -57,7 +59,7 @@ Yəni məhsulun dəyəri konkret bir business vertical-da sərt bağlanmaq yox, 
 - Sonradan yaranan istifadəçilər `Owner` deyil, normal idarə olunan local istifadəçilərdir
 - İstifadəçi və icazə modeli lokal cihaz daxilində işləyir; cloud identity provider məhsulun default hissəsi deyil
 - Eyni Dobby prosesində yalnız bir active user session olur; yeni user login-i əvvəlki session logout/cleanup olandan sonra başlayır
-- Logout cari session-u və in-memory user state-i bitirir, amma remember-me saved login-i silmir; saved login yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə boşaldılır
+- Logout cari session-u və in-memory user state-i bitirir, amma remembered login metadata-sını (yalnız normalize olunmuş username və non-secret slot id) silmir; həmin metadata yalnız növbəti uğurlu login zamanı remember-me OFF seçildikdə boşaldılır. Remembered login heç bir password, password-equivalent verifier və ya replayable login proof saxlamır və password sahəsini prefill etmir (`ADR-0058`)
 - Manual lock və auto-lock logout deyil: lock screen cari user üçün unlock və ya logout seçimləri göstərir, başqa user login-i üçün logout vasitəsilə login ekranına qayıtmaq lazımdır
 
 ## Owner Recovery / Reset Password
@@ -70,7 +72,7 @@ Bu axının məhsul səviyyəli davranışı:
 - istifadəçi həmin faylı vendor-a out-of-band kanalla (məs. email, USB) göndərir
 - vendor ayrıca admin tool vasitəsilə imzalanmış response artefaktı hazırlayır
 - müştəri `Import Recovery Response` basıb cavab faylını proqrama təqdim edir
-- artefakt yalnız həmin cihazda işləyir, yaradıldıqdan sonra 24 saat qüvvədədir və yalnız bir dəfə istifadə oluna bilir
+- artefakt yalnız həmin cihazda işləyir, yaradıldıqdan sonra 24 saat qüvvədədir və yalnız bir dəfə istifadə oluna bilir; müddət pəncərəsinin və single-use semantikasının dəqiq qaydası [docs/specs/session-lifecycle.md](./specs/session-lifecycle.md) § `Validity window və single use` tərəfindən sahiblənir
 - `Owner` şifrəsi sıfırlanır və yenidən giriş mümkündür
 
 Bu axın offline məhsul prinsipini pozmamalıdır; vendor ilə əlaqə insan/proses səviyyəsində ola bilər, amma məhsulun runtime-ı məcburi online xidmətə bağlı olmur.
@@ -109,6 +111,8 @@ Plugin modeli üçün məhsul səviyyəli qaydalar:
 - plugin enable/disable edilə bilər; disabled plugin navigation entry və runtime activation almır
 - plugin uninstall confirmation tələb edir və istifadəçiyə plugin datasını saxlamaq və ya silmək seçimi verir
 - plugin runtime fault verdikdə host app çökməməli, fault həmin plugin instance/screen/task sərhədində isolate edilməli və istifadəçiyə non-technical error göstərilməlidir
+- in-process plugin-lər trusted, review olunmuş, imzalanmış product code sayılır: Dobby `AssemblyLoadContext`, capability wrapper və ya namespace scanning-in hostile kodu sandbox etdiyini iddia etmir. Gələcək untrusted-plugin məhsul tier-i ayrıca process/OS isolation dizaynı və ayrıca ADR tələb edir (`ADR-0059`, `NFR-004`, `NFR-008`)
+- host-owned support diagnostics export hər license lifecycle state-ində (`Active`, `Grace`, `ReadOnlyExpired`, `Pending`, `Denied`) əlçatan qalır; license gate-ləri yalnız plugin/domain export və mutation-ları qoruyur
 - sample/test plugin Dobby plugin platformasının release verification artifact-ıdır; production customer install-da default görünmür və konkret business vertical (`vergi`, `satış`, `SQL` və s.) kimi təqdim edilmir
 - plugin aktivasiyası ayrıca müddətli lisenziya artefaktı ilə idarə olunur: məsələn 1 həftə, 1 ay və s.; aktivasiya artefaktı activation/not-before, expiry, customer/deployment/device binding və plugin package fingerprint binding daşıyır; installasiya paketindən ayrı hazırlanır və istifadəçiyə ayrıca təqdim oluna bilər
 - license import yalnız `.dobbylicense` file picker ilə başlayır, import permission-u tələb edir, signature/binding/package fingerprint/revision yoxlamalarından keçir və nəticəni audit trail-ə yazır
@@ -131,6 +135,7 @@ Core host-un məsuliyyətləri:
 - licensing import və enforcement boundary
 - localization, theme və shared UI/system primitives
 - audit/diagnostics boundary və privacy-default-local support export davranışı
+- authenticated maintenance boundary: lokal support snapshot, verified restore və retention/cleanup işi (pre-auth composition-da işləmir)
 
 Plugin-lərin məsuliyyətləri:
 
@@ -162,8 +167,9 @@ Phase 1-də məhsul səviyyəsində gözlənilən minimum:
 - `Plugins > License` altında `.dobbylicense` import flow-u və permission guard
 - offline işləyən host və plugin runtime modeli
 - localization/theme/shared component foundation
+- eyni cihaz üzərində authenticated maintenance kimi lokal support snapshot və verified restore floor-u: snapshot host-owned `backup/` root boundary-si daxilində integrity-checked, şifrəli və hash-metadata ilə yayımlanır; restore isə explicit `Owner` təsdiqi ilə, cari audit/outbox evidence-i və security-monotonic security state-i qoruyaraq, tək atomic promotion və fail-closed rollback ilə işləyir (`FR-034`, `AC-054`, `docs/specs/backup-restore-migration.md`)
 
-Phase 1 self-service customer/device data-folder migration-ı dəstəkləmir. Tam vendor-signed customer/device migration və rebind axını P2/later capability-dir və ayrıca qərarla açılır.
+Phase 1 self-service customer/device data-folder migration-ı dəstəkləmir. Tam vendor-signed customer/device migration və rebind axını P2/later capability-dir və ayrıca qərarla açılır. Yuxarıdakı lokal snapshot/restore floor-u həmin migration axını deyil: snapshot protected stable device identity-ə bağlıdır və başqa cihazda restore üçün transport artefaktı kimi istifadə edilə bilməz.
 
 ## Out Of Scope
 
@@ -190,29 +196,19 @@ deməkdir; Branch Shared authoritative əməliyyatları LAN PostgreSQL unavailab
 olanda fail-closed davranır. Local diagnostics və setup evidence DeviceLocal
 qala bilər, amma Branch Shared authoritative audit/data kimi sayılmır.
 
-Mərhələ 1 yalnız sənəd işidir: `ADR-0056`, `ADR-0057`, bağlı spec-lər və schema
-yaradılır və mövcud sənədlər mode-aware edilir. Bu mərhələ code skeleton,
+Branch Shared documentation tier (pre-Tier A, `ADR-0056` tier vocabulary) yalnız
+sənəd işidir: `ADR-0056`, `ADR-0057`, bağlı spec-lər və schema
+yaradılır və mövcud sənədlər mode-aware edilir. Bu tier code skeleton,
 `Dobby.BranchSetup` implementation, Npgsql runtime adapter və installer işi
-başlatmır.
+başlatmır. Bu tier məhsulun `Phase 1` scope taxonomy-si deyil.
 
-## 2026-08 Security and Completion Amendment (Controlling)
+Cari məhsul milestone-u Standalone completion və production-release evidence-idir;
+Branch Shared ayrıca human-approved gələcək track olaraq qalır.
 
-This amendment overrides conflicting earlier wording and is governed by
-`ADR-0058` through `ADR-0061`.
+## Revision History
 
-- Standalone completion and production-release evidence are the current product
-  milestone. Branch Shared remains a separately approved future track.
-- "Remember me" may retain only a non-secret account identifier. A password,
-  password-equivalent verifier or replayable login proof is never persisted for
-  one-click login.
-- Login-first means the pre-authentication process is deliberately small. Full
-  shell, plugin, licensing, retention and business runtimes begin only after an
-  authenticated session exists.
-- In-process plugins are trusted, reviewed, signed product code. Dobby does not
-  claim that `AssemblyLoadContext`, capability wrappers or namespace scanning
-  sandbox hostile code. A future untrusted-plugin product requires a separate
-  process/OS isolation design.
-- Host-owned support diagnostics remain available in every license lifecycle
-  state. License gates still protect plugin/domain exports and mutations.
-- Security-relevant state changes and their audit/outbox records form one
-  durable unit; success is never reported for a partially committed mutation.
+- **2026-08-26:** `ADR-0058`…`ADR-0061` reconciliation. Login-first pre-auth
+  boundary, atomic mutation prinsipi, in-process plugin trust posture-u,
+  license-state-dən asılı olmayan support diagnostics və cari Standalone
+  milestone ifadəsi normativ mətnə köçürüldü; `2026-08 Security and Completion
+  Amendment` bölməsi ləğv edildi.

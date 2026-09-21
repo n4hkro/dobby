@@ -1,6 +1,6 @@
 # ADR-0049: Hierarchical Navigation Contribution Model
 
-**Status:** Accepted
+**Status:** Accepted (§ `Plugin page/main-content runtime contract` minimum page/lifecycle surface amended by `ADR-0059` — see ## Revision History)
 **Date:** 2026-04-25
 
 ## Context
@@ -47,7 +47,20 @@ Closed target vocabulary dəyişmir:
 
 ### Plugin page/main-content runtime contract
 
-Navigation descriptor-ları page hosting üçün yetərli deyil; Phase 1 skeleton-un plugin-visible minimum runtime contract-ı da canonical bağlanır. Contract `Dobby.Contracts / Plugin Pages` altında qalır və `ADR-0006` registration modeli ilə qoşulur.
+Navigation descriptor-ları page hosting üçün yetərli deyil; ona görə bu ADR Phase 1
+skeleton-un plugin-visible minimum runtime contract-ını da bağlayır. Contract
+`Dobby.Contracts / Plugin Pages` altında qalır və `ADR-0006` registration modeli ilə
+qoşulur.
+
+Bu bölmənin cari authority-si `ADR-0059` § `Declarative host-rendered UI v2`-dir: plugin
+page surface-inin declarative host-rendered component tree-yə, host-resolved plugin
+localization-a və schema/version negotiation-a keçidi orada qərara alınıb, lifecycle
+hook-larının async/cancellable və bounded-timeout forması isə `ADR-0059`
+§ `Compatibility and lifecycle`-dədir. Aşağıdaki blok həmin amendment-dən əvvəlki
+minimum surface-i və bu ADR-in dəyişməyən binding qaydalarını (host-owned render,
+`Result` boundary, lifecycle sırası, host-authoritative identity) sənədləşdirir; yeni
+plugin page işi üçün `ADR-0059` ilə birlikdə oxunur və konflikt halında `ADR-0059`
+üstündür.
 
 Canonical skeleton surface:
 
@@ -63,7 +76,8 @@ public sealed record PluginPageContext(
     string PluginId,
     string ExtensionPointId,
     string RouteKey,
-    string CorrelationId);
+    string CorrelationId,
+    string? UserId = null);
 
 public interface IPluginPageModel
 {
@@ -96,6 +110,17 @@ Binding rules:
 - `PluginPageDescriptor.ExtensionPointId` manifest `extensionPoints[].id` ilə match etməlidir.
 - `PluginPageDescriptor.RouteKey` manifest `extensionPoints[].routeKey` və `ADR-0013` route identity ilə match etməlidir.
 - `PluginPageContext.PluginId` host-authenticated plugin identity-dən gəlir; plugin bu dəyəri input kimi diktə etmir.
+- `PluginPageContext.UserId` authenticated session-dan gələn host-authoritative dəyərdir;
+  plugin onu input kimi diktə edə, override edə və ya spoof edə bilmir. Yalnız post-login
+  page activation-da doldurulur, ona görə nullable-dır: null və ya boş dəyər authorization
+  üçün fail-closed-dur -- host command boundary belə request-i `Unauthorized` ilə rədd edir
+  və operation authorization `ADR-0048` `PolicyContext` üzərindən bu identity ilə
+  qiymətləndirilir. Dəyər opaque identifier kimi ötürülür: plugin onu authorization
+  qərarının mənbəyi kimi yenidən istifadə etmir, host qərarını təkrar şərh etmir və bu
+  field plugin-visible tenant/customer runtime primitive-i açmır (`ADR-0052` həmin
+  primitive-lərin plugin-visible olmadığını qərara alır). Plugin-facing surface-də user
+  identity-nin göstərilməsi və ya audit payload-a əlavə edilməsi bu ADR-in icazəsi deyil;
+  audit ownership `ADR-0019` və `ADR-0061`-dədir.
 - Plugin page implementation `ADR-0006` ilə `AddExtensionPoint<IPluginPage, TPluginPage>()` formasında register olunur.
 - Lifecycle hook-ları `Result` / `Result<T>` boundary istifadə edir; expected/domain/infrastructure failure raw exception kimi shell-ə sızmır.
 - Plugin manifest yalnız navigation/route metadata elan edir. Manifest `viewKey`,
@@ -108,8 +133,10 @@ Binding rules:
   views-lara map edir. Plugin `UserControl`, `Window`, `FrameworkElement`, XAML
   path, assembly-qualified WPF view type name və ya host implementation type
   qaytarmır.
-- `viewKey` manifest schema-ya və `IPluginPageModel`-ə əlavə edilmir;
-  `docs/schemas/dobby-plugin-manifest.schema.json` bu qərara görə dəyişmir.
+- `viewKey` manifest schema-ya və `IPluginPageModel`-ə əlavə edilmir; manifest
+  schema (indi controlling `docs/schemas/dobby-plugin-manifest-v2.schema.json`,
+  frozen v1 `docs/schemas/dobby-plugin-manifest.schema.json`) bu qərara görə
+  dəyişmir.
 - Lifecycle order: `LoadAsync` bir dəfə first activation-dan əvvəl çağırılır;
   `ActivateAsync` / `DeactivateAsync` eyni page lifetime-da təkrar çağırıla bilər
   və idempotent olmalıdır; `UnloadAsync` final deactivate-dən sonra bir dəfə
@@ -138,5 +165,33 @@ Binding rules:
 - `docs/adr/ADR-0012-plugin-capability-boundary.md` — host-owned rendering and plugin capability boundary
 - `docs/adr/ADR-0028-shell-composition-ordering-render.md`
 - `docs/adr/ADR-0036-plugin-manifest-schema.md`
+- `docs/adr/ADR-0059-plugin-trust-package-and-ui-contract-v2.md` — current authority for the
+  § `Plugin page/main-content runtime contract` surface (declarative host-rendered UI v2,
+  async/cancellable bounded-timeout lifecycle)
+- `docs/adr/ADR-0048-operation-authorization-model.md` — `PluginPageContext.UserId` feeds the
+  operation authorization policy context
 - `docs/specs/sample-plugin.md` — `AC-036` Main Content hosting verification artifact
 - `docs/specs/shell-ui.md`
+
+## Revision History
+
+- **2026-08-31:** Amendment record yazıldı və relation vocabulary düzəldildi.
+  `**Status:**` sətri "minimum page/lifecycle portions superseded by ADR-0059" deyirdi,
+  halbuki README bu sözü yalnız tam supersession üçün ayırır və öz Supersession Index-ində
+  bu ADR-i `Accepted (partial)` kimi sıralayır. Bu sənəd hierarchical navigation
+  contribution modeli, qapalı target vocabulary-si, per-parent ordering və toolbar
+  qaydaları üçün authority olaraq qalır; `ADR-0059` yalnız § `Plugin page/main-content
+  runtime contract` minimum surface-ini amend edir. Dated bölmə yox idi, `ADR-0059`
+  `## Cross-references`-də adlanmırdı və `ADR-0059` bu ADR-i geri claim etmirdi -- üçü də
+  bağlandı.
+- **2026-08-31 (2):** `PluginPageContext.UserId` documented və governed. Field `5b598aa`
+  commit-indən bəri shipped idi (`src/Dobby.Contracts/PluginPages/PluginPageContracts.cs`
+  beş parametrli record), lakin bu ADR-in canonical bloku dörd parametr göstərirdi və heç
+  bir ADR, spec, FR, NFR və ya AC field-i idarə etmirdi. Bu, security-relevant boundary-də
+  documentation gap idi: host-un authenticated session `UserId`-si third-party plugin
+  code-a ötürülür və o, fail-closed authorization precondition-dır --
+  `HostPluginCommandDispatcher` boş dəyəri `ErrorCode.Unauthorized` ilə rədd edir və
+  `ADR-0048` `PolicyContext`-ini həmin identity ilə qurur. Kod və green test contradictory
+  product decision üçün authority olmadığından qayda implementation-dan səssiz nəticə
+  çıxarılmaqla deyil, contract owner-i olan bu ADR-də açıq yazıldı; `ADR-0052`-nin
+  "tenant/customer runtime primitive-ləri plugin-visible deyil" scope-u ilə uzlaşdırıldı.

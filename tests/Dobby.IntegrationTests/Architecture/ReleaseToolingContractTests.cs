@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Shouldly;
 
 namespace Dobby.IntegrationTests.Architecture;
@@ -19,8 +20,25 @@ public sealed class ReleaseToolingContractTests
         admin.ShouldContain("verification-failed");
     }
 
+    // NFR-027 / ADR-0061 boundary: every assertion below is a source-text scan over release
+    // scripts, so it may only enforce the *documented shape* of the release tooling -- which
+    // gates exist, which vocabulary they use, which sub-script they call. It is deliberately
+    // NOT evidence that the runner fails closed, and it closes no release gate.
+    //
+    // The executable proof lives elsewhere and must stay there:
+    //   * `ReleaseExternalEvidenceValidatorTests` really invokes validate-external-evidence.ps1
+    //     via pwsh and pins accept / wrong-commit / missing-claim / malformed-hash outcomes.
+    //   * `Release_runner_creates_each_gate_log_even_when_the_command_is_silent` pins an
+    //     ordering property of the runner.
+    //   * Portable-launch and install/upgrade gates are closed by their own real-artifact runs.
+    //
+    // The previous name ("..._fail_closed_and_record_external_blockers") asserted runtime
+    // fail-closed behavior that no line here exercises -- exactly the "static test masquerading
+    // as runtime proof" shape NFR-027 forbids from closing a release gate. Renamed rather than
+    // deleted: pinning the documented vocabulary still catches silent drift between the release
+    // scripts and docs/09, which is a legitimate shape obligation.
     [Fact]
-    public void Supply_chain_and_release_runner_fail_closed_and_record_external_blockers()
+    public void Supply_chain_and_release_runner_declare_the_documented_gate_vocabulary()
     {
         var root = RepoRoot();
         var sbom = Read(root, "tools", "generate-sbom", "generate-sbom.ps1");
@@ -88,6 +106,58 @@ public sealed class ReleaseToolingContractTests
         script.ShouldContain("-Phase 'matrix-integration'");
         script.ShouldContain("-Phase 'matrix-smoke'");
         script.ShouldNotContain("-Phase 'solution'");
+    }
+
+    [Fact]
+    public void Repository_ignore_rules_do_not_swallow_build_id_release_evidence()
+    {
+        // docs/09_BUILD_RUN_AND_RELEASE.md: an evidence file that exists on disk but is
+        // silently ignored is not recorded evidence, because the reviewer sees a clean
+        // working tree while a required gate artifact is missing from the commit. Reading
+        // .gitignore text cannot prove this — precedence between overlapping patterns
+        // decides the outcome — so ask git itself (NFR-027).
+        var root = RepoRoot();
+        Directory.Exists(Path.Combine(root, ".git"))
+            .ShouldBeTrue("this check needs the repository's own ignore rules");
+
+        var buildIdRoots = new DirectoryInfo(Path.Combine(root, "artifacts", "release-evidence"))
+            .EnumerateDirectories("local-rc-*", SearchOption.TopDirectoryOnly)
+            .ToArray();
+        buildIdRoots.ShouldNotBeEmpty("no build-id release evidence root was found to check");
+
+        foreach (var buildIdRoot in buildIdRoots)
+        {
+            IsIgnored(root, Path.Combine(buildIdRoot.FullName, "storage-provider-proof.md"))
+                .ShouldBeFalse(
+                    $"a required evidence file added to {buildIdRoot.Name} must be committable");
+            IsIgnored(root, Path.Combine(buildIdRoot.FullName, "ui-snapshots", "login-window.png"))
+                .ShouldBeFalse(
+                    $"a UI snapshot added to {buildIdRoot.Name} must be committable");
+            IsIgnored(root, Path.Combine(buildIdRoot.FullName, "verbose-run.log"))
+                .ShouldBeTrue(
+                    "a generated log inside an evidence root is not evidence, so it stays ignored");
+        }
+    }
+
+    private static bool IsIgnored(string repositoryRoot, string path)
+    {
+        using var process = Process.Start(new ProcessStartInfo("git")
+        {
+            WorkingDirectory = repositoryRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            ArgumentList = { "check-ignore", "-q", path }
+        }) ?? throw new InvalidOperationException("git could not be started.");
+        process.WaitForExit();
+
+        // git check-ignore: 0 = ignored, 1 = not ignored, anything else = failure.
+        return process.ExitCode switch
+        {
+            0 => true,
+            1 => false,
+            _ => throw new InvalidOperationException(
+                $"git check-ignore failed for '{path}': {process.StandardError.ReadToEnd()}")
+        };
     }
 
     private static string Read(string root, params string[] segments)

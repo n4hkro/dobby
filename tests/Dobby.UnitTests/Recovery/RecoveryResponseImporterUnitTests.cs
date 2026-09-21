@@ -55,6 +55,32 @@ public sealed class RecoveryResponseImporterUnitTests
     }
 
     [Fact]
+    public void Verify_rejects_split_key_identity_between_signature_and_payload()
+    {
+        // Key-identity confusion guard: the signed payload names one key while the signature
+        // envelope names another. Both values are individually well-formed and the payload key
+        // is the trusted one, so only an explicit cross-field equality check rejects this.
+        // A verifier that selects the key from one member and records/authorizes from the other
+        // would accept a substituted key identity (ADR-0062 keyId selector,
+        // docs/specs/session-lifecycle.md import step 3).
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key));
+        var payload = Payload();
+        var envelope = Envelope(key, payload);
+
+        var splitKeyIdentity = envelope with
+        {
+            Signature = envelope.Signature with { KeyId = "recovery-test-2026-02" }
+        };
+
+        splitKeyIdentity.Payload.KeyId.ShouldBe(VendorKeyId);
+        splitKeyIdentity.Signature.KeyId.ShouldNotBe(splitKeyIdentity.Payload.KeyId);
+        var result = importer.VerifyWithOutcome(splitKeyIdentity, Now);
+        result.Result.ErrorCode.ShouldBe(ErrorCode.Forbidden);
+        result.Outcome.ShouldBe("invalid-artifact");
+    }
+
+    [Fact]
     public void Verify_rejects_expired_future_and_overlong_validity_windows()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
@@ -92,6 +118,28 @@ public sealed class RecoveryResponseImporterUnitTests
         json.ShouldContain("\"keyId\"");
         json.ShouldNotContain("\"KeyId\"", Case.Sensitive);
         RecoveryResponseImporter.ReadEnvelope(json).Payload.SchemaVersion.ShouldBe(2);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(0)]
+    [InlineData(3)]
+    public void Verify_rejects_non_v2_schema_version_even_when_the_signature_is_valid(int schemaVersion)
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var importer = new RecoveryResponseImporter(new EcdsaVendorPublicKey(key));
+        var payload = Payload() with { SchemaVersion = schemaVersion };
+
+        // Signed over the mutated payload on purpose: the rejection must come from the
+        // strict v2 wire gate, not from an incidentally broken signature.
+        var result = importer.Verify(Envelope(key, payload), Now);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorCode.ShouldBe(
+            ErrorCode.Forbidden,
+            "docs/schemas/artifact-compatibility-matrix.md declares no v1 recovery read path, so a " +
+            "legacy or unknown schema version must be rejected fail-closed before any owner " +
+            "credential mutation");
     }
 
     private static RecoveryResponsePayload Payload(

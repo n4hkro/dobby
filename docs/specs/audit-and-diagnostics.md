@@ -2,7 +2,7 @@
 
 **Status:** P1 canonical spec
 **Phase:** P1-core
-**Sources:** `FR-011`, `FR-027`, `AC-010`, `AC-033`, `NFR-011`, `NFR-020`, `ADR-0019`
+**Sources:** `FR-011`, `FR-027`, `FR-033`, `FR-034`, `AC-010`, `AC-033`, `AC-053`, `AC-054`, `NFR-011`, `NFR-020`, `NFR-027`, `ADR-0019`, `ADR-0061`
 
 ## Məqsəd
 
@@ -27,11 +27,26 @@ The audit spec owns exact event names and operationalizes the minimum payload. A
 | User Management | `user.create`, `user.update`, `user.password.change`, `user.password.reset`, `user.activate`, `user.deactivate` |
 | Permission | `permission.grant`, `permission.revoke`, `permission.denied`, `owner.protection.denied` |
 | Plugin install/trust | `plugin.install.attempted`, `plugin.install.verified`, `plugin.install.rejected`, `plugin.install.signature-failed`, `plugin.install.trust-failed` |
-| Plugin lifecycle | `plugin.enable`, `plugin.disable`, `plugin.uninstall`, `plugin.activation.skipped`, `plugin.activation.rejected`, `plugin.runtime.faulted` |
+| Plugin lifecycle | `plugin.enable`, `plugin.disable`, `plugin.uninstall`, `plugin.activation.skipped`, `plugin.activation.rejected`, `plugin.runtime.faulted`, `plugin.runtime.quarantined`, `plugin.lifecycle.v1-adapter-used` |
 | Recovery və License | `recovery.export`, `recovery.import`, `license.import.attempted`, `license.import.succeeded`, `license.import.rejected`, `license.enforcement.denied`, `license.enforcement.warning` |
 | Customer/deployment context | `customer-deployment-context.provision` |
 | Diagnostics Export | `diagnostics.export.created` |
 | Security Verification | `security.verification.failed` |
+| Persistence maintenance | `persistence.snapshot.created`, `persistence.restore.requested`, `persistence.restore.completed` |
+
+Bu cədvəl closed registry-dir: runtime audit event name registry (`Dobby.Audit.AuditEventName.All`) və onun ordered registry test-i bu cədvəllə bir-bir uyğun olmalıdır. Yeni event name əlavə etmək bu spec-in dəyişməsini tələb edir; registry-də olub cədvəldə olmayan (və ya əksinə) ad defect sayılır.
+
+### Persistence maintenance event semantics
+
+Backup/restore maintenance-in promotion addımı filesystem store-set move-udur, ona görə audit record-u ilə **eyni provider transaction-ını paylaşa bilmir** (`ADR-0061` tək-transaction qaydası yalnız in-database state dəyişikliyinə tətbiq olunur). Bu boundary üçün qayda:
+
+- `persistence.snapshot.created` snapshot cəhdinin nəticəsini yazır: `success` halında `outputName` (yalnız bare artifact adı) və `sha256`, failure halında `outputName` və stable `reasonCode`.
+- `persistence.restore.requested` **destructive transition-dan əvvəl**, hələ **current** store-a yazılır (`candidateName`). Restore pipeline-ının immutable-evidence merge addımı bu record-u promote olunan store-a daşıyır, beləliklə əvəz olunmuş store heç vaxt "restore icra olundu" evidence-i olmadan qalmır (`docs/specs/backup-restore-migration.md` § 2.1–2.2).
+- Intent record-unun yazılması uğursuz olarsa əməliyyat **fail-closed** olur: live store-a toxunulmur və nəticə typed persistence failure kimi qaytarılır.
+- `persistence.restore.completed` promotion-dan sonra yazılır: `success` halında `candidateName` və `quarantineName`, failure halında `candidateName` və stable `reasonCode`.
+- Missing quarantine confirmation refusal-ı `persistence.restore.requested` + `denied` + `reasonCode=QuarantineConfirmationMissing` kimi yazılır; authorization refusal-ı isə `permission.denied` kimi.
+- Bu event-lərin `details` field-ləri **heç vaxt** full path daşımır: yalnız bare artifact/quarantine adı yazılır (`NFR-004`, aşağıdakı write-time redaction boundary).
+- Bu pair-in runtime proof-u davranış testi ilə verilir: production-emitted intent record-un promote olunmuş store-dan oxunması. Source scan, mövcud file və ya "tests green" bu gate-i qapatmır (`NFR-027`).
 
 ## Minimum Audit Payload
 
@@ -49,9 +64,39 @@ raw secret, raw password, raw license artifact/detail, private key, raw recovery
 nonce və raw recovery response materialı daşımamalıdır. Recovery correlation üçün
 yalnız non-reversible `nonceHash` kimi redacted representation qəbul olunur.
 
+`details` field-lərinin icazəsi **per-event closed allow-list** ilə verilir və
+write-time enforcement `Dobby.Audit.AuditDetailsSanitizer`-dədir: allow-list-də
+olmayan key emission anında `InvalidOperationException` ilə fail-closed atılır.
+Buradan iki məcburi nəticə çıxır:
+
+1. bu spec-in və ya hər hansı sibling spec-in "icazəlidir"/"minimumdur" deyə
+   göstərdiyi hər `details` field-i həmin event-in allow-list-ində qeydiyyatda
+   olmalıdır — əks halda spec-uyğun emission runtime-da atomic mutation
+   boundary-si daxilində uğursuz olur və dokumentasiya driftini fail-closed
+   outage-a çevirir;
+2. `nonceHash` recovery event-ləri (`recovery.export`, `recovery.import`) üçün
+   allow-list-də mövcuddur və ledger-dəki `RecoveryRequests.NonceHash` sütunu ilə
+   **eyni** non-reversible təmsil (lowercase hex SHA-256) olmalıdır; əks halda
+   audit qeydi replay ledger-i ilə korrelasiya edilə bilmir.
+
+Durable audit record structured security/business record-dur, exception dump
+deyil. Audit `details` raw exception text, stack trace, SQL/query text,
+connection string, full local filesystem path, artifact body (raw package,
+license, recovery payload) və secret dəyər daşımır. Səbəb stable reason code,
+allow-list edilmiş safe field-lər və `correlationId` ilə ifadə olunur; raw
+technical iz yalnız diagnostics boundary-də qalır (`ADR-0019`,
+`docs/04_RESULT_VS_EXCEPTION_POLICY.md` qayda #10).
+
 ## Audit Storage və Visibility
 
 Audit storage append-only olmalıdır. Public API update/delete verməməlidir.
+
+Security/domain state dəyişikliyi və onun tələb olunan audit/outbox record-u **tək
+provider transaction** daxilində yazılır: commit uğursuz olarsa nəticə failure-dır
+və nə state dəyişikliyi, nə audit record məntiqi olaraq tətbiq olunmuş qalır.
+External sink-lər (file export, future forwarder) commit-dən sonra idempotent
+outbox consume edir; outbox delivery retry audit record-unu dublikat etmir
+(`ADR-0061`, `docs/04_RESULT_VS_EXCEPTION_POLICY.md` qayda #11, `NFR-025`).
 
 Audit storage pre-login allowed workload-dadır (`ADR-0041`) və tətbiqin ilk launch-da boş schema ilə initialize olunur. Pre-auth audit hadisələri (məsələn `user.login.failed`) birbaşa audit DB-yə yazılır; ayrıca file-first fallback dizayn olunmamışdır.
 
@@ -101,6 +146,11 @@ Export redaction-undan əvvəldir: secret heç vaxt local log faylına düşmür
 sonradan export-da silinmir. Exception logging-də raw payload context-i yox,
 redaction-applied summary saxlanır.
 
+Redaction **structured və allow-list based**-dir: log/audit/export writer yalnız
+explicit icazə verilmiş typed field-ləri buraxır, qalan payload default olaraq
+kənarda qalır. Regex/pattern-based scrubbing yalnız defense-in-depth əlavəsidir;
+tək secret-detection mexanizmi kimi qəbul edilmir və allow-list-in yerini tutmur.
+
 ## Diagnostics Events
 
 ### `localization.missing-key`
@@ -145,7 +195,7 @@ Diagnostics aşağıdakı kritik flow-larda timing və failure marker-larını s
 - backup/restore;
 - shared data import/export.
 
-`backup/restore` və `shared data import/export` marker-ları həmin feature-lər P2/future scope-dan P1-ə daxil olduqda aktivləşir. Digər marker-lar P1-də mövcuddur.
+`backup/restore` marker-ı host-owned lokal support snapshot/verified restore üçün P1-core-da aktivdir (`FR-034`, Cədvəl 1 Row 91): timing və failure marker-ları staging verification, exclusive ownership acquisition, evidence overlay, quarantine və promotion addımlarını əhatə edir. Cross-device restore/customer-device migration axınının əlavə marker-ları həmin scope P2-dən P1-ə keçdikdə aktivləşir. `shared data import/export` marker-ları həmin feature P2/future scope-dan P1-ə daxil olduqda aktivləşir. Digər marker-lar P1-də mövcuddur.
 
 ## No-Telemetry Default
 
@@ -163,6 +213,12 @@ Bu default davranışı dəyişmək ayrıca explicit product/security qərarı t
 ## Diagnostics Export
 
 Diagnostics export yalnız explicit user/Owner action ilə başlayır və local support package yaradır. Export avtomatik vendor upload deyil.
+
+Host-owned support diagnostics export bütün plugin-license lifecycle state-lərində
+(`Active`, `Grace`, `ReadOnlyExpired`, `Pending`, `Denied`) əlçatan qalır: license
+və capability gate-ləri plugin/domain data export-larına tətbiq olunur, licensing
+problemini diagnoz etmək üçün lazım olan minimum host support bundle-ına yox
+(`docs/01_PRODUCT_SCOPE.md`, `ADR-0060`).
 
 Export package seçilmiş support məlumatlarını daşıya bilər:
 
@@ -195,6 +251,8 @@ Diagnostics export action özü `diagnostics.export.created` action ID-si ilə a
 - `AC-017` missing localization key-in diagnostics olduğunu, audit olmadığını yoxlayır.
 - `AC-020`, `AC-032` non-disclosing UI + diagnostics detail boundary-ni yoxlayır.
 - `AC-033` no-telemetry default və explicit diagnostics export davranışını yoxlayır.
+- `AC-053` state + audit/outbox tək unit of work qaydasını fault injection ilə yoxlayır.
+- `AC-054` persistence maintenance event pair-inin icra olunmuş snapshot/restore ilə yazılmasını və intent record-un promotion-dan sağ çıxmasını yoxlayır.
 
 ## Branch Shared Audit Addendum
 
@@ -249,15 +307,18 @@ not follow later profile changes.
 
 Adding a new `source` value requires an ADR/spec amendment.
 
-## 2026-08 Hardening Amendment (Controlling)
+## Revision History
 
-- Durable audit is a structured security/business record, not an exception dump.
-  Raw exception text, stack traces, SQL, full paths, artifact bodies and secret
-  values are forbidden; use stable reason codes, safe fields and correlation IDs.
-- State changes and required audit/outbox records share one provider transaction.
-  External sinks consume an idempotent post-commit outbox.
-- Host-owned support diagnostics export remains available in all plugin-license
-  lifecycle states. License/capability gates apply to plugin/domain data exports,
-  not to the minimum host support bundle required to diagnose licensing.
-- Redaction is structured and allow-list based. Regex replacement is defense in
-  depth, not the sole secret-detection mechanism.
+- **2026-08-26:** Audit event taxonomy closed-registry qaydası əlavə edildi;
+  `plugin.lifecycle.v1-adapter-used` (runtime registry-də mövcud olan, cədvəldə
+  itmiş event) Plugin lifecycle sətrinə bərpa edildi; `persistence.snapshot.created`,
+  `persistence.restore.requested`, `persistence.restore.completed` event-ləri və
+  onların pre/post pair semantics-i (`FR-034`, `AC-054`) əlavə edildi;
+  `backup/restore` diagnostics marker-ının P1-core statusu düzəldildi.
+- **2026-08-26:** `ADR-0058`…`ADR-0061` reconciliation. `2026-08 Hardening
+  Amendment` bölməsi ləğv edildi; audit-in structured-record (exception dump
+  deyil) qaydası `Minimum Audit Payload`-a, state+audit/outbox tək transaction və
+  idempotent post-commit delivery `Audit Storage və Visibility`-yə,
+  license-state-dən asılı olmayan host support export `Diagnostics Export`-a,
+  allow-list redaction (regex yalnız defense-in-depth) isə write-time redaction
+  boundary paraqrafına köçürüldü.

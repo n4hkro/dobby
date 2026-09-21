@@ -76,19 +76,22 @@ public sealed class HostPersistenceMaintenanceService : IHostPersistenceMaintena
     private readonly IHostPersistenceConnectionFactory connectionFactory;
     private readonly Func<string, long> availableFreeSpace;
     private readonly IHostPersistenceMaintenanceFaultInjector? faultInjector;
+    private readonly TimeProvider timeProvider;
 
     public HostPersistenceMaintenanceService(
         HostPersistenceOptions options,
         IProtectedMaterialSource protectedMaterialSource,
         IHostPersistenceConnectionFactory connectionFactory,
         Func<string, long>? availableFreeSpace = null,
-        IHostPersistenceMaintenanceFaultInjector? faultInjector = null)
+        IHostPersistenceMaintenanceFaultInjector? faultInjector = null,
+        TimeProvider? timeProvider = null)
     {
         this.options = options ?? throw new ArgumentNullException(nameof(options));
         this.protectedMaterialSource = protectedMaterialSource ?? throw new ArgumentNullException(nameof(protectedMaterialSource));
         this.connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
         this.availableFreeSpace = availableFreeSpace ?? ResolveAvailableFreeSpace;
         this.faultInjector = faultInjector;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public PersistenceResult ForceWalCheckpoint()
@@ -293,6 +296,7 @@ public sealed class HostPersistenceMaintenanceService : IHostPersistenceMaintena
             using (var staged = OpenEncryptedConnection(stagedPath, SqliteOpenMode.ReadWrite, configureWal: true))
             {
                 MergeImmutableEvidence(current, staged);
+                PreserveNonRollbackState(current, staged, timeProvider.GetUtcNow());
                 Execute(staged, "PRAGMA wal_checkpoint(TRUNCATE);");
                 if (!VerifyIntegrity(staged).IsSuccess)
                 {
@@ -569,6 +573,472 @@ public sealed class HostPersistenceMaintenanceService : IHostPersistenceMaintena
             }
         }
         transaction.Commit();
+    }
+
+    // Restore is a data-recovery operation, not a security-state rollback vector.
+    // State whose only purpose is to make an event unrepeatable must never move
+    // backwards because an older snapshot was promoted. Normative rules:
+    // docs/specs/backup-restore-migration.md § 2.2; decisions: ADR-0058 (consumed
+    // recovery nonce, durable throttle), ADR-0060 (licenseRevision anti-rollback),
+    // ADR-0031/ADR-0061 (session disposition, single atomic promotion).
+    private static void PreserveNonRollbackState(
+        SqliteConnection current,
+        SqliteConnection staged,
+        DateTimeOffset now)
+    {
+        using var transaction = staged.BeginTransaction();
+        CarryForwardConsumedRecoveryNonces(current, staged, transaction);
+        CarryForwardRecoveryRequestConsumption(current, staged, transaction);
+        CarryForwardLoginThrottlePenalties(current, staged, transaction);
+        CarryForwardLicenseAntiRollbackState(current, staged, transaction);
+        InvalidateRestoredSessions(staged, transaction, now);
+        transaction.Commit();
+    }
+
+    private static bool TableExists(SqliteConnection connection, string table)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @Name;";
+        command.Parameters.AddWithValue("@Name", table);
+        return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture) == 1;
+    }
+
+    private static List<string?[]> ReadTextRows(SqliteConnection connection, string sql)
+    {
+        var rows = new List<string?[]>();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var values = new string?[reader.FieldCount];
+            for (var index = 0; index < reader.FieldCount; index++)
+            {
+                values[index] = reader.IsDBNull(index) ? null : reader.GetValue(index).ToString();
+            }
+            rows.Add(values);
+        }
+        return rows;
+    }
+
+    // A nonce consumed either before or inside the snapshot stays consumed
+    // permanently: promotion can never re-arm an already imported .dobbyrecovery.
+    private static void CarryForwardConsumedRecoveryNonces(
+        SqliteConnection current,
+        SqliteConnection staged,
+        SqliteTransaction transaction)
+    {
+        var consumed = TableExists(current, "ConsumedRecoveryNonces")
+            ? ReadTextRows(
+                current,
+                "SELECT NonceHash, ConsumedAtUtc, RequestId FROM ConsumedRecoveryNonces ORDER BY NonceHash;")
+            : [];
+        if (!TableExists(staged, "ConsumedRecoveryNonces"))
+        {
+            if (consumed.Count > 0)
+            {
+                throw new InvalidDataException(
+                    "The restore candidate cannot preserve the consumed Owner recovery nonce ledger.");
+            }
+            return;
+        }
+
+        foreach (var row in consumed)
+        {
+            using var insert = staged.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText =
+                """
+                INSERT INTO ConsumedRecoveryNonces(NonceHash, ConsumedAtUtc, RequestId)
+                VALUES (@NonceHash, @ConsumedAtUtc, @RequestId)
+                ON CONFLICT(NonceHash) DO NOTHING;
+                """;
+            AddNullableTextParameters(insert, ["NonceHash", "ConsumedAtUtc", "RequestId"], row);
+            insert.ExecuteNonQuery();
+        }
+    }
+
+    // Consumption markers are one-way. A promoted snapshot may not resurrect a
+    // pending request whose nonce is already in the merged consumed ledger, and it
+    // may not un-consume a request the current store already spent.
+    private static void CarryForwardRecoveryRequestConsumption(
+        SqliteConnection current,
+        SqliteConnection staged,
+        SqliteTransaction transaction)
+    {
+        const string Columns =
+            "RequestId, NonceHash, CustomerId, DeploymentId, DeviceId, RecoveryPublicKeyHash, " +
+            "VendorKeyId, PayloadHash, IssuedAtUtc, ExpiresAtUtc, CreatedAtUtc, ConsumedAtUtc, ResponseId";
+        var consumed = TableExists(current, "RecoveryRequests")
+            ? ReadTextRows(
+                current,
+                $"SELECT {Columns} FROM RecoveryRequests WHERE ConsumedAtUtc IS NOT NULL ORDER BY RequestId;")
+            : [];
+        if (!TableExists(staged, "RecoveryRequests"))
+        {
+            if (consumed.Count > 0)
+            {
+                throw new InvalidDataException(
+                    "The restore candidate cannot preserve consumed Owner recovery requests.");
+            }
+            return;
+        }
+
+        foreach (var row in consumed)
+        {
+            using var upsert = staged.CreateCommand();
+            upsert.Transaction = transaction;
+            upsert.CommandText =
+                $"""
+                INSERT INTO RecoveryRequests({Columns})
+                VALUES (
+                    @RequestId, @NonceHash, @CustomerId, @DeploymentId, @DeviceId, @RecoveryPublicKeyHash,
+                    @VendorKeyId, @PayloadHash, @IssuedAtUtc, @ExpiresAtUtc, @CreatedAtUtc, @ConsumedAtUtc, @ResponseId)
+                ON CONFLICT(RequestId) DO UPDATE SET
+                    ConsumedAtUtc = excluded.ConsumedAtUtc,
+                    ResponseId = excluded.ResponseId;
+                """;
+            AddNullableTextParameters(
+                upsert,
+                [
+                    "RequestId", "NonceHash", "CustomerId", "DeploymentId", "DeviceId", "RecoveryPublicKeyHash",
+                    "VendorKeyId", "PayloadHash", "IssuedAtUtc", "ExpiresAtUtc", "CreatedAtUtc", "ConsumedAtUtc",
+                    "ResponseId"
+                ],
+                row);
+            upsert.ExecuteNonQuery();
+        }
+
+        if (!TableExists(staged, "ConsumedRecoveryNonces"))
+        {
+            return;
+        }
+
+        using var drop = staged.CreateCommand();
+        drop.Transaction = transaction;
+        drop.CommandText =
+            """
+            DELETE FROM RecoveryRequests
+            WHERE ConsumedAtUtc IS NULL
+              AND NonceHash IN (SELECT NonceHash FROM ConsumedRecoveryNonces);
+            """;
+        drop.ExecuteNonQuery();
+    }
+
+    // Per bucket the more restrictive record wins, so promoting an older snapshot
+    // can neither clear nor shorten an active login/unlock penalty (ADR-0058).
+    private static void CarryForwardLoginThrottlePenalties(
+        SqliteConnection current,
+        SqliteConnection staged,
+        SqliteTransaction transaction)
+    {
+        const string Columns =
+            "BucketKey, BucketKind, FailedAttempts, WindowStartedAtUtc, ThrottledUntilUtc, UpdatedAtUtc, Version";
+        var currentRows = TableExists(current, "LoginThrottleBuckets")
+            ? ReadTextRows(current, $"SELECT {Columns} FROM LoginThrottleBuckets ORDER BY BucketKey;")
+            : [];
+        if (!TableExists(staged, "LoginThrottleBuckets"))
+        {
+            if (currentRows.Count > 0)
+            {
+                throw new InvalidDataException(
+                    "The restore candidate cannot preserve the durable login throttle ledger.");
+            }
+            return;
+        }
+
+        var stagedRows = ReadTextRows(staged, $"SELECT {Columns} FROM LoginThrottleBuckets ORDER BY BucketKey;")
+            .ToDictionary(row => row[0]!, StringComparer.Ordinal);
+        foreach (var row in currentRows)
+        {
+            if (!stagedRows.TryGetValue(row[0]!, out var stagedRow))
+            {
+                using var insert = staged.CreateCommand();
+                insert.Transaction = transaction;
+                insert.CommandText =
+                    $"""
+                    INSERT INTO LoginThrottleBuckets({Columns})
+                    VALUES (@BucketKey, @BucketKind, @FailedAttempts, @WindowStartedAtUtc,
+                            @ThrottledUntilUtc, @UpdatedAtUtc, @Version);
+                    """;
+                AddNullableTextParameters(
+                    insert,
+                    [
+                        "BucketKey", "BucketKind", "FailedAttempts", "WindowStartedAtUtc",
+                        "ThrottledUntilUtc", "UpdatedAtUtc", "Version"
+                    ],
+                    row);
+                insert.ExecuteNonQuery();
+                continue;
+            }
+
+            if (!StringComparer.Ordinal.Equals(row[1], stagedRow[1]))
+            {
+                throw new InvalidDataException("The restore candidate carries a conflicting throttle bucket kind.");
+            }
+
+            var currentUpdatedAt = ParseRequiredInstant(row[5], "LoginThrottleBuckets.UpdatedAtUtc");
+            var stagedUpdatedAt = ParseRequiredInstant(stagedRow[5], "LoginThrottleBuckets.UpdatedAtUtc");
+            var newest = currentUpdatedAt >= stagedUpdatedAt ? row : stagedRow;
+            using var update = staged.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText =
+                """
+                UPDATE LoginThrottleBuckets
+                SET FailedAttempts = @FailedAttempts,
+                    WindowStartedAtUtc = @WindowStartedAtUtc,
+                    ThrottledUntilUtc = @ThrottledUntilUtc,
+                    UpdatedAtUtc = @UpdatedAtUtc,
+                    Version = @Version
+                WHERE BucketKey = @BucketKey;
+                """;
+            AddNullableTextParameters(
+                update,
+                ["BucketKey", "FailedAttempts", "WindowStartedAtUtc", "ThrottledUntilUtc", "UpdatedAtUtc", "Version"],
+                [
+                    row[0],
+                    Math.Max(ParseRequiredCount(row[2]), ParseRequiredCount(stagedRow[2]))
+                        .ToString(CultureInfo.InvariantCulture),
+                    newest[3],
+                    LaterInstantOrNull(row[4], stagedRow[4]),
+                    (currentUpdatedAt >= stagedUpdatedAt ? currentUpdatedAt : stagedUpdatedAt)
+                        .ToUniversalTime().ToString("O"),
+                    Math.Max(1, Math.Max(ParseRequiredCount(row[6]), ParseRequiredCount(stagedRow[6])))
+                        .ToString(CultureInfo.InvariantCulture)
+                ]);
+            update.ExecuteNonQuery();
+        }
+    }
+
+    // Licensing anti-rollback: a promoted snapshot may not lower an accepted
+    // revision for a series, and it may not erase import attestations (ADR-0060).
+    private static void CarryForwardLicenseAntiRollbackState(
+        SqliteConnection current,
+        SqliteConnection staged,
+        SqliteTransaction transaction)
+    {
+        CarryForwardLicenseRevisionFloor(current, staged, transaction);
+        CarryForwardLicenseAttestations(current, staged, transaction);
+    }
+
+    private static void CarryForwardLicenseRevisionFloor(
+        SqliteConnection current,
+        SqliteConnection staged,
+        SqliteTransaction transaction)
+    {
+        var columns = SharedColumnsOrEmpty(
+            current,
+            staged,
+            "PluginLicenseState",
+            ["PluginId", "CustomerId", "DeploymentId", "LicenseRevision"],
+            "the plugin license revision floor");
+        if (columns.Count == 0)
+        {
+            return;
+        }
+
+        var projection = string.Join(", ", columns);
+        var stagedRevisions = ReadTextRows(
+                staged,
+                "SELECT PluginId, CustomerId, DeploymentId, LicenseRevision FROM PluginLicenseState;")
+            .ToDictionary(row => LicenseSeriesKey(row), row => ParseRequiredCount(row[3]), StringComparer.Ordinal);
+        var assignments = string.Join(
+            ",\n    ",
+            columns
+                .Where(column => column is not ("PluginId" or "CustomerId" or "DeploymentId"))
+                .Select(column => $"{column} = excluded.{column}"));
+
+        foreach (var row in ReadTextRows(current, $"SELECT {projection} FROM PluginLicenseState;"))
+        {
+            var key = LicenseSeriesKey(
+            [
+                row[columns.IndexOf("PluginId")],
+                row[columns.IndexOf("CustomerId")],
+                row[columns.IndexOf("DeploymentId")]
+            ]);
+            var currentRevision = ParseRequiredCount(row[columns.IndexOf("LicenseRevision")]);
+            if (stagedRevisions.TryGetValue(key, out var stagedRevision) && stagedRevision >= currentRevision)
+            {
+                continue;
+            }
+
+            using var upsert = staged.CreateCommand();
+            upsert.Transaction = transaction;
+            upsert.CommandText =
+                $"""
+                INSERT INTO PluginLicenseState({projection})
+                VALUES ({string.Join(", ", columns.Select(column => "@" + column))})
+                ON CONFLICT(PluginId, CustomerId, DeploymentId) DO UPDATE SET
+                    {assignments};
+                """;
+            AddNullableTextParameters(upsert, columns, row);
+            upsert.ExecuteNonQuery();
+        }
+    }
+
+    private static void CarryForwardLicenseAttestations(
+        SqliteConnection current,
+        SqliteConnection staged,
+        SqliteTransaction transaction)
+    {
+        var columns = SharedColumnsOrEmpty(
+            current,
+            staged,
+            "PluginLicenseImportAttestation",
+            ["AttestationId"],
+            "license import attestations");
+        if (columns.Count == 0)
+        {
+            return;
+        }
+
+        var projection = string.Join(", ", columns);
+        foreach (var row in ReadTextRows(
+                     current,
+                     $"SELECT {projection} FROM PluginLicenseImportAttestation ORDER BY AttestationId;"))
+        {
+            using var insert = staged.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText =
+                $"""
+                INSERT INTO PluginLicenseImportAttestation({projection})
+                VALUES ({string.Join(", ", columns.Select(column => "@" + column))})
+                ON CONFLICT(AttestationId) DO NOTHING;
+                """;
+            AddNullableTextParameters(insert, columns, row);
+            insert.ExecuteNonQuery();
+        }
+    }
+
+    // Promotion replaces the whole user/credential set, so every session that the
+    // candidate believes is live is unauthenticated state after restore.
+    private static void InvalidateRestoredSessions(
+        SqliteConnection staged,
+        SqliteTransaction transaction,
+        DateTimeOffset now)
+    {
+        if (!TableExists(staged, "Sessions"))
+        {
+            return;
+        }
+
+        using var command = staged.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            UPDATE Sessions
+            SET InvalidatedAtUtc = @Now,
+                InvalidationReason = 'restore'
+            WHERE InvalidatedAtUtc IS NULL;
+            """;
+        command.Parameters.AddWithValue("@Now", now.ToUniversalTime().ToString("O"));
+        command.ExecuteNonQuery();
+    }
+
+    private static List<string> SharedColumnsOrEmpty(
+        SqliteConnection current,
+        SqliteConnection staged,
+        string table,
+        IReadOnlyList<string> required,
+        string description)
+    {
+        var currentColumns = TableExists(current, table) ? TableColumns(current, table) : [];
+        var stagedExists = TableExists(staged, table);
+        if (currentColumns.Count == 0)
+        {
+            return [];
+        }
+
+        if (!stagedExists)
+        {
+            if (RowCount(current, table) > 0)
+            {
+                throw new InvalidDataException($"The restore candidate cannot preserve {description}.");
+            }
+            return [];
+        }
+
+        var stagedColumns = TableColumns(staged, table);
+        var shared = currentColumns.Where(stagedColumns.Contains).ToList();
+        if (required.Any(column => !shared.Contains(column, StringComparer.Ordinal)))
+        {
+            throw new InvalidDataException($"The restore candidate cannot preserve {description}.");
+        }
+
+        return shared;
+    }
+
+    private static List<string> TableColumns(SqliteConnection connection, string table)
+    {
+        var columns = new List<string>();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info(\"{table.Replace("\"", "\"\"", StringComparison.Ordinal)}\");";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            columns.Add(reader.GetString(1));
+        }
+
+        return columns;
+    }
+
+    private static long RowCount(SqliteConnection connection, string table)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM \"{table.Replace("\"", "\"\"", StringComparison.Ordinal)}\";";
+        return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
+    private const char LicenseSeriesKeySeparator = (char)0x1F;
+
+    private static string LicenseSeriesKey(IReadOnlyList<string?> identity)
+    {
+        return string.Join(
+            LicenseSeriesKeySeparator,
+            identity[0] ?? string.Empty,
+            identity[1] ?? string.Empty,
+            identity[2] ?? string.Empty);
+    }
+
+    private static DateTimeOffset ParseRequiredInstant(string? value, string field)
+    {
+        if (!DateTimeOffset.TryParse(
+                value,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
+                out var parsed))
+        {
+            throw new InvalidDataException($"The restore candidate carries an unreadable {field} value.");
+        }
+
+        return parsed;
+    }
+
+    private static long ParseRequiredCount(string? value)
+    {
+        if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) || parsed < 0)
+        {
+            throw new InvalidDataException("The restore candidate carries an unreadable monotonic counter value.");
+        }
+
+        return parsed;
+    }
+
+    private static string? LaterInstantOrNull(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left))
+        {
+            return string.IsNullOrWhiteSpace(right) ? null : right;
+        }
+
+        if (string.IsNullOrWhiteSpace(right))
+        {
+            return left;
+        }
+
+        var leftInstant = ParseRequiredInstant(left, "LoginThrottleBuckets.ThrottledUntilUtc");
+        var rightInstant = ParseRequiredInstant(right, "LoginThrottleBuckets.ThrottledUntilUtc");
+        return leftInstant >= rightInstant ? left : right;
     }
 
     private static void AddNullableTextParameters(
@@ -888,10 +1358,16 @@ public sealed class HostPersistenceMaintenanceService : IHostPersistenceMaintena
             path.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
+    // InvalidDataException derives from SystemException, not IOException, so it must be
+    // listed explicitly: every snapshot boundary, metadata, schema/identity, evidence-merge
+    // and security-monotonic overlay guard in this service raises it, and those guards must
+    // surface as typed persistence failures with rollback, never as escaping exceptions
+    // (docs/04_RESULT_VS_EXCEPTION_POLICY.md, NFR-004).
     private static bool IsMaintenanceFailure(Exception exception) => exception is
         SqliteException or
         InvalidOperationException or
         IOException or
+        InvalidDataException or
         UnauthorizedAccessException or
         ArgumentException or
         JsonException or

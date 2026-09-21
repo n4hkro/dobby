@@ -45,21 +45,25 @@ hardcoded UI string siyahısı deyil.
 | managed user | Owner olmayan local user | Visible label localization resource-dan gəlir; `Owner` ilə qarışdırılmır | User/account state; permission grants ayrıca saxlanır | user-management spec |
 | `Permission` | Operation/capability grant anlayışı | Default AZ visible term `İcazə` | Permission registry/grant records; explicit deny record yoxdur | `ADR-0048`, this ADR |
 | operation key | `<targetId>.<verb>` permission check key-i | UI raw key göstərmir; resource label göstərir | Stable code/storage key; ordinal comparison | `ADR-0048` |
-| `customerId` | Customer identity field | Raw customer id normal user UI-da göstərilməməlidir | `.dobbylicense` və `CustomerDeploymentContext` field-i | `ADR-0051`, `ADR-0052` |
-| `deploymentId` | License/customer deployment binding field-i | Support-safe display lazımdırsa redacted/labelled göstərilir | `.dobbylicense` signed payload field-i; Branch Shared `branchDeploymentId` deyil | `ADR-0051`, `ADR-0052` |
+| `customerId` | Customer identity field | Raw customer id normal user UI-da göstərilməməlidir | `.dobbylicense` və `CustomerDeploymentContext` field-i | `ADR-0060`, `ADR-0052` |
+| `deploymentId` | License/customer deployment binding field-i | Support-safe display lazımdırsa redacted/labelled göstərilir | `.dobbylicense` signed payload field-i; Branch Shared `branchDeploymentId` deyil | `ADR-0060`, `ADR-0052` |
 | `CustomerDeploymentContext` | Single active customer/deployment context | UI concept kimi göstərilmir; setup/support wording istifadə edir | Minimum fields: `customerId`, `deploymentId`, `source`, `protectionScope`, `schemaVersion`, `createdAt`, `updatedAt` | `ADR-0052`, storage spec |
 | `customerDeploymentId` | `(customerId, deploymentId)` üçün prose-only shorthand | UI/code/storage adı kimi istifadə olunmur | Wire field, code identifier və storage column deyil | license-import spec, `ADR-0052` |
 | `branchDeploymentId` | Branch Shared server/provisioning/restore identity | Branch Shared setup/status wording-də ayrıca göstərilir | `.dobbylicense` `deploymentId` ilə birləşdirilmir | `ADR-0056`, `ADR-0057` |
 | `DeviceLocal` | Local encrypted SQLite/protected storage scope | User-facing storage mode label localization-dan gəlir | Mode-aware storage taxonomy value | `ADR-0056`, storage spec |
 | `BranchShared` | Branch LAN PostgreSQL shared authority scope | Branch Shared mode label localization-dan gəlir | Mode-aware storage/provider scope; runtime Tier B | `ADR-0056`, postgres ops spec |
 | `OrganizationShared` | Future organization-wide vocabulary | P1 UI-da active mode kimi göstərilmir | Future vocabulary only; no P1 schema/provider | `ADR-0056` |
-| `keyVersion` | Vendor signing key version selector | UI-da raw göstərilmir | Numeric JSON value; P1 `1`, future `2`, `3`, ...; string `"v1"` deyil | `ADR-0033` |
-| `.dobbylicense` | Detached vendor-signed license artifact | User entry point `Plugins > License`; raw JSON göstərilmir | UTF-8 JSON `{ payload, signature }` envelope | `ADR-0051`, license-import spec |
-| `.dobbylicense.payload` | Signed license semantic object | UI raw payload göstərmir | Canonical JSON serialization imzalanır | `ADR-0051` |
-| `.dobbylicense.signature` | Signature metadata and bytes | UI raw signature göstərmir | `algorithm`, numeric `keyVersion`, base64url no-padding `value` | `ADR-0051`, `ADR-0033` |
-| license lifecycle state | Persisted/state-machine vocabulary: `no-license`, `pending`, `active`, `grace`, `readonly`, `denied` | Normal user UI broad status göstərir, raw lifecycle detail deyil | Lowercase state-machine/persistence vocabulary | `ADR-0051` |
+| `keyId` (vendor selector) | Purpose-separated vendor signing key selector | UI-da raw göstərilmir | String value; format `<purpose-short>-<prod\|test>-<YYYY-MM>` (`plugin-prod-2026-01`, `license-prod-2026-01`, `recovery-prod-2026-01`, deferred `branch-…`); `purpose-short` signing purpose ilə bijective-dir, format hər artefakt üçün owning schema-da `pattern` kimi enforce olunur və format uyğunluğu trust demək deyil — verification exact ring match tələb edir | `ADR-0062`, `ADR-0059`, `ADR-0060` |
+| `keyId` (device selector) | Recovery request possession proof üçün device-side selector | UI-da raw göstərilmir | `device-` + `payload.recoveryPublicKeyHash`-in ilk 16 lowercase hex simvolu; derived-dir, rotate olunmur, vendor namespace-i ilə disjoint-dir və verifier onu yenidən hesablayıb uyğunsuzluğu rədd edir | `ADR-0062`, `ADR-0058` |
+| `keyVersion` (retired) | Legacy numeric signing key version selector | UI-da göstərilmir | Onu oxuyan compatibility reader mövcud deyil: signature block **dəqiq** `purpose`/`algorithm`/`format`/`keyId`/`value` field-lərini tələb edir və əlavə `keyVersion` property-si signature verification-dan əvvəl shape violation kimi rədd olunur; `schemaVersion` gate-i isə legacy payload vocabulary-sinin oxunmasına imkan vermir. Field yalnız frozen v1 manifest / frozen v2 license schema-larında və superseded ADR mətnlərində historical reference kimi qalır; yeni artefakt, schema və kod onu yaratmır — canonical selector `keyId`-dir | `ADR-0062` supersedes `ADR-0033`; `docs/schemas/artifact-compatibility-matrix.md` |
+| `.dobbylicense` | Detached vendor-signed license artifact | User entry point `Plugins > License`; raw JSON göstərilmir | UTF-8 JSON `{ payload, signature }` envelope | `ADR-0060`, license-import spec |
+| `.dobbylicense.payload` | Signed license semantic object | UI raw payload göstərmir | Canonical JSON serialization imzalanır | `ADR-0060` |
+| `.dobbylicense.signature` | Signature metadata and bytes | UI raw signature göstərmir | `purpose`, `algorithm`, `format`, string `keyId`, base64url no-padding `value`; `IeeeP1363FixedFieldConcatenation` ECDSA format. v3 artefaktda numeric `keyVersion` yoxdur | `ADR-0060`, `ADR-0059`, `ADR-0062` |
+| signed entitlement intent | Artefaktın elan etdiyi yeganə vəziyyət: `granted` və ya `revoked` | UI raw intent göstərmir | v3 signed payload vocabulary; runtime state artefaktdan qəbul edilmir | `ADR-0060`, `docs/schemas/dobby-plugin-license-v3.schema.json` |
+| derived license state | Host tərəfindən hər qiymətləndirmədə hesablanan vəziyyət: `Pending`, `Active`, `Grace`, `ReadOnlyExpired`, `Denied` (və artefakt yoxdursa `NoLicense` status-u) | Normal user UI broad status göstərir, raw lifecycle detail deyil | Signed deyil, persist edilmiş authoritative state deyil; hər dəfə truth table ilə derive olunur | `ADR-0060`, `docs/schemas/license-v3-lifecycle-truth-table.md` |
+| license lifecycle state (v2) | Retired lowercase state-machine vocabulary: `no-license`, `pending`, `active`, `grace`, `readonly`, `denied` | Yeni UI/status işində istifadə olunmur | Host bu vocabulary-ni **oxumur**: v2 compatibility reader mövcud deyil və `schemaVersion != 3` artefakt payload field-i consume edilməmişdən əvvəl fail-closed rədd olunur. Yalnız köhnə fixture provenance-ı və superseded ADR mətnləri kimi qalır | `ADR-0060` supersedes `ADR-0051` |
 | `PluginRuntimeMode` | Plugin-visible runtime enum | Not a UI status label | Values: `FullAccess`, `ReadOnlyExpired`, `Denied` | `ADR-0053` |
-| UI/license status | Broad user-facing status vocabulary | `NoLicense`, `Pending`, `Grace`, `Denied`, `FullAccess`, `ReadOnlyExpired` localization resource-larla göstərilir | Runtime enum deyil | `ADR-0051`, license-import spec |
+| UI/license status | Broad user-facing status vocabulary | `NoLicense`, `Pending`, `Grace`, `Denied`, `FullAccess`, `ReadOnlyExpired` localization resource-larla göstərilir | Runtime enum deyil | `ADR-0060`, `ADR-0053`, license-import spec |
 | `P1 Persistence Materialization Pass` | Later gate that materializes schemas/provider packages after provider-neutral skeleton | UI term deyil | Owns table schemas, concrete migrations/entities/repositories and production DB-at-rest provider packages | storage spec, `ADR-0054` |
 | `ProviderNeutralSkeleton` | Initial skeleton storage stance | UI term deyil | Config/storage stance; no concrete provider package/schema materialization | `ADR-0027`, `ADR-0054` |
 | `Dobby.UI` host/built-in inventory | Host/shell WPF implementation controls | Plugin UI contract kimi sənədləşdirilmir | Implementation inventory only; plugin-visible contract deyil | architecture map, design-system assets |
@@ -89,7 +93,8 @@ hardcoded UI string siyahısı deyil.
 - `docs/adr/ADR-0044-localization-resource-organization.md`
 - `docs/specs/shell-ui.md`
 - `docs/specs/README.md` — glossary ownership reference
-- `docs/adr/ADR-0033-signing-key-ownership.md`
-- `docs/adr/ADR-0051-license-lifecycle-v2.md`
+- `docs/adr/ADR-0062-signing-key-custody-and-trust-anchor-provisioning.md`
+- `docs/adr/ADR-0060-license-lifecycle-and-import-v3.md`
 - `docs/adr/ADR-0053-capability-surface-runtime-mode.md`
 - `docs/adr/ADR-0056-deployment-modes-and-storage-providers.md`
+- `docs/schemas/license-v3-lifecycle-truth-table.md`

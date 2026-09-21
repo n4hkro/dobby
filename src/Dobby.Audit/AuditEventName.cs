@@ -30,6 +30,7 @@ public static class AuditEventName
     public const string PluginActivationSkipped = "plugin.activation.skipped";
     public const string PluginActivationRejected = "plugin.activation.rejected";
     public const string PluginRuntimeFaulted = "plugin.runtime.faulted";
+    public const string PluginRuntimeQuarantined = "plugin.runtime.quarantined";
     public const string PluginLifecycleV1AdapterUsed = "plugin.lifecycle.v1-adapter-used";
     public const string RecoveryExport = "recovery.export";
     public const string RecoveryImport = "recovery.import";
@@ -41,6 +42,9 @@ public static class AuditEventName
     public const string CustomerDeploymentContextProvision = "customer-deployment-context.provision";
     public const string DiagnosticsExportCreated = "diagnostics.export.created";
     public const string SecurityVerificationFailed = "security.verification.failed";
+    public const string PersistenceSnapshotCreated = "persistence.snapshot.created";
+    public const string PersistenceRestoreRequested = "persistence.restore.requested";
+    public const string PersistenceRestoreCompleted = "persistence.restore.completed";
 
     public static IReadOnlyList<string> All { get; } =
     [
@@ -72,6 +76,7 @@ public static class AuditEventName
         PluginActivationSkipped,
         PluginActivationRejected,
         PluginRuntimeFaulted,
+        PluginRuntimeQuarantined,
         PluginLifecycleV1AdapterUsed,
         RecoveryExport,
         RecoveryImport,
@@ -82,6 +87,9 @@ public static class AuditEventName
         LicenseEnforcementWarning,
         CustomerDeploymentContextProvision,
         DiagnosticsExportCreated,
-        SecurityVerificationFailed
+        SecurityVerificationFailed,
+        PersistenceSnapshotCreated,
+        PersistenceRestoreRequested,
+        PersistenceRestoreCompleted
     ];
 }

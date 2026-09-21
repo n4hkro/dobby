@@ -146,7 +146,7 @@ public sealed class LicenseImportCoordinatorTests
                 () =>
                 {
                     deviceFingerprintCalls++;
-                    return new string('a', 64);
+                    return Result.Success(new string('a', 64));
                 });
 
             var result = coordinator.ImportFile("owner", path, CorrelationId.New());
@@ -243,7 +243,7 @@ public sealed class LicenseImportCoordinatorTests
         IAuditTrail audit,
         bool isOwner,
         InMemoryInstalledPluginStateStore? installedStore = null,
-        Func<string>? currentDeviceFingerprintProvider = null)
+        Func<Result<string>>? currentDeviceFingerprintProvider = null)
     {
         var currentContextService = new CurrentCustomerDeploymentContextService(new CurrentContextStore());
         var importService = new LicenseImportService(
@@ -264,7 +264,7 @@ public sealed class LicenseImportCoordinatorTests
             importService,
             installedStore ?? new InMemoryInstalledPluginStateStore(),
             authorization,
-            currentDeviceFingerprintProvider ?? (() => new string('a', 64)),
+            currentDeviceFingerprintProvider ?? (() => Result.Success(new string('a', 64))),
             audit,
             new FakeTimeProvider(DateTimeOffset.Parse("2026-06-18T00:00:00Z")));
     }

@@ -207,30 +207,33 @@ public sealed class SampleHomePage(
                 session.ErrorCode ?? ErrorCode.PluginInternalError));
         }
 
-        var progress = workSessions.UpdateProgress(session.Value.SessionId, 50);
-        if (!progress.IsSuccess)
+        // Deterministic closure: every exit path below closes the session so a failed
+        // or cancelled command cannot leak a live work session against the host cap.
+        var sessionId = session.Value.SessionId;
+        try
         {
-            return ValueTask.FromResult(Result.Failure<PluginCommandResult>(
-                progress.ErrorCode ?? ErrorCode.PluginInternalError));
-        }
+            var progress = workSessions.UpdateProgress(sessionId, 50);
+            if (!progress.IsSuccess)
+            {
+                return ValueTask.FromResult(Result.Failure<PluginCommandResult>(
+                    progress.ErrorCode ?? ErrorCode.PluginInternalError));
+            }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        var result = workSessions.RecordResult(session.Value.SessionId, "sample.work-session.completed");
-        if (!result.IsSuccess)
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = workSessions.RecordResult(sessionId, "sample.work-session.completed");
+            if (!result.IsSuccess)
+            {
+                return ValueTask.FromResult(Result.Failure<PluginCommandResult>(
+                    result.ErrorCode ?? ErrorCode.PluginInternalError));
+            }
+
+            return ValueTask.FromResult(Result.Success(new PluginCommandResult(
+                new PluginLocalizedText("command.work-session.success"))));
+        }
+        finally
         {
-            return ValueTask.FromResult(Result.Failure<PluginCommandResult>(
-                result.ErrorCode ?? ErrorCode.PluginInternalError));
+            workSessions.Close(sessionId);
         }
-
-        var close = workSessions.Close(session.Value.SessionId);
-        if (!close.IsSuccess)
-        {
-            return ValueTask.FromResult(Result.Failure<PluginCommandResult>(
-                close.ErrorCode ?? ErrorCode.PluginInternalError));
-        }
-
-        return ValueTask.FromResult(Result.Success(new PluginCommandResult(
-            new PluginLocalizedText("command.work-session.success"))));
     }
 
     private static ValueTask<Result<PluginCommandResult>> ExecutePage(PluginCommandRequest request)

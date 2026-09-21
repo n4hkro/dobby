@@ -52,17 +52,4 @@ public sealed record PluginPackageSignature(
     string Algorithm,
     string Format,
     string KeyId,
-    string Value)
-{
-    public PluginPackageSignature(string algorithm, int keyVersion, string value)
-        : this(
-            PluginManifestContract.PackagePurpose,
-            algorithm,
-            PluginManifestContract.SignatureFormat,
-            keyVersion == 1 ? "plugin-prod-2026-01" : $"unsupported-version-{keyVersion}",
-            value)
-    {
-    }
-
-    public int KeyVersion => KeyId is "plugin-prod-2026-01" or "plugin-test-2026-01" ? 1 : 0;
-}
+    string Value);

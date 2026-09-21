@@ -23,7 +23,7 @@ public sealed class LicenseImportCoordinator(
     LicenseImportService importService,
     IInstalledPluginStateStore installedPluginStateStore,
     OperationAuthorizationPolicy authorizationPolicy,
-    Func<string> currentDeviceFingerprintProvider,
+    Func<Result<string>> currentDeviceFingerprintProvider,
     IAuditTrail auditTrail,
     TimeProvider timeProvider) : IPostLoginLicenseImportCancellation, ILicenseImportFileCoordinator
 {

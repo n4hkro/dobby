@@ -1,3 +1,4 @@
+using Dobby.Core;
 using Dobby.Licensing;
 using Dobby.Security.CurrentContext;
 using Dobby.Security.Trust;
@@ -202,7 +203,7 @@ public sealed class LicenseImportServiceTests
         return new LicenseImportRequest(
             "license.dobbylicense",
             artifactBytes,
-            () => deviceFingerprint ?? new string('a', 64),
+            () => Result.Success(deviceFingerprint ?? new string('a', 64)),
             _ => packageFingerprint ?? new string('b', 64),
             permissionGranted,
             "corr-1",

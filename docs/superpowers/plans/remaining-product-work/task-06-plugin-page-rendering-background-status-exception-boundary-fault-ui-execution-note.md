@@ -2,10 +2,10 @@
 
 Created: 2026-07-09
 
-Scope authority:
-- Requirements source: `.superpowers/sdd/task-6-brief.md`
-- Row source: `PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md` rows 33-37
-- This note is execution context only; it does not replace the task brief, status file, or sprint/spec authority.
+Scope context (historical):
+- This note is a frozen execution record from 2026-07-09. It is not scope or behavior authority.
+- The row numbers below (`33`-`37`) are historical labels from a row-status scope file that has since been retired from the repository; they no longer resolve to a live file.
+- Current behavior authority is the canonical chain: newest applicable Accepted ADR, then owning schema in `docs/schemas/`, then owning executable spec in `docs/specs/`, then `docs/01`-`docs/09` (`docs/specs/README.md` § `Authority Note`).
 
 Current row status snapshot:
 - Row 33: `QİSMƏN` - `MainWindow` already uses `PluginPageRenderRegistry.CreateDefault()` and `PluginPageHost`; approved model coverage, exception boundary, and fault UI/persisted state remain.

@@ -120,6 +120,101 @@ public sealed class RecoveryResponseImportConfirmTests
         fixture.CredentialStore.VerifyPassword(ownerId, "new owner password").Value.ShouldBeTrue();
     }
 
+    [Fact]
+    public void Two_challenges_verified_while_the_request_was_pending_cannot_both_confirm()
+    {
+        using var fixture = RecoveryImportFixture.Create();
+        var ownerId = fixture.InsertOwnerWithCredential("old password");
+        var envelope = fixture.CreateStoredResponse();
+        var coordinator = fixture.CreateCoordinator();
+
+        // Both challenges are produced before any confirm runs, so both passed verification
+        // against a still-pending request. This is the TOCTOU window that the in-transaction
+        // rematch and the conditional single-row burn exist to close.
+        var first = coordinator.Verify(envelope).Value;
+        var second = coordinator.Verify(envelope).Value;
+
+        coordinator.ConfirmPasswordReset(first, "first new password", CorrelationId.New())
+            .IsSuccess.ShouldBeTrue();
+        var replay = coordinator.ConfirmPasswordReset(second, "second new password", CorrelationId.New());
+
+        replay.ErrorCode.ShouldBe(
+            ErrorCode.Forbidden,
+            "docs/specs/session-lifecycle.md requires the burn to be a conditional single-row " +
+            "update whose match is re-run inside the mutation transaction, so a challenge " +
+            "verified while the request was still pending must not be able to reset the owner " +
+            "credential a second time");
+        fixture.CredentialStore.VerifyPassword(ownerId, "first new password").Value.ShouldBeTrue();
+        fixture.CredentialStore.VerifyPassword(ownerId, "second new password").Value.ShouldBeFalse();
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM ConsumedRecoveryNonces;").ShouldBe(1);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RecoveryRequests WHERE ConsumedAtUtc IS NOT NULL;").ShouldBe(1);
+    }
+
+    [Fact]
+    public void A_response_id_already_recorded_for_another_request_is_refused()
+    {
+        using var fixture = RecoveryImportFixture.Create();
+        var ownerId = fixture.InsertOwnerWithCredential("old password");
+        var firstEnvelope = fixture.CreateStoredResponse();
+        var coordinator = fixture.CreateCoordinator();
+        var firstChallenge = coordinator.Verify(firstEnvelope).Value;
+        coordinator.ConfirmPasswordReset(firstChallenge, "first new password", CorrelationId.New())
+            .IsSuccess.ShouldBeTrue();
+
+        // A second, independently valid pending request that reuses the already-recorded
+        // responseId. Every per-row binding still agrees, so only the ledger-wide uniqueness
+        // check can catch it.
+        var reuse = fixture.CreateStoredResponse(
+            requestId: "018e51be-7f65-7bcd-8000-0000000000aa",
+            responseId: firstEnvelope.Payload.ResponseId,
+            nonceSeed: 90);
+
+        var result = coordinator.Verify(reuse);
+
+        result.ErrorCode.ShouldBe(
+            ErrorCode.Forbidden,
+            "responseId uniqueness is checked across the whole request ledger, not only against " +
+            "the matched row, so one vendor response artifact cannot be redirected onto a second " +
+            "pending request");
+        fixture.CredentialStore.VerifyPassword(ownerId, "first new password").Value.ShouldBeTrue();
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM RecoveryRequests WHERE RequestId = '018e51be-7f65-7bcd-8000-0000000000aa' AND ConsumedAtUtc IS NOT NULL;")
+            .ShouldBe(0);
+    }
+
+    [Theory]
+    [InlineData("PayloadHash")]
+    [InlineData("CustomerId")]
+    [InlineData("DeploymentId")]
+    [InlineData("DeviceId")]
+    [InlineData("RecoveryPublicKeyHash")]
+    [InlineData("VendorKeyId")]
+    public void A_tampered_pending_request_row_is_refused(string column)
+    {
+        using var fixture = RecoveryImportFixture.Create();
+        var ownerId = fixture.InsertOwnerWithCredential("old password");
+        var envelope = fixture.CreateStoredResponse();
+        var tamperedValue = column switch
+        {
+            "PayloadHash" or "RecoveryPublicKeyHash" => new string('c', 64),
+            _ => "tampered-value"
+        };
+        fixture.Executor.Execute(
+            $"UPDATE RecoveryRequests SET {column} = @Value WHERE RequestId = @RequestId;",
+            new { Value = tamperedValue, envelope.Payload.RequestId });
+
+        var result = fixture.CreateCoordinator().Verify(envelope);
+
+        result.ErrorCode.ShouldBe(
+            ErrorCode.Forbidden,
+            "the pending request row is locally modifiable persisted state, so import re-hashes " +
+            "the reconstructed request payload and re-checks every binding before any credential " +
+            "mutation (docs/specs/session-lifecycle.md)");
+        fixture.CredentialStore.VerifyPassword(ownerId, "old password").Value.ShouldBeTrue();
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM RecoveryRequests WHERE ConsumedAtUtc IS NOT NULL;").ShouldBe(0);
+        fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM ConsumedRecoveryNonces;").ShouldBe(0);
+    }
+
     public static TheoryData<string> AtomicFailurePoints => new()
     {
         "credential-write",
@@ -156,6 +251,68 @@ public sealed class RecoveryResponseImportConfirmTests
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM Sessions WHERE SessionId = 'session-1' AND InvalidatedAtUtc IS NULL;").ShouldBe(1);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM AuditLog WHERE Result = 'success';").ShouldBe(0);
         fixture.Executor.QueryScalar<int>("SELECT COUNT(*) FROM HostOutbox;").ShouldBe(0);
+    }
+
+    [Fact]
+    public void Recovery_import_audit_uses_registry_names_and_correlates_to_the_replay_ledger()
+    {
+        // Behavior proof for docs/specs/session-lifecycle.md § Recovery audit:
+        // only closed-registry names are written, outcome + result distinguish the step,
+        // and `nonceHash` equals the RecoveryRequests.NonceHash ledger column.
+        using var fixture = RecoveryImportFixture.Create();
+        var ownerId = fixture.InsertOwnerWithCredential("old password");
+        var envelope = fixture.CreateStoredResponse();
+        var coordinator = fixture.CreateCoordinator();
+        var challenge = coordinator.Verify(envelope).Value;
+
+        coordinator
+            .ConfirmPasswordReset(challenge, "new owner password", CorrelationId.New())
+            .IsSuccess.ShouldBeTrue();
+
+        // No invented owner.recovery.* name reaches the trail.
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM AuditLog WHERE EventName LIKE 'owner.recovery%';").ShouldBe(0);
+
+        var recoveryNames = fixture.Executor.Query<string>(
+            "SELECT DISTINCT EventName FROM AuditLog WHERE EventName LIKE 'recovery.%';");
+        recoveryNames.ShouldAllBe(name => AuditEventName.All.Contains(name, StringComparer.Ordinal));
+
+        var details = fixture.Executor.QueryScalar<string>(
+            "SELECT DetailsJson FROM AuditLog WHERE EventName = 'recovery.import' AND Result = 'success';");
+        details.ShouldNotBeNull();
+
+        var ledgerNonceHash = fixture.Executor.QueryScalar<string>(
+            "SELECT NonceHash FROM RecoveryRequests WHERE RequestId = @RequestId;",
+            new { envelope.Payload.RequestId });
+
+        // The audited correlation field must be the same non-reversible value the replay
+        // ledger stores, otherwise an auditor cannot join the two.
+        details.ShouldContain(ledgerNonceHash);
+        details.ShouldContain("nonceHash");
+
+        // The raw nonce itself must never appear.
+        details.ShouldNotContain(envelope.Payload.Nonce);
+    }
+
+    [Fact]
+    public void Recovery_import_reject_reuses_the_same_event_name_with_a_typed_outcome()
+    {
+        // The requested/imported/rejected distinction is carried by result + outcome on the
+        // single `recovery.import` name, not by separate event names.
+        using var fixture = RecoveryImportFixture.Create();
+        fixture.InsertOwnerWithCredential("old password");
+        var envelope = fixture.CreateStoredResponse();
+        var coordinator = fixture.CreateCoordinator();
+        var challenge = coordinator.Verify(envelope).Value;
+
+        coordinator.Cancel(challenge, CorrelationId.New()).IsSuccess.ShouldBeFalse();
+
+        fixture.Executor.QueryScalar<int>(
+            "SELECT COUNT(*) FROM AuditLog WHERE EventName = 'recovery.import' AND Result = 'failed';")
+            .ShouldBe(1);
+        fixture.Executor.QueryScalar<string>(
+            "SELECT DetailsJson FROM AuditLog WHERE EventName = 'recovery.import' AND Result = 'failed';")
+            .ShouldContain("cancelled");
     }
 
     private sealed class RecoveryImportFixture : IDisposable
@@ -210,13 +367,30 @@ public sealed class RecoveryResponseImportConfirmTests
 
         public RecoveryResponseEnvelope CreateStoredResponse()
         {
+            return CreateStoredResponse(
+                requestId: "018e51be-7f65-7bcd-8000-000000000002",
+                responseId: "018e51be-7f65-7bcd-8000-000000000001",
+                nonceSeed: 1);
+        }
+
+        public RecoveryResponseEnvelope CreateStoredResponse(
+            string requestId,
+            string responseId,
+            byte nonceSeed)
+        {
+            var nonce = new byte[32];
+            for (var index = 0; index < nonce.Length; index++)
+            {
+                nonce[index] = (byte)(nonceSeed + index);
+            }
+
             var payload = new RecoveryResponsePayload(
                 2,
                 ArtifactSignaturePurposes.OwnerRecoveryResponse,
                 VendorKeyId,
-                "018e51be-7f65-7bcd-8000-000000000001",
-                "018e51be-7f65-7bcd-8000-000000000002",
-                ArtifactSignatureCodec.ToUnpaddedBase64Url(Enumerable.Range(1, 32).Select(value => (byte)value).ToArray()),
+                responseId,
+                requestId,
+                ArtifactSignatureCodec.ToUnpaddedBase64Url(nonce),
                 Authority.CustomerId,
                 Authority.DeploymentId,
                 Authority.DeviceId,

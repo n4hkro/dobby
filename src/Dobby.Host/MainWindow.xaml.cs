@@ -160,7 +160,8 @@ public partial class MainWindow : Window
             authenticatedLifetime,
             loginRuntime.PluginRuntimeCoordinator.DiagnosticsCoordinator,
             loginRuntime.PluginRuntimeCoordinator.RuntimeFaultPolicy,
-            loginRuntime.PluginRuntimeCoordinator.PostLoginPluginActivator);
+            loginRuntime.PluginRuntimeCoordinator.PostLoginPluginActivator,
+            loginRuntime.PluginRuntimeCoordinator.AuditCoordinator);
         pluginPageRenderRegistry = PluginPageRenderRegistry.CreateDefault(
             commandDispatcher);
         Action<string, string, string, ErrorCode>? actionFaultSink =

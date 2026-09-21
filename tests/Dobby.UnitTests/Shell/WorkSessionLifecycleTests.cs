@@ -284,4 +284,89 @@ public sealed class WorkSessionLifecycleTests
 
         new WorkSessionRegistry().Snapshot().ShouldBeEmpty();
     }
+
+    [Fact]
+    public void Open_rejects_owner_and_global_session_floods_without_starving_other_owners()
+    {
+        var registry = new WorkSessionRegistry();
+        for (var index = 0; index < WorkSessionRegistry.MaximumSessionsPerOwner; index++)
+        {
+            registry.Open("owner-flood", $"plugin.sample.work.{index}", "Dobby.Plugin.Sample.Work");
+        }
+
+        Should.Throw<InvalidOperationException>(() => registry.Open(
+            "owner-flood",
+            "plugin.sample.work.overflow",
+            "Dobby.Plugin.Sample.Work"));
+        registry.Snapshot().Count.ShouldBe(WorkSessionRegistry.MaximumSessionsPerOwner);
+
+        var otherOwner = registry.Open("owner-2", "plugin.other.work", "Dobby.Plugin.Other.Work");
+        registry.Get(otherOwner.SessionId).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void Open_rejects_global_session_flood_spread_across_owners()
+    {
+        var registry = new WorkSessionRegistry();
+        var owners = WorkSessionRegistry.MaximumSessions / WorkSessionRegistry.MaximumSessionsPerOwner;
+        for (var owner = 0; owner < owners; owner++)
+        {
+            for (var index = 0; index < WorkSessionRegistry.MaximumSessionsPerOwner; index++)
+            {
+                registry.Open($"owner-{owner}", $"plugin.sample.work.{index}", "Dobby.Plugin.Sample.Work");
+            }
+        }
+
+        registry.Snapshot().Count.ShouldBe(WorkSessionRegistry.MaximumSessions);
+        Should.Throw<InvalidOperationException>(() => registry.Open(
+            "owner-late",
+            "plugin.sample.work.late",
+            "Dobby.Plugin.Sample.Work"));
+    }
+
+    [Fact]
+    public void Summary_keys_and_state_payloads_are_bounded()
+    {
+        var registry = new WorkSessionRegistry();
+        var session = registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+        var oversizeKey = new string('k', WorkSessionRegistry.MaximumKeyLength + 1);
+        var oversizeValue = new string('v', WorkSessionRegistry.MaximumStateValueLength + 1);
+
+        Should.Throw<ArgumentException>(() => registry.RecordResult(session.SessionId, oversizeKey));
+        Should.Throw<ArgumentException>(() => registry.RecordError(session.SessionId, oversizeKey));
+        Should.Throw<ArgumentException>(() => registry.RecordInputState(session.SessionId, oversizeKey, "v"));
+        Should.Throw<ArgumentException>(() => registry.RecordScreenState(session.SessionId, "k", oversizeValue));
+        Should.Throw<ArgumentException>(() => registry.Open(
+            "owner-1",
+            oversizeKey,
+            "Dobby.Plugin.Sample.Work"));
+
+        var stored = registry.Get(session.SessionId).ShouldNotBeNull();
+        stored.ResultSummaryKey.ShouldBeNull();
+        stored.ErrorSummaryKey.ShouldBeNull();
+        stored.InputState.ShouldBeEmpty();
+        stored.ScreenState.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Retained_state_entry_count_is_bounded_per_bucket()
+    {
+        var registry = new WorkSessionRegistry();
+        var session = registry.Open("owner-1", "plugin.sample.work", "Dobby.Plugin.Sample.Work");
+        for (var index = 0; index < WorkSessionRegistry.MaximumStateEntries; index++)
+        {
+            registry.RecordInputState(session.SessionId, $"key-{index}", "value");
+        }
+
+        Should.Throw<InvalidOperationException>(() => registry.RecordInputState(
+            session.SessionId,
+            "key-overflow",
+            "value"));
+        registry.RecordInputState(session.SessionId, "key-0", "updated");
+
+        var stored = registry.Get(session.SessionId).ShouldNotBeNull();
+        stored.InputState.Count.ShouldBe(WorkSessionRegistry.MaximumStateEntries);
+        stored.InputState["key-0"].ShouldBe("updated");
+        stored.ScreenState.ShouldBeEmpty();
+    }
 }

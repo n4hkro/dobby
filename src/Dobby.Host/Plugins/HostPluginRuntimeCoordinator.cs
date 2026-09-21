@@ -645,6 +645,11 @@ public sealed class HostPluginRuntimeCoordinator(
             return "Dependency missing";
         }
 
+        if (reason.StartsWith("dependency-version-below-min", StringComparison.Ordinal))
+        {
+            return "Dependency version too low";
+        }
+
         if (reason.StartsWith("circular-dependency", StringComparison.Ordinal))
         {
             return "Dependency cycle detected";

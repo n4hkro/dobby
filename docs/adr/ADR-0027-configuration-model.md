@@ -102,7 +102,7 @@ options üzərindən idarə olunur.
 | `Dobby:Localization` | `DefaultCulture` | BCP-47 culture | `az-AZ` | P1 default cannot change without ADR-0043 amendment | `DOBBY__LOCALIZATION__DEFAULTCULTURE` | `ADR-0043` |
 | `Dobby:Localization` | `SupportedCultures` | string array | `["az-AZ","en-US","tr-TR"]` | must include `az-AZ` | `DOBBY__LOCALIZATION__SUPPORTEDCULTURES` | `ADR-0043`, tech stack |
 | `Dobby:Plugins` | `AllowPreLoginDiscovery` | bool | `false` | cannot be true in P1; login-first policy owns the floor | `DOBBY__PLUGINS__ALLOWPRELOGINDISCOVERY` | `ADR-0041`, plugins manager spec |
-| `Dobby:Licensing` | `ImportRequiresPermission` | bool | `true` | cannot be false; `plugins.license.import` remains required | `DOBBY__LICENSING__IMPORTREQUIRESPERMISSION` | `ADR-0051`, license import spec |
+| `Dobby:Licensing` | `ImportRequiresPermission` | bool | `true` | cannot be false; `plugins.license.import` remains required | `DOBBY__LICENSING__IMPORTREQUIRESPERMISSION` | `ADR-0060`, license import spec |
 | `Dobby:BranchShared` | `RuntimeEnabled` | bool | `false` | current pass is docs-only/Tier A shape; enabling runtime requires later approved implementation phase | `DOBBY__BRANCHSHARED__RUNTIMEENABLED` | `ADR-0056`, `ADR-0057` |
 
 Protected value handling:

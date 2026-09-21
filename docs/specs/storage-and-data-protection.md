@@ -7,6 +7,14 @@
 
 Bu spec `NFR-007`, `ADR-0030` və `ADR-0040` üçün icra dilini saxlayır. Məqsəd DB schema və exact provider seçmək deyil; release boundary, data scope və qoruma invariantlarını bağlamaqdır.
 
+**Controlling decisions:** DB-at-rest provider `ADR-0054`-ün, protected-storage
+scope və key wrapping `ADR-0055`-in, deployment/provider mode-ları `ADR-0056`-nın
+öhdəliyindədir. Credential/remembered-login/throttle və device/recovery key
+material `ADR-0058` ilə, license persistence authority `ADR-0060` ilə, pre-auth
+persistence allow-list-i və atomic mutation contract-ı `ADR-0061` ilə bağlanır;
+bu qərarlar `ADR-0030`, `ADR-0038`, `ADR-0051` və `ADR-0055`-in ziddiyyətli köhnə
+mətnini əvəz edir.
+
 ## 1. Local Persistence Protection
 
 Host və plugin local persistence faylları data-at-rest qorunmalıdır. Dobby P1 release-i şifrəsiz/protection-sız production DB faylı ilə göndərilmir.
@@ -16,11 +24,30 @@ Normal business data field-level şifrələnmir. Bunun səbəbi query, sort, fil
 Yalnız secret sayılan data DB qorumasından əlavə field-level/protected-storage qoruması alır:
 
 - password hash və credential material
-- remember-me secret
 - session material
 - token/key material
-- recovery secret və recovery nonce ilə bağlı həssas material
+- non-exportable Owner recovery device private key material və recovery
+  nonce/request binding ilə bağlı həssas material (`ADR-0058`). License device
+  binding üçün ayrıca private key mövcud deyil: binding dəyəri protected stable
+  device id üzərindən versioned derivation ilə hesablanır və heç bir public key
+  hash-ı deyil (`ADR-0063`)
 - protected config secrets
+
+Remembered login bu siyahıya daxil deyil, çünki secret saxlamır: yalnız
+normalize olunmuş username və non-secret slot identifier persist olunur
+(`ADR-0058`). Password, reversible credential, password-equivalent verifier,
+startup snapshot və ya retained password yerinə keçən masked placeholder
+saxlanmır. DPAPI storage protection mexanizmidir; onun mövcudluğu replayable
+login credential saxlamağı əsaslandırmır. Legacy saved-password qeydləri və
+duplicate startup snapshot idempotent migration ilə silinir: secret payload
+overwrite/delete olunur və yalnız təhlükəsiz olduqda normalize olunmuş account
+selection saxlanılır.
+
+Durable login/unlock throttle ledger-i secret deyil, amma pre-login persisted
+security state-dir: `TimeProvider` üzərindən ölçülür, proses restart-ından sonra
+qüvvədə qalır, minimum normalize olunmuş account və device/global pressure
+bucket ilə açarlanır və backup/restore, repair və retention qaydalarına daxil
+olur (`ADR-0058`, `FR-022`, `docs/specs/data-retention.md`).
 
 ## 2. Key Source Boundary
 
@@ -33,8 +60,24 @@ Qoruma açarı Dobby-nin yaratdığı lokal gizli məlumatlar və cihazın qorun
 Protected-storage scope və key wrapping secret/material tipinə görə `ADR-0055`
 ilə bağlanır. Machine-bound material DPAPI `LocalMachine`-ı təkbaşına security
 boundary kimi qəbul etmir; Dobby application-level entropy və host storage
-boundary ilə birlikdə istifadə olunur. Remember-me, session və plugin
-`UserScopedStorage` secret-ləri `CurrentUser`-bound davranış tələb edir.
+boundary ilə birlikdə istifadə olunur. Remember-me slot metadata-sı, session və
+plugin `UserScopedStorage` secret-ləri `CurrentUser`-bound davranış tələb edir.
+
+Protected material purpose-separated saxlanılır və bir purpose-un material-ı
+digərinin əvəzinə istifadə olunmur (`ADR-0059` key-purpose separation,
+`ADR-0058`):
+
+| Material | Purpose | İstifadə sərhədi |
+|---|---|---|
+| DB/protected-storage wrapping key material | data-at-rest qoruması | imza yaratmır və artifact verification-da istifadə olunmur |
+| `DobbyStableDeviceId` | support-safe device identity mənbəyi | key source deyil; yalnız versioned keyed digest kimi göstərilir |
+| Owner recovery device key pair (`ADR-0058`) | recovery request signature və possession proof | license binding üçün istifadə olunmur (license `deviceKeyHash` heç bir public key hash-ı deyil — `ADR-0063`); license və plugin artifact-larını imzalamaq üçün istifadə olunmur; private hissə application boundary-dən export olunmur |
+| vendor trust anchor-ları (plugin-package, license, recovery-response, setup-authorization) | verification-only public material | leaf purpose-lar bir-birini əvəz etmir |
+
+Bir purpose-un compromise-i digər purpose-a avtomatik authority vermir. Private
+key material restrictive ACL ilə protected storage-də qalır, application
+boundary-dən export olunmur; scope, rotation və failure davranışı `ADR-0055` və
+`ADR-0062` ilə idarə olunur.
 
 Local data başqa cihaza self-service folder copy ilə açılmamalıdır. Cross-device restore/migration yalnız ayrıca vendor-assisted migration flow ilə mümkündür.
 
@@ -135,11 +178,15 @@ state-lər yalnız `P1 Persistence Materialization Pass` zamanı schema-ready
 materializə olunur. Həmin pass ən azı bu sahələri bağlamalıdır:
 
 - `CustomerDeploymentContext` minimum field set-i (`ADR-0052`);
-- license state, revision və artifact attestation metadata (`ADR-0051`);
+- license grant state, `licenseId`, `revisionSeriesId` üzrə persisted maximum
+  `licenseRevision`, last-known-good artifact state və import attestation
+  metadata (`ADR-0060`, `docs/specs/license-import.md`);
 - plugin install/lifecycle/cache state (`docs/specs/plugins-manager.md`);
 - host preferences;
 - per-user shell UI state və favorites;
-- recovery artifact/secret state;
+- durable login/unlock throttle ledger (`ADR-0058`, `FR-022`);
+- purpose-separated device identity/Owner recovery key material, recovery
+  request/response artifact state və consumed recovery nonce state (`ADR-0058`);
 - audit append-only storage və retention fields;
 - `StorageMetadata` schema/bootstrap version və provider proof metadata.
 
@@ -171,19 +218,91 @@ set-i yarada və ya verify edə bilər:
 |---|---|---|
 | `Users` | Local user identity və Owner bootstrap marker-i | login və first-user Owner creation |
 | `Credentials` | Password hash metadata və credential version/salt metadata | credential verification |
-| `RememberMeSlot` | single masked saved-login slot metadata; successful login replaces or clears the same slot according to remember-me state | login form prefill |
+| `LoginThrottleBuckets` | durable login/unlock throttle ledger: `BucketKey` primary key, `BucketKind` (`account` və ya `device` ilə CHECK-məhdud), bounded `FailedAttempts` counter, `WindowStartedAtUtc`/`ThrottledUntilUtc`/`UpdatedAtUtc` UTC instant-ları (`TimeProvider`) və monoton `Version` optimistic-concurrency discriminator-u | restart-durable throttle qərarı login submit-dən əvvəl |
+| `RememberMeSlot` | yalnız normalize olunmuş username və non-secret slot identifier; password, reversible credential, password-equivalent verifier və ya masked placeholder surrogate saxlanmır (`ADR-0058`) | login form username prefill |
 | `Sessions` | current/last session metadata və invalidation markers | lock/logout/session cleanup |
 | `Permissions` | minimal Owner/all-grants və user activation status checks | authenticated shell entry gate |
 | `AuditLog` | pre-auth login/recovery/security attempts | audit storage allowed pre-login workload |
-| `ConsumedRecoveryNonces` | Owner recovery replay prevention | recovery import before authenticated session |
+| `RecoveryRequests` | pending Owner recovery request ledger və **primary** recovery replay/binding gate: `RequestId` UUID primary key, globally `UNIQUE NonceHash` (64-hex SHA-256; raw nonce persist olunmur), `UNIQUE ResponseId`, `(ConsumedAtUtc, ResponseId)` üzərində paired-null CHECK (ya hər ikisi NULL — pending, ya hər ikisi dolu — consumed; yarım-consumed sətir schema səviyyəsində mümkün deyil) və import zamanı reconstruct olunan payload üzərində yenidən hesablanan `PayloadHash` integrity dəyəri; binding sütunları (`CustomerId`, `DeploymentId`, `DeviceId`, `RecoveryPublicKeyHash`, `VendorKeyId`) və `IssuedAtUtc`/`ExpiresAtUtc` pəncərəsi response import-unda stored row həm də cari authority context ilə tutuşdurulur | recovery request export və vendor-signed response import authenticated session-dan əvvəl baş verir |
+| `ConsumedRecoveryNonces` | Owner recovery replay prevention üçün **defense-in-depth** burned-nonce ledger-i: yalnız nonce-un SHA-256 hash-i (`NonceHash` primary key), `ConsumedAtUtc` və mənbə `RequestId` saxlanır; raw nonce heç vaxt persist olunmur. Bu cədvəl primary gate deyil — primary gate `RecoveryRequests` sətirinin atomik consume-udur; bu ledger-in read enforcement point-i snapshot promotion carry-forward-dur: promotion köhnə snapshot-dan pending sətir dirildə bilməsin deyə `DELETE FROM RecoveryRequests WHERE ConsumedAtUtc IS NULL AND NonceHash IN (SELECT NonceHash FROM ConsumedRecoveryNonces)` icra olunur | recovery import before authenticated session |
+| `HostOutbox` | pre-login mutation-ların (recovery consume, credential reset, session invalidation) yan-effekt dispatch ledger-i: `OutboxId` primary key, `UNIQUE IdempotencyKey` (at-most-once dispatch), bounded `Purpose`/`MessageType`/`PayloadJson`, `CreatedAtUtc`/`NextAttemptAtUtc`/`AttemptCount`/`CompletedAtUtc`, `LastErrorCode` və `(LeaseId, LeaseExpiresAtUtc)` üzərində paired-null CHECK ilə bounded lease. Payload non-secret olmalıdır: password, verifier, raw nonce və private key material outbox payload-una yazılmır | pre-login recovery/credential mutation-u öz dispatch-i ilə eyni transaction-da atomik commit olunmalıdır |
 | `CustomerDeploymentContext` | `customerId`, `deploymentId`, `source`, `protectionScope`, `schemaVersion`, `createdAt`, `updatedAt` ilə single active customer/deployment binding context | license import precondition and current context bootstrap |
 | `HostConfiguration` | startup-safe config floor metadata | security floor validation |
 | `StorageMetadata` | schema/bootstrap version və provider proof marker | idempotent bootstrap and storage proof |
-| `DeviceIdentity` | protected `DobbyStableDeviceId` material, `algorithmVersion`, `protectionVersion`, `createdAt` və redacted support prefix metadata | license device fingerprint bootstrap and support-safe device identity |
+| `DeviceIdentity` | protected `DobbyStableDeviceId` material, `owner-recovery` purpose-tagged device key public material, versioned key id, `algorithmVersion`, `protectionVersion`, `createdAt` və protected private material referansı; plus internal uniqueness discriminator (`RedactedSupportPrefix`: protected stable device id üzərində domain-separated truncated digest — nə raw material prefiksi, nə support code, nə license binding dəyəri) | Owner recovery possession proof, support-safe device identity və license `deviceKeyHash` derivation girişi (`ADR-0063`) |
 
 Plugin tables, plugin discovery cache, plugin domain data, license-heavy
 verification cache, backup/restore data, shared-data mapping profile-ları və
 post-login feature tables pre-login bootstrap set-inə daxil deyil.
+
+Remembered-login slot tək slot-dur: uğurlu login remember-me state-inə uyğun
+olaraq həmin slot-u əvəz edir və ya təmizləyir. Remember-me OFF seçilmiş
+uğurlu login-də və account silinəndə/deaktiv ediləndə slot təmizlənir; logout və
+lock slot-u silmir, çünki slot heç bir secret daşımır
+(`docs/specs/session-lifecycle.md`). Slot heç bir halda authentication factor
+kimi istifadə olunmur.
+
+#### Remembered-login slot legacy migration (owning rule)
+
+`docs/specs/session-lifecycle.md` legacy saved-password qeydlərinin və masked
+surrogate slot-un idempotent migration ilə silinməsini bu spec-ə delegate edir;
+qayda budur (`PreLoginRememberedAccountMigrationV7`, `ADR-0058`):
+
+- migration slot table-ını yerində `ALTER` etmir, onu **yenidən qurur**: legacy
+  shape-in `ProtectedRememberMeBlob`, `ProtectionVersion` və `ExpiresAtUtc`
+  sütunları — yəni saved-credential dövrünə aid password-equivalent protected
+  material və onun expiry-si — yeni table-da **heç bir formada mövcud deyil**,
+  köçürülmür və başqa sütuna transform edilmir. Yeni table `Version` sütununda
+  `CHECK (Version = 'username-only-v1')` daşıyır, ona görə də masked-surrogate
+  dövrünə aid shape schema səviyyəsində geri yazıla bilməz; sonra legacy table
+  `DROP` olunur və yenisi `RememberMeSlot` adına `RENAME` edilir, yəni final
+  closed-set adı dəyişmir;
+- legacy sətir yalnız o halda carry-forward olunur ki, `SlotId = 'single'`
+  olsun, mövcud `Users` sətri ilə `UserId` üzrə join olunsun **və** legacy
+  `MaskedUsername` dəyəri həmin user-in `UsernameNormalized` dəyəri ilə eyni
+  olsun, üstəgəl uzunluq (3..64) və charset (`a-z0-9_.-`) qaydalarına uysun;
+- bu şərtlərdən hər hansı biri pozulursa sətir **carry-forward olunmur**: slot
+  itir və user növbəti login-də username-i yenidən yazır. Bu fail-closed
+  seçimdir və qəsdəndir — reconcile olunmayan legacy dəyəri prefill etmək
+  masked surrogate-i yeni schema-ya qanuniləşdirər (`ADR-0058`);
+- migration heç bir password, verifier və ya reversible material köçürmür; carry
+  forward olunan yeganə dəyər normalize olunmuş username-dir;
+- rebuild `DROP TABLE`-dan əvvəl eyni transaction-da `PRAGMA secure_delete=ON`
+  ilə icra olunur, beləliklə carry-forward olunmayan legacy sətirlərin qalığı
+  DB free page-lərində oxunaqlı qalmır;
+- migration idempotent-dir: `StorageMetadata` migration marker-i sayəsində
+  təkrar startup-da yenidən icra olunmur, ona görə də təkrar run slot-u ikinci
+  dəfə silmir. Marker müqayisəsi yalnız `MigrationId` mövcudluğuna deyil, həm də
+  qeyd olunmuş `ChecksumSha256` dəyərinin cari migration SQL-inin SHA-256-sı ilə
+  eyniliyinə baxır; uyğunsuzluq migration-ı fail-closed dayandırır
+  (`PersistenceError.MigrationFailed`), yəni artıq tətbiq olunmuş bir migration
+  mətninin sonradan redaktəsi startup-da aşkarlanır, sükutla keçilmir;
+
+Rollback: bu migration **geri qaytarılmır**. Downgrade ehtiyacı olarsa yol
+snapshot restore-dur (`docs/specs/backup-restore-migration.md`), sətir səviyyəsində
+reverse migration deyil, çünki masked surrogate-i bərpa edən reverse script
+`ADR-0058`-i pozar.
+
+Pre-login table set-i **closed**-dır: bu cədvəldəki sətirlərdən kənar hər hansı
+pre-login persisted state əlavə etmək `ADR-0061` pre-auth allow-list-inə və bu
+spec-ə amendment tələb edir. Yeni pre-login state əlavə edilirsə backup/restore,
+repair və retention qaydaları da eyni pass-də yenilənir.
+
+Closed set yuxarıdakı 14 sətirdən ibarətdir və onun enforcement point-i
+prose deyil, davranışdır: `tests/Dobby.IntegrationTests/Persistence/HostPersistenceTests.cs`
+pre-login migration ardıcıllığını real DB üzərində icra edib faktiki yaranmış
+table-ları `ApprovedPreLoginTables` siyahısı ilə tutuşdurur, ona görə də bu
+cədvəldə olmayan bir table-ın pre-login bootstrap tərəfindən yaradılması testi
+sındırır (`NFR-027`: source-text scan bu closure-u sübut etmir). Bu spec-dəki
+table adları migration DDL-indəki adlarla eyni yazılmalıdır — ad drift-i closure
+iddiasını yoxlanılmaz edir. Cari mənbə migration-lar:
+`PreLoginMigrationV1` (`0001_prelogin_bootstrap`),
+`PreLoginRememberedAccountMigrationV7` (`0007_prelogin_remembered_account`),
+`PreLoginThrottleMigrationV8` (`0008_prelogin_login_throttle`),
+`PreLoginOutboxMigrationV9` (`0009_prelogin_host_outbox`),
+`PreLoginRecoveryRequestMigrationV10` (`0010_prelogin_recovery_requests`),
+`PreLoginOutboxEvidenceMigrationV11` (`0011_prelogin_outbox_evidence`; yeni table
+yaratmır, `HostOutbox`-a `EvidenceCorrelationId` sütunu əlavə edir).
 
 ## Host UI state and favorite storage invariants
 
@@ -198,12 +317,32 @@ Release verification minimumları:
 
 - `NFR-007` testləri protected local persistence-in enabled olduğunu yoxlayır;
 - storage contract testləri plugin-in yalnız `SharedDomainStorage` və `UserScopedStorage` access aldığını yoxlayır;
-- static/dependency scan plugin project-lərinin `Dobby.Infrastructure` və host persistence implementation-a reference saxlamadığını yoxlayır;
+- dependency/reference scan plugin project-lərinin `Dobby.Infrastructure` və host persistence implementation-a reference saxlamadığını yoxlayır; bu scan architecture shape sübutudur, runtime containment sübutu deyil (`NFR-027`);
 - secret material plaintext DB field kimi saxlanmamalıdır;
 - `deviceId` key source kimi istifadə olunmamalıdır.
 - transactional write testləri multi-step host mutation üçün commit/rollback davranışını yoxlayır;
 - crash-recovery smoke test process kill və ya power-loss simulyasiyasından sonra host storage-in növbəti açılışda recover olduğunu yoxlayır.
 - `DobbyStableDeviceId` application-level entropy-dən ayrı materialdır, key source kimi istifadə olunmur, protected storage-dən keçir və raw formada log/diagnostics/plugin surface-ə çıxmır.
+
+### 6a. Verification Obligations
+
+Aşağıdakı maddələr behavior-first sübut tələb edir (`ADR-0061`, `NFR-027`).
+Source-text, regex, fayl mövcudluğu yoxlaması və ya "test list green" iddiası
+onları qapatmır:
+
+| Yoxlama | Minimum sübut |
+|---|---|
+| Protected provider aktivdir | Startup provider-enabled probe (`ADR-0054`) + byte-level sentinel testi: store-a yazılmış known sentinel plaintext bağlı DB faylının, WAL/journal/rollback/checkpoint side file-larının və temp artifact-larının raw byte-larında tapılmır; provider-disabled, provider-bypass və plain (unencrypted) mövcud DB faylı fixture-ları startup-da fail-closed olur və store-u oxunaqlı açmır. Package reference və ya config assertion-ı bu sətri qapatmır |
+| Remembered login secret saxlamır | Login → restart senarisindən sonra persisted slot-un bytes-larını yoxlayan test: password, verifier və ya reversible material yoxdur; password field boş açılır |
+| Legacy saved-password migration | Legacy shape fixture (`ProtectedRememberMeBlob` sütunu ilə): migration-dan sonra sütun fiziki olaraq yoxdur, reconcile olunan slot yalnız username kimi qalır, idempotent təkrar icra əlavə dəyişiklik yaratmır; **negative branch də tələb olunur** — masked surrogate, uyğun gəlməyən user, charset və minimum-length pozuntusu fixture-larında slot carry-forward edilmir (sıfır sətir), üstəgəl rebuild olunmuş schema-ya masked surrogate və köhnə `Version` dəyəri yazmaq cəhdi rədd olunur |
+| Durable throttle | `TimeProvider` seam-i ilə restart-across test: qalan penalty bərpa olunur, account və device/global bucket-lər müstəqil qalır |
+| Pre-login closed set | Real DB üzərində pre-login migration ardıcıllığını icra edən behavior test: `sqlite_master`-dən faktiki yaranmış table siyahısı oxunur və approved closed set ilə **bərabər** olmalıdır (superset/subset kifayət deyil), hər migration marker-i `StorageMetadata`-da qeydə alınır, post-login table və plugin cache toxunulmur. Bu spec-dəki table adları migration DDL-indəki adlarla eyni olmalıdır; ad drift-i bu sətri açıq sayır |
+| Atomicity | Fault injection: multi-table mutation (state + audit/outbox) yarımçıq commit qoymur və success publish olunmur |
+| Crash consistency | Kill/power-loss simulyasiyası: bootstrap → migration ardıcıllığı re-entrant olur və "corrupted, reinstall" tələb etmir |
+| Backup/restore boundary | Snapshot verification, quarantine və failed-transition rollback testləri; snapshot başqa cihazda açılmır |
+| Reparse/traversal refusal | Temp/backup maintenance canonical root xaricinə və reparse point-lərə keçmir |
+| Purpose separation | Bir purpose-un key material-ı digər purpose-un verification/imza yolunda qəbul edilmir |
+| Discriminator ayrılığı | Real migration-dan sonra `DeviceIdentity.RedactedSupportPrefix` dəyəri eyni stable device id üzərindən hesablanan license binding digest-inin nə bərabəri, nə prefiksi, nə də substring-idir (`ADR-0063` § 3); "sütun mövcuddur" və ya source-da domain string-inin görünməsi bu sətri qapatmır |
 
 ## Cross-references
 
@@ -216,6 +355,17 @@ Release verification minimumları:
 - `docs/adr/ADR-0038-local-first-authentication.md`
 - `docs/adr/ADR-0054-db-at-rest-protection-provider.md` — exact DB-at-rest provider decision owner
 - `docs/adr/ADR-0055-protected-storage-scope-and-key-wrapping.md` — protected-storage scope və key wrapping mapping
+- `docs/adr/ADR-0062-signing-key-custody-and-trust-anchor-provisioning.md` — vendor trust anchor custody, provisioning və key rotation
+- `docs/adr/ADR-0052-tenant-customer-context-v2.md` — `CustomerDeploymentContext` field set-i
+- `docs/adr/ADR-0056-deployment-modes-and-storage-providers.md` — DeviceLocal/BranchShared scope və provider boundary
+- `docs/adr/ADR-0058-credential-and-recovery-hardening-v2.md` — remembered-login no-secret qaydası, durable throttle state, device/recovery key material
+- `docs/adr/ADR-0060-license-lifecycle-and-import-v3.md` — license grant/revision/attestation persistence authority
+- `docs/adr/ADR-0063-device-license-binding-derivation.md` — license device binding derivation girişləri və raw-material qadağası
+- `docs/adr/ADR-0061-login-first-runtime-and-atomic-mutation-boundary.md` — pre-auth allow-list, atomic unit of work, behavior-first proof
+- `docs/specs/license-import.md` — license state, `deviceKeyHash` binding və attestation metadata
+- `docs/specs/session-lifecycle.md` — remembered-login və throttle davranışı
+- `docs/specs/audit-and-diagnostics.md` — audit append-only storage və redaction boundary
+- `docs/specs/data-retention.md` — audit/diagnostics/security-state retention floor-ları
 - `docs/specs/shared-data-tools.md` — mapping profile storage identity tuple and plugin caller binding for P2 Shared Data Tools.
 - `docs/specs/backup-restore-migration.md` — P2 backup/restore artifact model, cross-device restore and future app key lifecycle guardrails.
 
@@ -244,12 +394,88 @@ other credential-bearing fields without an ADR/spec amendment; new secret
 material stays in protected storage and may be referenced only by non-secret
 profile keys.
 
-## 2026-08 Protected-Material Amendment (Controlling)
+The profile carries `profileVersion`, pinned to `1` by the owning schema. This
+file has no row in `docs/schemas/artifact-compatibility-matrix.md`: that matrix
+freezes transition policy for *signed, versioned* artifact families, and
+`branchshared.json` is unsigned local configuration. The pin is nonetheless
+deliberate rather than incidental. An unrecognised `profileVersion` is rejected as
+a shape violation, not accepted and interpreted as version 1, so this file follows
+the same no-silent-fallback principle the matrix states for artifacts that do have
+rows, and matches the `const` convention every other Dobby schema uses for its own
+version. Branch Shared runtime is deferred, so no reader and no committed instance
+exists and the pin invalidates nothing today; widening it to admit a version 2 is
+an ADR/spec amendment that must also state how a version-1 profile is migrated,
+not an implementation detail.
 
-Remembered-login storage contains no password, reversible credential,
-password-equivalent verifier or startup snapshot. Existing legacy records are
-migrated by deleting the secret while retaining only a normalized account
-selection when safe. DPAPI remains appropriate for protected key material, but
-encryption scope does not justify persisting a replayable login credential.
-Recovery private keys and purpose-separated signing/trust material have explicit
-ACL, scope, rotation and failure behavior.
+## Revision History
+
+- **2026-08-29:** `branchshared.json` `profileVersion` schema-da `"minimum": 1`
+  idi, yəni bu shape-in təsvir etmədiyi istənilən gələcək integer conforming
+  sayılırdı və schema oxucuya hansı versiyanı təsvir etdiyini demirdi. Digər bütün
+  Dobby schema-ları öz versiyasını `const` ilə ifadə edir; bu yeganə istisna idi.
+  Schema `"const": 1`-ə pinned edildi və rejection semantikası bu spec-ə yazıldı.
+  Qeyd: `branchshared.json` unsigned local configuration-dır və
+  `artifact-compatibility-matrix.md`-də sətri yoxdur — matrix signed versioned
+  artifact family-ləri idarə edir, ona görə burada authority deyil, yalnız
+  no-silent-fallback prinsipi üzrə uyğunluq analogiyasıdır. Branch Shared runtime
+  deferred-dir, nə reader, nə committed instance mövcuddur, ona görə heç bir
+  artifact invalid olmur. Qərar dəyişikliyi yoxdur, successor ADR tələb olunmur.
+
+- **2026-08-27:** Pre-login closed table set reconciled with the enforced
+  migration reality; closure iddiası HEAD-də üç yerdə yanlış idi. `RecoveryRequests`
+  (owner recovery-nin **primary** replay/binding gate-i, `PreLoginRecoveryRequestMigrationV10`)
+  və `HostOutbox` (`PreLoginOutboxMigrationV9`; `ADR-0061` atomicity modelinin
+  pre-auth mutation üçün tələb etdiyi durable outbox) cədvəldə heç mövcud deyildi,
+  `LoginThrottleState` adı isə migration-dakı faktiki `LoginThrottleBuckets` adı
+  ilə uyğun gəlmirdi — bu ad drift-i əvvəlki **2026-08-25** entry-sində də
+  təkrarlanıb (həmin tarixi entry olduğu kimi saxlanılır, düzəliş burada qeyd
+  olunur). `ConsumedRecoveryNonces` sətri gerçək rolunu bildirəcək formaya
+  gətirildi: yalnız nonce-un SHA-256 hash-ı saxlanır, o primary gate deyil
+  defense-in-depth-dir və read enforcement point-i snapshot promotion
+  carry-forward-dur. Closed set-in enforcement point-i (real DB üzərində
+  pre-login migration icrası + `ApprovedPreLoginTables` müqayisəsi) və mənbə
+  migration siyahısı explicit yazıldı, çünki əvvəl closure iddiasının nə ilə
+  yoxlandığı sənəddə görünmürdü (`NFR-027`). Propagation: `ADR-0061` pre-auth
+  allow-list-i Owner recovery səthini əhatə edəcək şəkildə tamamlandı,
+  `docs/specs/session-lifecycle.md` pending-request state təsviri "requestId /
+  nonce / expiresAt local saxlanılır" ifadəsindən hash-only ledger invariantlarına
+  keçirildi.
+
+- **2026-08-27:** `Remembered-login slot legacy migration (owning rule)`
+  subsection-ı əlavə olundu. `docs/specs/session-lifecycle.md` legacy
+  saved-password/masked-surrogate migration qaydasını bu spec-ə delegate edirdi,
+  lakin qayda burada mövcud deyildi — dangling delegation. Artıq
+  `PreLoginRememberedAccountMigrationV7`-nin faktiki davranışı normativ yazılıb:
+  rebuild-and-rename, `ProtectedRememberMeBlob`/`ProtectionVersion`/`ExpiresAtUtc`
+  sütunlarının tamamilə itməsi, `CHECK (Version = 'username-only-v1')`,
+  reconcile olunmayan legacy sətrin fail-closed **carry-forward edilməməsi**,
+  `PRAGMA secure_delete=ON`, checksum-gated idempotency və reverse migration-un
+  olmaması (rollback yolu snapshot restore-dur).
+
+- **2026-08-26:** Internal consistency repair: § 1 secret siyahısındaki
+  "non-exportable device identity private key material (license-binding purpose)"
+  sətri `ADR-0063` ilə ziddiyyət yaradırdı (belə key pair mövcud deyil) — Owner
+  recovery device private key + `ADR-0063` derivation qeydi ilə əvəz olundu; § 2
+  purpose cədvəlindəki iki dublikat "Owner recovery ... key pair" sətri tək
+  normativ sətirdə birləşdirildi.
+
+- **2026-08-26:** `ADR-0063` reconciliation: license binding üçün ayrıca "device
+  identity key pair" sətri ləğv edildi (belə key pair mövcud deyil və binding
+  public-key hash-ı deyil), `DeviceIdentity` sətri həqiqi saxlanan sahələrə —
+  `owner-recovery` public material və domain-separated internal uniqueness
+  discriminator — uyğunlaşdırıldı.
+- **2026-08-26:** `Verification Obligations` cədvəlinin `Protected provider
+  aktivdir` sətri behavior-first formaya gətirildi: startup provider-enabled
+  probe (`ADR-0054`) plus byte-level sentinel scan (DB + WAL/journal/rollback/
+  checkpoint + temp) və provider-disabled / provider-bypass / plain-DB
+  fixture-ları tələb olunur; package reference və ya config assertion-ı bu sətri
+  qapatmır (`AC-037`, `AC-042`, `NFR-027`).
+- **2026-08-25:** Protected-material və v3 reconciliation. Remembered-login
+  no-secret qaydası, legacy saved-password migration, purpose-separated material
+  cədvəli, durable `LoginThrottleState` pre-login table-ı, `deviceKeyHash`
+  binding terminologiyası, license persistence authority-nin `ADR-0051`-dən
+  `ADR-0060`-a keçidi, closed-set amendment qaydası, behavior-first verification
+  obligations və genişləndirilmiş cross-reference-lər body-yə köçürüldü; ayrıca
+  `2026-08 Protected-Material Amendment` bölməsi ləğv edildi, çünki onun
+  qərarları artıq müvafiq bölmələrin normativ mətnindədir.
+- **2026-04-27:** İlk canonical storage/data protection spec-i.

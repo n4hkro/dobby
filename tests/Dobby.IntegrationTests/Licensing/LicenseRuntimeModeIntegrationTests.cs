@@ -62,7 +62,7 @@ public sealed class LicenseRuntimeModeIntegrationTests
         return new LicenseRuntimeModeProvider(
             store,
             new CurrentCustomerDeploymentContextService(contextStore),
-            () => new string('a', 64),
+            () => Result.Success(new string('a', 64)),
             timeProvider);
     }
 

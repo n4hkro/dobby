@@ -23,7 +23,7 @@
 
 ## File Structure
 
-- Modify `src/Dobby.Host/Trust/vendor-master-public-key.pem`: public GA-candidate production key only after `HD-S11-001` source/test baseline approval is available.
+- Do not create or modify `src/Dobby.Host/Trust/vendor-master-public-key.pem`: the single shared master anchor model is retired by `ADR-0062` (supersedes `ADR-0033`). Trust anchor changes touch only the six canonical purpose-separated files (`vendor-plugin-package-public-key.pem`, `vendor-plugin-license-public-key.pem`, `vendor-recovery-public-key.pem` and the `dev-qa-*` counterparts), which are version-controlled build input.
 - Modify `tests/Dobby.IntegrationTests/Architecture/PluginTrustResourcePackagingTests.cs`: expected production public-key hash and bootstrap negative-control assertions after key rotation.
 - Modify `tests/Dobby.IntegrationTests/Architecture/ProductionReleasePackagingStaticScanTests.cs`: published-artifact key extraction, trust profile, devQA/test fixture exclusion, and production recovery evidence closure assertions.
 - Modify `tests/Dobby.IntegrationTests/Architecture/Sprint11ReleaseEvidenceTests.cs`: gate-specific evidence assertions as each gate closes, and final release-ready assertions only in the final task.
@@ -141,8 +141,17 @@ Expected: focused test PASS, no whitespace errors, and diff limited to preflight
 
 ## Task 2: HD-S11-001 Source/Test Baseline For Production Public Key
 
+**Blocker status:** OPEN, external. The approved GA-candidate production public PEM,
+its public SHA-256 and an authorized custodian label are release-authority inputs
+that this repository cannot produce. What exists today is a locally generated
+GA-candidate placeholder anchor set plus source-level hash assertions; that is RC
+mechanics evidence, not HD-S11-001 closure. Steps whose inputs are the missing
+external values stay unchecked.
+
 **Files:**
-- Modify: `src/Dobby.Host/Trust/vendor-master-public-key.pem`
+- Modify: `src/Dobby.Host/Trust/vendor-plugin-package-public-key.pem`
+- Modify: `src/Dobby.Host/Trust/vendor-plugin-license-public-key.pem`
+- Modify: `src/Dobby.Host/Trust/vendor-recovery-public-key.pem`
 - Modify: `tests/Dobby.IntegrationTests/Architecture/PluginTrustResourcePackagingTests.cs`
 - Modify: `tests/Dobby.IntegrationTests/Architecture/ProductionReleasePackagingStaticScanTests.cs`
 - Modify: Task 1 computed evidence root `production-recovery-handover.md`
@@ -151,7 +160,7 @@ Expected: focused test PASS, no whitespace errors, and diff limited to preflight
 - Consumes: release-authority-approved public PEM, public SHA-256, custodian label, and rotation disposition.
 - Produces: source-level production public-key hash equality and bootstrap-key negative-control evidence.
 
-- [x] **Step 1: Stop unless non-secret approval inputs are complete**
+- [ ] **Step 1: Stop unless non-secret approval inputs are complete** — STOPPED: the approved GA-candidate production public PEM, its approved public SHA-256 and the authorized custodian label are still missing.
 
 Proceed only when all of these non-secret fields are available:
 
@@ -167,8 +176,8 @@ Expected: If any field is missing, stop this task and record the missing non-sec
 
 Update `PluginTrustResourcePackagingTests.cs` and/or `ProductionReleasePackagingStaticScanTests.cs` so they assert:
 
-- `vendor-master-public-key.pem` parses as PEM.
-- SHA-256 of the source public PEM equals the approved public SHA-256 value.
+- Each of the three purpose-separated production anchors parses as PEM.
+- SHA-256 of each source public PEM equals the approved public SHA-256 value for that purpose.
 - Bootstrap/dev/test public key hash remains different from the approved production public SHA-256 value.
 - No private key blocks exist in source/resources/tests/evidence.
 
@@ -184,9 +193,9 @@ dotnet test tests\Dobby.IntegrationTests\Dobby.IntegrationTests.csproj -c Releas
 
 Expected: FAIL only because the current source PEM/hash has not yet been rotated to the approved production value.
 
-- [x] **Step 4: Rotate only the public PEM**
+- [ ] **Step 4: Rotate only the public PEMs** — BLOCKED by HD-S11-001: no approved production public PEM has been handed over.
 
-Replace `src/Dobby.Host/Trust/vendor-master-public-key.pem` with the approved public PEM. Do not add private key material, signing transport details, passphrases, or secret-bearing paths.
+Replace the three purpose-separated production anchors (`vendor-plugin-package-public-key.pem`, `vendor-plugin-license-public-key.pem`, `vendor-recovery-public-key.pem`) with the approved public PEMs. Do not add private key material, signing transport details, passphrases, or secret-bearing paths. The current anchors are locally generated placeholders and must be replaced before GA.
 
 - [x] **Step 5: Verify green**
 
@@ -198,7 +207,7 @@ dotnet test tests\Dobby.IntegrationTests\Dobby.IntegrationTests.csproj -c Releas
 
 Expected: PASS.
 
-- [x] **Step 6: Update source baseline evidence**
+- [ ] **Step 6: Update source baseline evidence** — BLOCKED: the exact approved public/custody SHA-256 values and custodian label do not exist yet, so the evidence root records the placeholder state and `Independent custody equality: NOT PROVEN` instead.
 
 Update `production-recovery-handover.md` in `$evidenceRoot` with:
 
@@ -229,12 +238,20 @@ function Invoke-ForbiddenMatchScan {
 
 Invoke-ForbiddenMatchScan -Pattern "BEGIN .*PRIVATE KEY|passphrase|private key path|signing transport|raw canonical|raw/canonical" -Paths @("src", "tests", "artifacts\release-evidence")
 git diff --check
-git diff -- src/Dobby.Host/Trust/vendor-master-public-key.pem tests/Dobby.IntegrationTests/Architecture/PluginTrustResourcePackagingTests.cs tests/Dobby.IntegrationTests/Architecture/ProductionReleasePackagingStaticScanTests.cs
+git diff -- src/Dobby.Host/Trust tests/Dobby.IntegrationTests/Architecture/PluginTrustResourcePackagingTests.cs tests/Dobby.IntegrationTests/Architecture/ProductionReleasePackagingStaticScanTests.cs
 ```
 
 Expected: forbidden-match scan prints `No forbidden matches.`, `git diff --check` passes.
 
 ## Task 3: HD-S11-001 Published Artifact And Recovery Import Evidence
+
+**Blocker status:** OPEN, external, inherited from Task 2. Source/embedded anchor
+equality, the retired-bootstrap negative control and a published-Host recovery
+import were all evidenced against the locally generated GA-candidate key, so they
+prove RC mechanics only. An independent custody hash supplied by the release
+authority does not exist, and a custody value that this repository itself produced
+matches by construction and proves nothing. Steps that require the external
+custody value or production signing material stay unchecked.
 
 **Files:**
 - Modify: `tests/Dobby.IntegrationTests/Architecture/ProductionReleasePackagingStaticScanTests.cs`
@@ -251,7 +268,8 @@ Expected: forbidden-match scan prints `No forbidden matches.`, `git diff --check
 Update `ProductionReleasePackagingStaticScanTests.cs` so it requires:
 
 - Published `Dobby.Security.dll` contains the approved production public-key hash when built with `DobbyPluginTrustProfile=Production`.
-- Source public-key SHA-256, embedded public-key SHA-256, and custody public-key SHA-256 are equal.
+- Source public-key SHA-256 and embedded public-key SHA-256 are equal.
+- The custody public-key SHA-256 is recorded with its provenance, and the evidence states `Independent custody equality: NOT PROVEN` for as long as the custody value is not supplied independently of this repository. A three-way `Source/embedded/custody equality: PASS` claim is forbidden while the custody value is self-produced.
 - Published Host import result is recorded for a production `.dobbyrecovery` artifact.
 - `production-recovery-handover.md` contains redacted Admin report hash and redacted transcript hash-chain references.
 - Evidence contains no raw/canonical recovery payload, private key material, passphrase, secret path, stack trace, or raw Admin transcript.
@@ -276,23 +294,25 @@ dotnet publish .\src\Dobby.Host\Dobby.Host.csproj -c Release --no-restore -p:Dob
 
 Expected: PASS, and the publish output includes `Dobby.Host.exe` and `Dobby.Security.dll`.
 
-- [x] **Step 4: Extract and compare embedded public key**
+- [ ] **Step 4: Extract and compare embedded public key** — PARTIAL: source/embedded equality is evidenced and asserted against the current build by `PluginTrustResourcePackagingTests`; the independent custody leg is BLOCKED by HD-S11-001.
 
 Extract/hash the embedded public key from the published `Dobby.Security.dll` using the existing test helper or a small throwaway local inspection command. Record only:
 
 - Source public-key SHA-256.
 - Embedded public-key SHA-256.
 - Custody public-key SHA-256.
-- PASS/FAIL equality result.
+- PASS/FAIL source/embedded equality result.
+- Custody provenance, and `Independent custody equality: NOT PROVEN` until the release authority supplies the custody hash out of band.
 
-Expected: all three public SHA-256 values match exactly.
+Expected: source and embedded SHA-256 match exactly. The custody value must not be derived from this repository; a self-produced custody hash is not evidence and must never be reported as a match.
 
-- [x] **Step 5: Generate or receive production `.dobbyrecovery` evidence**
+- [ ] **Step 5: Generate or receive production `.dobbyrecovery` evidence** — BLOCKED: the recorded run used locally generated GA-candidate signing material, not vendor production custody material. The evidence records that provenance explicitly.
 
 Use the approved Admin `create-recovery-response` flow. Evidence may record only:
 
 - Command name.
 - Signing profile: production.
+- Signing key provenance (locally generated GA-candidate vs. authorized production custody material).
 - Exit code/result.
 - `.dobbyrecovery` artifact SHA-256.
 - Redacted Admin report SHA-256.
@@ -300,7 +320,7 @@ Use the approved Admin `create-recovery-response` flow. Evidence may record only
 
 Expected: no raw recovery payload, raw Admin transcript, private signing details, or secret-bearing paths are written to repo/evidence.
 
-- [x] **Step 6: Verify published Host import**
+- [ ] **Step 6: Verify published Host import** — PARTIAL: a published-Host import succeeded under the Production trust profile with the placeholder anchor set. Re-running it against a genuinely production-signed artifact is BLOCKED by HD-S11-001.
 
 Run the published `Dobby.Host.exe` recovery import on a clean temp/profile context and record:
 

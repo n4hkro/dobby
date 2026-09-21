@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close every remaining product-preparation row in `PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md` while preserving the sprint-plan authority and the repository's existing architecture boundaries.
+**Goal:** Close the remaining product-preparation work described by Tasks 2-11 below while preserving the canonical authority chain (newest Accepted ADR -> owning schema -> owning executable spec -> `docs/01`-`docs/09`) and the repository's existing architecture boundaries.
+
+**Scope-source status:** The row-level scope files this plan was originally written against (`PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md`, `SPRINT_IMPLEMENTATION_PLAN.md`, `SPRINT_3_EXECUTION_PLAN.md`-`SPRINT_11_EXECUTION_PLAN.md`) were retired from the repository. Task bodies below stay valid as work descriptions; row numbers are historical labels only and no longer resolve to a live scope file.
 
 **Architecture:** Implement the remaining work in dependency order: storage/auth/runtime first, rendered WPF shell and settings next, plugin/license/manager UI after shell surfaces exist, sample/Admin artifacts after the plugin runtime is visible, and installer/portable/release evidence last. Some audited rows are source-authority reconciliation work, not feature expansion: display-name policy, password policy, audit severity, root runtime folders, and Argon2id must follow the sprint plans instead of inventing stricter behavior.
 
@@ -10,8 +12,8 @@
 
 ## Global Constraints
 
-- Treat `PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md` as the row-level scope source. Do not remove or mark a row complete until implementation and verification evidence for that row exists.
-- Treat `SPRINT_IMPLEMENTATION_PLAN.md` and `SPRINT_3_EXECUTION_PLAN.md` through `SPRINT_11_EXECUTION_PLAN.md` as behavior authority. If an audited row conflicts with those plans, close the row by adding tests/evidence for the approved sprint behavior, not by broadening scope silently.
+- Row numbers in this plan are historical labels from a retired scope file. Scope is the task bodies below; a task is complete only when implementation and verification evidence for it exists.
+- Behavior authority is the current canonical set: newest applicable Accepted ADR, then owning schema in `docs/schemas/`, then owning executable spec in `docs/specs/`, then `docs/01`-`docs/09`. Retired sprint/implementation plans and release evidence are historical evidence, not authority (`docs/specs/README.md` § Authority Note). If a task conflicts with that set, close it by adding tests/evidence for the canonical behavior, not by broadening scope silently.
 - Keep login-first strict. Before successful authentication, the app may only perform the ADR-0041 allowed workload: configuration binding, diagnostics sink initialization, runtime folder/pre-login persistence preparation, login/recovery/security audit storage, and login UI first paint. No plugin discovery, activation, package install, license-heavy verification, domain import/export, report generation, background task execution, or post-login migrations may run before authentication.
 - Do not add NuGet packages, package sources, installer toolchains, crypto packages, screenshot packages, or CI/upload clients unless the package/version/tool is already approved in the pin/evidence ledgers or a new human approval row is recorded first.
 - Do not edit applied migration SQL files. Add append-only numbered migrations and register/embed them through `PostLoginPluginPersistenceMigrations`.
@@ -20,22 +22,24 @@
 - Production builds must not include or accept dev/QA trust material, sample `.dobbyplugin`/`.dobbylicense` artifacts, TEST-ONLY recovery fixtures, private keys, passphrases, raw signing material, raw recovery payloads, or unredacted Admin transcripts.
 - WPF/STA/Dispatcher failures must be root-caused before production fixes. Check window close/dispatcher cleanup, pending action reset, shared/static state, ordering, and explicit completion signals before changing behavior.
 - Each task starts with failing tests or static guardrails, then implementation, then focused verification. The final task runs the strongest no-restore verification local assets allow and refreshes the portable build.
-- Before implementing any task, create a task-specific execution note under `docs/superpowers/plans/remaining-product-work/task-NN-<slug>-execution-note.md`. Create the note immediately before that task starts, from the current code state. The note must include `git status --short`, current dirty files relevant to the task, intended touched files, touched-file conflict/ownership notes split into `will touch` and `will not touch`, red test class and method names, expected initial failure, production seam, and focused no-restore verification command. Execution notes are not scope authority and must not replace this master plan, `PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md`, or sprint/spec authority.
+- Before implementing any task, create a task-specific execution note under `docs/superpowers/plans/remaining-product-work/task-NN-<slug>-execution-note.md`. Create the note immediately before that task starts, from the current code state. The note must include `git status --short`, current dirty files relevant to the task, intended touched files, touched-file conflict/ownership notes split into `will touch` and `will not touch`, red test class and method names, expected initial failure, production seam, and focused no-restore verification command. Execution notes are not scope authority and must not replace this master plan or the canonical ADR/schema/spec authority.
 - Build-scoped evidence uses `local-rc-<UTC>-<shortsha>` where `<UTC>` is UTC timestamp format `yyyyMMddTHHmmssZ` and `<shortsha>` is `git rev-parse --short HEAD`. Use `nogit` only if `git rev-parse --short HEAD` fails, and record the exact `git unavailable` reason in the audit/evidence file.
 - Release evidence goes under `artifacts/release-evidence/local-rc-<UTC>-<shortsha>/...`. Dev/QA sample plugin package outputs go under `artifacts/sample-plugin/local-rc-<UTC>-<shortsha>/...`; release evidence may reference sample artifact hashes/reports, but sample packages/licenses must not be copied into production publish or installer output.
 - Do not commit unless the human explicitly requests a commit.
 
 ## Source Documents
 
-- Scope audit: `PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md`
-- Master sequence: `SPRINT_IMPLEMENTATION_PLAN.md`
-- Runtime/config/audit/storage authority: `SPRINT_3_EXECUTION_PLAN.md`, `SPRINT_4_EXECUTION_PLAN.md`, `docs/specs/storage-and-data-protection.md`, `docs/specs/audit-and-diagnostics.md`
-- Auth/session authority: `SPRINT_5_EXECUTION_PLAN.md`, `docs/specs/session-lifecycle.md`, `docs/specs/user-management.md`, `docs/07_ACCEPTANCE_CRITERIA.md`
-- Settings/shell authority: `SPRINT_6_EXECUTION_PLAN.md`, `SPRINT_7_EXECUTION_PLAN.md`, `docs/specs/settings-and-about.md`, `docs/specs/shell-ui.md`, `docs/specs/work-sessions.md`
-- Plugin runtime authority: `SPRINT_8_EXECUTION_PLAN.md`, `docs/specs/plugins-manager.md`, `docs/specs/sample-plugin.md`
-- Licensing/runtime-mode authority: `SPRINT_9_EXECUTION_PLAN.md`, `docs/specs/license-import.md`, `docs/adr/ADR-0053-capability-surface-runtime-mode.md`
-- Manager/sample/Admin authority: `SPRINT_10_EXECUTION_PLAN.md`, `docs/specs/admin-tool.md`
-- Release/installer authority: `SPRINT_11_EXECUTION_PLAN.md`, `docs/09_BUILD_RUN_AND_RELEASE.md`, `docs/adr/ADR-0047-host-installer-and-portable-artifact-policy.md`
+Current authority only. Retired sprint/status plan files are not listed because
+they no longer exist in the repository.
+
+- Authority order and governance: `docs/specs/README.md`, `docs/adr/README.md`
+- Runtime/config/audit/storage authority: `docs/specs/storage-and-data-protection.md`, `docs/specs/audit-and-diagnostics.md`, `docs/specs/data-retention.md`, `docs/adr/ADR-0055-protected-storage-scope-and-key-wrapping.md`, `docs/adr/ADR-0056-deployment-modes-and-storage-providers.md`
+- Auth/session authority: `docs/specs/session-lifecycle.md`, `docs/specs/user-management.md`, `docs/adr/ADR-0057-mode-aware-authentication-boundary.md`, `docs/adr/ADR-0058-credential-and-recovery-hardening-v2.md`, `docs/adr/ADR-0061-login-first-runtime-and-atomic-mutation-boundary.md`, `docs/07_ACCEPTANCE_CRITERIA.md`
+- Settings/shell authority: `docs/specs/settings-and-about.md`, `docs/specs/shell-ui.md`, `docs/specs/work-sessions.md`, `docs/adr/ADR-0049-hierarchical-navigation-contribution-model.md`
+- Plugin runtime authority: `docs/specs/plugins-manager.md`, `docs/specs/sample-plugin.md`, `docs/adr/ADR-0059-plugin-trust-package-and-ui-contract-v2.md`, `docs/schemas/dobby-plugin-manifest-v2.schema.json`
+- Licensing/runtime-mode authority: `docs/specs/license-import.md`, `docs/adr/ADR-0060-license-lifecycle-and-import-v3.md`, `docs/adr/ADR-0053-capability-surface-runtime-mode.md`, `docs/schemas/dobby-plugin-license-v3.schema.json`, `docs/schemas/license-v3-lifecycle-truth-table.md`
+- Signing/trust authority: `docs/adr/ADR-0062-signing-key-custody-and-trust-anchor-provisioning.md`, `docs/adr/ADR-0032-plugin-signature-trust-model.md`, `docs/specs/admin-tool.md`
+- Release/installer authority: `docs/09_BUILD_RUN_AND_RELEASE.md`, `docs/adr/ADR-0047-host-installer-and-portable-artifact-policy.md`
 
 ## Remaining Row Targeting
 
@@ -52,9 +56,9 @@
 | Task 9 | 57, 58, 59 |
 | Task 10 | 60, 61, 62, 63, 64 |
 | Task 11 | 65, 66, 67, 68, 69, subject to release-gate semantics |
-| Task 12 | Final status-file cleanup and whole-system verification for rows 1-69 |
+| Task 12 | Final closure audit and whole-system verification for rows 1-69 |
 
-Closure coverage is computed only from Task 2 through Task 11 rows in this table. Task 1 is a guardrail/preflight task and Task 12 is a meta-audit/status cleanup task; neither is a row-closure coverage source.
+Closure coverage is computed only from Task 2 through Task 11 rows in this table. Task 1 is a guardrail/preflight task and Task 12 is a meta-audit/closure task; neither is a row-closure coverage source.
 
 ## Work Lanes
 
@@ -82,7 +86,7 @@ Each task-specific execution note must refine this table against current code be
 | Task 9 | `PluginIntegrationSuiteTests.Sample_package_builds_signs_validates_and_installs_from_artifact_path`; `PluginActivationRuntimeIntegrationTests.Sample_page_renders_in_main_content`; `ShellSmokeTests.Sample_actions_cover_result_fault_progress_work_session`; `ProductionReleasePackagingStaticScanTests.Production_output_excludes_sample_plugin_artifacts` | Sample manifest/hash/signature/package evidence is placeholder or absent, sample page is not production-hosted, actions are not reachable, or production output includes sample artifacts. | Sample plugin source/manifest/assets, package signing path, plugin page host, background/work-session services, production static scan. | Task 9 verify command block. |
 | Task 10 | `AdminCommandHostTests.Cli_routes_required_artifact_commands_without_wpf`; `AdminToolStaticScanTests.Verify_plugin_package_wrapper_exists_and_redacts_output`; `RecoveryResponseImportFixtureTests.Admin_recovery_response_imports_through_vendor_public_key`; `ProductionReleasePackagingStaticScanTests.Production_output_excludes_devqa_admin_material` | Required Admin commands/wrappers are missing, CLI opens WPF, verify tool is absent, recovery technical path is not host-import-compatible, or production scan misses dev/QA material. | `AdminCommandHost`, Admin command classes/wrappers, package/license/recovery validators, `VendorRecoveryPublicKey`, production static scans. | Task 10 verify command block. |
 | Task 11 | `PortablePublishScriptTests.Portable_publish_enforces_support_dev_marker_and_profile`; `InstallerUpgradeSmokeTests.Rc_msix_upgrade_preserves_existing_data_root`; `ReleaseCandidateSmokeTests.Installed_artifact_launches_login_first_with_existing_data`; `ProductionReleasePackagingStaticScanTests.Portable_output_cannot_masquerade_as_production_installer` | Portable constraints are README-only, installer upgrade/preservation evidence is missing, installed launch proof is absent, or portable output can be mistaken for production installer output. | `build-rc-msix.ps1`, portable publish tooling, installer smoke/evidence scripts, production release static scan. | Task 11 verify command block. |
-| Task 12 | `remaining-work-status-audit.md` one-shot audit generated from Task 2-11 closure evidence; no permanent test parses this plan. | Audit fails when row coverage table is incomplete/duplicated/out-of-range, a removed row lacks code/test/evidence, or release-gate status is unresolved. | `PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md` and release evidence files only; Task 12 is not a row-closure coverage source. | Task 12 verify command blocks. |
+| Task 12 | `remaining-work-status-audit.md` one-shot audit generated from Task 2-11 closure evidence; no permanent test parses this plan. | Audit fails when row coverage table is incomplete/duplicated/out-of-range, a closed row lacks code/test/evidence, or release-gate status is unresolved. | This plan file and release evidence files only; Task 12 is not a row-closure coverage source. | Task 12 verify command blocks. |
 
 ---
 
@@ -111,7 +115,7 @@ Add tests asserting these approved facts:
 
 - [ ] **Step 2: Record the source-authority preflight result**
 
-Append a short evidence note to the implementation summary for this task. Do not edit `PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md` yet. Do not add a permanent unit or integration test that parses this plan file; plan coverage and status-removal invariants are checked once in Task 12.
+Append a short evidence note to the implementation summary for this task. Do not add a permanent unit or integration test that parses this plan file; plan coverage and closure invariants are checked once in Task 12.
 
 Run:
 
@@ -811,7 +815,7 @@ Expected: manager UI performs real lifecycle actions and reports safe states.
 
 **Files:**
 - Modify: `samples/Dobby.Sample.Plugin/SamplePlugin.cs`
-- Modify: `samples/Dobby.Sample.Plugin/dobby-plugin.manifest.json`
+- Modify: `samples/Dobby.Sample.Plugin/dobby-plugin.manifest.template.json`
 - Modify: `samples/Dobby.Sample.Plugin/Dobby.Sample.Plugin.csproj`
 - Modify: `samples/Dobby.Sample.Plugin/assets/sample-plugin.png`
 - Create/update: generated dev/QA sample package and report under `artifacts/sample-plugin/local-rc-<UTC>-<shortsha>/`, not production publish output
@@ -1045,22 +1049,22 @@ Expected: installer evidence exists, portable constraints are enforced, and port
 
 ---
 
-## Task 12: Final Status File Cleanup, Full Verification, And Portable Refresh
+## Task 12: Final Closure Audit, Full Verification, And Portable Refresh
 
-**Rows targeted for closure:** final verification and status-removal gate for rows 1-69.
+**Rows targeted for closure:** final verification and closure gate for rows 1-69.
 
 **Files:**
-- Modify: `PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md`
+- Modify: this plan file (`## Remaining Row Targeting` closure state)
 - Create/update: `artifacts/release-evidence/local-rc-<UTC>-<shortsha>/remaining-work-status-audit.md`
 - Modify: release evidence files touched by implementation tasks
 
 **Behavior:**
-- Completed rows are removed from `PROGRAM_DEVELOPMENT_WORK_ITEMS_STATUS.md`.
+- Completed rows are marked closed in this plan file, with the evidence path for each closure.
 - If every row is verified complete, the file should state that there are no remaining incomplete product-preparation rows and include the verification commands/evidence paths.
 - If any row remains blocked by a real external decision, keep only that row with a concrete blocker and exact decision/evidence dependency.
-- A row may be removed only when code/test/evidence exists, required verification passed, and release-gate semantics do not mark it as GA/customer-blocked. Otherwise keep the row with exact blocker.
+- A row may be marked closed only when code/test/evidence exists, required verification passed, and release-gate semantics do not mark it as GA/customer-blocked. Otherwise the row stays open with its exact blocker.
 
-- [ ] **Step 1: One-shot coverage and status-removal audit**
+- [ ] **Step 1: One-shot coverage and closure audit**
 
 Create or update `artifacts/release-evidence/local-rc-<UTC>-<shortsha>/remaining-work-status-audit.md`. This is a one-shot completion-control audit, not a permanent unit/integration test.
 

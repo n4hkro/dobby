@@ -64,3 +64,9 @@ Phase 1 and does not create cross-branch or OrganizationShared data movement.
 If this spec later opens for Branch Shared, mapping profile storage must still
 use host-owned storage contracts and must not expose physical PostgreSQL/SQLite
 provider details to plugins.
+
+## Revision History
+
+- **2026-08-27:** Revision History bölməsi əlavə olundu (spec metadata
+  konsistentliyi; bu spec-in P2 scope-u dəyişməyib). Bu tarixdən əvvəlki
+  dəyişikliklər git tarixçəsində izlənir.

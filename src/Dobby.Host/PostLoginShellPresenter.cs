@@ -50,7 +50,8 @@ internal static class PostLoginShellPresenter
             lifecycleOptions: null,
             diagnosticsCoordinator: loginRuntime.PluginRuntimeCoordinator.DiagnosticsCoordinator,
             faultPolicy: loginRuntime.PluginRuntimeCoordinator.RuntimeFaultPolicy,
-            lifecycleControl: loginRuntime.PluginRuntimeCoordinator.PostLoginPluginActivator);
+            lifecycleControl: loginRuntime.PluginRuntimeCoordinator.PostLoginPluginActivator,
+            auditCoordinator: loginRuntime.PluginRuntimeCoordinator.AuditCoordinator);
         using var authenticatedLifetime = new CancellationTokenSource();
         var routeHost = new ShellRouteHost(
             shellViewModel.ResolveRouteOrHome,

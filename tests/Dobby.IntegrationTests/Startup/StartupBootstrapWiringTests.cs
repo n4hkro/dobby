@@ -448,7 +448,7 @@ public sealed class StartupBootstrapWiringTests
         var root = RepoRoot();
         var factorySource = File.ReadAllText(Path.Combine(root.FullName, "src", "Dobby.Host", "Login", "HostLoginRuntimeFactory.cs"));
 
-        factorySource.ShouldContain("new Lazy<string>(() => CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId))");
+        factorySource.ShouldContain("new Lazy<Result<string>>(() => CreateCurrentLicenseDeviceFingerprint(protectedMaterial.StableDeviceId))");
         factorySource.ShouldContain("() => currentLicenseDeviceFingerprint.Value");
         factorySource.ShouldNotContain("var currentLicenseDeviceFingerprint = CreateCurrentLicenseDeviceFingerprint");
     }

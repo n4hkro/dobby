@@ -120,10 +120,27 @@ public sealed class ShellSnapshotTests
             768,
             AppThemePreference.Light,
             RouteRegistry.SettingsRouteKey,
-            new PluginTextPageModel("plugin.page.ready")));
+            DeclarativePluginPage()));
 
         pluginEvidence.SurfaceNames.ShouldContain("PluginPageHost");
-        pluginEvidence.Text.ShouldContain("plugin.page.ready");
+        pluginEvidence.Text.ShouldContain(DeclarativePageBodyText);
+        pluginEvidence.Text.ShouldNotContain(text => text.Contains("plugin.page.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Plugin_page_host_shows_localized_fallback_for_model_without_declarative_tree()
+    {
+        var strings = HostStringCatalog.CreateResourceBacked();
+        var evidence = RunOnSta(() => RenderShellEvidence(
+            1366,
+            768,
+            AppThemePreference.Light,
+            RouteRegistry.SettingsRouteKey,
+            new LegacyKeyOnlyPluginPageModel("plugin.page.ready")));
+
+        evidence.SurfaceNames.ShouldContain("PluginPageHost");
+        evidence.Text.ShouldNotContain(text => text.Contains("plugin.page.ready", StringComparison.Ordinal));
+        evidence.Text.ShouldContain(strings.GetString(HostResourceKeys.PluginPageUnavailable));
     }
 
     [Fact]
@@ -470,6 +487,39 @@ public sealed class ShellSnapshotTests
         {
             return LeakedText;
         }
+    }
+
+    private sealed record LegacyKeyOnlyPluginPageModel(string MessageKey) : IPluginPageModel;
+
+    private const string DeclarativePageBodyText = "Declarative plugin page body";
+
+    private static PluginComponentPageModel DeclarativePluginPage()
+    {
+        var entries = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["plugin.page.title"] = "Declarative plugin page",
+            ["plugin.page.failure"] = "Declarative plugin command failed",
+            ["plugin.page.cancelled"] = "Declarative plugin command cancelled",
+            ["plugin.page.body"] = DeclarativePageBodyText
+        };
+
+        return new PluginComponentPageModel(
+            new PluginPageCommandContext(
+                "com.dobby.sample",
+                "plugin.sample.analytics.daily",
+                null,
+                Guid.Empty.ToString()),
+            new PluginLocalizedText("plugin.page.title"),
+            new PluginLocalizedText("plugin.page.failure"),
+            new PluginLocalizedText("plugin.page.cancelled"),
+            new PluginLocalizationCatalog(
+                "az-Latn-AZ",
+                [
+                    new PluginLocalizationBundle("az-Latn-AZ", entries),
+                    new PluginLocalizationBundle("en-US", entries)
+                ]),
+            [new PluginTextComponent("body", new PluginLocalizedText("plugin.page.body"))],
+            []);
     }
 
     private static DirectoryInfo RepoRoot()

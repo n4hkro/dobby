@@ -70,7 +70,108 @@ public sealed class ReleaseExternalEvidenceValidatorTests
         RunValidator("license-review", SourceCommit, malformedHash).ExitCode.ShouldNotBe(0);
     }
 
-    private static object CreateEvidence(string gate, string commit, string[] claims, string sha256)
+    [Fact]
+    public void Validator_rejects_external_evidence_that_names_no_human()
+    {
+        var claims = new[] { "dependency-license-review-approved" };
+
+        // Absent field: caught by the exact-property contract.
+        RunValidator(
+                "license-review",
+                SourceCommit,
+                CreateEvidenceWithoutAttestedBy("license-review", SourceCommit, claims, new string('a', 64)))
+            .ExitCode.ShouldNotBe(0);
+
+        // Present, but carrying no identity a reviewer could act on. Each must fail closed
+        // rather than be normalized into an approval record:
+        //   - empty, whitespace-only, or too short to name anyone;
+        //   - control-character bearing, or untrimmed;
+        //   - built from a non-ASCII space, so the schema pattern must exclude it explicitly;
+        //   - carrying a zero-width character or a Unicode bidi embed/override. Those are the
+        //     dangerous ones: they let a value that renders in a review UI as one person be a
+        //     different string entirely, so a name that looks accountable is not. An
+        //     unattributable approval is bad; a deceptively attributed one is worse.
+        //
+        // These values also pin the agreement between this gate and the attestedBy pattern in
+        // docs/schemas/release-external-evidence-v1.schema.json. The schema is the published
+        // shape and this script is the enforcing gate; a value one accepts and the other
+        // rejects is a defect, and without executing both the divergence surfaces only at
+        // release time.
+        string[] unusableIdentities =
+        [
+            "",
+            "   ",
+            "x",
+            "a\tb",
+            "a\u007fb",
+            "a\u0085b",
+            " approver ",
+            "\u00a0\u00a0\u00a0",
+            "\u00a0approver",
+            "approver\u00a0",
+            "\u3000approver",
+            "appro\u200bver",
+            "appro\u200dver",
+            "appro\u2060ver",
+            "appro\ufeffver",
+            "appro\u202cver",
+            "\u202aapprover",
+            "appro\u202ever"
+        ];
+
+        foreach (var attestedBy in unusableIdentities)
+        {
+            RunValidator(
+                    "license-review",
+                    SourceCommit,
+                    CreateEvidence("license-review", SourceCommit, claims, new string('a', 64), attestedBy))
+                .ExitCode.ShouldNotBe(
+                    0,
+                    "attestedBy [" + attestedBy.Replace("\u001b", "?") + "] must not be accepted " +
+                    "as an attestation identity");
+        }
+
+        // The mirror of the above: an ordinary name, and one carrying an *inner* non-ASCII
+        // space, must still be accepted. Without this the suite would pass just as well if the
+        // gate rejected every identity, which would block every release rather than prove a
+        // rule.
+        foreach (var attestedBy in new[] { "Release Approver", "Release\u00a0Approver", "ops-lead" })
+        {
+            RunValidator(
+                    "license-review",
+                    SourceCommit,
+                    CreateEvidence("license-review", SourceCommit, claims, new string('a', 64), attestedBy))
+                .ExitCode.ShouldBe(
+                    0,
+                    "attestedBy [" + attestedBy + "] names a human and must be accepted");
+        }
+    }
+
+    private static object CreateEvidence(
+        string gate,
+        string commit,
+        string[] claims,
+        string sha256,
+        string attestedBy = "release-approver")
+    {
+        return new
+        {
+            schemaVersion = 1,
+            gate,
+            sourceCommit = commit,
+            generatedAtUtc = "2026-08-22T12:00:00Z",
+            status = "passed",
+            attestedBy,
+            claims,
+            subjects = new[] { new { name = "candidate.bin", sha256 } },
+        };
+    }
+
+    // The same record with attestedBy absent entirely -- the shape the validator accepted
+    // before the field existed. `status` is pinned to "passed", so a conforming file records
+    // an approval and nothing else; with no identity in the record that approval is
+    // unattributable and no reviewer can afterwards ask who ran the external gate.
+    private static object CreateEvidenceWithoutAttestedBy(string gate, string commit, string[] claims, string sha256)
     {
         return new
         {

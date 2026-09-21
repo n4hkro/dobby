@@ -1,6 +1,6 @@
 # ADR-0035: Tenant / Customer Context Scope
 
-**Status:** Superseded
+**Status:** Superseded by ADR-0052
 **Date:** 2026-04-24
 **Superseded by:** ADR-0052
 

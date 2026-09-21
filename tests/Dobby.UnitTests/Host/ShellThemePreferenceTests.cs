@@ -114,6 +114,44 @@ public sealed class ShellThemePreferenceTests
     }
 
     [Fact]
+    public void Reduced_motion_substitution_falls_back_to_zero_duration_when_reduced_token_is_missing()
+    {
+        var resources = new ResourceDictionary
+        {
+            ["Dobby.Motion.Fast"] = new Duration(TimeSpan.FromMilliseconds(120))
+        };
+
+        ShellThemeCoordinator.ApplyAccessibilityPreferences(
+            resources,
+            highContrast: false,
+            clientAreaAnimation: false);
+
+        resources["Dobby.Motion.Fast"].ShouldBe(new Duration(TimeSpan.Zero));
+        resources.Contains("Dobby.Brush.Background").ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Accessibility_neutral_preferences_leave_motion_and_palette_tokens_untouched()
+    {
+        var fast = new Duration(TimeSpan.FromMilliseconds(120));
+        var background = new SolidColorBrush(Colors.Red);
+        var resources = new ResourceDictionary
+        {
+            ["Dobby.Motion.Fast"] = fast,
+            ["Dobby.Motion.Reduced"] = new Duration(TimeSpan.Zero),
+            ["Dobby.Brush.Background"] = background
+        };
+
+        ShellThemeCoordinator.ApplyAccessibilityPreferences(
+            resources,
+            highContrast: false,
+            clientAreaAnimation: true);
+
+        resources["Dobby.Motion.Fast"].ShouldBe(fast);
+        resources["Dobby.Brush.Background"].ShouldBeSameAs(background);
+    }
+
+    [Fact]
     public void Apply_theme_keeps_existing_dictionary_when_requested_theme_is_already_active()
     {
         var method = typeof(ShellThemeCoordinator).GetMethod(

@@ -287,8 +287,17 @@ public sealed class HostPersistenceMigrator : IHostPersistenceMigrator
                 ProtectedStableDeviceIdBlob = material.ProtectedStableDeviceIdBlob,
                 CreatedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
                 UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
-                RedactedSupportPrefix = Convert.ToHexString(SHA256.HashData(material.StableDeviceId))[..12]
+                RedactedSupportPrefix = DeviceIdentityDiscriminator(material.StableDeviceId)
             });
+    }
+
+    private static string DeviceIdentityDiscriminator(ReadOnlySpan<byte> stableDeviceId)
+    {
+        var domain = "dobby-device-identity-discriminator-v1\0"u8;
+        var input = new byte[domain.Length + stableDeviceId.Length];
+        domain.CopyTo(input);
+        stableDeviceId.CopyTo(input.AsSpan(domain.Length));
+        return Convert.ToHexString(SHA256.HashData(input)).ToLowerInvariant()[..12];
     }
 
     private static string Checksum(string sql)
