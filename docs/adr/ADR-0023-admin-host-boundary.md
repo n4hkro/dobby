@@ -1,6 +1,6 @@
 # ADR-0023: Admin-Host Boundary
 
-**Status:** Accepted
+**Status:** Accepted (recovery-artifact and license-generation references now execute under ADR-0058 recovery v2 and ADR-0060 license v3; the admin-host boundary itself is unchanged)
 **Date:** 2026-04-24
 
 ## Context

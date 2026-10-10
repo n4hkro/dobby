@@ -115,7 +115,7 @@ process-i yenidən tərif etmir.
 - `docs/adr/ADR-0062-signing-key-custody-and-trust-anchor-provisioning.md` — successor; owns key custody, purpose-separated anchors, `keyId` selector and rotation
 - `docs/02_ARCHITECTURE_MAP.md` — Row 38 `Plugin Trust Verification`, Row 86 `Owner Recovery Artefakt Generation`, Cədvəl 3 `Signing Key Ownership` risk sətri
 - `docs/adr/ADR-0032-plugin-signature-trust-model.md` — public side signature verification flow
-- `docs/adr/ADR-0039-owner-password-recovery.md` — recovery artefakt imzalama flow
+- `docs/adr/ADR-0039-owner-password-recovery.md` — recovery artefakt imzalama flow (superseded by `ADR-0058` recovery v2)
 - `docs/02_ARCHITECTURE_MAP.md` — Row 82-83 `Dobby.Update` P2 update boundary (deferred)
 - `docs/specs/admin-tool.md` — P1 minimal scripted operator artifact path
 - `docs/specs/sample-plugin.md` — dev/QA verification artifact boundary

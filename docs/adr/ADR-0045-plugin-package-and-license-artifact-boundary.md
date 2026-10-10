@@ -1,6 +1,6 @@
 # ADR-0045: Plugin Package and License Artifact Boundary
 
-**Status:** Accepted
+**Status:** Accepted (signature format and license lifecycle details amended by ADR-0059/ADR-0060 — DER signature encoding is legacy; successor artifacts use `IeeeP1363FixedFieldConcatenation` base64url-no-padding signatures and license v3 intent semantics; the package/license artifact boundary itself remains binding)
 **Date:** 2026-04-25
 
 ## Context
